@@ -16,6 +16,7 @@ const colors = {
   
     success: "#28A745",
     error: "#DC3545",
+    primaryOrange: "#FF6B35",
   };
   
   export default colors;

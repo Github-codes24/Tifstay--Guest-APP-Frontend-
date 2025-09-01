@@ -11,11 +11,9 @@ import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
-import { useAppState } from "../../context/AppStateProvider";
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { serviceType } = useAppState();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -26,9 +24,9 @@ export default function RegisterScreen() {
 
         <InputField placeholder="Name" icon="person" />
         <InputField
-          placeholder="Email"
-          icon="mail"
-          keyboardType="email-address"
+          placeholder="Phone Number"
+          icon="phone-portrait"
+          keyboardType="phone-pad"
         />
         <InputField placeholder="Password" icon="lock-closed" isPassword />
 
@@ -36,27 +34,6 @@ export default function RegisterScreen() {
           title="Continue"
           onPress={() => router.navigate("/verify")}
         />
-        {serviceType !== 0 && (
-          <>
-            <View style={styles.orContainer}>
-              <View style={styles.line} />
-              <Text style={styles.orText}>or</Text>
-              <View style={styles.line} />
-            </View>
-            <CustomButton
-              title="Continue with Google"
-              onPress={() => {}}
-              variant="secondary"
-              icon={require("../../assets/images/google-icon.png")}
-            />
-            <CustomButton
-              title="Continue with Apple"
-              onPress={() => {}}
-              variant="secondary"
-              icon={require("../../assets/images/apple-icon.png")}
-            />
-          </>
-        )}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Have an account? </Text>
           <TouchableOpacity onPress={() => router.back()}>
@@ -82,14 +59,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     color: colors.textPrimary,
   },
-  orContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 16,
-    color: colors.textMuted,
-  },
-  line: { flex: 1, height: 1, backgroundColor: colors.border },
-  orText: { marginHorizontal: 10, color: colors.textMuted, gap: 12 },
   footer: {
     marginTop: "auto",
     flexDirection: "row",

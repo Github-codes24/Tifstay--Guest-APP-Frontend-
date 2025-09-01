@@ -126,78 +126,9 @@ export default function OnboardingScreen() {
     </SafeAreaView>
   );
 
-  // const renderChooseService = () => (
-  //   <SafeAreaView style={styles.chooseContainer}>
-  //     <View style={styles.chooseContent}>
-  //       <View style={styles.chooseLogoSection}>
-  //         <View style={styles.chooseLogoContainer}>
-  //           <Image
-  //             source={require("../../assets/images/logoSub.png")}
-  //             style={styles.chooseLogo}
-  //             resizeMode="contain"
-  //           />
-  //         </View>
-  //       </View>
-
-  //       <View style={styles.headerSection}>
-  //         <Text style={styles.title}>Choose Your Service</Text>
-  //         <Text style={styles.subtitle}>Please select your category</Text>
-  //       </View>
-
-  //       <View style={styles.optionsContainer}>
-  //         {services.map((service) => (
-  //           <TouchableOpacity
-  //             key={service.id}
-  //             style={[
-  //               styles.option,
-  //               serviceType === service.id && styles.selectedOption,
-  //             ]}
-  //             onPress={() => handleServiceSelect(service.id)}
-  //             activeOpacity={0.7}
-  //           >
-  //             <View style={styles.optionContent}>
-  //               <Ionicons
-  //                 name={service.icon as any}
-  //                 size={20}
-  //                 color={serviceType === service.id ? "#FFFFFF" : "#004AAD"}
-  //                 style={styles.optionIcon}
-  //               />
-  //               <View style={styles.textContainer}>
-  //                 <Text
-  //                   style={[
-  //                     styles.optionTitle,
-  //                     serviceType === service.id && styles.selectedText,
-  //                   ]}
-  //                 >
-  //                   {service.title}
-  //                 </Text>
-  //                 <Text
-  //                   style={[
-  //                     styles.optionSubtitle,
-  //                     serviceType === service.id && styles.selectedSubtext,
-  //                   ]}
-  //                 >
-  //                   {service.subtitle}
-  //                 </Text>
-  //               </View>
-  //             </View>
-
-  //             <Ionicons
-  //               name="arrow-forward"
-  //               size={20}
-  //               color={serviceType === service.id ? "#FFFFFF" : "#004AAD"}
-  //             />
-  //           </TouchableOpacity>
-  //         ))}
-  //       </View>
-  //     </View>
-  //   </SafeAreaView>
-  // );
-
   const screens = [
     { key: "splash", render: renderSplash },
     { key: "onboarding", render: renderOnboarding },
-    // { key: "choose-service", render: renderChooseService },
   ];
 
   return (
@@ -219,7 +150,7 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Splash Screen Styles
+  // Splash Screen
   container: {
     flex: 1,
     alignItems: "center",
@@ -331,106 +262,5 @@ const styles = StyleSheet.create({
   onboardingActiveDot: {
     backgroundColor: "#FF6B35",
     width: 24,
-  },
-
-  // Choose Service Screen Styles
-  chooseContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  chooseContent: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  chooseLogoSection: {
-    alignItems: "center",
-    marginTop: height * 0.08,
-  },
-  chooseLogoContainer: {
-    width: 87,
-    height: 87,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  chooseLogo: {
-    width: 67,
-    height: 46,
-    tintColor: "#004AAD",
-  },
-  headerSection: {
-    alignItems: "center",
-    marginTop: 32,
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1A1A1A",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: "400",
-    color: "#6B7280",
-  },
-  optionsContainer: {
-    width: "100%",
-    maxWidth: Math.min(333, width - 48),
-    alignSelf: "center",
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 64,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  selectedOption: {
-    backgroundColor: "#004AAD",
-    borderColor: "#004AAD",
-  },
-  optionContent: {
-    flexDirection: "row",
-
-    flex: 1,
-  },
-  optionIcon: {
-    marginRight: 12,
-  },
-  textContainer: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  optionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#004AAD",
-    marginBottom: 2,
-  },
-  optionSubtitle: {
-    fontSize: 12,
-    fontWeight: "400",
-    color: "#004AAD",
-  },
-  selectedText: {
-    color: "#FFFFFF",
-  },
-  selectedSubtext: {
-    color: "#E0E7FF",
   },
 });

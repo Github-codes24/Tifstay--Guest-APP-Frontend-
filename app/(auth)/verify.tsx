@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import { useRouter } from "expo-router";
 import React from "react";
 import { SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -8,12 +9,16 @@ import colors from "../../constants/colors";
 export default function VerifyScreen() {
   const router = useRouter();
 
+  const handleVerify = () => {
+    router.push("/(secure)/(guest)");
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Logo showText={false} />
 
-        <Text style={styles.title}>Verify Account</Text>
+        <Text style={styles.title}>Verify OTP</Text>
         <Text style={styles.subtitle}>Enter 4 Digit Code</Text>
 
         <View style={styles.inputRow}>
@@ -28,13 +33,10 @@ export default function VerifyScreen() {
         </View>
 
         <Text style={styles.resend}>
-          Didn’t Receive Code? Resend code in 00:59
+          Didn't Receive the Code? <Text style={styles.resendLink}>Resend</Text>
         </Text>
 
-        <CustomButton
-          title="Verify"
-          onPress={() => router.push("/auth/reset-password")}
-        />
+        <CustomButton title="Verify" onPress={handleVerify} />
       </View>
     </SafeAreaView>
   );
@@ -75,5 +77,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
     color: colors.textSecondary,
+  },
+  resendLink: {
+    color: colors.primaryOrange,
+    fontWeight: "600",
   },
 });
