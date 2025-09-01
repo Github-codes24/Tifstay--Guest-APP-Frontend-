@@ -32,11 +32,11 @@ export default function RegisterScreen() {
 
         <CustomButton
           title="Continue"
-          onPress={() => router.navigate("/verify")}
+          onPress={() => router.navigate("/login")}
         />
         <View style={styles.footer}>
           <Text style={styles.footerText}>Have an account? </Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.push("/login")}>
             <Text style={styles.footerLink}>Log In</Text>
           </TouchableOpacity>
         </View>

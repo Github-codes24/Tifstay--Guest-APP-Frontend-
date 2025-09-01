@@ -5,12 +5,21 @@ import { SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
 import CustomButton from "../../components/CustomButton";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
+import { useAppState } from "../../context/AppStateProvider";
 
 export default function VerifyScreen() {
   const router = useRouter();
+  const { setUser } = useAppState();
 
   const handleVerify = () => {
-    router.push("/(secure)/(guest)");
+    setUser({
+      id: "1",
+      name: "Tiffin User",
+      type: "tiffin",
+      phone: "+1234567890",
+    });
+
+    router.replace("/(secure)/(tiffin)");
   };
 
   return (

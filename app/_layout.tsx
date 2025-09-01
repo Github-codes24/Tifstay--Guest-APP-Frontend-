@@ -13,24 +13,6 @@ const Navigation = () => {
 };
 
 export default function RootLayout() {
-  // const [fontsLoaded, setFontsLoaded] = useState(false);
-
-  // useEffect(() => {
-  //   async function loadFonts() {
-  //     await Font.loadAsync({
-  //       "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
-  //       "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
-  //       "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
-  //     });
-  //     setFontsLoaded(true);
-  //   }
-  //   loadFonts();
-  // }, []);
-
-  // if (!fontsLoaded) {
-  //   return null;
-  // }
-
   return (
     <AppStateProvider>
       <Navigation />

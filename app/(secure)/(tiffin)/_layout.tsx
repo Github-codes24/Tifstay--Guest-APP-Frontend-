@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 
-export default function GuestLayout() {
+export default function TiffinLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
