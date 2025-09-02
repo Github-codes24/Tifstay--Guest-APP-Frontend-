@@ -1,4 +1,5 @@
-import { Ionicons } from "@expo/vector-icons";
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -8,25 +9,43 @@ import {
   ImageBackground,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
+  Animated,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../../components/Buttons";
-import { useAppState } from "../../context/AppStateProvider";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { setServiceType, serviceType } = useAppState();
+
+  // Animation values
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Auto-advance from splash after 3 seconds
   useEffect(() => {
     if (currentIndex === 0) {
       const timer = setTimeout(() => {
+        // Add fade animation before scrolling
+        Animated.sequence([
+          Animated.timing(fadeAnim, {
+            toValue: 0.3,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
         flatListRef.current?.scrollToIndex({ index: 1, animated: true });
       }, 3000);
       return () => clearTimeout(timer);
@@ -34,33 +53,51 @@ export default function OnboardingScreen() {
   }, [currentIndex]);
 
   const handleServiceSelect = (serviceId: number) => {
-    setServiceType(serviceId);
     router.push({
       pathname: "/login",
       params: { serviceType: serviceId },
     });
   };
 
-  const services = [
-    {
-      id: 0,
-      icon: "school-outline",
-      title: "I'm a Guest",
-      subtitle: "Looking for hostels/tiffin services",
-    },
-    {
-      id: 1,
-      icon: "restaurant-outline",
-      title: "I'm a Tiffin Provider",
-      subtitle: "Want to list my tiffin service",
-    },
-    {
-      id: 2,
-      icon: "business-outline",
-      title: "I'm a Hostel Owners",
-      subtitle: "Want to list my tiffin service",
-    },
-  ];
+  // Animated dots component
+  const AnimatedDots = () => {
+    const inputRange = [0, width];
+
+    return (
+      <View style={styles.dotsWrapper}>
+        <View style={styles.dotsContainer}>
+          {[0, 1].map((index) => {
+            const dotWidth = scrollX.interpolate({
+              inputRange,
+              outputRange: index === 0 ? [24, 8] : [8, 24],
+              extrapolate: "clamp",
+            });
+
+            const opacity = scrollX.interpolate({
+              inputRange,
+              outputRange: index === 0 ? [1, 0.5] : [0.5, 1],
+              extrapolate: "clamp",
+            });
+
+            return (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.dot,
+                  {
+                    width: dotWidth,
+                    opacity: opacity,
+                    backgroundColor:
+                      currentIndex === index ? "#FF6B00" : "#E0E0E0",
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   const renderSplash = () => (
     <ImageBackground
@@ -68,7 +105,7 @@ export default function OnboardingScreen() {
       style={styles.background}
       resizeMode="contain"
     >
-      <View style={styles.container}>
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <View style={styles.logoContainer}>
           <Image
             source={require("../../assets/images/logo.png")}
@@ -76,19 +113,14 @@ export default function OnboardingScreen() {
             resizeMode="contain"
           />
         </View>
-
-        <View style={styles.dotsContainer}>
-          <View style={[styles.dot, styles.activeDot]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-        </View>
-      </View>
+      </Animated.View>
+      <AnimatedDots />
     </ImageBackground>
   );
 
   const renderOnboarding = () => (
     <SafeAreaView style={styles.onboardingContainer}>
-      <View style={styles.onboardingContent}>
+      <Animated.View style={[styles.onboardingContent, { opacity: fadeAnim }]}>
         <View style={styles.onboardingLogoSection}>
           <View style={styles.onboardingLogoContainer}>
             <Image
@@ -117,12 +149,8 @@ export default function OnboardingScreen() {
             height={56}
           />
         </View>
-        <View style={styles.onboardingDotsContainer}>
-          <View style={styles.dot} />
-          <View style={[styles.dot, styles.onboardingActiveDot]} />
-          <View style={styles.dot} />
-        </View>
-      </View>
+      </Animated.View>
+      <AnimatedDots />
     </SafeAreaView>
   );
 
@@ -132,7 +160,7 @@ export default function OnboardingScreen() {
   ];
 
   return (
-    <FlatList
+    <Animated.FlatList
       ref={flatListRef}
       data={screens}
       horizontal
@@ -140,11 +168,22 @@ export default function OnboardingScreen() {
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item) => item.key}
       renderItem={({ item }) => <View style={{ width }}>{item.render()}</View>}
-      onScroll={(event) => {
-        const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-        setCurrentIndex(newIndex);
-      }}
+      onScroll={Animated.event(
+        [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+        {
+          useNativeDriver: false,
+          listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const newIndex = Math.round(
+              event.nativeEvent.contentOffset.x / width
+            );
+            setCurrentIndex(newIndex);
+          },
+        }
+      )}
       scrollEventThrottle={16}
+      decelerationRate="fast"
+      snapToInterval={width}
+      snapToAlignment="center"
     />
   );
 }
@@ -172,21 +211,23 @@ const styles = StyleSheet.create({
     width: 228,
     tintColor: "#004AAD",
   },
-  dotsContainer: {
+
+  // Unified dots positioning
+  dotsWrapper: {
     position: "absolute",
     bottom: 50,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  dotsContainer: {
     flexDirection: "row",
     gap: 8,
   },
   dot: {
-    width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: "#E0E0E0",
-  },
-  activeDot: {
-    backgroundColor: "#FF6B00",
-    width: 24,
   },
 
   // Onboarding Screen Styles
@@ -198,7 +239,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 100,
-    paddingBottom: 30,
+    paddingBottom: 100, // Adjusted to accommodate dots
   },
   onboardingLogoSection: {
     alignItems: "center",
@@ -251,16 +292,5 @@ const styles = StyleSheet.create({
     width: width - 48,
     height: (width - 48) * 0.6,
     borderRadius: 16,
-  },
-  onboardingDotsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 20,
-  },
-  onboardingActiveDot: {
-    backgroundColor: "#FF6B35",
-    width: 24,
   },
 });
