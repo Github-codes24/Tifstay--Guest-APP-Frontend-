@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import LocationModal from "@/components/LocationModal";
+import TiffinCard from "@/components/TiffinCard";
+import HostelCard from "@/components/HostelCard";
 import { food1, foodTray } from "@/assets/images";
 
 export default function DashboardScreen() {
@@ -29,7 +31,7 @@ export default function DashboardScreen() {
       oldPrice: "₹3200/month",
       rating: 4.7,
       reviews: 150,
-      image: food1, // Add your images
+      image: food1,
       tags: ["Veg"],
       timing: "12:00 PM - 2:00 PM",
       location: "Dharampeth",
@@ -37,12 +39,39 @@ export default function DashboardScreen() {
     // Add more services as needed
   ];
 
+  const hostels = [
+    {
+      id: 1,
+      name: "Green Valley Boys Hostel",
+      type: "Boys Hostel",
+      location: "Near KNT, Medical College",
+      price: "₹5000/month",
+      rating: 4.7,
+      amenities: ["WiFi", "Mess", "Security", "Laundry"],
+      image: require("../../../assets/images/hostel1.png"),
+    },
+    // Add more hostels
+  ];
+
   const handleLocationSelected = (location: any) => {
     setShowLocationModal(false);
     console.log("Location selected:", location);
   };
 
-  const navigateToService = (type: "tiffin" | "hostels") => {};
+  const handleTiffinPress = (service: any) => {
+    // Navigate to tiffin detail screen
+    console.log("Tiffin pressed:", service);
+  };
+
+  const handleHostelPress = (hostel: any) => {
+    // Navigate to hostel detail screen
+    console.log("Hostel pressed:", hostel);
+  };
+
+  const handleBookPress = (item: any) => {
+    // Handle booking
+    console.log("Book pressed:", item);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,7 +95,11 @@ export default function DashboardScreen() {
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#9CA3AF" />
           <TextInput
-            placeholder="Search for tiffin services..."
+            placeholder={
+              isHostel
+                ? "Search for hostels..."
+                : "Search for tiffin services..."
+            }
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchInput}
@@ -145,62 +178,43 @@ export default function DashboardScreen() {
 
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Available Tiffin Services</Text>
-            <TouchableOpacity style={styles.vegToggle}>
-              <Text style={styles.vegText}>Veg</Text>
-              <View style={styles.vegSwitch} />
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>
+              {isHostel ? "Available Hostels" : "Available Tiffin Services"}
+            </Text>
+            {!isHostel && (
+              <TouchableOpacity style={styles.vegToggle}>
+                <Text style={styles.vegText}>Veg</Text>
+                <View style={styles.vegSwitch} />
+              </TouchableOpacity>
+            )}
           </View>
+
           {isHostel ? (
-            <View></View>
+            <>
+              <Text style={styles.servicesCount}>
+                {hostels.length} hostels found in {userLocation}
+              </Text>
+              {hostels.map((hostel) => (
+                <HostelCard
+                  key={hostel.id}
+                  hostel={hostel}
+                  onPress={() => handleHostelPress(hostel)}
+                  onBookPress={() => handleBookPress(hostel)}
+                />
+              ))}
+            </>
           ) : (
             <>
               <Text style={styles.servicesCount}>
                 {tiffinServices.length} services found in {userLocation}
               </Text>
-
               {tiffinServices.map((service) => (
-                <TouchableOpacity key={service.id} style={styles.serviceCard}>
-                  <Image source={service.image} style={styles.serviceImage} />
-                  <View style={styles.serviceInfo}>
-                    <View style={styles.serviceHeader}>
-                      <Text style={styles.serviceName}>{service.name}</Text>
-                      <View style={styles.ratingContainer}>
-                        <Ionicons name="star" size={16} color="#FFA500" />
-                        <Text style={styles.rating}>{service.rating}</Text>
-                        <Text style={styles.reviews}>({service.reviews})</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.serviceDescription} numberOfLines={2}>
-                      {service.description}
-                    </Text>
-                    <View style={styles.priceRow}>
-                      <Text style={styles.price}>{service.price}</Text>
-                      <Text style={styles.oldPrice}>{service.oldPrice}</Text>
-                      <View style={styles.discount}>
-                        <Text style={styles.discountText}>10% OFF</Text>
-                      </View>
-                    </View>
-                    <View style={styles.serviceFooter}>
-                      <View style={styles.tagContainer}>
-                        {service.tags.map((tag) => (
-                          <View key={tag} style={styles.tag}>
-                            <Text style={styles.tagText}>{tag}</Text>
-                          </View>
-                        ))}
-                      </View>
-                      <View style={styles.timingContainer}>
-                        <Ionicons name="location" size={14} color="#6B7280" />
-                        <Text style={styles.location}>{service.location}</Text>
-                        <Ionicons name="time" size={14} color="#6B7280" />
-                        <Text style={styles.timing}>{service.timing}</Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity style={styles.bookButton}>
-                      <Text style={styles.bookButtonText}>Book Now</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
+                <TiffinCard
+                  key={service.id}
+                  service={service}
+                  onPress={() => handleTiffinPress(service)}
+                  onBookPress={() => handleBookPress(service)}
+                />
               ))}
             </>
           )}
@@ -340,6 +354,7 @@ const styles = StyleSheet.create({
   servicesSection: {
     marginTop: 24,
     paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -366,120 +381,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
     marginBottom: 16,
-  },
-  serviceCard: {
-    flexDirection: "row",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  serviceImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-  },
-  serviceInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  serviceHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  serviceName: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  rating: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  reviews: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  serviceDescription: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-    gap: 8,
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  oldPrice: {
-    fontSize: 14,
-    color: "#9CA3AF",
-    textDecorationLine: "line-through",
-  },
-  discount: {
-    backgroundColor: "#DBEAFE",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  discountText: {
-    fontSize: 12,
-    color: "#1E40AF",
-    fontWeight: "500",
-  },
-  serviceFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  tagContainer: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  tag: {
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  tagText: {
-    fontSize: 12,
-    color: "#065F46",
-    fontWeight: "500",
-  },
-  timingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  location: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  timing: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  bookButton: {
-    backgroundColor: "#004AAD",
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  bookButtonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "600",
   },
 });
