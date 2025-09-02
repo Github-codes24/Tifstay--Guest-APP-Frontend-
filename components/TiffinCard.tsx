@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import colors from "@/constants/colors";
 
 interface TiffinCardProps {
   service: {
@@ -31,50 +32,81 @@ export default function TiffinCard({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Image source={service.image} style={styles.serviceImage} />
-      <View style={styles.serviceInfo}>
-        <View style={styles.serviceHeader}>
-          <Text style={styles.serviceName}>{service.name}</Text>
-          <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={16} color="#FFA500" />
-            <Text style={styles.rating}>{service.rating}</Text>
-            <Text style={styles.reviews}>({service.reviews})</Text>
+      <View style={styles.cardContent}>
+        {/* Left side - Image */}
+        <Image source={service.image} style={styles.serviceImage} />
+
+        {/* Right side - Content */}
+        <View style={styles.serviceInfo}>
+          {/* Title and Rating Row */}
+          <View style={styles.headerRow}>
+            <Text style={styles.serviceName} numberOfLines={1}>
+              {service.name}
+            </Text>
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={14} color="#FFA500" />
+              <Text style={styles.rating}>{service.rating}</Text>
+              <Text style={styles.reviews}>({service.reviews})</Text>
+            </View>
+          </View>
+
+          {/* Description */}
+          <Text style={styles.serviceDescription} numberOfLines={2}>
+            {service.description}
+          </Text>
+
+          {/* Price Row */}
+          <View style={styles.priceRow}>
+            <View>
+              <Text style={styles.price}>{service.price}</Text>
+              <Text style={styles.oldPrice}>{service.oldPrice}</Text>
+            </View>
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>10% OFF</Text>
+            </View>
+          </View>
+
+          {/* Veg Tag and Location/Time Row */}
+          <View style={styles.infoRow}>
+            <View style={styles.vegTag}>
+              <Image
+                source={require("../assets/images/vegIcon.png")}
+                style={styles.vegIcon}
+              />
+            </View>
+            <View style={styles.locationTimeContainer}>
+              <Ionicons
+                name="location-outline"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.locationText}>{service.location}</Text>
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.timingText}>{service.timing}</Text>
+            </View>
+          </View>
+
+          {/* Book Button */}
+          <View style={styles.bookButtonContainer}>
+            <View>
+              <Text style={styles.price}>{service.price}</Text>
+              <Text style={styles.oldPrice}>{service.oldPrice}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.bookButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                onBookPress?.();
+              }}
+            >
+              <Text style={styles.bookButtonText}>Book Now</Text>
+            </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.serviceDescription} numberOfLines={2}>
-          {service.description}
-        </Text>
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>{service.price}</Text>
-          <Text style={styles.oldPrice}>{service.oldPrice}</Text>
-          <View style={styles.discount}>
-            <Text style={styles.discountText}>10% OFF</Text>
-          </View>
-        </View>
-        <View style={styles.serviceFooter}>
-          <View style={styles.tagContainer}>
-            {service.tags.map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.timingContainer}>
-            <Ionicons name="location" size={14} color="#6B7280" />
-            <Text style={styles.location}>{service.location}</Text>
-            <Ionicons name="time" size={14} color="#6B7280" />
-            <Text style={styles.timing}>{service.timing}</Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.bookButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            onBookPress?.();
-          }}
-        >
-          <Text style={styles.bookButtonText}>Book Now</Text>
-        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -82,118 +114,138 @@ export default function TiffinCard({
 
 const styles = StyleSheet.create({
   serviceCard: {
-    flexDirection: "row",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardContent: {
+    flexDirection: "row",
+    padding: 12,
   },
   serviceImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    marginRight: 12,
   },
   serviceInfo: {
     flex: 1,
-    marginLeft: 12,
   },
-  serviceHeader: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 4,
   },
   serviceName: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#1A1A1A",
     flex: 1,
+    marginRight: 8,
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
   },
   rating: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
+    color: "#1A1A1A",
   },
   reviews: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#6B7280",
   },
   serviceDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6B7280",
-    marginTop: 4,
+    lineHeight: 18,
+    marginBottom: 8,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
-    gap: 8,
+    gap: 16,
+    marginBottom: 8,
   },
   price: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#2563EB",
   },
   oldPrice: {
     fontSize: 14,
     color: "#9CA3AF",
     textDecorationLine: "line-through",
   },
-  discount: {
-    backgroundColor: "#DBEAFE",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  discountBadge: {
+    backgroundColor: "#E0E7FF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
   },
   discountText: {
-    fontSize: 12,
-    color: "#1E40AF",
-    fontWeight: "500",
+    fontSize: 11,
+    color: "#4338CA",
+    fontWeight: "600",
   },
-  serviceFooter: {
+  infoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
+    marginBottom: 10,
   },
-  tagContainer: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  tag: {
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 8,
+  vegTag: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 2,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 12,
   },
-  tagText: {
-    fontSize: 12,
-    color: "#065F46",
-    fontWeight: "500",
+  vegIcon: {
+    width: 52,
+    height: 16,
   },
-  timingContainer: {
+  locationTimeContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    flex: 1,
   },
-  location: {
-    fontSize: 12,
+  locationText: {
+    fontSize: 10,
     color: "#6B7280",
   },
-  timing: {
-    fontSize: 12,
+  timingText: {
+    fontSize: 10,
     color: "#6B7280",
+  },
+  bookButtonContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    justifyContent: "space-between",
   },
   bookButton: {
-    backgroundColor: "#004AAD",
-    paddingVertical: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 12,
+    alignItems: "center",
+    width: 78,
   },
   bookButtonText: {
-    color: "#fff",
-    textAlign: "center",
+    color: "#FFFFFF",
+    fontSize: 12,
     fontWeight: "600",
   },
 });

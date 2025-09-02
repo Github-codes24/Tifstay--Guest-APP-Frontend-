@@ -16,6 +16,7 @@ import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import { food1 } from "@/assets/images";
 import demoData from "@/data/demoData.json";
+import colors from "@/constants/colors";
 
 // Import images mapping
 const imageMapping: { [key: string]: any } = {
@@ -128,32 +129,34 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#9CA3AF" />
-          <TextInput
-            placeholder={
-              isHostel
-                ? "Search for hostels, locations, amenities..."
-                : "Search for tiffin services, cuisines..."
-            }
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-            placeholderTextColor="#9CA3AF"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={handleClearSearch}>
-              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#6B7280" />
+            <TextInput
+              placeholder={
+                isHostel
+                  ? "Search for hostels..."
+                  : "Search for tiffin services..."
+              }
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+              placeholderTextColor="#9CA3AF"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={handleClearSearch}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.micButton}>
+              <Ionicons name="mic" size={20} color="#6B7280" />
             </TouchableOpacity>
-          )}
-          <TouchableOpacity>
-            <Ionicons name="mic" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+          </View>
+
           <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options" size={20} color="#004AAD" />
+            <Ionicons name="options" size={22} color="#2563EB" />
           </TouchableOpacity>
         </View>
-
         {!searchQuery && (
           <View style={styles.banner}>
             <Image
@@ -409,24 +412,42 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  searchContainer: {
+  searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    marginHorizontal: 20,
+    paddingHorizontal: 20,
     marginTop: 16,
-    paddingHorizontal: 16,
+    gap: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
     borderRadius: 12,
-    height: 50,
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 16,
   },
   searchInput: {
     flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    color: "#1F2937",
+  },
+  micButton: {
     marginLeft: 8,
-    fontSize: 16,
-    color: "#000",
   },
   filterButton: {
-    marginLeft: 12,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    height: 48,
+    width: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   banner: {
     marginHorizontal: 20,
@@ -449,16 +470,16 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#1B5E20",
+    color: colors.white,
   },
   bannerSubtitle: {
     fontSize: 14,
-    color: "#2E7D32",
+    color: colors.white,
     marginTop: 4,
   },
   bannerLink: {
     fontSize: 12,
-    color: "#388E3C",
+    color: colors.white,
     marginTop: 8,
   },
   serviceSection: {
@@ -487,16 +508,16 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
   },
   serviceButtonSelected: {
-    backgroundColor: "#004AAD",
-    borderColor: "#004AAD",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   serviceButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#004AAD",
+    color: colors.primary,
   },
   serviceButtonTextSelected: {
-    color: "#fff",
+    color: colors.white,
   },
   servicesSection: {
     marginTop: 24,

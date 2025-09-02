@@ -86,6 +86,7 @@
         "type": "Boys Hostel",
         "location": "Near KNT, Medical College",
         "price": "₹5000/month",
+        "district": "Hyderabad",
         "rating": 4.7,
         "amenities": ["WiFi", "Mess", "Security", "Laundry"],
         "image": "hostel1"
@@ -96,7 +97,8 @@
         "type": "Girls Hostel",
         "location": "Civil Lines, Near Metro Station",
         "price": "₹6000/month",
-        "rating": 4.8,
+        "district": "Hyderabad",
+          "rating": 4.8,
         "amenities": ["WiFi", "AC", "Mess", "Security", "CCTV"],
         "image": "hostel1"
       },
@@ -106,6 +108,7 @@
         "type": "Co-ed PG",
         "location": "Ramdaspeth, Near IT Park",
         "price": "₹7000/month",
+        "district": "Hyderabad",
         "rating": 4.5,
         "amenities": ["WiFi", "AC", "Gym", "Parking", "Security"],
         "image": "hostel1"
@@ -116,6 +119,7 @@
         "type": "Boys Hostel",
         "location": "Sitabuldi, Near Engineering College",
         "price": "₹4500/month",
+        "district": "Hyderabad",
         "rating": 4.3,
         "amenities": ["WiFi", "Mess", "Library", "Sports"],
         "image": "hostel1"
@@ -126,6 +130,7 @@
         "type": "Girls Hostel",
         "location": "Sadar, Near Bus Stand",
         "price": "₹5500/month",
+        "district": "Hyderabad",
         "rating": 4.6,
         "amenities": ["WiFi", "AC", "Kitchen", "Security", "Power Backup"],
         "image": "hostel1"
@@ -136,7 +141,8 @@
         "type": "Boys Hostel",
         "location": "Dharampeth, Near Market",
         "price": "₹6500/month",
-        "rating": 4.9,
+        "district": "Hyderabad",
+          "rating": 4.9,
         "amenities": ["WiFi", "AC", "Mess", "Gym", "Study Room"],
         "image": "hostel1"
       }

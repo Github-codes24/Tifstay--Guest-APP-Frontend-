@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import colors from "@/constants/colors";
 
 interface HostelCardProps {
   hostel: {
@@ -68,6 +69,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   hostelImage: {
     width: "100%",

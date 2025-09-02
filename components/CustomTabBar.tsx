@@ -1,15 +1,9 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-  Image,
-  Text,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import colors from "../constants/colors";
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({
   state,
@@ -33,36 +27,12 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
     Animated.parallel(animations).start();
   }, [state.index]);
 
-  // Define tab icons with error handling
-  const getTabIcon = (routeName: string) => {
-    try {
-      switch (routeName) {
-        case "index":
-          return require("@/assets/images/bottomTabIcon/homeTab.png");
-        case "favorite":
-          return require("@/assets/images/bottomTabIcon/favoriteTab.png");
-        case "booking":
-          return require("@/assets/images/bottomTabIcon/bookingTab.png");
-        case "notification":
-          return require("@/assets/images/bottomTabIcon/notificationTab.png");
-        case "profile":
-          return require("@/assets/images/bottomTabIcon/profileTab.png");
-        default:
-          return null;
-      }
-    } catch (error) {
-      console.warn(`Failed to load icon for ${routeName}:`, error);
-      return null;
-    }
-  };
-
-  // Fallback icons using Ionicons
-  const fallbackIcons: { [key: string]: keyof typeof Ionicons.glyphMap } = {
-    index: "home",
-    favorite: "heart",
-    booking: "calendar",
-    notification: "notifications",
-    profile: "person",
+  const tabIcons = {
+    index: require("@/assets/images/bottomTabIcon/homeTab.png"),
+    favorite: require("@/assets/images/bottomTabIcon/favoriteTab.png"),
+    booking: require("@/assets/images/bottomTabIcon/bookingTab.png"),
+    notification: require("@/assets/images/bottomTabIcon/notificationTab.png"),
+    profile: require("@/assets/images/bottomTabIcon/profileTab.png"),
   };
 
   const tabNames: { [key: string]: string } = {
@@ -86,7 +56,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
-          const tabIcon = getTabIcon(route.name);
 
           const onPress = () => {
             const event = navigation.emit({
@@ -115,6 +84,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
             outputRange: [0, 1],
           });
 
+          // Icon tint color animation
           const iconOpacity = animatedValues[index].interpolate({
             inputRange: [0, 1],
             outputRange: [0.6, 1],
@@ -144,26 +114,17 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                     },
                   ]}
                 >
-                  {tabIcon ? (
-                    <Animated.Image
-                      source={tabIcon}
-                      style={[
-                        styles.icon,
-                        {
-                          opacity: iconOpacity,
-                          tintColor: isFocused ? "#FFFFFF" : "#9CA3AF",
-                        },
-                      ]}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    // Fallback to Ionicons if image fails to load
-                    <Ionicons
-                      name={fallbackIcons[route.name] || "help-circle"}
-                      size={24}
-                      color={isFocused ? "#FFFFFF" : "#9CA3AF"}
-                    />
-                  )}
+                  <Animated.Image
+                    source={tabIcons[route.name as keyof typeof tabIcons]}
+                    style={[
+                      styles.icon,
+                      {
+                        opacity: iconOpacity,
+                        tintColor: isFocused ? "#FFFFFF" : "#9CA3AF",
+                      },
+                    ]}
+                    resizeMode="contain"
+                  />
                 </Animated.View>
 
                 <Animated.Text
@@ -188,9 +149,9 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "#F7F6F4",
+    backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
+    borderTopColor: colors.border,
     paddingTop: 8,
     shadowColor: "#000",
     shadowOffset: {
@@ -205,7 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "flex-end",
-    height: 65,
+    height: 55,
   },
   tabItem: {
     flex: 1,
@@ -222,10 +183,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 25,
-    marginBottom: 2,
   },
   activeIconContainer: {
-    backgroundColor: "#2563EB",
+    backgroundColor: colors.primary,
   },
   icon: {
     width: 24,
@@ -233,12 +193,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: "transparent",
+    color: colors.textPrimary,
     marginTop: 4,
     fontWeight: "500",
   },
   activeLabel: {
-    color: "#2563EB",
+    color: colors.primary,
     fontWeight: "600",
   },
 });
