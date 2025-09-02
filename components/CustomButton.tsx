@@ -14,7 +14,7 @@ interface ButtonProps {
   title: string;
   onPress: () => void;
   variant?: "primary" | "secondary";
-  icon?: ImageSourcePropType; // 👈 allow passing local images
+  icon?: ImageSourcePropType;
 }
 
 const CustomButton: React.FC<ButtonProps> = ({

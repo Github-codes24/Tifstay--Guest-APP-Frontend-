@@ -1,21 +1,18 @@
 import { Stack } from "expo-router";
 import { useAppState } from "../../context/AppStateProvider";
+import { Redirect } from "expo-router";
 
 export default function SecureLayout() {
-  const { serviceType } = useAppState();
-  console.log({ serviceType });
+  const { user } = useAppState();
+
+  if (!user) {
+    return <Redirect href="/login" />;
+  }
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
-      <Stack.Screen name="(guest)" redirect={serviceType !== 0} />
-      <Stack.Screen
-        name="(provider)"
-        redirect={serviceType !== 1 && serviceType !== 0}
-      />
-      <Stack.Screen
-        name="(owner)"
-        redirect={serviceType !== 2 && serviceType !== 1}
-      />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      {/* Rest of all screens which is not tab */}
     </Stack>
   );
 }

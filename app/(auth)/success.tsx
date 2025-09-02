@@ -8,7 +8,7 @@ export default function SuccessScreen() {
 
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      router.replace("/auth/login");
+      router.replace("/(auth)/login");
     }, 2000);
     return () => clearTimeout(timeout);
   }, [router]);

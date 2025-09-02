@@ -11,20 +11,8 @@ import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
-import { useAppState } from "../../context/AppStateProvider";
 
 export default function LoginScreen() {
-  const { serviceType, setUser } = useAppState();
-
-  const handleLogin = () => {
-    //Call api to login
-    setUser({
-      name: "John Doe",
-      email: "john.doe@example.com",
-      role: "guest",
-    });
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -32,43 +20,14 @@ export default function LoginScreen() {
         <Text style={styles.title}>Get started with Tifstay</Text>
 
         <InputField
-          placeholder="example@gmail.com"
-          icon="mail"
-          keyboardType="email-address"
+          placeholder="Phone Number"
+          icon="phone-portrait"
+          keyboardType="phone-pad"
         />
-        <InputField placeholder="Password" icon="lock-closed" isPassword />
-        {serviceType !== 0 && (
-          <TouchableOpacity
-            onPress={() => router.navigate("/forgot-password")}
-            style={styles.forgotWrapper}
-          >
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-        )}
-
-        <CustomButton title="Continue" onPress={handleLogin} />
-        {serviceType !== 0 && (
-          <>
-            <View style={styles.orContainer}>
-              <View style={styles.line} />
-              <Text style={styles.orText}>or</Text>
-              <View style={styles.line} />
-            </View>
-
-            <CustomButton
-              title="Continue with Google"
-              onPress={() => {}}
-              variant="secondary"
-              icon={require("../../assets/images/google-icon.png")}
-            />
-            <CustomButton
-              title="Continue with Apple"
-              onPress={() => {}}
-              variant="secondary"
-              icon={require("../../assets/images/apple-icon.png")}
-            />
-          </>
-        )}
+        <CustomButton
+          title="Get OTP"
+          onPress={() => router.navigate("/verify")}
+        />
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don’t have an account? </Text>
           <TouchableOpacity onPress={() => router.navigate("/register")}>
@@ -79,8 +38,6 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
-
-// Styles
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -98,30 +55,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 16,
     color: colors.textPrimary,
-  },
-  forgotWrapper: {
-    alignSelf: "flex-end",
-    marginBottom: 24,
-  },
-  forgotText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  orContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 16,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  orText: {
-    marginHorizontal: 10,
-    color: colors.textMuted,
-    fontSize: 14,
   },
   footer: {
     marginTop: "auto",
