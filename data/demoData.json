@@ -9,7 +9,7 @@
         "rating": 4.7,
         "reviews": 150,
         "image": "food1",
-        "tags": ["Veg"],
+        "tags": ["Non-Veg"],
         "timing": "12:00 PM - 2:00 PM",
         "location": "Dharampeth"
       },
@@ -22,7 +22,7 @@
         "rating": 4.5,
         "reviews": 89,
         "image": "food1",
-        "tags": ["Veg", "Healthy"],
+        "tags": ["Non-Veg", "Healthy"],
         "timing": "11:30 AM - 1:30 PM",
         "location": "Civil Lines"
       },

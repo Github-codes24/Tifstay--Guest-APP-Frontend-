@@ -31,6 +31,11 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
 
+  // Hostel filter states
+  const [hostelType, setHostelType] = useState("Boys");
+  const [area, setArea] = useState("Nagpur");
+  const [maxRent, setMaxRent] = useState("10000");
+
   const tiffinServices = demoData.tiffinServices.map((service) => ({
     ...service,
     image: imageMapping[service.image] || food1,
@@ -135,7 +140,7 @@ export default function DashboardScreen() {
             <TextInput
               placeholder={
                 isHostel
-                  ? "Search for hostels..."
+                  ? "Search for hostel..."
                   : "Search for tiffin services..."
               }
               value={searchQuery}
@@ -157,7 +162,9 @@ export default function DashboardScreen() {
             <Ionicons name="options" size={22} color="#2563EB" />
           </TouchableOpacity>
         </View>
-        {!searchQuery && (
+
+        {/* Only show banner for tiffin services */}
+        {!isHostel && !searchQuery && (
           <View style={styles.banner}>
             <Image
               source={food1}
@@ -198,7 +205,7 @@ export default function DashboardScreen() {
                   !isHostel && styles.serviceButtonTextSelected,
                 ]}
               >
-                Tiffin/ Restaurants
+                Tiffin/Restaurants
               </Text>
             </TouchableOpacity>
 
@@ -229,13 +236,44 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* Hostel Filters - Only show when hostels tab is selected */}
+        {isHostel && (
+          <View style={styles.filterSection}>
+            <View style={styles.filterRow}>
+              <View style={styles.filterItem}>
+                <Text style={styles.filterLabel}>Hostel Type</Text>
+                <TouchableOpacity style={styles.filterDropdown}>
+                  <Text style={styles.filterValue}>{hostelType}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.filterItem}>
+                <Text style={styles.filterLabel}>Area</Text>
+                <TouchableOpacity style={styles.filterDropdown}>
+                  <Text style={styles.filterValue}>{area}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.filterItem}>
+                <Text style={styles.filterLabel}>Max Rent (₹)</Text>
+                <TouchableOpacity style={styles.filterDropdown}>
+                  <Text style={styles.filterValue}>{maxRent}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
               {searchQuery
                 ? "Search Results"
                 : isHostel
-                ? "Available Hostels"
+                ? "Available Accommodations"
                 : "Available Tiffin Services"}
             </Text>
             {!isHostel && (
@@ -251,7 +289,7 @@ export default function DashboardScreen() {
               <Text style={styles.servicesCount}>
                 {searchQuery
                   ? `${filteredHostels.length} results found`
-                  : `${hostels.length} hostels found in ${userLocation}`}
+                  : `${hostels.length} properties found in ${userLocation}`}
               </Text>
               {filteredHostels.length > 0 ? (
                 filteredHostels.map((hostel) => (
@@ -519,6 +557,39 @@ const styles = StyleSheet.create({
   serviceButtonTextSelected: {
     color: colors.white,
   },
+  filterSection: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  filterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  filterItem: {
+    flex: 1,
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "500",
+    marginBottom: 6,
+  },
+  filterDropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  filterValue: {
+    fontSize: 14,
+    color: "#1F2937",
+  },
   servicesSection: {
     marginTop: 24,
     paddingHorizontal: 20,
@@ -534,6 +605,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   vegText: {
     fontSize: 14,
