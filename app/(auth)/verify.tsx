@@ -1,5 +1,4 @@
 /* eslint-disable react/no-unescaped-entities */
-import { useRouter } from "expo-router";
 import React from "react";
 import { SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
 import CustomButton from "../../components/CustomButton";
@@ -8,7 +7,6 @@ import colors from "../../constants/colors";
 import { useAppState } from "../../context/AppStateProvider";
 
 export default function VerifyScreen() {
-  const router = useRouter();
   const { setUser } = useAppState();
 
   const handleVerify = () => {
@@ -17,8 +15,6 @@ export default function VerifyScreen() {
       name: "Guest User",
       phone: "+1234567890",
     });
-
-    router.replace("/(secure)/dashboard");
   };
 
   return (

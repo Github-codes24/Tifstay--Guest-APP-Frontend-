@@ -11,9 +11,8 @@ export default function SecureLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="dashboard" />
-      <Stack.Screen name="(tiffin)" />
-      <Stack.Screen name="(hostels)" />
+      <Stack.Screen name="(tabs)" />
+      {/* Rest of all screens which is not tab */}
     </Stack>
   );
 }

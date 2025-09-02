@@ -10,14 +10,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import LocationModal from "../../components/LocationModal";
+import LocationModal from "@/components/LocationModal";
+import { food1, foodTray } from "@/assets/images";
 
 export default function DashboardScreen() {
-  const router = useRouter();
   const [showLocationModal, setShowLocationModal] = useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isHostel, setIsHostel] = useState(false);
 
   const tiffinServices = [
     {
@@ -29,7 +29,7 @@ export default function DashboardScreen() {
       oldPrice: "₹3200/month",
       rating: 4.7,
       reviews: 150,
-      image: require("../../assets/images/food1.png"), // Add your images
+      image: food1, // Add your images
       tags: ["Veg"],
       timing: "12:00 PM - 2:00 PM",
       location: "Dharampeth",
@@ -39,17 +39,13 @@ export default function DashboardScreen() {
 
   const handleLocationSelected = (location: any) => {
     setShowLocationModal(false);
-    // Handle location data
     console.log("Location selected:", location);
   };
 
-  const navigateToService = (type: "tiffin" | "hostels") => {
-    router.push(`/(secure)/(${type})`);
-  };
+  const navigateToService = (type: "tiffin" | "hostels") => {};
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.locationButton}>
           <Ionicons name="home" size={20} color="#000" />
@@ -67,7 +63,6 @@ export default function DashboardScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#9CA3AF" />
           <TextInput
@@ -84,10 +79,9 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Banner */}
         <View style={styles.banner}>
           <Image
-            source={require("../../assets/images/food-tray.png")}
+            source={foodTray}
             style={styles.bannerImage}
             resizeMode="cover"
           />
@@ -100,31 +94,55 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Service Selection */}
         <View style={styles.serviceSection}>
           <Text style={styles.sectionTitle}>What are you looking for?</Text>
           <View style={styles.serviceButtons}>
             <TouchableOpacity
-              style={[styles.serviceButton, styles.tiffinButton]}
-              onPress={() => navigateToService("tiffin")}
+              style={[
+                styles.serviceButton,
+                !isHostel && styles.serviceButtonSelected,
+              ]}
+              onPress={() => setIsHostel(false)}
             >
-              <Ionicons name="restaurant" size={24} color="#fff" />
-              <Text style={styles.serviceButtonText}>Tiffin/Restaurants</Text>
+              <Ionicons
+                name="restaurant"
+                size={24}
+                color={!isHostel ? "#fff" : "#004AAD"}
+              />
+              <Text
+                style={[
+                  styles.serviceButtonText,
+                  !isHostel && styles.serviceButtonTextSelected,
+                ]}
+              >
+                Tiffin/Restaurants
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.serviceButton, styles.hostelsButton]}
-              onPress={() => navigateToService("hostels")}
+              style={[
+                styles.serviceButton,
+                isHostel && styles.serviceButtonSelected,
+              ]}
+              onPress={() => setIsHostel(true)}
             >
-              <Ionicons name="business" size={24} color="#004AAD" />
-              <Text style={[styles.serviceButtonText, { color: "#004AAD" }]}>
+              <Ionicons
+                name="business"
+                size={24}
+                color={isHostel ? "#fff" : "#004AAD"}
+              />
+              <Text
+                style={[
+                  styles.serviceButtonText,
+                  isHostel && styles.serviceButtonTextSelected,
+                ]}
+              >
                 PG/Hostels
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Available Services */}
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Available Tiffin Services</Text>
@@ -133,60 +151,65 @@ export default function DashboardScreen() {
               <View style={styles.vegSwitch} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.servicesCount}>
-            {tiffinServices.length} services found in {userLocation}
-          </Text>
+          {isHostel ? (
+            <View></View>
+          ) : (
+            <>
+              <Text style={styles.servicesCount}>
+                {tiffinServices.length} services found in {userLocation}
+              </Text>
 
-          {tiffinServices.map((service) => (
-            <TouchableOpacity key={service.id} style={styles.serviceCard}>
-              <Image source={service.image} style={styles.serviceImage} />
-              <View style={styles.serviceInfo}>
-                <View style={styles.serviceHeader}>
-                  <Text style={styles.serviceName}>{service.name}</Text>
-                  <View style={styles.ratingContainer}>
-                    <Ionicons name="star" size={16} color="#FFA500" />
-                    <Text style={styles.rating}>{service.rating}</Text>
-                    <Text style={styles.reviews}>({service.reviews})</Text>
-                  </View>
-                </View>
-                <Text style={styles.serviceDescription} numberOfLines={2}>
-                  {service.description}
-                </Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.price}>{service.price}</Text>
-                  <Text style={styles.oldPrice}>{service.oldPrice}</Text>
-                  <View style={styles.discount}>
-                    <Text style={styles.discountText}>10% OFF</Text>
-                  </View>
-                </View>
-                <View style={styles.serviceFooter}>
-                  <View style={styles.tagContainer}>
-                    {service.tags.map((tag) => (
-                      <View key={tag} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
+              {tiffinServices.map((service) => (
+                <TouchableOpacity key={service.id} style={styles.serviceCard}>
+                  <Image source={service.image} style={styles.serviceImage} />
+                  <View style={styles.serviceInfo}>
+                    <View style={styles.serviceHeader}>
+                      <Text style={styles.serviceName}>{service.name}</Text>
+                      <View style={styles.ratingContainer}>
+                        <Ionicons name="star" size={16} color="#FFA500" />
+                        <Text style={styles.rating}>{service.rating}</Text>
+                        <Text style={styles.reviews}>({service.reviews})</Text>
                       </View>
-                    ))}
+                    </View>
+                    <Text style={styles.serviceDescription} numberOfLines={2}>
+                      {service.description}
+                    </Text>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.price}>{service.price}</Text>
+                      <Text style={styles.oldPrice}>{service.oldPrice}</Text>
+                      <View style={styles.discount}>
+                        <Text style={styles.discountText}>10% OFF</Text>
+                      </View>
+                    </View>
+                    <View style={styles.serviceFooter}>
+                      <View style={styles.tagContainer}>
+                        {service.tags.map((tag) => (
+                          <View key={tag} style={styles.tag}>
+                            <Text style={styles.tagText}>{tag}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      <View style={styles.timingContainer}>
+                        <Ionicons name="location" size={14} color="#6B7280" />
+                        <Text style={styles.location}>{service.location}</Text>
+                        <Ionicons name="time" size={14} color="#6B7280" />
+                        <Text style={styles.timing}>{service.timing}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity style={styles.bookButton}>
+                      <Text style={styles.bookButtonText}>Book Now</Text>
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.timingContainer}>
-                    <Ionicons name="location" size={14} color="#6B7280" />
-                    <Text style={styles.location}>{service.location}</Text>
-                    <Ionicons name="time" size={14} color="#6B7280" />
-                    <Text style={styles.timing}>{service.timing}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity style={styles.bookButton}>
-                  <Text style={styles.bookButtonText}>Book Now</Text>
                 </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
+              ))}
+            </>
+          )}
         </View>
       </ScrollView>
 
-      {/* Location Modal */}
       <LocationModal
         visible={showLocationModal}
-        onClose={() => router.back()}
+        onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
       />
     </SafeAreaView>
@@ -299,18 +322,19 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
-  },
-  tiffinButton: {
-    backgroundColor: "#004AAD",
-  },
-  hostelsButton: {
     backgroundColor: "#F3F4F6",
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
+  serviceButtonSelected: {
+    backgroundColor: "#004AAD",
+  },
   serviceButtonText: {
     fontSize: 14,
     fontWeight: "600",
+    color: "#004AAD",
+  },
+  serviceButtonTextSelected: {
     color: "#fff",
   },
   servicesSection: {
