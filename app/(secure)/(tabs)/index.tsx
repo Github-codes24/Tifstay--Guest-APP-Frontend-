@@ -36,7 +36,6 @@ export default function DashboardScreen() {
       timing: "12:00 PM - 2:00 PM",
       location: "Dharampeth",
     },
-    // Add more services as needed
   ];
 
   const hostels = [
@@ -50,7 +49,6 @@ export default function DashboardScreen() {
       amenities: ["WiFi", "Mess", "Security", "Laundry"],
       image: require("../../../assets/images/hostel1.png"),
     },
-    // Add more hostels
   ];
 
   const handleLocationSelected = (location: any) => {
@@ -59,17 +57,14 @@ export default function DashboardScreen() {
   };
 
   const handleTiffinPress = (service: any) => {
-    // Navigate to tiffin detail screen
     console.log("Tiffin pressed:", service);
   };
 
   const handleHostelPress = (hostel: any) => {
-    // Navigate to hostel detail screen
     console.log("Hostel pressed:", hostel);
   };
 
   const handleBookPress = (item: any) => {
-    // Handle booking
     console.log("Book pressed:", item);
   };
 

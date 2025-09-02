@@ -1,6 +1,5 @@
-import { Stack } from "expo-router";
+import { Stack, Redirect } from "expo-router";
 import { useAppState } from "../../context/AppStateProvider";
-import { Redirect } from "expo-router";
 
 export default function SecureLayout() {
   const { user } = useAppState();
