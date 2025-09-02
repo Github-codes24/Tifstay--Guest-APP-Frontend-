@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TextInput,
   Image,
   ScrollView,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,24 +19,33 @@ import { food1 } from "@/assets/images";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
 
-// Import images mapping
-const imageMapping: { [key: string]: any } = {
-  food1: food1,
-  hostel1: require("../../../assets/images/hostel1.png"),
-};
-
 export default function DashboardScreen() {
   const router = useRouter();
   const [showLocationModal, setShowLocationModal] = useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
-
-  // Hostel filter states
+  const [isVegOnly, setIsVegOnly] = useState(false);
   const [hostelType, setHostelType] = useState("Boys");
   const [area, setArea] = useState("Nagpur");
   const [maxRent, setMaxRent] = useState("10000");
 
+  const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
+
+  const imageMapping: { [key: string]: any } = {
+    food1: food1,
+    hostel1: require("../../../assets/images/hostel1.png"),
+  };
+
+  useEffect(() => {
+    Animated.timing(vegAnimated, {
+      toValue: isVegOnly ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isVegOnly]);
+
+  // ✅ declare first
   const tiffinServices = demoData.tiffinServices.map((service) => ({
     ...service,
     image: imageMapping[service.image] || food1,
@@ -48,18 +58,30 @@ export default function DashboardScreen() {
       require("../../../assets/images/hostel1.png"),
   }));
 
+  // ✅ Final working version
   const filteredTiffinServices = useMemo(() => {
-    if (!searchQuery.trim()) return tiffinServices;
+    let filtered = [...tiffinServices];
 
-    const query = searchQuery.toLowerCase();
-    return tiffinServices.filter(
-      (service) =>
-        service.name.toLowerCase().includes(query) ||
-        service.description.toLowerCase().includes(query) ||
-        service.location.toLowerCase().includes(query) ||
-        service.tags.some((tag) => tag.toLowerCase().includes(query))
-    );
-  }, [searchQuery, tiffinServices]);
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (service) =>
+          service.name.toLowerCase().includes(query) ||
+          service.description.toLowerCase().includes(query) ||
+          service.location.toLowerCase().includes(query) ||
+          service.tags.some((tag) => tag.toLowerCase().includes(query))
+      );
+    }
+
+    if (isVegOnly) {
+      filtered = filtered.filter(
+        (service) =>
+          service.tags.includes("Veg") || service.tags.includes("veg")
+      );
+    }
+
+    return filtered;
+  }, [searchQuery, tiffinServices, isVegOnly]);
 
   const filteredHostels = useMemo(() => {
     if (!searchQuery.trim()) return hostels;
@@ -102,7 +124,6 @@ export default function DashboardScreen() {
   };
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
-  const totalItems = isHostel ? hostels.length : tiffinServices.length;
 
   return (
     <View style={styles.container}>
@@ -277,9 +298,34 @@ export default function DashboardScreen() {
                 : "Available Tiffin Services"}
             </Text>
             {!isHostel && (
-              <TouchableOpacity style={styles.vegToggle}>
+              <TouchableOpacity
+                style={styles.vegToggle}
+                onPress={() => setIsVegOnly(!isVegOnly)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.vegText}>Veg</Text>
-                <View style={styles.vegSwitch} />
+                <View
+                  style={[
+                    styles.vegSwitchContainer,
+                    isVegOnly && styles.vegSwitchActive,
+                  ]}
+                >
+                  <Animated.View
+                    style={[
+                      styles.vegSwitchThumb,
+                      {
+                        transform: [
+                          {
+                            translateX: vegAnimated.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 20],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -315,7 +361,7 @@ export default function DashboardScreen() {
           ) : (
             <>
               <Text style={styles.servicesCount}>
-                {searchQuery
+                {searchQuery || isVegOnly
                   ? `${filteredTiffinServices.length} results found`
                   : `${tiffinServices.length} services found in ${userLocation}`}
               </Text>
@@ -605,22 +651,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
   vegText: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
   },
-  vegSwitch: {
-    width: 40,
+  vegSwitchContainer: {
+    width: 44,
     height: 24,
-    backgroundColor: "#10B981",
+    backgroundColor: "#E5E7EB",
     borderRadius: 12,
+    padding: 2,
+    justifyContent: "center",
+  },
+  vegSwitchActive: {
+    backgroundColor: "#10B981",
+  },
+  vegSwitchThumb: {
+    width: 20,
+    height: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  vegSwitchThumbActive: {
+    transform: [{ translateX: 20 }],
   },
   servicesCount: {
     fontSize: 14,
