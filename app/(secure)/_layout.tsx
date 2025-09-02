@@ -11,6 +11,7 @@ export default function SecureLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
+
       {/* Rest of all screens which is not tab */}
     </Stack>
   );

@@ -28,7 +28,6 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
 
-  // Map image strings to actual image imports
   const tiffinServices = demoData.tiffinServices.map((service) => ({
     ...service,
     image: imageMapping[service.image] || food1,
@@ -41,7 +40,6 @@ export default function DashboardScreen() {
       require("../../../assets/images/hostel1.png"),
   }));
 
-  // Search functionality
   const filteredTiffinServices = useMemo(() => {
     if (!searchQuery.trim()) return tiffinServices;
 
