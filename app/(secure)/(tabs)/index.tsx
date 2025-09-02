@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import LocationModal from "@/components/LocationModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
@@ -23,6 +24,7 @@ const imageMapping: { [key: string]: any } = {
 };
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const [showLocationModal, setShowLocationModal] = useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,28 +91,43 @@ export default function DashboardScreen() {
     setSearchQuery("");
   };
 
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
   const totalItems = isHostel ? hostels.length : tiffinServices.length;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.locationButton}>
-          <Ionicons name="home" size={20} color="#000" />
-          <Text style={styles.locationText}>Home Location</Text>
-          <Ionicons name="chevron-down" size={20} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.locationSubtext}>{userLocation}</Text>
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        {/* Fixed Header */}
+        <View style={styles.header}>
+          <View style={styles.locationContainer}>
+            <TouchableOpacity style={styles.locationButton}>
+              <Ionicons name="home" size={20} color="#000" />
+              <Text style={styles.locationText}>Home Location</Text>
+              <Ionicons name="chevron-down" size={20} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.locationSubtext}>{userLocation}</Text>
+          </View>
 
-        <TouchableOpacity style={styles.profileButton}>
-          <Image
-            source={{ uri: "https://i.pravatar.cc/100" }}
-            style={styles.profileImage}
-          />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={handleProfilePress}
+          >
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100" }}
+              style={styles.profileImage}
+            />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+      >
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#9CA3AF" />
           <TextInput
@@ -246,7 +263,7 @@ export default function DashboardScreen() {
                 <View style={styles.noResultsContainer}>
                   <Ionicons name="search" size={50} color="#9CA3AF" />
                   <Text style={styles.noResultsText}>
-                    {`No tiffin services found matching "${searchQuery}"`}
+                    {`No hostels found matching "${searchQuery}"`}
                   </Text>
                   <Text style={styles.noResultsSubtext}>
                     Try searching with different keywords
@@ -342,7 +359,7 @@ export default function DashboardScreen() {
         onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -351,12 +368,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  safeArea: {
+    backgroundColor: "#fff",
+  },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  locationContainer: {
+    flex: 1,
   },
   locationButton: {
     flexDirection: "row",
@@ -373,14 +397,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   profileButton: {
-    position: "absolute",
-    right: 20,
-    top: 12,
+    marginLeft: 16,
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  scrollView: {
+    flex: 1,
   },
   searchContainer: {
     flexDirection: "row",
@@ -408,6 +435,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#E8F5E9",
+    alignItems: "center",
+    justifyContent: "center",
   },
   bannerImage: {
     width: "100%",

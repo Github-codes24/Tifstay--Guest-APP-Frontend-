@@ -99,10 +99,6 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     console.log("Logout pressed");
-    onClick={() => {
-      
-    }}
-    
   };
 
   return (

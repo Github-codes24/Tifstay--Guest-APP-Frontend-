@@ -1,8 +1,15 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Image,
+  Text,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({
   state,
@@ -26,27 +33,43 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
     Animated.parallel(animations).start();
   }, [state.index]);
 
-  const icons: { [key: string]: keyof typeof Ionicons.glyphMap } = {
-    index: "home-outline",
-    favorites: "heart-outline",
-    bookings: "calendar-outline",
-    notifications: "mail-outline",
-    profile: "person-circle-outline",
+  // Define tab icons with error handling
+  const getTabIcon = (routeName: string) => {
+    try {
+      switch (routeName) {
+        case "index":
+          return require("@/assets/images/bottomTabIcon/homeTab.png");
+        case "favorite":
+          return require("@/assets/images/bottomTabIcon/favoriteTab.png");
+        case "booking":
+          return require("@/assets/images/bottomTabIcon/bookingTab.png");
+        case "notification":
+          return require("@/assets/images/bottomTabIcon/notificationTab.png");
+        case "profile":
+          return require("@/assets/images/bottomTabIcon/profileTab.png");
+        default:
+          return null;
+      }
+    } catch (error) {
+      console.warn(`Failed to load icon for ${routeName}:`, error);
+      return null;
+    }
   };
 
-  const activeIcons: { [key: string]: keyof typeof Ionicons.glyphMap } = {
-    index: "home-sharp",
-    favorites: "heart",
-    bookings: "calendar",
-    notifications: "mail",
-    profile: "person-circle",
+  // Fallback icons using Ionicons
+  const fallbackIcons: { [key: string]: keyof typeof Ionicons.glyphMap } = {
+    index: "home",
+    favorite: "heart",
+    booking: "calendar",
+    notification: "notifications",
+    profile: "person",
   };
 
   const tabNames: { [key: string]: string } = {
     index: "Home",
-    favorites: "Favorites",
-    bookings: "Bookings",
-    notifications: "Alerts",
+    favorite: "Favorites",
+    booking: "Bookings",
+    notification: "Alerts",
     profile: "Profile",
   };
 
@@ -63,6 +86,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
+          const tabIcon = getTabIcon(route.name);
 
           const onPress = () => {
             const event = navigation.emit({
@@ -76,9 +100,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
             }
           };
 
-          const iconName = isFocused
-            ? activeIcons[route.name] || "home"
-            : icons[route.name] || "home-outline";
           const translateY = animatedValues[index].interpolate({
             inputRange: [0, 1],
             outputRange: [0, -18],
@@ -92,6 +113,11 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
           const labelOpacity = animatedValues[index].interpolate({
             inputRange: [0, 1],
             outputRange: [0, 1],
+          });
+
+          const iconOpacity = animatedValues[index].interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.6, 1],
           });
 
           return (
@@ -118,11 +144,26 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                     },
                   ]}
                 >
-                  <Ionicons
-                    name={iconName}
-                    size={24}
-                    color={isFocused ? "#FFFFFF" : "#9CA3AF"}
-                  />
+                  {tabIcon ? (
+                    <Animated.Image
+                      source={tabIcon}
+                      style={[
+                        styles.icon,
+                        {
+                          opacity: iconOpacity,
+                          tintColor: isFocused ? "#FFFFFF" : "#9CA3AF",
+                        },
+                      ]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    // Fallback to Ionicons if image fails to load
+                    <Ionicons
+                      name={fallbackIcons[route.name] || "help-circle"}
+                      size={24}
+                      color={isFocused ? "#FFFFFF" : "#9CA3AF"}
+                    />
+                  )}
                 </Animated.View>
 
                 <Animated.Text
@@ -164,7 +205,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "flex-end",
-    height: 65, // Fixed height to accommodate the elevated active tab
+    height: 65,
   },
   tabItem: {
     flex: 1,
@@ -184,16 +225,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   activeIconContainer: {
-    backgroundColor: "#2563EB", // Blue background for active tab
+    backgroundColor: "#2563EB",
+  },
+  icon: {
+    width: 24,
+    height: 24,
   },
   label: {
     fontSize: 12,
-    color: "transparent", // Hidden by default
+    color: "transparent",
     marginTop: 4,
     fontWeight: "500",
   },
   activeLabel: {
-    color: "#2563EB", // Blue color for active label
+    color: "#2563EB",
     fontWeight: "600",
   },
 });
