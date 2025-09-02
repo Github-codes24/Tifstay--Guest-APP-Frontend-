@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 import LocationModal from "@/components/LocationModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
-import { food1, foodTray } from "@/assets/images";
+import { food1 } from "@/assets/images";
+import demoData from "@/data/demoData.json";
+
+// Import images mapping
+const imageMapping: { [key: string]: any } = {
+  food1: food1,
+  hostel1: require("../../../assets/images/hostel1.png"),
+};
 
 export default function DashboardScreen() {
   const [showLocationModal, setShowLocationModal] = useState(true);
@@ -21,35 +28,47 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
 
-  const tiffinServices = [
-    {
-      id: 1,
-      name: "Maharashtrian Ghar Ka Khana",
-      description:
-        "Authentic Maharashtrian home-style cooking with fresh ingredients",
-      price: "₹120/meal",
-      oldPrice: "₹3200/month",
-      rating: 4.7,
-      reviews: 150,
-      image: food1,
-      tags: ["Veg"],
-      timing: "12:00 PM - 2:00 PM",
-      location: "Dharampeth",
-    },
-  ];
+  // Map image strings to actual image imports
+  const tiffinServices = demoData.tiffinServices.map((service) => ({
+    ...service,
+    image: imageMapping[service.image] || food1,
+  }));
 
-  const hostels = [
-    {
-      id: 1,
-      name: "Green Valley Boys Hostel",
-      type: "Boys Hostel",
-      location: "Near KNT, Medical College",
-      price: "₹5000/month",
-      rating: 4.7,
-      amenities: ["WiFi", "Mess", "Security", "Laundry"],
-      image: require("../../../assets/images/hostel1.png"),
-    },
-  ];
+  const hostels = demoData.hostels.map((hostel) => ({
+    ...hostel,
+    image:
+      imageMapping[hostel.image] ||
+      require("../../../assets/images/hostel1.png"),
+  }));
+
+  // Search functionality
+  const filteredTiffinServices = useMemo(() => {
+    if (!searchQuery.trim()) return tiffinServices;
+
+    const query = searchQuery.toLowerCase();
+    return tiffinServices.filter(
+      (service) =>
+        service.name.toLowerCase().includes(query) ||
+        service.description.toLowerCase().includes(query) ||
+        service.location.toLowerCase().includes(query) ||
+        service.tags.some((tag) => tag.toLowerCase().includes(query))
+    );
+  }, [searchQuery, tiffinServices]);
+
+  const filteredHostels = useMemo(() => {
+    if (!searchQuery.trim()) return hostels;
+
+    const query = searchQuery.toLowerCase();
+    return hostels.filter(
+      (hostel) =>
+        hostel.name.toLowerCase().includes(query) ||
+        hostel.type.toLowerCase().includes(query) ||
+        hostel.location.toLowerCase().includes(query) ||
+        hostel.amenities.some((amenity) =>
+          amenity.toLowerCase().includes(query)
+        )
+    );
+  }, [searchQuery, hostels]);
 
   const handleLocationSelected = (location: any) => {
     setShowLocationModal(false);
@@ -67,6 +86,13 @@ export default function DashboardScreen() {
   const handleBookPress = (item: any) => {
     console.log("Book pressed:", item);
   };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
+  const totalItems = isHostel ? hostels.length : tiffinServices.length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,13 +118,19 @@ export default function DashboardScreen() {
           <TextInput
             placeholder={
               isHostel
-                ? "Search for hostels..."
-                : "Search for tiffin services..."
+                ? "Search for hostels, locations, amenities..."
+                : "Search for tiffin services, cuisines..."
             }
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchInput}
+            placeholderTextColor="#9CA3AF"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={handleClearSearch}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity>
             <Ionicons name="mic" size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -107,20 +139,22 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.banner}>
-          <Image
-            source={foodTray}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
-            <Text style={styles.bannerSubtitle}>
-              Enjoy pure taste of your{"\n"}home-made delights
-            </Text>
-            <Text style={styles.bannerLink}>www.website.com</Text>
+        {!searchQuery && (
+          <View style={styles.banner}>
+            <Image
+              source={food1}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+            <View style={styles.bannerContent}>
+              <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
+              <Text style={styles.bannerSubtitle}>
+                Enjoy pure taste of your{"\n"}home-made delights
+              </Text>
+              <Text style={styles.bannerLink}>www.website.com</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.serviceSection}>
           <Text style={styles.sectionTitle}>What are you looking for?</Text>
@@ -130,7 +164,10 @@ export default function DashboardScreen() {
                 styles.serviceButton,
                 !isHostel && styles.serviceButtonSelected,
               ]}
-              onPress={() => setIsHostel(false)}
+              onPress={() => {
+                setIsHostel(false);
+                setSearchQuery("");
+              }}
             >
               <Ionicons
                 name="restaurant"
@@ -143,7 +180,7 @@ export default function DashboardScreen() {
                   !isHostel && styles.serviceButtonTextSelected,
                 ]}
               >
-                Tiffin/Restaurants
+                Tiffin/ Restaurants
               </Text>
             </TouchableOpacity>
 
@@ -152,7 +189,10 @@ export default function DashboardScreen() {
                 styles.serviceButton,
                 isHostel && styles.serviceButtonSelected,
               ]}
-              onPress={() => setIsHostel(true)}
+              onPress={() => {
+                setIsHostel(true);
+                setSearchQuery("");
+              }}
             >
               <Ionicons
                 name="business"
@@ -174,7 +214,11 @@ export default function DashboardScreen() {
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {isHostel ? "Available Hostels" : "Available Tiffin Services"}
+              {searchQuery
+                ? "Search Results"
+                : isHostel
+                ? "Available Hostels"
+                : "Available Tiffin Services"}
             </Text>
             {!isHostel && (
               <TouchableOpacity style={styles.vegToggle}>
@@ -187,33 +231,112 @@ export default function DashboardScreen() {
           {isHostel ? (
             <>
               <Text style={styles.servicesCount}>
-                {hostels.length} hostels found in {userLocation}
+                {searchQuery
+                  ? `${filteredHostels.length} results found`
+                  : `${hostels.length} hostels found in ${userLocation}`}
               </Text>
-              {hostels.map((hostel) => (
-                <HostelCard
-                  key={hostel.id}
-                  hostel={hostel}
-                  onPress={() => handleHostelPress(hostel)}
-                  onBookPress={() => handleBookPress(hostel)}
-                />
-              ))}
+              {filteredHostels.length > 0 ? (
+                filteredHostels.map((hostel) => (
+                  <HostelCard
+                    key={hostel.id}
+                    hostel={hostel}
+                    onPress={() => handleHostelPress(hostel)}
+                    onBookPress={() => handleBookPress(hostel)}
+                  />
+                ))
+              ) : (
+                <View style={styles.noResultsContainer}>
+                  <Ionicons name="search" size={50} color="#9CA3AF" />
+                  <Text style={styles.noResultsText}>
+                    {`No tiffin services found matching "${searchQuery}"`}
+                  </Text>
+                  <Text style={styles.noResultsSubtext}>
+                    Try searching with different keywords
+                  </Text>
+                </View>
+              )}
             </>
           ) : (
             <>
               <Text style={styles.servicesCount}>
-                {tiffinServices.length} services found in {userLocation}
+                {searchQuery
+                  ? `${filteredTiffinServices.length} results found`
+                  : `${tiffinServices.length} services found in ${userLocation}`}
               </Text>
-              {tiffinServices.map((service) => (
-                <TiffinCard
-                  key={service.id}
-                  service={service}
-                  onPress={() => handleTiffinPress(service)}
-                  onBookPress={() => handleBookPress(service)}
-                />
-              ))}
+              {filteredTiffinServices.length > 0 ? (
+                filteredTiffinServices.map((service) => (
+                  <TiffinCard
+                    key={service.id}
+                    service={service}
+                    onPress={() => handleTiffinPress(service)}
+                    onBookPress={() => handleBookPress(service)}
+                  />
+                ))
+              ) : (
+                <View style={styles.noResultsContainer}>
+                  <Ionicons name="search" size={50} color="#9CA3AF" />
+                  <Text style={styles.noResultsText}>
+                    {`No tiffin services found matching "${searchQuery}"`}
+                  </Text>
+                  <Text style={styles.noResultsSubtext}>
+                    Try searching with different keywords
+                  </Text>
+                </View>
+              )}
             </>
           )}
         </View>
+
+        {searchQuery && displayedItems.length > 0 && (
+          <View style={styles.searchSuggestions}>
+            <Text style={styles.suggestionTitle}>Popular Searches</Text>
+            <View style={styles.suggestionTags}>
+              {isHostel ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("WiFi")}
+                  >
+                    <Text style={styles.suggestionTagText}>WiFi</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("AC")}
+                  >
+                    <Text style={styles.suggestionTagText}>AC</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Near College")}
+                  >
+                    <Text style={styles.suggestionTagText}>Near College</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Veg")}
+                  >
+                    <Text style={styles.suggestionTagText}>Veg</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Maharashtrian")}
+                  >
+                    <Text style={styles.suggestionTagText}>Maharashtrian</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Healthy")}
+                  >
+                    <Text style={styles.suggestionTagText}>Healthy</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       <LocationModal
@@ -275,6 +398,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
+    color: "#000",
   },
   filterButton: {
     marginLeft: 12,
@@ -337,6 +461,7 @@ const styles = StyleSheet.create({
   },
   serviceButtonSelected: {
     backgroundColor: "#004AAD",
+    borderColor: "#004AAD",
   },
   serviceButtonText: {
     fontSize: 14,
@@ -376,5 +501,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
     marginBottom: 16,
+  },
+  noResultsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  noResultsText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 16,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  searchSuggestions: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  suggestionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  suggestionTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  suggestionTag: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  suggestionTagText: {
+    fontSize: 14,
+    color: "#004AAD",
+    fontWeight: "500",
   },
 });
