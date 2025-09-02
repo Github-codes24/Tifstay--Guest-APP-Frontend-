@@ -14,12 +14,11 @@ export default function VerifyScreen() {
   const handleVerify = () => {
     setUser({
       id: "1",
-      name: "Tiffin User",
-      type: "tiffin",
+      name: "Guest User",
       phone: "+1234567890",
     });
 
-    router.replace("/(secure)/(tiffin)");
+    router.replace("/(secure)/dashboard");
   };
 
   return (
