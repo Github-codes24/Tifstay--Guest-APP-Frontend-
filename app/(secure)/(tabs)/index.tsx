@@ -105,6 +105,7 @@ export default function DashboardScreen() {
 
   const handleTiffinPress = (service: any) => {
     console.log("Tiffin pressed:", service);
+    router.navigate(`/tiffin-details/${service.id}`);
   };
 
   const handleHostelPress = (hostel: any) => {
@@ -120,7 +121,7 @@ export default function DashboardScreen() {
   };
 
   const handleProfilePress = () => {
-    router.push("/profile");
+    router.push("/account");
   };
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;

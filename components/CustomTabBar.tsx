@@ -4,6 +4,13 @@ import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import colors from "../constants/colors";
+import {
+  accountTab,
+  bookingTab,
+  favoriteTab,
+  homeTab,
+  notificationTab,
+} from "@/assets/images";
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({
   state,
@@ -28,19 +35,11 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
   }, [state.index]);
 
   const tabIcons = {
-    index: require("@/assets/images/bottomTabIcon/homeTab.png"),
-    favorite: require("@/assets/images/bottomTabIcon/favoriteTab.png"),
-    booking: require("@/assets/images/bottomTabIcon/bookingTab.png"),
-    notification: require("@/assets/images/bottomTabIcon/notificationTab.png"),
-    profile: require("@/assets/images/bottomTabIcon/profileTab.png"),
-  };
-
-  const tabNames: { [key: string]: string } = {
-    index: "Home",
-    favorite: "Favorites",
-    booking: "Bookings",
-    notification: "Alerts",
-    profile: "Profile",
+    index: homeTab,
+    favorite: favoriteTab,
+    booking: bookingTab,
+    notification: notificationTab,
+    account: accountTab,
   };
 
   return (
@@ -136,7 +135,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                     },
                   ]}
                 >
-                  {tabNames[route.name] || route.name}
+                  {options.title}
                 </Animated.Text>
               </Animated.View>
             </TouchableOpacity>
