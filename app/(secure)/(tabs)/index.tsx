@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,51 +7,96 @@ import {
   TextInput,
   Image,
   ScrollView,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import LocationModal from "@/components/LocationModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
-import { food1, foodTray } from "@/assets/images";
+import { food1 } from "@/assets/images";
+import demoData from "@/data/demoData.json";
+import colors from "@/constants/colors";
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const [showLocationModal, setShowLocationModal] = useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
+  const [isVegOnly, setIsVegOnly] = useState(false);
+  const [hostelType, setHostelType] = useState("Boys");
+  const [area, setArea] = useState("Nagpur");
+  const [maxRent, setMaxRent] = useState("10000");
 
-  const tiffinServices = [
-    {
-      id: 1,
-      name: "Maharashtrian Ghar Ka Khana",
-      description:
-        "Authentic Maharashtrian home-style cooking with fresh ingredients",
-      price: "₹120/meal",
-      oldPrice: "₹3200/month",
-      rating: 4.7,
-      reviews: 150,
-      image: food1,
-      tags: ["Veg"],
-      timing: "12:00 PM - 2:00 PM",
-      location: "Dharampeth",
-    },
-    // Add more services as needed
-  ];
+  const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
 
-  const hostels = [
-    {
-      id: 1,
-      name: "Green Valley Boys Hostel",
-      type: "Boys Hostel",
-      location: "Near KNT, Medical College",
-      price: "₹5000/month",
-      rating: 4.7,
-      amenities: ["WiFi", "Mess", "Security", "Laundry"],
-      image: require("../../../assets/images/hostel1.png"),
-    },
-    // Add more hostels
-  ];
+  const imageMapping: { [key: string]: any } = {
+    food1: food1,
+    hostel1: require("../../../assets/images/hostel1.png"),
+  };
+
+  useEffect(() => {
+    Animated.timing(vegAnimated, {
+      toValue: isVegOnly ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isVegOnly]);
+
+  // ✅ declare first
+  const tiffinServices = demoData.tiffinServices.map((service) => ({
+    ...service,
+    image: imageMapping[service.image] || food1,
+  }));
+
+  const hostels = demoData.hostels.map((hostel) => ({
+    ...hostel,
+    image:
+      imageMapping[hostel.image] ||
+      require("../../../assets/images/hostel1.png"),
+  }));
+
+  // ✅ Final working version
+  const filteredTiffinServices = useMemo(() => {
+    let filtered = [...tiffinServices];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (service) =>
+          service.name.toLowerCase().includes(query) ||
+          service.description.toLowerCase().includes(query) ||
+          service.location.toLowerCase().includes(query) ||
+          service.tags.some((tag) => tag.toLowerCase().includes(query))
+      );
+    }
+
+    if (isVegOnly) {
+      filtered = filtered.filter(
+        (service) =>
+          service.tags.includes("Veg") || service.tags.includes("veg")
+      );
+    }
+
+    return filtered;
+  }, [searchQuery, tiffinServices, isVegOnly]);
+
+  const filteredHostels = useMemo(() => {
+    if (!searchQuery.trim()) return hostels;
+
+    const query = searchQuery.toLowerCase();
+    return hostels.filter(
+      (hostel) =>
+        hostel.name.toLowerCase().includes(query) ||
+        hostel.type.toLowerCase().includes(query) ||
+        hostel.location.toLowerCase().includes(query) ||
+        hostel.amenities.some((amenity) =>
+          amenity.toLowerCase().includes(query)
+        )
+    );
+  }, [searchQuery, hostels]);
 
   const handleLocationSelected = (location: any) => {
     setShowLocationModal(false);
@@ -59,73 +104,103 @@ export default function DashboardScreen() {
   };
 
   const handleTiffinPress = (service: any) => {
-    // Navigate to tiffin detail screen
     console.log("Tiffin pressed:", service);
   };
 
   const handleHostelPress = (hostel: any) => {
-    // Navigate to hostel detail screen
     console.log("Hostel pressed:", hostel);
   };
 
   const handleBookPress = (item: any) => {
-    // Handle booking
     console.log("Book pressed:", item);
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const handleProfilePress = () => {
+    router.push("/profile");
+  };
+
+  const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.locationButton}>
-          <Ionicons name="home" size={20} color="#000" />
-          <Text style={styles.locationText}>Home Location</Text>
-          <Ionicons name="chevron-down" size={20} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.locationSubtext}>{userLocation}</Text>
-
-        <TouchableOpacity style={styles.profileButton}>
-          <Image
-            source={{ uri: "https://i.pravatar.cc/100" }}
-            style={styles.profileImage}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#9CA3AF" />
-          <TextInput
-            placeholder={
-              isHostel
-                ? "Search for hostels..."
-                : "Search for tiffin services..."
-            }
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-          />
-          <TouchableOpacity>
-            <Ionicons name="mic" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options" size={20} color="#004AAD" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.banner}>
-          <Image
-            source={foodTray}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
-            <Text style={styles.bannerSubtitle}>
-              Enjoy pure taste of your{"\n"}home-made delights
-            </Text>
-            <Text style={styles.bannerLink}>www.website.com</Text>
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        {/* Fixed Header */}
+        <View style={styles.header}>
+          <View style={styles.locationContainer}>
+            <TouchableOpacity style={styles.locationButton}>
+              <Ionicons name="home" size={20} color="#000" />
+              <Text style={styles.locationText}>Home Location</Text>
+              <Ionicons name="chevron-down" size={20} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.locationSubtext}>{userLocation}</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={handleProfilePress}
+          >
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100" }}
+              style={styles.profileImage}
+            />
+          </TouchableOpacity>
         </View>
+      </SafeAreaView>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+      >
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#6B7280" />
+            <TextInput
+              placeholder={
+                isHostel
+                  ? "Search for hostel..."
+                  : "Search for tiffin services..."
+              }
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+              placeholderTextColor="#9CA3AF"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={handleClearSearch}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.micButton}>
+              <Ionicons name="mic" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.filterButton}>
+            <Ionicons name="options" size={22} color="#2563EB" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Only show banner for tiffin services */}
+        {!isHostel && !searchQuery && (
+          <View style={styles.banner}>
+            <Image
+              source={food1}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+            <View style={styles.bannerContent}>
+              <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
+              <Text style={styles.bannerSubtitle}>
+                Enjoy pure taste of your{"\n"}home-made delights
+              </Text>
+              <Text style={styles.bannerLink}>www.website.com</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.serviceSection}>
           <Text style={styles.sectionTitle}>What are you looking for?</Text>
@@ -135,7 +210,10 @@ export default function DashboardScreen() {
                 styles.serviceButton,
                 !isHostel && styles.serviceButtonSelected,
               ]}
-              onPress={() => setIsHostel(false)}
+              onPress={() => {
+                setIsHostel(false);
+                setSearchQuery("");
+              }}
             >
               <Ionicons
                 name="restaurant"
@@ -157,7 +235,10 @@ export default function DashboardScreen() {
                 styles.serviceButton,
                 isHostel && styles.serviceButtonSelected,
               ]}
-              onPress={() => setIsHostel(true)}
+              onPress={() => {
+                setIsHostel(true);
+                setSearchQuery("");
+              }}
             >
               <Ionicons
                 name="business"
@@ -176,15 +257,75 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* Hostel Filters - Only show when hostels tab is selected */}
+        {isHostel && (
+          <View style={styles.filterSection}>
+            <View style={styles.filterRow}>
+              <View style={styles.filterItem}>
+                <Text style={styles.filterLabel}>Hostel Type</Text>
+                <TouchableOpacity style={styles.filterDropdown}>
+                  <Text style={styles.filterValue}>{hostelType}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.filterItem}>
+                <Text style={styles.filterLabel}>Area</Text>
+                <TouchableOpacity style={styles.filterDropdown}>
+                  <Text style={styles.filterValue}>{area}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.filterItem}>
+                <Text style={styles.filterLabel}>Max Rent (₹)</Text>
+                <TouchableOpacity style={styles.filterDropdown}>
+                  <Text style={styles.filterValue}>{maxRent}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {isHostel ? "Available Hostels" : "Available Tiffin Services"}
+              {searchQuery
+                ? "Search Results"
+                : isHostel
+                ? "Available Accommodations"
+                : "Available Tiffin Services"}
             </Text>
             {!isHostel && (
-              <TouchableOpacity style={styles.vegToggle}>
+              <TouchableOpacity
+                style={styles.vegToggle}
+                onPress={() => setIsVegOnly(!isVegOnly)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.vegText}>Veg</Text>
-                <View style={styles.vegSwitch} />
+                <View
+                  style={[
+                    styles.vegSwitchContainer,
+                    isVegOnly && styles.vegSwitchActive,
+                  ]}
+                >
+                  <Animated.View
+                    style={[
+                      styles.vegSwitchThumb,
+                      {
+                        transform: [
+                          {
+                            translateX: vegAnimated.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 20],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -192,33 +333,112 @@ export default function DashboardScreen() {
           {isHostel ? (
             <>
               <Text style={styles.servicesCount}>
-                {hostels.length} hostels found in {userLocation}
+                {searchQuery
+                  ? `${filteredHostels.length} results found`
+                  : `${hostels.length} properties found in ${userLocation}`}
               </Text>
-              {hostels.map((hostel) => (
-                <HostelCard
-                  key={hostel.id}
-                  hostel={hostel}
-                  onPress={() => handleHostelPress(hostel)}
-                  onBookPress={() => handleBookPress(hostel)}
-                />
-              ))}
+              {filteredHostels.length > 0 ? (
+                filteredHostels.map((hostel) => (
+                  <HostelCard
+                    key={hostel.id}
+                    hostel={hostel}
+                    onPress={() => handleHostelPress(hostel)}
+                    onBookPress={() => handleBookPress(hostel)}
+                  />
+                ))
+              ) : (
+                <View style={styles.noResultsContainer}>
+                  <Ionicons name="search" size={50} color="#9CA3AF" />
+                  <Text style={styles.noResultsText}>
+                    {`No hostels found matching "${searchQuery}"`}
+                  </Text>
+                  <Text style={styles.noResultsSubtext}>
+                    Try searching with different keywords
+                  </Text>
+                </View>
+              )}
             </>
           ) : (
             <>
               <Text style={styles.servicesCount}>
-                {tiffinServices.length} services found in {userLocation}
+                {searchQuery || isVegOnly
+                  ? `${filteredTiffinServices.length} results found`
+                  : `${tiffinServices.length} services found in ${userLocation}`}
               </Text>
-              {tiffinServices.map((service) => (
-                <TiffinCard
-                  key={service.id}
-                  service={service}
-                  onPress={() => handleTiffinPress(service)}
-                  onBookPress={() => handleBookPress(service)}
-                />
-              ))}
+              {filteredTiffinServices.length > 0 ? (
+                filteredTiffinServices.map((service) => (
+                  <TiffinCard
+                    key={service.id}
+                    service={service}
+                    onPress={() => handleTiffinPress(service)}
+                    onBookPress={() => handleBookPress(service)}
+                  />
+                ))
+              ) : (
+                <View style={styles.noResultsContainer}>
+                  <Ionicons name="search" size={50} color="#9CA3AF" />
+                  <Text style={styles.noResultsText}>
+                    {`No tiffin services found matching "${searchQuery}"`}
+                  </Text>
+                  <Text style={styles.noResultsSubtext}>
+                    Try searching with different keywords
+                  </Text>
+                </View>
+              )}
             </>
           )}
         </View>
+
+        {searchQuery && displayedItems.length > 0 && (
+          <View style={styles.searchSuggestions}>
+            <Text style={styles.suggestionTitle}>Popular Searches</Text>
+            <View style={styles.suggestionTags}>
+              {isHostel ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("WiFi")}
+                  >
+                    <Text style={styles.suggestionTagText}>WiFi</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("AC")}
+                  >
+                    <Text style={styles.suggestionTagText}>AC</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Near College")}
+                  >
+                    <Text style={styles.suggestionTagText}>Near College</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Veg")}
+                  >
+                    <Text style={styles.suggestionTagText}>Veg</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Maharashtrian")}
+                  >
+                    <Text style={styles.suggestionTagText}>Maharashtrian</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.suggestionTag}
+                    onPress={() => setSearchQuery("Healthy")}
+                  >
+                    <Text style={styles.suggestionTagText}>Healthy</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       <LocationModal
@@ -226,7 +446,7 @@ export default function DashboardScreen() {
         onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -235,12 +455,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  safeArea: {
+    backgroundColor: "#fff",
+  },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  locationContainer: {
+    flex: 1,
   },
   locationButton: {
     flexDirection: "row",
@@ -257,32 +484,54 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   profileButton: {
-    position: "absolute",
-    right: 20,
-    top: 12,
+    marginLeft: 16,
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
   },
-  searchContainer: {
+  scrollView: {
+    flex: 1,
+  },
+  searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    marginHorizontal: 20,
+    paddingHorizontal: 20,
     marginTop: 16,
-    paddingHorizontal: 16,
+    gap: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
     borderRadius: 12,
-    height: 50,
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 16,
   },
   searchInput: {
     flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    color: "#1F2937",
+  },
+  micButton: {
     marginLeft: 8,
-    fontSize: 16,
   },
   filterButton: {
-    marginLeft: 12,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    height: 48,
+    width: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   banner: {
     marginHorizontal: 20,
@@ -291,6 +540,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#E8F5E9",
+    alignItems: "center",
+    justifyContent: "center",
   },
   bannerImage: {
     width: "100%",
@@ -303,16 +554,16 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#1B5E20",
+    color: colors.white,
   },
   bannerSubtitle: {
     fontSize: 14,
-    color: "#2E7D32",
+    color: colors.white,
     marginTop: 4,
   },
   bannerLink: {
     fontSize: 12,
-    color: "#388E3C",
+    color: colors.white,
     marginTop: 8,
   },
   serviceSection: {
@@ -341,15 +592,49 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
   },
   serviceButtonSelected: {
-    backgroundColor: "#004AAD",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   serviceButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#004AAD",
+    color: colors.primary,
   },
   serviceButtonTextSelected: {
-    color: "#fff",
+    color: colors.white,
+  },
+  filterSection: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  filterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  filterItem: {
+    flex: 1,
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "500",
+    marginBottom: 6,
+  },
+  filterDropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  filterValue: {
+    fontSize: 14,
+    color: "#1F2937",
   },
   servicesSection: {
     marginTop: 24,
@@ -368,18 +653,85 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   vegText: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
   },
-  vegSwitch: {
-    width: 40,
+  vegSwitchContainer: {
+    width: 44,
     height: 24,
-    backgroundColor: "#10B981",
+    backgroundColor: "#E5E7EB",
     borderRadius: 12,
+    padding: 2,
+    justifyContent: "center",
+  },
+  vegSwitchActive: {
+    backgroundColor: "#10B981",
+  },
+  vegSwitchThumb: {
+    width: 20,
+    height: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  vegSwitchThumbActive: {
+    transform: [{ translateX: 20 }],
   },
   servicesCount: {
     fontSize: 14,
     color: "#6B7280",
     marginBottom: 16,
+  },
+  noResultsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  noResultsText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 16,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  searchSuggestions: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  suggestionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  suggestionTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  suggestionTag: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  suggestionTagText: {
+    fontSize: 14,
+    color: "#004AAD",
+    fontWeight: "500",
   },
 });

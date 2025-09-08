@@ -1,6 +1,5 @@
-import { Stack } from "expo-router";
+import { Stack, Redirect } from "expo-router";
 import { useAppState } from "../../context/AppStateProvider";
-import { Redirect } from "expo-router";
 
 export default function SecureLayout() {
   const { user } = useAppState();
@@ -12,6 +11,7 @@ export default function SecureLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
+
       {/* Rest of all screens which is not tab */}
     </Stack>
   );
