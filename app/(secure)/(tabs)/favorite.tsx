@@ -1,11 +1,23 @@
-import { Text, View } from "react-native";
+import { Text, View, StyleSheet } from "react-native";
 
-const Favorite = () => {
+function Notification() {
   return (
-    <View>
-      <Text>Favorite</Text>
+    <View style={styles.container}>
+      <Text style={styles.text}>favorites</Text>
     </View>
   );
-};
+}
 
-export default Favorite;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center', 
+    alignItems: 'center', 
+},
+  text: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+});
+
+export default Notification;
