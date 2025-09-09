@@ -4,7 +4,7 @@ import homeTab from "./bottomTabIcon/homeTab.png";
 import favoriteTab from "./bottomTabIcon/favoriteTab.png";
 import bookingTab from "./bottomTabIcon/bookingTab.png";
 import notificationTab from "./bottomTabIcon/notificationTab.png";
-import profileTab from "./bottomTabIcon/profileTab.png";
+import accountTab from "./bottomTabIcon/profileTab.png";
 
 export {
   food1,
@@ -13,5 +13,5 @@ export {
   favoriteTab,
   bookingTab,
   notificationTab,
-  profileTab,
+  accountTab,
 };
