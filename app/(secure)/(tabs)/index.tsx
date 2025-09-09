@@ -110,6 +110,7 @@ export default function DashboardScreen() {
 
   const handleHostelPress = (hostel: any) => {
     console.log("Hostel pressed:", hostel);
+    router.navigate(`/hostel-details/${hostel.id}`);
   };
 
   const handleBookPress = (item: any) => {

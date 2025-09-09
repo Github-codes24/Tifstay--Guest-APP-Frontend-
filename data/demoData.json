@@ -3,80 +3,441 @@
       {
         "id": 1,
         "name": "Maharashtrian Ghar Ka Khana",
-        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients",
+        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients. Our tiffin service has been serving the Nagpur community for over 5 years with traditional recipes passed down through generations.",
         "price": "₹120/meal",
         "oldPrice": "₹3200/month",
+        "monthlyPrice": "₹2800/month",
         "rating": 4.7,
         "reviews": 150,
         "image": "food1",
-        "tags": ["Non-Veg"],
-        "timing": "12:00 PM - 2:00 PM",
-        "location": "Dharampeth"
+        "tags": ["Veg"],
+        "timing": "12:00 AM - 10:00 PM",
+        "location": "Dharampeth",
+        "fullAddress": "Near Medical College, Plot No. 45, Dharampeth, Nagpur - 440010",
+        "deliveryTime": "30-45 mins",
+        "deliveryFee": "₹20",
+        "servingRadius": "5 sq km",
+        "mealPreferences": [
+          {
+            "type": "Breakfast",
+            "time": "07:00 AM - 9:00 AM"
+          },
+          {
+            "type": "Lunch",
+            "time": "12:00 PM - 2:00 PM"
+          },
+          {
+            "type": "Dinner",
+            "time": "06:00 PM - 10:00 PM"
+          }
+        ],
+        "whatsIncluded": [
+          "2 Roti + 1 Sabzi + Dal + Rice + Pickle",
+          "Seasonal vegetables",
+          "Fresh chapati made daily",
+          "Traditional spices"
+        ],
+        "orderTypes": [
+          "Monthly",
+          "Weekly", 
+          "Daily"
+        ],
+        "whyChooseUs": [
+          "Fresh ingredients daily",
+          "Home-style cooking",
+          "Hygienic preparation",
+          "On-time delivery",
+          "Monthly subscription available"
+        ],
+        "userReviews": [
+          {
+            "id": 1,
+            "name": "Autumn Phillips",
+            "rating": 4.5,
+            "date": "Monday, June 19, 2023",
+            "comment": "I've been using their service for 3 months now, and the food quality is consistently great. Fresh ingredients, clear packaging, and always on time. The dal is particularly lovely and authentic. I'll definitely renew my subscription."
+          },
+          {
+            "id": 2,
+            "name": "Sharola Rhodes",
+            "rating": 5.0,
+            "date": "Wednesday, March 15, 2023",
+            "comment": "Wow! I love the taste. It's like grandma and hygienic. Plus, I can track my orders and choose between lunch or dinner slots easily. Highly recommended."
+          },
+          {
+            "id": 3,
+            "name": "Patricia Sanders",
+            "rating": 4.0,
+            "date": "Friday, April 11, 2023",
+            "comment": "I stay in a hostel and don't have time to cook - this service has been a lifesaver. The lunch is always warm and delivered on time. Customer support is also responsive."
+          }
+        ]
       },
       {
         "id": 2,
-        "name": "Healthy Bites Tiffin",
-        "description": "Nutritious and balanced meals with fresh vegetables and low oil",
-        "price": "₹150/meal",
-        "oldPrice": "₹4000/month",
-        "rating": 4.5,
-        "reviews": 89,
+        "name": "Maharashtrian Ghar Ka Khana 2",
+        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients. Our tiffin service has been serving the Nagpur community for over 5 years with traditional recipes passed down through generations.",
+        "price": "₹120/meal",
+        "oldPrice": "₹3200/month",
+        "monthlyPrice": "₹2800/month",
+        "rating": 4.7,
+        "reviews": 150,
         "image": "food1",
-        "tags": ["Non-Veg", "Healthy"],
-        "timing": "11:30 AM - 1:30 PM",
-        "location": "Civil Lines"
+        "tags": ["Veg"],
+        "timing": "12:00 AM - 10:00 PM",
+        "location": "Dharampeth",
+        "fullAddress": "Near Medical College, Plot No. 45, Dharampeth, Nagpur - 440010",
+        "deliveryTime": "30-45 mins",
+        "deliveryFee": "₹20",
+        "servingRadius": "5 sq km",
+        "mealPreferences": [
+          {
+            "type": "Breakfast",
+            "time": "07:00 AM - 9:00 AM"
+          },
+          {
+            "type": "Lunch",
+            "time": "12:00 PM - 2:00 PM"
+          },
+          {
+            "type": "Dinner",
+            "time": "06:00 PM - 10:00 PM"
+          }
+        ],
+        "whatsIncluded": [
+          "2 Roti + 1 Sabzi + Dal + Rice + Pickle",
+          "Seasonal vegetables",
+          "Fresh chapati made daily",
+          "Traditional spices"
+        ],
+        "orderTypes": [
+          "Monthly",
+          "Weekly", 
+          "Daily"
+        ],
+        "whyChooseUs": [
+          "Fresh ingredients daily",
+          "Home-style cooking",
+          "Hygienic preparation",
+          "On-time delivery",
+          "Monthly subscription available"
+        ],
+        "userReviews": [
+          {
+            "id": 1,
+            "name": "Autumn Phillips",
+            "rating": 4.5,
+            "date": "Monday, June 19, 2023",
+            "comment": "I've been using their service for 3 months now, and the food quality is consistently great. Fresh ingredients, clear packaging, and always on time. The dal is particularly lovely and authentic. I'll definitely renew my subscription."
+          },
+          {
+            "id": 2,
+            "name": "Sharola Rhodes",
+            "rating": 5.0,
+            "date": "Wednesday, March 15, 2023",
+            "comment": "Wow! I love the taste. It's like grandma and hygienic. Plus, I can track my orders and choose between lunch or dinner slots easily. Highly recommended."
+          },
+          {
+            "id": 3,
+            "name": "Patricia Sanders",
+            "rating": 4.0,
+            "date": "Friday, April 11, 2023",
+            "comment": "I stay in a hostel and don't have time to cook - this service has been a lifesaver. The lunch is always warm and delivered on time. Customer support is also responsive."
+          }
+        ]
+       
       },
       {
         "id": 3,
-        "name": "North Indian Delights",
-        "description": "Authentic North Indian cuisine with rich flavors and spices",
-        "price": "₹140/meal",
-        "oldPrice": "₹3500/month",
-        "rating": 4.8,
-        "reviews": 200,
+        "name": "Maharashtrian Ghar Ka Khana 3",
+        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients. Our tiffin service has been serving the Nagpur community for over 5 years with traditional recipes passed down through generations.",
+        "price": "₹120/meal",
+        "oldPrice": "₹3200/month",
+        "monthlyPrice": "₹2800/month",
+        "rating": 4.7,
+        "reviews": 150,
         "image": "food1",
-        "tags": ["Veg", "Non-Veg"],
-        "timing": "12:30 PM - 2:30 PM",
-        "location": "Ramdaspeth"
+        "tags": ["Veg"],
+        "timing": "12:00 AM - 10:00 PM",
+        "location": "Dharampeth",
+        "fullAddress": "Near Medical College, Plot No. 45, Dharampeth, Nagpur - 440010",
+        "deliveryTime": "30-45 mins",
+        "deliveryFee": "₹20",
+        "servingRadius": "5 sq km",
+        "mealPreferences": [
+          {
+            "type": "Breakfast",
+            "time": "07:00 AM - 9:00 AM"
+          },
+          {
+            "type": "Lunch",
+            "time": "12:00 PM - 2:00 PM"
+          },
+          {
+            "type": "Dinner",
+            "time": "06:00 PM - 10:00 PM"
+          }
+        ],
+        "whatsIncluded": [
+          "2 Roti + 1 Sabzi + Dal + Rice + Pickle",
+          "Seasonal vegetables",
+          "Fresh chapati made daily",
+          "Traditional spices"
+        ],
+        "orderTypes": [
+          "Monthly",
+          "Weekly", 
+          "Daily"
+        ],
+        "whyChooseUs": [
+          "Fresh ingredients daily",
+          "Home-style cooking",
+          "Hygienic preparation",
+          "On-time delivery",
+          "Monthly subscription available"
+        ],
+        "userReviews": [
+          {
+            "id": 1,
+            "name": "Autumn Phillips",
+            "rating": 4.5,
+            "date": "Monday, June 19, 2023",
+            "comment": "I've been using their service for 3 months now, and the food quality is consistently great. Fresh ingredients, clear packaging, and always on time. The dal is particularly lovely and authentic. I'll definitely renew my subscription."
+          },
+          {
+            "id": 2,
+            "name": "Sharola Rhodes",
+            "rating": 5.0,
+            "date": "Wednesday, March 15, 2023",
+            "comment": "Wow! I love the taste. It's like grandma and hygienic. Plus, I can track my orders and choose between lunch or dinner slots easily. Highly recommended."
+          },
+          {
+            "id": 3,
+            "name": "Patricia Sanders",
+            "rating": 4.0,
+            "date": "Friday, April 11, 2023",
+            "comment": "I stay in a hostel and don't have time to cook - this service has been a lifesaver. The lunch is always warm and delivered on time. Customer support is also responsive."
+          }
+        ]
       },
       {
         "id": 4,
-        "name": "South Indian Express",
-        "description": "Traditional South Indian meals with sambar, rasam, and variety rice",
-        "price": "₹110/meal",
-        "oldPrice": "₹2800/month",
-        "rating": 4.6,
-        "reviews": 120,
+        "name": "Maharashtrian Ghar Ka Khana 4",
+        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients. Our tiffin service has been serving the Nagpur community for over 5 years with traditional recipes passed down through generations.",
+        "price": "₹120/meal",
+        "oldPrice": "₹3200/month",
+        "monthlyPrice": "₹2800/month",
+        "rating": 4.7,
+        "reviews": 150,
         "image": "food1",
         "tags": ["Veg"],
-        "timing": "12:00 PM - 2:00 PM",
-        "location": "Sitabuldi"
+        "timing": "12:00 AM - 10:00 PM",
+        "location": "Dharampeth",
+        "fullAddress": "Near Medical College, Plot No. 45, Dharampeth, Nagpur - 440010",
+        "deliveryTime": "30-45 mins",
+        "deliveryFee": "₹20",
+        "servingRadius": "5 sq km",
+        "mealPreferences": [
+          {
+            "type": "Breakfast",
+            "time": "07:00 AM - 9:00 AM"
+          },
+          {
+            "type": "Lunch",
+            "time": "12:00 PM - 2:00 PM"
+          },
+          {
+            "type": "Dinner",
+            "time": "06:00 PM - 10:00 PM"
+          }
+        ],
+        "whatsIncluded": [
+          "2 Roti + 1 Sabzi + Dal + Rice + Pickle",
+          "Seasonal vegetables",
+          "Fresh chapati made daily",
+          "Traditional spices"
+        ],
+        "orderTypes": [
+          "Monthly",
+          "Weekly", 
+          "Daily"
+        ],
+        "whyChooseUs": [
+          "Fresh ingredients daily",
+          "Home-style cooking",
+          "Hygienic preparation",
+          "On-time delivery",
+          "Monthly subscription available"
+        ],
+        "userReviews": [
+          {
+            "id": 1,
+            "name": "Autumn Phillips",
+            "rating": 4.5,
+            "date": "Monday, June 19, 2023",
+            "comment": "I've been using their service for 3 months now, and the food quality is consistently great. Fresh ingredients, clear packaging, and always on time. The dal is particularly lovely and authentic. I'll definitely renew my subscription."
+          },
+          {
+            "id": 2,
+            "name": "Sharola Rhodes",
+            "rating": 5.0,
+            "date": "Wednesday, March 15, 2023",
+            "comment": "Wow! I love the taste. It's like grandma and hygienic. Plus, I can track my orders and choose between lunch or dinner slots easily. Highly recommended."
+          },
+          {
+            "id": 3,
+            "name": "Patricia Sanders",
+            "rating": 4.0,
+            "date": "Friday, April 11, 2023",
+            "comment": "I stay in a hostel and don't have time to cook - this service has been a lifesaver. The lunch is always warm and delivered on time. Customer support is also responsive."
+          }
+        ]
       },
       {
         "id": 5,
-        "name": "Bengali Food House",
-        "description": "Authentic Bengali cuisine with fish curry and traditional sweets",
-        "price": "₹160/meal",
-        "oldPrice": "₹4200/month",
-        "rating": 4.4,
-        "reviews": 75,
+        "name": "Maharashtrian Ghar Ka Khana 5",
+        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients. Our tiffin service has been serving the Nagpur community for over 5 years with traditional recipes passed down through generations.",
+        "price": "₹120/meal",
+        "oldPrice": "₹3200/month",
+        "monthlyPrice": "₹2800/month",
+        "rating": 4.7,
+        "reviews": 150,
         "image": "food1",
-        "tags": ["Non-Veg"],
-        "timing": "1:00 PM - 3:00 PM",
-        "location": "Sadar"
+        "tags": ["Veg"],
+        "timing": "12:00 AM - 10:00 PM",
+        "location": "Dharampeth",
+        "fullAddress": "Near Medical College, Plot No. 45, Dharampeth, Nagpur - 440010",
+        "deliveryTime": "30-45 mins",
+        "deliveryFee": "₹20",
+        "servingRadius": "5 sq km",
+        "mealPreferences": [
+          {
+            "type": "Breakfast",
+            "time": "07:00 AM - 9:00 AM"
+          },
+          {
+            "type": "Lunch",
+            "time": "12:00 PM - 2:00 PM"
+          },
+          {
+            "type": "Dinner",
+            "time": "06:00 PM - 10:00 PM"
+          }
+        ],
+        "whatsIncluded": [
+          "2 Roti + 1 Sabzi + Dal + Rice + Pickle",
+          "Seasonal vegetables",
+          "Fresh chapati made daily",
+          "Traditional spices"
+        ],
+        "orderTypes": [
+          "Monthly",
+          "Weekly", 
+          "Daily"
+        ],
+        "whyChooseUs": [
+          "Fresh ingredients daily",
+          "Home-style cooking",
+          "Hygienic preparation",
+          "On-time delivery",
+          "Monthly subscription available"
+        ],
+        "userReviews": [
+          {
+            "id": 1,
+            "name": "Autumn Phillips",
+            "rating": 4.5,
+            "date": "Monday, June 19, 2023",
+            "comment": "I've been using their service for 3 months now, and the food quality is consistently great. Fresh ingredients, clear packaging, and always on time. The dal is particularly lovely and authentic. I'll definitely renew my subscription."
+          },
+          {
+            "id": 2,
+            "name": "Sharola Rhodes",
+            "rating": 5.0,
+            "date": "Wednesday, March 15, 2023",
+            "comment": "Wow! I love the taste. It's like grandma and hygienic. Plus, I can track my orders and choose between lunch or dinner slots easily. Highly recommended."
+          },
+          {
+            "id": 3,
+            "name": "Patricia Sanders",
+            "rating": 4.0,
+            "date": "Friday, April 11, 2023",
+            "comment": "I stay in a hostel and don't have time to cook - this service has been a lifesaver. The lunch is always warm and delivered on time. Customer support is also responsive."
+          }
+        ]
       },
       {
         "id": 6,
-        "name": "Gujarati Thali Service",
-        "description": "Complete Gujarati thali with variety of sabzi, dal, and sweets",
-        "price": "₹130/meal",
-        "oldPrice": "₹3400/month",
+        "name": "Maharashtrian Ghar Ka Khana 6",
+        "description": "Authentic Maharashtrian home-style cooking with fresh ingredients. Our tiffin service has been serving the Nagpur community for over 5 years with traditional recipes passed down through generations.",
+        "price": "₹120/meal",
+        "oldPrice": "₹3200/month",
+        "monthlyPrice": "₹2800/month",
         "rating": 4.7,
-        "reviews": 180,
+        "reviews": 150,
         "image": "food1",
-        "tags": ["Non-Veg", "Jain"],
-        "timing": "12:00 PM - 2:00 PM",
-        "location": "Dharampeth"
+        "tags": ["Veg"],
+        "timing": "12:00 AM - 10:00 PM",
+        "location": "Dharampeth",
+        "fullAddress": "Near Medical College, Plot No. 45, Dharampeth, Nagpur - 440010",
+        "deliveryTime": "30-45 mins",
+        "deliveryFee": "₹20",
+        "servingRadius": "5 sq km",
+        "mealPreferences": [
+          {
+            "type": "Breakfast",
+            "time": "07:00 AM - 9:00 AM"
+          },
+          {
+            "type": "Lunch",
+            "time": "12:00 PM - 2:00 PM"
+          },
+          {
+            "type": "Dinner",
+            "time": "06:00 PM - 10:00 PM"
+          }
+        ],
+        "whatsIncluded": [
+          "2 Roti + 1 Sabzi + Dal + Rice + Pickle",
+          "Seasonal vegetables",
+          "Fresh chapati made daily",
+          "Traditional spices"
+        ],
+        "orderTypes": [
+          "Monthly",
+          "Weekly", 
+          "Daily"
+        ],
+        "whyChooseUs": [
+          "Fresh ingredients daily",
+          "Home-style cooking",
+          "Hygienic preparation",
+          "On-time delivery",
+          "Monthly subscription available"
+        ],
+        "userReviews": [
+          {
+            "id": 1,
+            "name": "Autumn Phillips",
+            "rating": 4.5,
+            "date": "Monday, June 19, 2023",
+            "comment": "I've been using their service for 3 months now, and the food quality is consistently great. Fresh ingredients, clear packaging, and always on time. The dal is particularly lovely and authentic. I'll definitely renew my subscription."
+          },
+          {
+            "id": 2,
+            "name": "Sharola Rhodes",
+            "rating": 5.0,
+            "date": "Wednesday, March 15, 2023",
+            "comment": "Wow! I love the taste. It's like grandma and hygienic. Plus, I can track my orders and choose between lunch or dinner slots easily. Highly recommended."
+          },
+          {
+            "id": 3,
+            "name": "Patricia Sanders",
+            "rating": 4.0,
+            "date": "Friday, April 11, 2023",
+            "comment": "I stay in a hostel and don't have time to cook - this service has been a lifesaver. The lunch is always warm and delivered on time. Customer support is also responsive."
+          }
+        ]
       }
     ],
     "hostels": [
