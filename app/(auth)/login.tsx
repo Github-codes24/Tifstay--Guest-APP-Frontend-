@@ -1,4 +1,3 @@
-
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -18,19 +17,35 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
 
-  const validatePhoneNumber = (Number) => {
-    // Remove any non-digit characters
-    const cleanedNumber = number.replace(/\D/g, "");
-    return cleanedNumber.length === 10;
+  // Regex patterns for phone validation
+  const phoneRegex = {
+    // Exactly 10 digits
+    tenDigits: /^[0-9]{10}$/,
+    
+    // 10 digits starting with 6, 7, 8, or 9 (Indian mobile numbers)
+    indianMobile: /^[6-9][0-9]{9}$/,
+    
+    // US phone format: (123) 456-7890 or 123-456-7890
+    usFormat: /^($[0-9]{3}$|[0-9]{3})[-\s]?[0-9]{3}[-\s]?[0-9]{4}$/,
+    
+    // International format with optional + and country code
+    international: /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,4}$/,
+  };
+
+  const validatePhoneNumber = (phoneNum:string) => {
+    // Remove all non-digit characters for validation
+    const digitsOnly = phoneNum.replace(/\D/g, "");
+    
+    // Check if it's exactly 10 digits
+    return phoneRegex.tenDigits.test(digitsOnly);
+    
+    // Or use Indian mobile validation (starts with 6-9)
+    // return phoneRegex.indianMobile.test(digitsOnly);
   };
 
   const handleGetOTP = () => {
-    // Remove any non-digit characters for validation
-    const cleanedNumber = phoneNumber.replace(/\D/g, "");
-    
     if (!validatePhoneNumber(phoneNumber)) {
       setError("Please enter a valid 10-digit phone number");
-      // Optionally show an alert
       Alert.alert("Invalid Phone Number", "Please enter a valid 10-digit phone number");
       return;
     }
@@ -40,13 +55,27 @@ export default function LoginScreen() {
     router.navigate("/verify");
   };
 
-  const handlePhoneNumberChange = (text) => {
-    // Only allow digits and limit to 10 characters
-    const cleanedText = text.replace(/\D/g, "").slice(0, 10);
-    setPhoneNumber(cleanedText);
+  const handlePhoneNumberChange = (inputText:string) => {
+    // Method 1: Allow only digits using regex
+    const digitsOnly = inputText.replace(/[^0-9]/g, "");
     
-    // Clear error when user starts typing
-    if (error) {
+    // Method 2: Format as you type (e.g., XXX-XXX-XXXX)
+    // const formatted = digitsOnly
+    //   .replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+    //   .substring(0, 12);
+    
+    // Limit to 10 digits
+    const limitedInput = digitsOnly.substring(0, 10);
+    setPhoneNumber(limitedInput);
+    
+    // Real-time validation (optional)
+    if (limitedInput.length === 10) {
+      if (!phoneRegex.tenDigits.test(limitedInput)) {
+        setError("Invalid phone number format");
+      } else {
+        setError("");
+      }
+    } else {
       setError("");
     }
   };
@@ -71,6 +100,8 @@ export default function LoginScreen() {
         <CustomButton
           title="Get OTP"
           onPress={handleGetOTP}
+          // Optional: Disable button if phone number is not 10 digits
+          // disabled={phoneNumber.length !== 10}
         />
         
         <View style={styles.footer}>

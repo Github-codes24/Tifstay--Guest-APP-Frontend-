@@ -3,7 +3,7 @@ import { Text, View, StyleSheet } from "react-native";
 function Notification() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>favorites</Text>
+      <Text style={styles.text}>favorite</Text>
     </View>
   );
 }

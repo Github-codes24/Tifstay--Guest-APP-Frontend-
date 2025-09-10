@@ -16,12 +16,15 @@ import LocationModal from "@/components/LocationModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import { food1 } from "@/assets/images";
+import hostel1 from "@/assets/images/hostel1.png";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
+// import FilterModal from "@/components/modals/FilterModal";
 
 export default function DashboardScreen() {
   const router = useRouter();
   const [showLocationModal, setShowLocationModal] = useState(true);
+  const [showFliterModal,setShowFilterModal]=useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
@@ -123,8 +126,11 @@ export default function DashboardScreen() {
 
   const handleProfilePress = () => {
     router.push("/account");
+  
   };
-
+  const onhandlePress =()=>{
+    router.push("../")
+  }
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
 
   return (
@@ -181,23 +187,31 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.filterButton}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            //  onPress={()=>router.push("/(secure)/(tabs)/filter")}
+            onPress={() => router.push("../../")}
+          >
             <Ionicons name="options" size={22} color="#2563EB" />
           </TouchableOpacity>
         </View>
 
         {/* Only show banner for tiffin services */}
-        {!isHostel && !searchQuery && (
+        {!searchQuery && (
           <View style={styles.banner}>
             <Image
-              source={food1}
+              source={isHostel ? hostel1 : food1}
               style={styles.bannerImage}
               resizeMode="cover"
             />
             <View style={styles.bannerContent}>
-              <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
+              <Text style={styles.bannerTitle}>
+                {isHostel ? "Find the Best\nPGs & Hostels" : "Indian\nCuisine"}
+              </Text>
               <Text style={styles.bannerSubtitle}>
-                Enjoy pure taste of your{"\n"}home-made delights
+                {isHostel
+                  ? "Comfortable, affordable stay options\nnear your college or office."
+                  : "Enjoy pure taste of your\nhome-made delights"}
               </Text>
               <Text style={styles.bannerLink}>www.website.com</Text>
             </View>
@@ -296,8 +310,8 @@ export default function DashboardScreen() {
               {searchQuery
                 ? "Search Results"
                 : isHostel
-                ? "Available Accommodations"
-                : "Available Tiffin Services"}
+                  ? "Available Accommodations"
+                  : "Available Tiffin Services"}
             </Text>
             {!isHostel && (
               <TouchableOpacity
@@ -305,7 +319,7 @@ export default function DashboardScreen() {
                 onPress={() => setIsVegOnly(!isVegOnly)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.vegText}>Veg</Text>
+                <Text style={styles.vegText}>Veg </Text>
                 <View
                   style={[
                     styles.vegSwitchContainer,
@@ -374,6 +388,7 @@ export default function DashboardScreen() {
                     service={service}
                     onPress={() => handleTiffinPress(service)}
                     onBookPress={() => handleBookPress(service)}
+                    isVeg={service.isVeg}
                   />
                 ))
               ) : (
@@ -448,7 +463,16 @@ export default function DashboardScreen() {
         onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
       />
+      {/* <FilterModal
+      visible={showFliterModal}
+      Onclose={()=>setShowFilterModal(false)}
+      
+    /> */}
     </View>
+    
+
+  
+    
   );
 }
 
