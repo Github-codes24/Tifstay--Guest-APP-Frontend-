@@ -29,7 +29,7 @@ export default function LoginScreen() {
           onPress={() => router.navigate("/verify")}
         />
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Don’t have an account? </Text>
+          <Text style={styles.footerText}>{"Don’t have an account"}? </Text>
           <TouchableOpacity onPress={() => router.navigate("/register")}>
             <Text style={styles.footerLink}>Register</Text>
           </TouchableOpacity>

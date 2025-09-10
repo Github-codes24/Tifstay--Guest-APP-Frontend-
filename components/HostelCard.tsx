@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
-import { Ionicons as Icon } from "@expo/vector-icons";
 
 interface HostelCardProps {
   hostel: {
@@ -71,16 +70,13 @@ export default function HostelCard({
             </View>
           </View>
 
-          {/* Sublocality */}
           <Text style={styles.sublocation}>Near VNIT, Medical College</Text>
 
-          {/* Available Beds */}
           <View style={styles.bedsRow}>
             <Ionicons name="bed-outline" size={16} color="#6B7280" />
             <Text style={styles.bedsText}>8/30 available</Text>
           </View>
 
-          {/* Amenities */}
           <View style={styles.amenitiesRow}>
             {hostel.amenities.slice(0, 4).map((amenity) => (
               <View key={amenity} style={styles.amenityItem}>
@@ -94,7 +90,6 @@ export default function HostelCard({
             ))}
           </View>
 
-          {/* Price and Book Button */}
           <View style={styles.bottomRow}>
             <View style={styles.priceContainer}>
               <Text style={styles.price}>{hostel.price}</Text>

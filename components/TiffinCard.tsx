@@ -33,12 +33,9 @@ export default function TiffinCard({
       activeOpacity={0.7}
     >
       <View style={styles.cardContent}>
-        {/* Left side - Image */}
         <Image source={service.image} style={styles.serviceImage} />
 
-        {/* Right side - Content */}
         <View style={styles.serviceInfo}>
-          {/* Title and Rating Row */}
           <View style={styles.headerRow}>
             <Text style={styles.serviceName} numberOfLines={1}>
               {service.name}
@@ -50,12 +47,10 @@ export default function TiffinCard({
             </View>
           </View>
 
-          {/* Description */}
           <Text style={styles.serviceDescription} numberOfLines={2}>
             {service.description}
           </Text>
 
-          {/* Price Row */}
           <View style={styles.priceRow}>
             <View>
               <Text style={styles.price}>{service.price}</Text>
@@ -66,7 +61,6 @@ export default function TiffinCard({
             </View>
           </View>
 
-          {/* Veg Tag and Location/Time Row */}
           <View style={styles.infoRow}>
             <View style={styles.vegTag}>
               <Image
@@ -90,7 +84,6 @@ export default function TiffinCard({
             </View>
           </View>
 
-          {/* Book Button */}
           <View style={styles.bookButtonContainer}>
             <View>
               <Text style={styles.price}>{service.price}</Text>

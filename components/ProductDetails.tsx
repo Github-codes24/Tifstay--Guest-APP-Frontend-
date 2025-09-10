@@ -444,7 +444,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Order Now"
-            onPress={() => router.navigate("/")}
+            onPress={() => router.navigate("/my-cart")}
             width={width - 48}
             height={56}
             style={styles.primaryButton}
@@ -462,7 +462,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Select Room"
-            onPress={() => router.navigate("/")}
+            onPress={() => router.navigate("/check-out?serviceType=hostel")}
             width={width - 48}
             height={56}
             style={styles.primaryButton}
