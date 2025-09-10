@@ -19,12 +19,14 @@ interface TiffinCardProps {
   };
   onPress?: () => void;
   onBookPress?: () => void;
+  isVeg?: boolean;
 }
 
 export default function TiffinCard({
   service,
   onPress,
   onBookPress,
+  isVeg,
 }: TiffinCardProps) {
   return (
     <TouchableOpacity
@@ -68,11 +70,20 @@ export default function TiffinCard({
 
           {/* Veg Tag and Location/Time Row */}
           <View style={styles.infoRow}>
-            <View style={styles.vegTag}>
-              <Image
-                source={require("../assets/images/vegIcon.png")}
-                style={styles.vegIcon}
-              />
+            <View
+              style={[
+                styles.vegTag,
+                isVeg ? styles.vegTagActive : styles.vegTagInactive,
+              ]}
+            >
+              {isVeg ? (
+                <Image
+                  source={require("../assets/images/vegIcon.png")}
+                  style={styles.vegIcon}
+                />
+              ) : (
+                <Text style={styles.bothText}>Both</Text>
+              )}
             </View>
             <View style={styles.locationTimeContainer}>
               <Ionicons
@@ -207,14 +218,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   vegTag: {
-    backgroundColor: "#10B981",
-    paddingHorizontal: 2,
-    paddingVertical: 4,
     borderRadius: 12,
+    paddingVertical: 4,
+    // paddingHorizontal handled separately in active/inactive
+  },
+  vegTagActive: {
+    backgroundColor: "#10B981",
+    borderWidth: 0,
+    paddingHorizontal: 0,
+  },
+  vegTagInactive: {
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "grey",
+    paddingHorizontal: 10,
   },
   vegIcon: {
     width: 52,
     height: 16,
+  },
+  bothText: {
+    fontSize: 10,
+    color: "#0A051F",
   },
   locationTimeContainer: {
     flexDirection: "row",
@@ -225,6 +250,7 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 10,
     color: "#6B7280",
+    marginRight: 8,
   },
   timingText: {
     fontSize: 10,
