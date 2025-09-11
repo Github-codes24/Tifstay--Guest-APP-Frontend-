@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   Animated,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,8 +20,6 @@ import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/hostel1.png";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
-3;
-// import FilterModal from "@/components/modals/FilterModal";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -36,7 +35,7 @@ export default function DashboardScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
-  const searchInputRef = useRef<TextInput>(null); // Add ref for TextInput
+  const searchInputRef = useRef<TextInput>(null);
 
   const imageMapping: { [key: string]: any } = {
     food1: food1,
@@ -128,9 +127,15 @@ export default function DashboardScreen() {
   const handleProfilePress = () => {
     router.push("/account");
   };
-  const onhandlePress = () => {
-    router.push("../");
+
+  // New function to handle back button in search
+  const handleSearchBack = () => {
+    setSearchQuery("");
+    setIsSearchFocused(false);
+    searchInputRef.current?.blur();
+    Keyboard.dismiss();
   };
+
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
 
   return (
@@ -176,9 +181,17 @@ export default function DashboardScreen() {
               isSearchFocused && styles.searchContainerFocused,
             ]}
           >
+            {isSearchFocused && (
+              <TouchableOpacity
+                style={styles.searchBackButton}
+                onPress={handleSearchBack}
+              >
+                <Ionicons name="chevron-back" size={24} color="#000" />
+              </TouchableOpacity>
+            )}
             <Ionicons name="search" size={20} color="#6B7280" />
             <TextInput
-              ref={searchInputRef} // Add ref here
+              ref={searchInputRef}
               placeholder={
                 isSearchFocused
                   ? isHostel
@@ -191,12 +204,6 @@ export default function DashboardScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => {
-                // Only set search focused to false if there's no search query
-                if (!searchQuery.trim()) {
-                  setIsSearchFocused(false);
-                }
-              }}
               style={styles.searchInput}
               placeholderTextColor="#9CA3AF"
             />
@@ -210,13 +217,14 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.filterButton}
-            //  onPress={()=>router.push("/(secure)/(tabs)/filter")}
-            onPress={() => router.push("../../")}
-          >
-            <Ionicons name="options" size={22} color="#2563EB" />
-          </TouchableOpacity>
+          {!isSearchFocused && (
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => router.push("../../")}
+            >
+              <Ionicons name="options" size={22} color="#2563EB" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {isSearchFocused ? (
@@ -542,6 +550,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  searchBackButton: {
+    marginRight: 8,
+    padding: 4,
+  },
   locationContainer: {
     flex: 1,
   },
@@ -597,6 +618,7 @@ const styles = StyleSheet.create({
   searchContainerFocused: {
     backgroundColor: "#F0F4FF",
     borderColor: "#6B7EF5",
+    paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
