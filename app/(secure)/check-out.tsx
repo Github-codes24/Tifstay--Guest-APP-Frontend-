@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { mastercard } from "@/assets/images";
+import mastercard from "@/assets/images/icons/mastercard.png";
 import CheckoutItemCard, {
   TiffinCheckoutData,
   HostelCheckoutData,

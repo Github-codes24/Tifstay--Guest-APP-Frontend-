@@ -12,7 +12,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import Button from "@/components/Buttons";
-import { mastercard, visa, paypal, stripe, wallet } from "@/assets/images";
+import mastercard from "@/assets/images/icons/mastercard.png";
+import visa from "@/assets/images/icons/visa.png";
+import paypal from "@/assets/images/icons/paypal.png";
+import stripe from "@/assets/images/icons/stripe.png";
+import wallet from "@/assets/images/icons/wallet.png";
 
 interface PaymentMethod {
   id: string;
@@ -74,7 +78,7 @@ const Payment: React.FC = () => {
 
     // Navigate to confirmation with all necessary params
     router.push({
-      pathname: "/confirmation",
+      pathname: "/Confirmation",
       params: {
         serviceType,
         amount,
