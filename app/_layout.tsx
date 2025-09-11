@@ -8,6 +8,8 @@ const Navigation = () => {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" redirect={user} />
       <Stack.Screen name="(secure)" redirect={!user} />
+      
+
     </Stack>
   );
 };

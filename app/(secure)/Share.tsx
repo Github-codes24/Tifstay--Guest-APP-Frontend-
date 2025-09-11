@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import Button from "./Buttons";
+import Button from "../../components/Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
 
@@ -23,7 +23,7 @@ interface ProductDetailsProps {
   type: "tiffin" | "hostel";
 }
 
-export default function ProductDetails({ data, type }: ProductDetailsProps) {
+export default function Share({ data, type }: ProductDetailsProps) {
   const [activeTab, setActiveTab] = useState("Details");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -497,7 +497,6 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         {renderBottomButtons()}
       </ScrollView>
     </SafeAreaView>
-   
   );
 }
 

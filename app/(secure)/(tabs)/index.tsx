@@ -19,6 +19,7 @@ import { food1 } from "@/assets/images";
 import hostel1 from "@/assets/images/hostel1.png";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
+3
 // import FilterModal from "@/components/modals/FilterModal";
 
 export default function DashboardScreen() {
@@ -382,7 +383,7 @@ export default function DashboardScreen() {
                   : `${tiffinServices.length} services found in ${userLocation}`}
               </Text>
               {filteredTiffinServices.length > 0 ? (
-                filteredTiffinServices.map((service) => (
+                filteredTiffinServices?.map((service) => (
                   <TiffinCard
                     key={service.id}
                     service={service}
@@ -463,11 +464,7 @@ export default function DashboardScreen() {
         onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
       />
-      {/* <FilterModal
-      visible={showFliterModal}
-      Onclose={()=>setShowFilterModal(false)}
-      
-    /> */}
+    
     </View>
     
 

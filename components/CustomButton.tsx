@@ -5,8 +5,10 @@ import {
   ImageSourcePropType,
   StyleSheet,
   Text,
+  TextStyle,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from "react-native";
 import colors from "../constants/colors";
 
@@ -15,6 +17,8 @@ interface ButtonProps {
   onPress: () => void;
   variant?: "primary" | "secondary";
   icon?: ImageSourcePropType;
+  style?:ViewStyle
+  textStyle?:TextStyle
 }
 
 const CustomButton: React.FC<ButtonProps> = ({
@@ -22,10 +26,12 @@ const CustomButton: React.FC<ButtonProps> = ({
   onPress,
   variant = "primary",
   icon,
+  style,
+  textStyle,
 }) => {
   return (
     <TouchableOpacity
-      style={[styles.button, variant === "secondary" && styles.secondary]}
+      style={[styles.button, variant === "secondary" && styles.secondary,style]}
       onPress={onPress}
       activeOpacity={0.8}
     >
@@ -35,7 +41,7 @@ const CustomButton: React.FC<ButtonProps> = ({
         )}
         <Text
           style={[
-            styles.text,
+            styles.text,textStyle,
             {
               color:
                 variant === "secondary" ? colors.textPrimary : colors.white,

@@ -290,6 +290,7 @@
 // });
 
 import { address, arrow, coin, customerService, deposit, documents, logout, payment, Privacy, profile, terms, user, wallet } from "@/assets/images";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -340,19 +341,19 @@ const AccountScreen = () => {
           customStyle={{
             borderRadius: 10,
           }}
-          // onpress={() => router.push("/profile")}
+          onpress={() => router.push("/TrackOrder")}
         />
 
         {/* Menu Items */}
         <MenuItem
           label="wallet"
           image={wallet}
-        
+         onpress={() => router.push("/RateNow")}
         />
         <MenuItem
           label="Payment Method"
           image={payment}
-          
+            onpress={() => router.push("/Confirmation")}
         />
         <MenuItem label="Deposite" 
         image={deposit} 

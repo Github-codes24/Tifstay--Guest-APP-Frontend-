@@ -18,6 +18,13 @@ import customerService from "./icon/CustomerService.png"
 import arrow from "./icon/arrow-left.png"
 import logout from "./icon/logout.png"
 import user from "./user.png"
+import dropdown from "./dropdown.png"
+import calender from "./calender.png"
+import location from "./loctaion.png"
+import person from "./person.png"
+import location1 from "./location1.png"
+
+import pen from "./pen.png"
 export {
   food1,
   foodTray,
@@ -38,5 +45,12 @@ terms,
 customerService,
 arrow,
 logout,
-user
+user,
+dropdown,
+calender,
+location,
+person,
+location1,
+
+pen,
 };
