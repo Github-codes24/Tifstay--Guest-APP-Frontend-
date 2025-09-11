@@ -444,7 +444,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Order Now"
-            onPress={() => router.navigate("/my-cart")}
+            onPress={() => router.navigate("/check-out?serviceType=tiffin")}
             width={width - 48}
             height={56}
             style={styles.primaryButton}

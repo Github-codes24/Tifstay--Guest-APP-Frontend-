@@ -1,4 +1,4 @@
-// screens/Payment.tsx
+// app/payment.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -10,8 +10,8 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import Button from "../../components/Buttons";
+import { router, useLocalSearchParams } from "expo-router";
+import Button from "@/components/Buttons";
 import { mastercard, visa, paypal, stripe, wallet } from "@/assets/images";
 
 interface PaymentMethod {
@@ -25,6 +25,10 @@ interface PaymentMethod {
 }
 
 const Payment: React.FC = () => {
+  const params = useLocalSearchParams();
+  const { serviceType, amount, serviceId, serviceName } = params;
+  const isTiffin = serviceType === "tiffin";
+
   const [selectedMethod, setSelectedMethod] = useState<string>("mastercard");
 
   const paymentMethods: PaymentMethod[] = [
@@ -62,9 +66,23 @@ const Payment: React.FC = () => {
     },
   ];
 
+  // In payment.tsx, update the handleContinue function:
   const handleContinue = () => {
     console.log("Selected payment method:", selectedMethod);
-    router.push("/confirmation");
+    console.log("Service type:", serviceType);
+    console.log("Amount:", amount);
+
+    // Navigate to confirmation with all necessary params
+    router.push({
+      pathname: "/confirmation",
+      params: {
+        serviceType,
+        amount,
+        serviceId,
+        serviceName,
+        paymentMethod: selectedMethod,
+      },
+    });
   };
 
   return (
@@ -86,8 +104,23 @@ const Payment: React.FC = () => {
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>Payment</Text>
           <Text style={styles.subtitle}>
-            Select the Payment Methods you Want to Use
+            Select the Payment Method you Want to Use
           </Text>
+        </View>
+
+        {/* Payment Info Box - Show what's being paid for */}
+        <View style={styles.paymentInfoBox}>
+          <View style={styles.paymentInfoRow}>
+            <Text style={styles.paymentInfoLabel}>
+              {isTiffin ? "Tiffin Service" : "Hostel Booking"}
+            </Text>
+            <Text style={styles.paymentInfoValue}>{serviceName}</Text>
+          </View>
+          <View style={styles.paymentInfoDivider} />
+          <View style={styles.paymentInfoRow}>
+            <Text style={styles.paymentInfoLabel}>Amount to Pay</Text>
+            <Text style={styles.paymentInfoAmount}>{amount}</Text>
+          </View>
         </View>
 
         {/* Payment Methods */}
@@ -136,7 +169,7 @@ const Payment: React.FC = () => {
       {/* Continue Button */}
       <View style={styles.buttonContainer}>
         <Button
-          title="Continue"
+          title={`Pay ${amount}`}
           onPress={handleContinue}
           width={undefined} // Will use default 80% width
           style={styles.continueButton}
@@ -155,7 +188,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
@@ -192,6 +224,44 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: "#666",
+  },
+  paymentInfoBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  paymentInfoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  paymentInfoLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  paymentInfoValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+  },
+  paymentInfoDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginVertical: 12,
+  },
+  paymentInfoAmount: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#004AAD",
   },
   methodsContainer: {
     gap: 12,
@@ -261,24 +331,6 @@ const styles = StyleSheet.create({
   methodBalance: {
     fontSize: 13,
     color: "#666",
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#004AAD",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  radioButtonSelected: {
-    borderColor: "#004AAD",
-  },
-  radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#004AAD",
   },
   buttonContainer: {
     padding: 16,

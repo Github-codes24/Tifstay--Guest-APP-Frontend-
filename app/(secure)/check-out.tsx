@@ -1,4 +1,4 @@
-// screens/Checkout.tsx
+// app/checkout.tsx
 import React from "react";
 import {
   View,
@@ -12,14 +12,19 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { mastercard } from "@/assets/images";
-import { CartItemData } from "@/components/CartCard";
+import CheckoutItemCard, {
+  TiffinCheckoutData,
+  HostelCheckoutData,
+} from "@/components/CheckoutItemCard";
 
 const Checkout: React.FC = () => {
   const { serviceType } = useLocalSearchParams();
   const isTiffin = serviceType === "tiffin";
+  const isHostel = serviceType === "hostel";
+  console.log("Service Type:", serviceType);
 
-  console.log({ serviceType });
-  const cartItem: CartItemData = {
+  // Sample data - replace with actual data from navigation params or context
+  const tiffinData: TiffinCheckoutData = {
     id: "1",
     title: "Maharashtrian Ghar Ka Khana",
     imageUrl:
@@ -31,6 +36,44 @@ const Checkout: React.FC = () => {
     orderType: "Delivery",
     price: "₹120/meal",
   };
+
+  const hostelData: HostelCheckoutData = {
+    id: "2",
+    title: "Scholars Den Boys Hostel",
+    imageUrl: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
+    guestName: "Onil Karmokar",
+    contact: "0190825000",
+    checkInDate: "01/08/25",
+    checkOutDate: "01/09/25",
+    rent: "₹8000/month",
+    deposit: "₹15000",
+  };
+
+  const checkoutData = isTiffin ? tiffinData : hostelData;
+
+  // Calculate transaction details based on service type
+  const getTransactionDetails = () => {
+    if (isTiffin) {
+      return {
+        subtotal: 120,
+        tps: 20,
+        tvq: 30,
+        total: 120.5,
+        discount: 20,
+        net: 100.5,
+      };
+    } else {
+      return {
+        rent: 8000,
+        tps: 15000, // Using TPS for deposit display
+        tvq: 200,
+        total: 23200,
+        net: 23200,
+      };
+    }
+  };
+
+  const transaction = getTransactionDetails();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,56 +102,11 @@ const Checkout: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Cart Item */}
-          <View style={styles.cartItemContainer}>
-            <Image
-              source={{ uri: cartItem.imageUrl }}
-              style={styles.foodImage}
-            />
-            <View style={styles.itemInfo}>
-              <Text style={styles.foodTitle}>{cartItem.title}</Text>
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Meal Type</Text>
-                <Text style={styles.detailColon}>:</Text>
-                <Text style={styles.detailValue}>{cartItem.mealType}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Food Type</Text>
-                <Text style={styles.detailColon}>:</Text>
-                <Text style={styles.detailValue}>{cartItem.foodType}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Start Date</Text>
-                <Text style={styles.detailColon}>:</Text>
-                <Text style={styles.detailValue}>{cartItem.startDate}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Plan</Text>
-                <Text style={styles.detailColon}>:</Text>
-                <Text style={styles.detailValue}>{cartItem.plan}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Order Type</Text>
-                <Text style={styles.detailColon}>:</Text>
-                <Text style={styles.detailValue}>{cartItem.orderType}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Price</Text>
-                <Text style={styles.detailColon}>:</Text>
-                <Text style={styles.detailValue}>{cartItem.price}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.calendarIcon}>
-              <Ionicons name="calendar-outline" size={20} color="#666" />
-            </TouchableOpacity>
-          </View>
+          {/* Use the reusable component */}
+          <CheckoutItemCard
+            serviceType={isTiffin ? "tiffin" : "hostel"}
+            data={checkoutData}
+          />
         </View>
 
         {/* Transaction Details */}
@@ -116,35 +114,79 @@ const Checkout: React.FC = () => {
           <Text style={styles.paymentSectionTitle}>Transaction Details</Text>
 
           <View style={styles.transactionDetails}>
-            <View style={styles.transactionRow}>
-              <Text style={styles.transactionLabel}>Subtotal (1 items)</Text>
-              <Text style={styles.transactionValue}>₹120</Text>
-            </View>
+            {isTiffin ? (
+              // Tiffin Transaction Details
+              <>
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>
+                    Subtotal (1 items)
+                  </Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.subtotal}
+                  </Text>
+                </View>
 
-            <View style={styles.transactionRow}>
-              <Text style={styles.transactionLabel}>TPS (5%)</Text>
-              <Text style={styles.transactionValue}>₹ 20</Text>
-            </View>
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>TPS (5%)</Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.tps}
+                  </Text>
+                </View>
 
-            <View style={styles.transactionRow}>
-              <Text style={styles.transactionLabel}>TVQ (9.975%)</Text>
-              <Text style={styles.transactionValue}>₹ 30</Text>
-            </View>
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>TVQ (9.975%)</Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.tvq}
+                  </Text>
+                </View>
 
-            <View style={[styles.totalRow]}>
-              <Text>Total</Text>
-              <Text style={styles.totalValue}>₹120.50</Text>
-            </View>
+                <View style={[styles.totalRow]}>
+                  <Text>Total</Text>
+                  <Text style={styles.totalValue}>₹{transaction.total}</Text>
+                </View>
 
-            <View style={styles.lessOffRow}>
-              <Text style={styles.transactionLabel}>Less off 10%</Text>
-              <Text style={styles.transactionValue}>₹20</Text>
-            </View>
+                <View style={styles.lessOffRow}>
+                  <Text style={styles.transactionLabel}>Less off 10%</Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.discount}
+                  </Text>
+                </View>
 
-            <View style={[styles.netRow]}>
-              <Text style={styles.netLabel}>Net</Text>
-              <Text style={styles.netValue}>₹100.50</Text>
-            </View>
+                <View style={[styles.netRow]}>
+                  <Text style={styles.netLabel}>Net</Text>
+                  <Text style={styles.netValue}>₹{transaction.net}</Text>
+                </View>
+              </>
+            ) : (
+              // Hostel Transaction Details
+              <>
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>Rent</Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.rent}
+                  </Text>
+                </View>
+
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>TPS (5%)</Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.tps}
+                  </Text>
+                </View>
+
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>TVQ (9.975%)</Text>
+                  <Text style={styles.transactionValue}>
+                    ₹{transaction.tvq}
+                  </Text>
+                </View>
+
+                <View style={[styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>₹{transaction.total}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -157,10 +199,9 @@ const Checkout: React.FC = () => {
           </Text>
         </View>
 
-        {/* Pay Button */}
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
       {/* Payment Method */}
       <View style={styles.paymentSection}>
         <View style={styles.paymentContent}>
@@ -181,11 +222,24 @@ const Checkout: React.FC = () => {
               </View>
             </View>
           </View>
+
           <TouchableOpacity
             style={styles.payButton}
-            onPress={() => router.push("/payment")}
+            onPress={() => {
+              router.push({
+                pathname: "/payment",
+                params: {
+                  serviceType: isTiffin ? "tiffin" : "hostel",
+                  amount: `₹${transaction.net || transaction.total}`,
+                  serviceId: checkoutData.id,
+                  serviceName: checkoutData.title,
+                },
+              });
+            }}
           >
-            <Text style={styles.payButtonText}>Pay ₹100.50</Text>
+            <Text style={styles.payButtonText}>
+              Pay ₹{transaction.net || transaction.total}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -250,54 +304,6 @@ const styles = StyleSheet.create({
     color: "#4A90E2",
     fontSize: 14,
   },
-  cartItemContainer: {
-    flexDirection: "row",
-    position: "relative",
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-    borderRadius: 8,
-    padding: 12,
-  },
-  foodImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  foodTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 6,
-    color: "#000",
-  },
-  detailRow: {
-    flexDirection: "row",
-    marginBottom: 3,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: "#666",
-    width: 70,
-  },
-  detailColon: {
-    fontSize: 12,
-    color: "#666",
-    marginHorizontal: 6,
-  },
-  detailValue: {
-    fontSize: 12,
-    color: "#333",
-    fontWeight: "500",
-  },
-  calendarIcon: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    padding: 4,
-  },
   transactionSection: {
     backgroundColor: "#fff",
     paddingHorizontal: 20,
@@ -340,14 +346,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  lessOffRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e8e8e8",
-  },
-  lessOffLabel: {
+  totalLabel: {
     fontSize: 15,
     fontWeight: "600",
     color: "#000",
@@ -356,6 +355,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#000",
+  },
+  lessOffRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e8e8e8",
   },
   netRow: {
     paddingTop: 14,
@@ -399,7 +405,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F2EFFD",
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 34, // Account for home indicator on iPhone
+    paddingBottom: 34,
     borderTopWidth: 1,
     borderTopColor: "#e8e8e8",
     shadowColor: "#000",
@@ -464,7 +470,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   bottomSpacer: {
-    height: 120, // Increase to account for fixed payment section
+    height: 120,
   },
 });
 

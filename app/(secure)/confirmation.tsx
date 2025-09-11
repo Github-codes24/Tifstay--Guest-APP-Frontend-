@@ -1,4 +1,4 @@
-// screens/Confirmation.tsx
+// app/confirmation.tsx
 import React from "react";
 import {
   View,
@@ -10,15 +10,27 @@ import {
   Image,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Button from "@/components/Buttons";
-import { food1 } from "@/assets/images";
 import Logo from "@/components/Logo";
+import TiffinCard from "@/components/TiffinCard";
+import HostelCard from "@/components/HostelCard";
+import demoData from "@/data/demoData.json";
 
 const Confirmation: React.FC = () => {
-  const bookingDetails = {
-    id: "hkl4882266",
-    tiffinService: "Maharashtrian Ghar Ka Khana",
+  const params = useLocalSearchParams();
+  const { serviceType, amount, serviceId, serviceName, paymentMethod } = params;
+  const isTiffin = serviceType === "tiffin";
+
+  // Generate order ID
+  const orderId = `${isTiffin ? "mk" : "hkl"}${Math.floor(
+    Math.random() * 10000000
+  )}`;
+
+  // Default booking details for tiffin
+  const tiffinBookingDetails = {
+    id: orderId,
+    tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
     customer: "Onil Karmokar",
     startDate: "21/07/25",
     mealType: "Lunch",
@@ -26,6 +38,35 @@ const Confirmation: React.FC = () => {
     orderType: "Delivery",
     plan: "Daily",
   };
+
+  // Default booking details for hostel
+  const hostelBookingDetails = {
+    id: orderId,
+    hostelBooking: serviceName || "Scholars Den Boys Hostel",
+    customer: "Onil Karmokar",
+    checkInDate: "01/08/25",
+  };
+
+  const bookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+
+  // Get recommendation data (show opposite service)
+  const getRecommendations = () => {
+    if (isTiffin) {
+      // Show hostel recommendations for tiffin booking
+      return demoData.hostels.slice(0, 3).map((hostel) => ({
+        ...hostel,
+        image: require("../../assets/images/hostel1.png"),
+      }));
+    } else {
+      // Show tiffin recommendations for hostel booking
+      return demoData.tiffinServices.slice(0, 3).map((service) => ({
+        ...service,
+        image: require("../../assets/images/food1.png"),
+      }));
+    }
+  };
+
+  const recommendations = getRecommendations();
 
   const handleCallAdmin = () => {
     console.log("Calling admin...");
@@ -35,12 +76,16 @@ const Confirmation: React.FC = () => {
     console.log("Opening chat...");
   };
 
-  const handleBookNow = () => {
-    router.push("/hostel-details/1 ?serviceType=tiffin");
+  const handleBookNow = (item: any) => {
+    if (isTiffin) {
+      router.push(`/hostel-details/${item.id}`);
+    } else {
+      router.push(`/tiffin-details/${item.id}`);
+    }
   };
 
   const handleGoToOrder = () => {
-    router.push("/orders");
+    router.push("/my-orders");
   };
 
   const handleBackToHome = () => {
@@ -57,96 +102,96 @@ const Confirmation: React.FC = () => {
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>Booking Submitted!</Text>
           <Text style={styles.subtitle}>
-            Your tiffin booking request has been sent successfully.
+            Your {isTiffin ? "tiffin" : "hostel"} booking request has been sent
+            successfully.
           </Text>
         </View>
 
         {/* Booking Summary */}
         <View style={styles.summaryCard}>
-          <Text style={styles.sectionTitle}>Booking Summary</Text>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Tiffin Service:</Text>
-            <Text style={styles.detailValue}>
-              {bookingDetails.tiffinService}
-            </Text>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.sectionTitle}>Booking Summary</Text>
+            <TouchableOpacity style={styles.invoiceButton}>
+              <Text style={styles.invoiceText}>↓ Invoice</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Customer:</Text>
-            <Text style={styles.detailValue}>{bookingDetails.customer}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Start Date:</Text>
-            <Text style={styles.detailValue}>{bookingDetails.startDate}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Meal Type:</Text>
-            <Text style={styles.detailValue}>{bookingDetails.mealType}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Food Type:</Text>
-            <Text style={styles.detailValue}>{bookingDetails.foodType}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Order Type:</Text>
-            <Text style={styles.detailValue}>{bookingDetails.orderType}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Plan:</Text>
-            <Text style={styles.detailValue}>{bookingDetails.plan}</Text>
-          </View>
-
-          <View style={[styles.detailRow]}>
-            <Text style={styles.detailLabel}>Order ID:</Text>
-            <Text style={styles.orderId}>#{bookingDetails.id}</Text>
-          </View>
+          {isTiffin ? (
+            // Tiffin booking summary
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Tiffin Service:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.tiffinService}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Customer:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.customer}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Start Date:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.startDate}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Meal Type:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.mealType}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Food Type:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.foodType}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Order Type:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.orderType}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Plan:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.plan}
+                </Text>
+              </View>
+              <View style={[styles.detailRow]}>
+                <Text style={styles.detailLabel}>Order ID:</Text>
+                <Text style={styles.orderId}>#{tiffinBookingDetails.id}</Text>
+              </View>
+            </>
+          ) : (
+            // Hostel booking summary
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Hostel Booking :</Text>
+                <Text style={styles.detailValue}>
+                  {hostelBookingDetails.hostelBooking}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Customer :</Text>
+                <Text style={styles.detailValue}>
+                  {hostelBookingDetails.customer}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Check-in date :</Text>
+                <Text style={styles.detailValue}>
+                  {hostelBookingDetails.checkInDate}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
-        {/* What's Next Section */}
-        <View style={styles.whatsNextSection}>
-          <Text style={styles.sectionTitle}>{"What's Next?"}</Text>
-
-          <View style={styles.preferenceCard}>
-            <Text style={styles.preferenceTitle}>Meal Preference</Text>
-            <View style={styles.preferenceRow}>
-              <Text style={styles.preferenceNumberText}>1</Text>
-              <Text style={styles.preferenceText}>Provider Contact</Text>
-            </View>
-            <View>
-              <Text style={styles.preferenceDescription}>
-                The tiffin provider will contact you within 1 hours to confirm
-                your booking.
-              </Text>
-            </View>
-
-            <View style={styles.preferenceRow}>
-              <Text style={styles.preferenceNumberText}>2</Text>
-              <Text style={styles.preferenceText}>Delivery Setup</Text>
-            </View>
-            <View>
-              <Text style={styles.preferenceDescription}>
-                Discuss delivery address, timing, and any special requirements.
-              </Text>
-            </View>
-
-            <View style={styles.preferenceRow}>
-              <Text style={styles.preferenceNumberText}>3</Text>
-              <Text style={styles.preferenceText}>Delivery Setup</Text>
-            </View>
-            <View>
-              <Text style={styles.preferenceDescription}>
-                Discuss delivery address, timing, and any special requirements.
-              </Text>
-            </View>
-          </View>
-        </View>
-
+        {/* Contact Admin Buttons */}
         <View style={styles.adminContactRow}>
           <TouchableOpacity
             style={styles.contactButton}
@@ -169,70 +214,83 @@ const Confirmation: React.FC = () => {
           Having issue? Contact our support team at +34 12345 5210
         </Text>
 
-        {/* Hostel Recommendation */}
-        <View style={styles.hostelCard}>
-          <View style={styles.hostelHeader}>
-            <View>
-              <Text style={styles.hostelTitle}>Green Valley Boys Hostel</Text>
-              <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={14} color="#666" />
-                <Text style={styles.locationText}>
-                  Near VNIT, Medical College
-                </Text>
+        {/* What's Next Section - Only for Tiffin */}
+        {isTiffin && (
+          <View style={styles.whatsNextSection}>
+            <Text style={styles.sectionTitle}>{"What's Next?"}</Text>
+
+            <View style={styles.preferenceCard}>
+              <Text style={styles.preferenceTitle}>Meal Preference</Text>
+
+              <View style={styles.preferenceRow}>
+                <Text style={styles.preferenceNumberText}>1</Text>
+                <Text style={styles.preferenceText}>Provider Contact</Text>
               </View>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.rating}>4.2</Text>
-                <Text style={styles.reviews}>(95)</Text>
+              <Text style={styles.preferenceDescription}>
+                The tiffin provider will contact you within 1 hours to confirm
+                your booking.
+              </Text>
+
+              <View style={styles.preferenceRow}>
+                <Text style={styles.preferenceNumberText}>2</Text>
+                <Text style={styles.preferenceText}>Delivery Setup</Text>
               </View>
-            </View>
-            <Image source={food1} style={styles.hostelImage} />
-          </View>
+              <Text style={styles.preferenceDescription}>
+                Discuss delivery address, timing, and any special requirements.
+              </Text>
 
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>₹8000/month</Text>
-            <Text style={styles.priceSubtext}>Deposit: ₹5000</Text>
-          </View>
-
-          <View style={styles.amenitiesRow}>
-            <View style={styles.amenityItem}>
-              <Ionicons name="wifi" size={16} color="#666" />
-              <Text style={styles.amenityText}>Wifi</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <MaterialCommunityIcons name="food" size={16} color="#666" />
-              <Text style={styles.amenityText}>Mess</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <MaterialCommunityIcons name="shower" size={16} color="#666" />
-              <Text style={styles.amenityText}>Geyser</Text>
-            </View>
-            <View style={styles.amenityItem}>
-              <MaterialCommunityIcons
-                name="washing-machine"
-                size={16}
-                color="#666"
-              />
-              <Text style={styles.amenityText}>Laundry</Text>
+              <View style={styles.preferenceRow}>
+                <Text style={styles.preferenceNumberText}>3</Text>
+                <Text style={styles.preferenceText}>Enjoy Your Meals</Text>
+              </View>
+              <Text style={styles.preferenceDescription}>
+                Fresh, homemade tiffin will be delivered to your schedule.
+              </Text>
             </View>
           </View>
+        )}
 
-          <TouchableOpacity
-            style={styles.bookNowButton}
-            onPress={handleBookNow}
+        {/* Recommendations Section */}
+        <View style={styles.recommendationsSection}>
+          <Text style={styles.recommendationTitle}>
+            {isTiffin ? "Healthy Bites Tiffin" : "Green Valley Boys Hostel"}
+          </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.recommendationsScroll}
           >
-            <Text style={styles.bookNowText}>Book Now</Text>
-          </TouchableOpacity>
+            {recommendations.map((item: any) => (
+              <View key={item.id} style={styles.recommendationCard}>
+                {isTiffin ? (
+                  <HostelCard
+                    hostel={item}
+                    onPress={() => handleBookNow(item)}
+                    onBookPress={() => handleBookNow(item)}
+                  />
+                ) : (
+                  <TiffinCard
+                    service={item}
+                    onPress={() => handleBookNow(item)}
+                    onBookPress={() => handleBookNow(item)}
+                  />
+                )}
+              </View>
+            ))}
+          </ScrollView>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          <Button
-            title="Go To Order Screen"
-            onPress={handleGoToOrder}
-            width={undefined}
-            style={styles.orderButton}
-          />
+          {isTiffin && (
+            <Button
+              title="Go To Order Screen"
+              onPress={handleGoToOrder}
+              width={undefined}
+              style={styles.orderButton}
+            />
+          )}
 
           <Button
             title="Back to Home"
@@ -255,8 +313,8 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: "center",
     marginBottom: 24,
+    marginTop: 16,
   },
-
   titleSection: {
     alignItems: "center",
     marginBottom: 24,
@@ -280,12 +338,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderColor: "#A5A5A5",
     borderWidth: 1,
+    backgroundColor: "#fff",
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#000",
-    marginBottom: 16,
+  },
+  invoiceButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  invoiceText: {
+    color: "#4A90E2",
+    fontSize: 14,
   },
   detailRow: {
     flexDirection: "row",
@@ -305,87 +377,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  whatsNextSection: {
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderColor: "#A5A5A5",
-    borderWidth: 1,
-  },
-  preferenceCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  preferenceTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 16,
-  },
-  preferenceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  preferenceOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  preferenceText: {
-    fontSize: 14,
-    color: "#000",
-    fontWeight: "500",
-    marginLeft: 8,
-  },
-  preferenceNumber: {
-    fontSize: 10,
-    color: "#000",
-    fontWeight: "400",
-    width: 19,
-    height: 19,
-    borderRadius: 10,
-    backgroundColor: "#E8F5E9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  preferenceNumberText: {
-    fontSize: 10,
-    color: "#000",
-    fontWeight: "400",
-    textAlign: "center",
-    width: 19,
-    height: 19,
-    borderRadius: 10,
-    backgroundColor: "#E8F5E9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  preferenceDescription: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 28,
-    marginBottom: 16,
-    lineHeight: 18,
-  },
   adminContactRow: {
     flexDirection: "row",
     gap: 12,
     marginBottom: 12,
+    paddingHorizontal: 16,
   },
   contactButton: {
     flex: 1,
     flexDirection: "row",
-    marginHorizontal: 16,
-    padding: 6,
-    borderRadius: 4,
-    marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderRadius: 8,
     borderColor: "#A5A5A5",
     borderWidth: 1,
+    backgroundColor: "#fff",
   },
   chatButton: {
     marginLeft: 0,
@@ -397,114 +404,85 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   contactNote: {
-    fontSize: 10,
+    fontSize: 12,
     color: "#666",
     textAlign: "center",
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
-  hostelCard: {
-    backgroundColor: "#fff",
+  whatsNextSection: {
     marginHorizontal: 16,
     padding: 16,
     borderRadius: 12,
-    marginBottom: 24,
+    marginBottom: 16,
     borderColor: "#A5A5A5",
     borderWidth: 1,
+    backgroundColor: "#fff",
   },
-  hostelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
+  preferenceCard: {
+    marginTop: 8,
   },
-  hostelTitle: {
-    fontSize: 16,
+  preferenceTitle: {
+    fontSize: 15,
     fontWeight: "600",
     color: "#000",
-    marginBottom: 4,
+    marginBottom: 16,
   },
-  locationRow: {
+  preferenceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginTop: 8,
   },
-  locationText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 4,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  rating: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#000",
-    marginLeft: 4,
-  },
-  reviews: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 4,
-  },
-  hostelImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-  },
-  priceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  priceLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#000",
-  },
-  priceSubtext: {
-    fontSize: 13,
-    color: "#666",
-  },
-  amenitiesRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 12,
-  },
-  amenityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  amenityText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 4,
-  },
-  bookNowButton: {
-    backgroundColor: "#E8F0FE",
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  bookNowText: {
+  preferenceText: {
     fontSize: 14,
-    color: "#004AAD",
+    color: "#000",
+    fontWeight: "500",
+    marginLeft: 8,
+  },
+  preferenceNumberText: {
+    fontSize: 12,
+    color: "#000",
+    fontWeight: "500",
+    textAlign: "center",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#E8F5E9",
+    lineHeight: 20,
+  },
+  preferenceDescription: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 28,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  recommendationsSection: {
+    marginBottom: 24,
+  },
+  recommendationTitle: {
+    fontSize: 18,
     fontWeight: "600",
+    color: "#000",
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  recommendationsScroll: {
+    paddingHorizontal: 8,
+  },
+  recommendationCard: {
+    width: 320,
+    marginHorizontal: 8,
   },
   actionButtons: {
-    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 24,
+    paddingHorizontal: 16,
   },
   orderButton: {
     marginBottom: 16,
-    alignSelf: "center",
+    width: "100%",
   },
-
   backButton: {
     backgroundColor: "transparent",
     padding: 12,
@@ -512,6 +490,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#004AAD",
+    width: "100%",
   },
   backButtonText: {
     fontSize: 14,

@@ -11,7 +11,9 @@ export default function SecureLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
-  <Stack.Screen name="profile1" options={{ headerShown: false }} />
+      <Stack.Screen name="check-out" />
+      <Stack.Screen name="confirmation" />
+      <Stack.Screen name="payment" />
       {/* Rest of all screens which is not tab */}
     </Stack>
   );
