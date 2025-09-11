@@ -85,7 +85,12 @@ const Confirmation: React.FC = () => {
   };
 
   const handleGoToOrder = () => {
-    router.push("/my-orders");
+    router.push({
+      pathname: "/my-orders",
+      params: {
+        serviceType: isTiffin ? "tiffin" : "hostel",
+      },
+    });
   };
 
   const handleBackToHome = () => {
@@ -283,14 +288,12 @@ const Confirmation: React.FC = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          {isTiffin && (
-            <Button
-              title="Go To Order Screen"
-              onPress={handleGoToOrder}
-              width={undefined}
-              style={styles.orderButton}
-            />
-          )}
+          <Button
+            title="Go To Order Screen"
+            onPress={handleGoToOrder}
+            width={undefined}
+            style={styles.orderButton}
+          />
 
           <Button
             title="Back to Home"

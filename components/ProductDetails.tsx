@@ -15,6 +15,8 @@ import { router } from "expo-router";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
+import ShareModal from "./Share";
+import ConfirmationModal from "./ConfirmationModal";
 
 const { width } = Dimensions.get("window");
 
@@ -26,6 +28,37 @@ interface ProductDetailsProps {
 export default function ProductDetails({ data, type }: ProductDetailsProps) {
   const [activeTab, setActiveTab] = useState("Details");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  // Handle share action
+  const handleShare = async (platform: string) => {
+    setShowShareModal(false);
+
+    const message =
+      type === "tiffin"
+        ? `Check out this amazing tiffin service: ${data.name} - ${data.description}`
+        : `Check out this great hostel: ${data.name} - ${data.description}`;
+
+    try {
+      if (platform === "whatsapp") {
+        // You can implement WhatsApp sharing here
+        // For demo, we'll just show confirmation
+      } else if (platform === "messenger") {
+        // You can implement Messenger sharing here
+        // For demo, we'll just show confirmation
+      } else if (platform === "copylink") {
+        // You can implement copy to clipboard here
+        // For demo, we'll just show confirmation
+      }
+
+      // Show confirmation modal after a brief delay
+      setTimeout(() => {
+        setShowConfirmationModal(true);
+      }, 500);
+    } catch (error) {
+      console.error("Share error:", error);
+    }
+  };
 
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
@@ -451,7 +484,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           />
           <Button
             title="Share This Meal"
-            onPress={() => router.navigate("/")}
+            onPress={() => setShowShareModal(true)} // Updated to show share modal
             width={width - 48}
             height={56}
             style={styles.secondaryButton}
@@ -470,7 +503,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           />
           <Button
             title="Share With Friend"
-            onPress={() => router.navigate("/")}
+            onPress={() => setShowShareModal(true)} // Updated to show share modal
             width={width - 48}
             height={56}
             style={styles.secondaryButton}
@@ -496,6 +529,21 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           : renderReviews()}
         {renderBottomButtons()}
       </ScrollView>
+
+      {/* Add the modals here */}
+      <ShareModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        onShare={handleShare}
+        title={data.name}
+        type={type}
+      />
+
+      <ConfirmationModal
+        visible={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        type={type}
+      />
     </SafeAreaView>
   );
 }
@@ -515,6 +563,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: "#fff",
+    paddingTop: 26,
   },
   backButton: {
     padding: 4,
@@ -1019,6 +1068,7 @@ const styles = StyleSheet.create({
   bottomContainer: {
     paddingHorizontal: 16,
     marginTop: 16,
+    marginBottom: 16,
   },
   primaryButton: {
     backgroundColor: colors.primary,
