@@ -18,6 +18,7 @@
       "deliveryFee": "₹20",
       "servingRadius": "5 sq km",
       "offer": "10% off",
+      "isVeg":true,
       "mealPreferences": [
         {
           "type": "Breakfast",

@@ -10,8 +10,25 @@ import mastercard from "./icons/mastercard.png";
 import visa from "./icons/visa.png";
 import paypal from "./icons/paypal.png";
 import stripe from "./icons/stripe.png";
-import wallet from "./icons/wallet.png";
+import profile from "./icon/profile.png";
+import payment from "./icon/payment.png";
+import deposit from "./icon/deposit.png";
+import documents from "./icon/documents.png";
+import coin from "./icon/coin.png";
+import address from "./icon/address.png";
+import Privacy from "./icon/Privacy.png";
+import terms from "./icon/terms.png";
+import customerService from "./icon/CustomerService.png";
+import arrow from "./icon/arrow-left.png";
+import logout from "./icon/logout.png";
+import user from "./user.png";
+import dropdown from "./dropdown.png";
+import calender from "./calender.png";
+import location from "./loctaion.png";
+import person from "./person.png";
+import location1 from "./location1.png";
 
+import pen from "./pen.png";
 export {
   food1,
   foodTray,
@@ -25,5 +42,22 @@ export {
   visa,
   paypal,
   stripe,
-  wallet,
+  address,
+  profile,
+  coin,
+  payment,
+  deposit,
+  documents,
+  Privacy,
+  terms,
+  customerService,
+  arrow,
+  logout,
+  user,
+  dropdown,
+  calender,
+  location,
+  person,
+  location1,
+  pen,
 };

@@ -8,7 +8,6 @@ import {
   Image,
   ScrollView,
   Animated,
-  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,13 +15,17 @@ import { useRouter } from "expo-router";
 import LocationModal from "@/components/LocationModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
-import { food1 } from "@/assets/images";
+import food1 from "@/assets/images/food1.png";
+import hostel1 from "@/assets/images/hostel1.png";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
+3;
+// import FilterModal from "@/components/modals/FilterModal";
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(true);
+  const [showFliterModal, setShowFilterModal] = useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
@@ -125,7 +128,9 @@ export default function DashboardScreen() {
   const handleProfilePress = () => {
     router.push("/account");
   };
-
+  const onhandlePress = () => {
+    router.push("../");
+  };
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
 
   return (
@@ -205,7 +210,11 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.filterButton}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            //  onPress={()=>router.push("/(secure)/(tabs)/filter")}
+            onPress={() => router.push("../../")}
+          >
             <Ionicons name="options" size={22} color="#2563EB" />
           </TouchableOpacity>
         </View>
