@@ -20,11 +20,11 @@ import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
+import FilterModal from "@/components/modals/FilterModal";
 
 export default function DashboardScreen() {
   const router = useRouter();
   const [showLocationModal, setShowLocationModal] = useState(true);
-  const [showFliterModal, setShowFilterModal] = useState(true);
   const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
@@ -33,6 +33,8 @@ export default function DashboardScreen() {
   const [area, setArea] = useState("Nagpur");
   const [maxRent, setMaxRent] = useState("10000");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<any>({});
 
   const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
@@ -83,23 +85,68 @@ export default function DashboardScreen() {
       );
     }
 
+    // Apply filter modal filters for tiffin
+    if (!isHostel && appliedFilters.rating) {
+      filtered = filtered.filter(
+        (service) => service.rating >= appliedFilters.rating
+      );
+    }
+
+    if (!isHostel && appliedFilters.vegNonVeg === "Veg") {
+      filtered = filtered.filter(
+        (service) =>
+          service.tags.includes("Veg") || service.tags.includes("veg")
+      );
+    }
+
     return filtered;
-  }, [searchQuery, tiffinServices, isVegOnly]);
+  }, [searchQuery, tiffinServices, isVegOnly, appliedFilters, isHostel]);
 
   const filteredHostels = useMemo(() => {
-    if (!searchQuery.trim()) return hostels;
+    let filtered = [...hostels];
 
-    const query = searchQuery.toLowerCase();
-    return hostels.filter(
-      (hostel) =>
-        hostel.name.toLowerCase().includes(query) ||
-        hostel.type.toLowerCase().includes(query) ||
-        hostel.location.toLowerCase().includes(query) ||
-        hostel.amenities.some((amenity) =>
-          amenity.toLowerCase().includes(query)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (hostel) =>
+          hostel.name.toLowerCase().includes(query) ||
+          hostel.type.toLowerCase().includes(query) ||
+          hostel.location.toLowerCase().includes(query) ||
+          hostel.amenities.some((amenity) =>
+            amenity.toLowerCase().includes(query)
+          )
+      );
+    }
+
+    // Apply filter modal filters for hostels
+    if (isHostel && appliedFilters.hostelType) {
+      filtered = filtered.filter(
+        (hostel) => hostel.type === appliedFilters.hostelType
+      );
+    }
+
+    if (isHostel && appliedFilters.priceRange) {
+      filtered = filtered.filter(
+        (hostel) =>
+          hostel.price >= appliedFilters.priceRange[0] &&
+          hostel.price <= appliedFilters.priceRange[1]
+      );
+    }
+
+    if (
+      isHostel &&
+      appliedFilters.amenities &&
+      appliedFilters.amenities.length > 0
+    ) {
+      filtered = filtered.filter((hostel) =>
+        appliedFilters.amenities.every((amenity: string) =>
+          hostel.amenities.includes(amenity)
         )
-    );
-  }, [searchQuery, hostels]);
+      );
+    }
+
+    return filtered;
+  }, [searchQuery, hostels, appliedFilters, isHostel]);
 
   const handleLocationSelected = (location: any) => {
     setShowLocationModal(false);
@@ -128,12 +175,16 @@ export default function DashboardScreen() {
     router.push("/account");
   };
 
-  // New function to handle back button in search
   const handleSearchBack = () => {
     setSearchQuery("");
     setIsSearchFocused(false);
     searchInputRef.current?.blur();
     Keyboard.dismiss();
+  };
+  const handleApplyFilters = (filters: any) => {
+    setAppliedFilters(filters);
+    // Apply filtering logic here based on filters
+    console.log("Applied filters:", filters);
   };
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
@@ -220,7 +271,7 @@ export default function DashboardScreen() {
           {!isSearchFocused && (
             <TouchableOpacity
               style={styles.filterButton}
-              onPress={() => router.push("../../")}
+              onPress={() => setShowFilterModal(true)} // Changed this line
             >
               <Ionicons name="options" size={22} color="#2563EB" />
             </TouchableOpacity>
@@ -548,6 +599,13 @@ export default function DashboardScreen() {
         onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
       />
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onApplyFilters={handleApplyFilters}
+        isHostel={isHostel}
+        currentFilters={appliedFilters}
+      />
     </View>
   );
 }
@@ -661,6 +719,45 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+  },
+  // filterItem: {
+  //   flex: 1,
+  //   position: "relative",
+  //   zIndex: 1,
+  // },
+  dropdownList: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    marginTop: 4,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  dropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: "#1F2937",
+  },
+  dropdownItemTextSelected: {
+    color: colors.primary,
+    fontWeight: "600",
   },
   closeButton: {
     paddingHorizontal: 12,
