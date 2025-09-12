@@ -30,6 +30,9 @@ import location1 from "./location1.png";
 import whatsapp from "./icons/whatsappLogo.png";
 import facebook from "./icons/messsengerLogo.png";
 import link from "./icons/copylinkLogo.png";
+import mail2 from "./mail2.png";
+import chat1 from "./chat1.png";
+import call from "./call.png";
 
 import pen from "./pen.png";
 export {
@@ -66,4 +69,7 @@ export {
   whatsapp,
   facebook,
   link,
+  call,
+  mail2,
+  chat1,
 };

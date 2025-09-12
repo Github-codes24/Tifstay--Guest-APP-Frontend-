@@ -14,6 +14,8 @@ export default function SecureLayout() {
       <Stack.Screen name="check-out" />
       <Stack.Screen name="confirmation" />
       <Stack.Screen name="payment" />
+      <Stack.Screen name="(account)" />
+      <Stack.Screen name="my-orders" />
       {/* Rest of all screens which is not tab */}
     </Stack>
   );

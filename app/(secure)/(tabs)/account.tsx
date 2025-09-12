@@ -1,23 +1,22 @@
 import {
-  address,
   arrow,
   coin,
   customerService,
   deposit,
   documents,
   logout,
-  payment,
   Privacy,
   profile,
   terms,
   user,
-} from "@/assets/images";
+} from "../../../assets/images";
+import colors from "@/constants/colors";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -26,6 +25,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const AccountScreen = () => {
   const [darkMode, setDarkMode] = useState(false);
@@ -37,6 +37,15 @@ const AccountScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={16} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Account</Text>
+      </View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -49,7 +58,7 @@ const AccountScreen = () => {
               <Image source={Images.photos} style={styles.cameraIcon} />
             </View> */}
           </View>
-          <Text style={styles.title}>Maharashtrian Ghar Ka Khana</Text>
+          <Text style={styles.title}>Onil Karmokar</Text>
         </View>
 
         {/* Profile Tab */}
@@ -62,28 +71,55 @@ const AccountScreen = () => {
           customStyle={{
             borderRadius: 10,
           }}
-          onpress={() => router.push("/")}
+          onpress={() => router.push("/(secure)/account/profile")}
         />
 
         {/* Menu Items */}
-        {/* <MenuItem
+        <MenuItem
           label="wallet"
-          // image={wallet}
-          onpress={() => router.push("/")}
-        /> */}
+          image={require("../../../assets/images/icon/wallet.png")}
+          onpress={() => router.push("/(secure)/account/wallet")}
+        />
         <MenuItem
           label="Payment Method"
-          image={payment}
-          onpress={() => router.push("/")}
+          image={require("../../../assets/images/payment.png")}
+          onpress={() => router.push("/(secure)/account/method")}
         />
-        <MenuItem label="Deposite" image={deposit} />
-
-        <MenuItem label="Document" image={documents} />
-        <MenuItem label="Refer & Earn" image={coin} />
-        <MenuItem label="Address" image={address} />
-        <MenuItem label="Privacy Policy" image={Privacy} />
-        <MenuItem label="Terms and Conditions" image={terms} />
-        <MenuItem label="Customer Service" image={customerService} />
+        <MenuItem
+          label="Deposite"
+          image={deposit}
+          onpress={() => router.push("/(secure)/account/deposite")}
+        />
+        <MenuItem
+          label="Document"
+          image={documents}
+          onpress={() => router.push("/(secure)/account/withdraw")}
+        />
+        <MenuItem
+          label="Refer & Earn"
+          image={coin}
+          onpress={() => router.push("/(secure)/account/refer")}
+        />
+        <MenuItem
+          label="Address"
+          onpress={() => router.push("/(secure)/account/address")}
+          image={address}
+        />
+        <MenuItem
+          label="Privacy Policy"
+          onpress={() => router.push("/(secure)/account/privacyPolicy")}
+          image={Privacy}
+        />
+        <MenuItem
+          label="Terms and Conditions"
+          onpress={() => router.push("/(secure)/account/termsCondition")}
+          image={terms}
+        />
+        <MenuItem
+          label="Customer Service"
+          onpress={() => router.push("/(secure)/account/contactUs")}
+          image={customerService}
+        />
         {/* Language Selector */}
         <View style={styles.sectionRow}>
           <Text style={styles.languageText}>Language</Text>
@@ -312,6 +348,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
 
     color: "white",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.title,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 16,
+    color: "#000",
   },
 });
 
