@@ -27,6 +27,9 @@ import calender from "./calender.png";
 import location from "./loctaion.png";
 import person from "./person.png";
 import location1 from "./location1.png";
+import mail2 from "./mail2.png";
+import chat1 from "./chat1.png";
+import call from "./call.png";
 
 import pen from "./pen.png";
 export {
@@ -60,4 +63,7 @@ export {
   person,
   location1,
   pen,
+  call,
+  mail2,
+  chat1
 };

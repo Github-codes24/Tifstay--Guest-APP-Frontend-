@@ -135,7 +135,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                     },
                   ]}
                 >
-                  {options.title}
+                  {isFocused && options.title}
                 </Animated.Text>
               </Animated.View>
             </TouchableOpacity>

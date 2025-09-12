@@ -198,8 +198,8 @@ export default function DashboardScreen() {
                     ? "Search for hostel..."
                     : "Tiffin Service"
                   : isHostel
-                  ? "Search for hostel..."
-                  : "Search for tiffin services..."
+                    ? "Search for hostel..."
+                    : "Search for tiffin services..."
               }
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -252,9 +252,8 @@ export default function DashboardScreen() {
               <View style={styles.noResultsContainer}>
                 <Ionicons name="search" size={50} color="#9CA3AF" />
                 <Text style={styles.noResultsText}>
-                  {`No ${
-                    isHostel ? "hostels" : "services"
-                  } found matching "${searchQuery}"`}
+                  {`No ${isHostel ? "hostels" : "services"
+                    } found matching "${searchQuery}"`}
                 </Text>
                 <Text style={styles.noResultsSubtext}>
                   Try searching with different keywords
@@ -372,8 +371,8 @@ export default function DashboardScreen() {
                   {searchQuery
                     ? "Search Results"
                     : isHostel
-                    ? "Available Accommodations"
-                    : "Available Tiffin Services"}
+                      ? "Available Accommodations"
+                      : "Available Tiffin Services"}
                 </Text>
                 {!isHostel && (
                   <TouchableOpacity
@@ -555,7 +554,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: colors.title,
     justifyContent: "center",
     alignItems: "center",
   },
