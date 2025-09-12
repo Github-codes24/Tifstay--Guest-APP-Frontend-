@@ -78,7 +78,7 @@ const Payment: React.FC = () => {
 
     // Navigate to confirmation with all necessary params
     router.push({
-      pathname: "/Confirmation",
+      pathname: "/confirmation",
       params: {
         serviceType,
         amount,

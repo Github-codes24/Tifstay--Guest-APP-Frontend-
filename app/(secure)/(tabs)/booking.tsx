@@ -1,18 +1,19 @@
-// app/orders.tsx
 import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  TouchableOpacity,
   ScrollView,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
+import RatingModal from "@/components/modals/RatingModal"; // Add this import
+import TrackOrderModal from "@/components/modals/TrackOrderModal";
 
 interface Order {
   id: string;
@@ -37,10 +38,13 @@ const Booking: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"pending" | "confirmed">(
     "pending"
   );
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showTrackOrderModal, setShowTrackOrderModal] = useState(false); // Add this state
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null); // Add this state
 
   // Demo data for all orders
   const allOrders: Order[] = [
-    // Pending Orders
     {
       id: "1",
       bookingId: "TF2024002",
@@ -67,7 +71,17 @@ const Booking: React.FC = () => {
       orderType: "Delivery",
       status: "pending",
     },
-    // Confirmed/History Orders
+    {
+      id: "7",
+      bookingId: "HS2024002",
+      serviceType: "hostel",
+      serviceName: "Green Valley Boys Hostel",
+      customer: "Onil Karmokar",
+      checkInDate: "01/10/25",
+      checkOutDate: "01/11/25",
+      status: "pending",
+      image: "hostel1",
+    },
     {
       id: "3",
       bookingId: "TF2024001",
@@ -118,42 +132,68 @@ const Booking: React.FC = () => {
     },
   ];
 
-  // Filter orders based on active tab
   const filteredOrders = allOrders.filter((order) => {
     if (activeTab === "pending") {
       return order.status === "pending";
     } else {
-      // Show confirmed, delivered, and completed orders in the Confirmed tab
       return ["confirmed", "delivered", "completed"].includes(order.status);
     }
   });
 
   const handleTrackOrder = (order: Order) => {
     console.log("Track order:", order.bookingId);
-    // Navigate to tracking screen
+    setTrackingOrder(order);
+    setShowTrackOrderModal(true);
   };
 
   const handleContinueSubscription = (order: Order) => {
     console.log("Continue subscription:", order.bookingId);
-    // Navigate to subscription renewal
     router.push({
       pathname:
         order.serviceType === "tiffin"
-          ? "/tiffin-details/[id]"
-          : "/hostel-details/[id]",
-      params: { id: order.id },
+          ? `/tiffin-details/[id]`
+          : `/hostel-details/[id]`,
+      params: {
+        id: order.id,
+      },
     });
   };
 
   const handleSeeDetails = (order: Order) => {
     console.log("See details:", order.bookingId);
     router.push({
+      pathname: "/tiffin-details/[id]",
+      params: {
+        id: order.id,
+      },
+    });
+  };
+
+  // Updated handleRateNow function to open modal instead of navigating
+  const handleRateNow = (order: Order) => {
+    console.log("Rate now:", order.bookingId);
+    setSelectedOrder(order);
+    setShowRatingModal(true);
+  };
+
+  const handleRepeatOrder = (order: Order) => {
+    console.log("Repeat order:", order.bookingId);
+    router.push({
       pathname:
         order.serviceType === "tiffin"
-          ? "/tiffin-details/[id]"
-          : "/hostel-details/[id]",
-      params: { id: order.id },
+          ? `/tiffin-details/[id]`
+          : `/hostel-details/[id]`,
+      params: {
+        id: order.id,
+        repeatOrder: "true",
+      },
     });
+  };
+
+  const handleRatingSubmitSuccess = () => {
+    // You can add any additional logic here after successful rating submission
+    console.log("Rating submitted successfully!");
+    // Optionally refresh orders or show a success toast
   };
 
   const getStatusColor = (status: string) => {
@@ -199,9 +239,7 @@ const Booking: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Orders</Text>
-        <Text style={styles.headerSubtitle}>
-          Track your {activeTab === "pending" ? "tiffin bookings" : "bookings"}
-        </Text>
+        <Text style={styles.headerSubtitle}>Track your bookings</Text>
       </View>
 
       {/* Tabs */}
@@ -254,10 +292,7 @@ const Booking: React.FC = () => {
             <View key={order.id} style={styles.orderCard}>
               {/* Order Header */}
               <View style={styles.orderHeader}>
-                <Text style={styles.bookingId}>
-                  {isHistoryOrder(order.status) ? "Booking" : "Booking"} #
-                  {order.bookingId}
-                </Text>
+                <Text style={styles.bookingId}>Booking #{order.bookingId}</Text>
                 <View
                   style={[
                     styles.statusBadge,
@@ -371,31 +406,55 @@ const Booking: React.FC = () => {
 
               {/* Action Buttons */}
               {activeTab === "pending" ? (
-                <TouchableOpacity
-                  style={styles.primaryButton}
+                <Button
+                  title="Track Order"
                   onPress={() => handleTrackOrder(order)}
-                >
-                  <Text style={styles.primaryButtonText}>Track Order</Text>
-                </TouchableOpacity>
+                  style={styles.primaryButtonStyle}
+                  height={48}
+                />
               ) : (
                 <>
-                  {(order.status === "confirmed" ||
-                    isHistoryOrder(order.status)) && (
-                    <TouchableOpacity
-                      style={styles.primaryButton}
-                      onPress={() => handleContinueSubscription(order)}
-                    >
-                      <Text style={styles.primaryButtonText}>
-                        Continue Subscription
-                      </Text>
-                    </TouchableOpacity>
+                  {order.status === "confirmed" &&
+                    !isHistoryOrder(order.status) && (
+                      <>
+                        <Button
+                          title="Continue Subscription"
+                          onPress={() => handleContinueSubscription(order)}
+                          style={styles.primaryButtonStyle}
+                          height={48}
+                        />
+                        <Button
+                          title="See Details"
+                          onPress={() => handleSeeDetails(order)}
+                          style={styles.secondaryButtonStyle}
+                          textStyle={styles.secondaryButtonTextStyle}
+                          height={48}
+                        />
+                      </>
+                    )}
+
+                  {/* For delivered/completed orders - show Rate Now and Repeat Order */}
+                  {isHistoryOrder(order.status) && (
+                    <>
+                      <View style={styles.buttonRow}>
+                        <Button
+                          title="Rate Now"
+                          onPress={() => handleRateNow(order)}
+                          style={styles.rateButtonStyle}
+                          textStyle={styles.secondaryButtonTextStyle}
+                          width={160}
+                          height={48}
+                        />
+                        <Button
+                          title="Repeat Order"
+                          onPress={() => handleRepeatOrder(order)}
+                          style={styles.repeatButtonStyle}
+                          width={160}
+                          height={48}
+                        />
+                      </View>
+                    </>
                   )}
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    onPress={() => handleSeeDetails(order)}
-                  >
-                    <Text style={styles.secondaryButtonText}>See Details</Text>
-                  </TouchableOpacity>
                 </>
               )}
             </View>
@@ -403,6 +462,32 @@ const Booking: React.FC = () => {
         )}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Rating Modal */}
+      {selectedOrder && (
+        <RatingModal
+          visible={showRatingModal}
+          onClose={() => {
+            setShowRatingModal(false);
+            setSelectedOrder(null);
+          }}
+          serviceType={selectedOrder.serviceType}
+          serviceName={selectedOrder.serviceName}
+          bookingId={selectedOrder.bookingId}
+          onSubmitSuccess={handleRatingSubmitSuccess}
+        />
+      )}
+      {trackingOrder && (
+        <TrackOrderModal
+          visible={showTrackOrderModal}
+          onClose={() => {
+            setShowTrackOrderModal(false);
+            setTrackingOrder(null);
+          }}
+          orderId={trackingOrder.bookingId}
+          serviceType={trackingOrder.serviceType}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -544,30 +629,34 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
   },
-  primaryButton: {
+  primaryButtonStyle: {
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
     marginBottom: 8,
+    width: "100%",
   },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  secondaryButton: {
+  secondaryButtonStyle: {
     backgroundColor: "transparent",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
     borderWidth: 1,
     borderColor: colors.primary,
+    width: "100%",
   },
-  secondaryButtonText: {
+  secondaryButtonTextStyle: {
     color: colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  rateButtonStyle: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    flex: 1,
+  },
+  repeatButtonStyle: {
+    backgroundColor: colors.primary,
+    flex: 1,
   },
   bottomSpacer: {
     height: 100,

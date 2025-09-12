@@ -444,7 +444,7 @@ export default function Share({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Order Now"
-            onPress={() => router.navigate("/(secure)/BookTiffinservice")}
+            onPress={() => router.navigate("/")}
             width={width - 48}
             height={56}
             style={styles.primaryButton}

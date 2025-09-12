@@ -17,6 +17,7 @@ import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
 import ShareModal from "./Share";
 import ConfirmationModal from "./ConfirmationModal";
+import Header from "../components/Header";
 
 const { width } = Dimensions.get("window");
 
@@ -62,15 +63,11 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
 
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#000" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>
-        {type === "tiffin" ? "Tiffin Details" : "Hostel Details"}
-      </Text>
-      <View style={styles.headerRight} />
-    </View>
+    <Header
+      title={type === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+      backIconName="chevron-back"
+      onBack={() => router.back()}
+    />
   );
 
   // ==================== IMAGE CAROUSEL SECTION ====================
@@ -556,25 +553,6 @@ const styles = StyleSheet.create({
   },
 
   // Header styles
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    paddingTop: 26,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  headerRight: {
-    width: 32,
-  },
 
   // Image carousel styles
   imageContainer: {
