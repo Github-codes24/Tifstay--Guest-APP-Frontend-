@@ -33,7 +33,7 @@ import link from "./icons/copylinkLogo.png";
 import mail2 from "./mail2.png";
 import chat1 from "./chat1.png";
 import call from "./call.png";
-
+import map from "./image/mapBanner.png";
 import pen from "./pen.png";
 export {
   food1,
@@ -72,4 +72,5 @@ export {
   call,
   mail2,
   chat1,
+  map,
 };

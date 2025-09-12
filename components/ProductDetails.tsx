@@ -473,14 +473,24 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Order Now"
-            onPress={() => router.navigate("/check-out?serviceType=tiffin")}
+            onPress={() =>
+              router.push({
+                pathname: "/bookingScreen",
+                params: {
+                  bookingType: "tiffin",
+                  serviceId: data.id,
+                  serviceName: data.name,
+                  price: data.price,
+                },
+              })
+            }
             width={width - 48}
             height={56}
             style={styles.primaryButton}
           />
           <Button
             title="Share This Meal"
-            onPress={() => setShowShareModal(true)} // Updated to show share modal
+            onPress={() => setShowShareModal(true)}
             width={width - 48}
             height={56}
             style={styles.secondaryButton}
@@ -491,7 +501,18 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Select Room"
-            onPress={() => router.navigate("/check-out?serviceType=hostel")}
+            onPress={() =>
+              router.push({
+                pathname: "/bookingScreen",
+                params: {
+                  bookingType: "hostel",
+                  hostelId: data.id,
+                  hostelName: data.name,
+                  monthlyPrice: data.price,
+                  deposit: data.deposit,
+                },
+              })
+            }
             width={width - 48}
             height={56}
             style={styles.primaryButton}

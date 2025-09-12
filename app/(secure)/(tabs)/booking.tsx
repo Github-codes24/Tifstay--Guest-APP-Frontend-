@@ -149,12 +149,15 @@ const Booking: React.FC = () => {
   const handleContinueSubscription = (order: Order) => {
     console.log("Continue subscription:", order.bookingId);
     router.push({
-      pathname:
-        order.serviceType === "tiffin"
-          ? `/tiffin-details/[id]`
-          : `/hostel-details/[id]`,
+      pathname: "/continueSubscriptionScreen",
       params: {
-        id: order.id,
+        serviceType: order.serviceType,
+        serviceName: order.serviceName,
+        price:
+          order.price ||
+          (order.serviceType === "tiffin" ? "₹120" : "₹8000/month"),
+        orderId: order.id,
+        bookingId: order.bookingId,
       },
     });
   };
