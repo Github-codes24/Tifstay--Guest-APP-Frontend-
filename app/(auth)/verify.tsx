@@ -59,7 +59,7 @@ export default function VerifyScreen() {
   const handleResend = () => {
     if (!isResendDisabled) {
       console.log("OTP resent");
-      setTimer(30); // Start 30-second countdown
+      setTimer(30);
       setOtp(["", "", "", ""]);
       inputRefs.current[0]?.focus();
     }
@@ -76,7 +76,6 @@ export default function VerifyScreen() {
     const finalOtp = otp.join("");
     console.log("Verifying OTP:", finalOtp);
 
-    // Simulate success
     setUser({
       id: "1",
       name: "Guest User",
@@ -109,7 +108,7 @@ export default function VerifyScreen() {
         </View>
 
         <Text style={styles.resend}>
-          Didn't Receive the Code?{" "}
+          {" Didn't Receive the Code?"}
           {isResendDisabled ? (
             <Text style={styles.timerText}>Resend in {timer}s</Text>
           ) : (

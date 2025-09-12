@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -189,7 +187,6 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Splash Screen
   container: {
     flex: 1,
     alignItems: "center",

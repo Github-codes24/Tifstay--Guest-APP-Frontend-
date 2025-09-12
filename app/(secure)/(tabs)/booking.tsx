@@ -40,8 +40,8 @@ const Booking: React.FC = () => {
   );
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [showTrackOrderModal, setShowTrackOrderModal] = useState(false); // Add this state
-  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null); // Add this state
+  const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
 
   // Demo data for all orders
   const allOrders: Order[] = [
@@ -169,7 +169,6 @@ const Booking: React.FC = () => {
     });
   };
 
-  // Updated handleRateNow function to open modal instead of navigating
   const handleRateNow = (order: Order) => {
     console.log("Rate now:", order.bookingId);
     setSelectedOrder(order);
@@ -236,13 +235,11 @@ const Booking: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Orders</Text>
         <Text style={styles.headerSubtitle}>Track your bookings</Text>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === "pending" && styles.activeTab]}
@@ -272,7 +269,6 @@ const Booking: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Orders List */}
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -290,7 +286,6 @@ const Booking: React.FC = () => {
         ) : (
           filteredOrders.map((order) => (
             <View key={order.id} style={styles.orderCard}>
-              {/* Order Header */}
               <View style={styles.orderHeader}>
                 <Text style={styles.bookingId}>Booking #{order.bookingId}</Text>
                 <View
@@ -310,12 +305,9 @@ const Booking: React.FC = () => {
                 </View>
               </View>
 
-              {/* Show Booking Summary for history items */}
               {isHistoryOrder(order.status) && activeTab === "confirmed" && (
                 <Text style={styles.bookingSummaryLabel}>Booking Summary</Text>
               )}
-
-              {/* Order Details */}
               <View style={styles.orderDetails}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>
@@ -383,7 +375,6 @@ const Booking: React.FC = () => {
                 )}
               </View>
 
-              {/* Subscription Note for expired/history items */}
               {isHistoryOrder(order.status) &&
                 order.serviceType === "tiffin" && (
                   <Text style={styles.subscriptionNote}>
@@ -392,7 +383,6 @@ const Booking: React.FC = () => {
                   </Text>
                 )}
 
-              {/* Image for hostel bookings */}
               {order.serviceType === "hostel" &&
                 order.image &&
                 isHistoryOrder(order.status) && (
@@ -404,7 +394,6 @@ const Booking: React.FC = () => {
                   </View>
                 )}
 
-              {/* Action Buttons */}
               {activeTab === "pending" ? (
                 <Button
                   title="Track Order"
@@ -433,7 +422,6 @@ const Booking: React.FC = () => {
                       </>
                     )}
 
-                  {/* For delivered/completed orders - show Rate Now and Repeat Order */}
                   {isHistoryOrder(order.status) && (
                     <>
                       <View style={styles.buttonRow}>
@@ -463,7 +451,6 @@ const Booking: React.FC = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Rating Modal */}
       {selectedOrder && (
         <RatingModal
           visible={showRatingModal}

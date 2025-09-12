@@ -1,295 +1,17 @@
-// import { SafeAreaView } from "react-native-safe-area-context";
-// import { Ionicons } from "@expo/vector-icons";
-// import { useRouter } from "expo-router";
-// import { useState } from "react";
-// import {
-//   Image,
-//   ScrollView,
-//   StyleSheet,
-//   Switch,
-//   Text,
-//   TouchableOpacity,
-//   View,
-// } from "react-native";
-
-// interface MenuItem {
-//   id: string;
-//   icon: any;
-//   title: string;
-//   hasArrow?: boolean;
-//   onPress?: () => void;
-// }
-
-// export default function ProfileScreen() {
-//   const router = useRouter();
-//   const [darkMode, setDarkMode] = useState(false);
-
-//   const menuItems: MenuItem[] = [
-//     {
-//       id: "profile",
-//       icon: "person-outline",
-//       title: "Profile",
-//       hasArrow: true,
-//       onPress: () => console.log("Profile pressed"),
-//     },
-//     {
-//       id: "wallet",
-//       icon: "wallet-outline",
-//       title: "Wallet",
-//       hasArrow: true,
-//       onPress: () => console.log("Wallet pressed"),
-//     },
-//     {
-//       id: "payment",
-//       icon: "card-outline",
-//       title: "Payment Methods",
-//       hasArrow: true,
-//       onPress: () => console.log("Payment Methods pressed"),
-//     },
-//     {
-//       id: "deposit",
-//       icon: "trending-up-outline",
-//       title: "Deposit",
-//       hasArrow: true,
-//       onPress: () => console.log("Deposit pressed"),
-//     },
-//     {
-//       id: "documents",
-//       icon: "document-text-outline",
-//       title: "Documents",
-//       hasArrow: true,
-//       onPress: () => console.log("Documents pressed"),
-//     },
-//     {
-//       id: "refer",
-//       icon: "gift-outline",
-//       title: "Refer & Earn",
-//       hasArrow: true,
-//       onPress: () => console.log("Refer & Earn pressed"),
-//     },
-//     {
-//       id: "address",
-//       icon: "location-outline",
-//       title: "Address",
-//       hasArrow: true,
-//       onPress: () => console.log("Address pressed"),
-//     },
-//     {
-//       id: "privacy",
-//       icon: "shield-checkmark-outline",
-//       title: "Privacy Policy",
-//       hasArrow: true,
-//       onPress: () => console.log("Privacy Policy pressed"),
-//     },
-//     {
-//       id: "terms",
-//       icon: "newspaper-outline",
-//       title: "Terms and Conditions",
-//       hasArrow: true,
-//       onPress: () => console.log("Terms and Conditions pressed"),
-//     },
-//     {
-//       id: "support",
-//       icon: "headset-outline",
-//       title: "Customer Service",
-//       hasArrow: true,
-//       onPress: () => console.log("Customer Service pressed"),
-//     },
-//   ];
-
-//   const handleLogout = () => {
-//     console.log("Logout pressed");
-//   };
-
-//   return (
-//     <SafeAreaView style={styles.container} edges={["top"]}>
-//       <View style={styles.header}>
-//         <TouchableOpacity
-//           style={styles.backButton}
-//           onPress={() => router.back()}
-//         >
-//           <Ionicons name="arrow-back" size={24} color="#000" />
-//         </TouchableOpacity>
-//         <Text style={styles.headerTitle}>Account</Text>
-//         <View style={styles.headerRight} />
-//       </View>
-
-//       <ScrollView showsVerticalScrollIndicator={false}>
-//         {/* Profile Section */}
-//         <View style={styles.profileSection}>
-//           <Image
-//             source={{ uri: "https://i.pravatar.cc/100" }}
-//             style={styles.profileImage}
-//           />
-//           <Text style={styles.profileName}>Onil Karmokar</Text>
-//         </View>
-
-//         {/* Menu Items */}
-//         <View style={styles.menuContainer}>
-//           {menuItems.map((item) => (
-//             <TouchableOpacity
-//               key={item.id}
-//               style={styles.menuItem}
-//               onPress={item.onPress}
-//             >
-//               <View style={styles.menuItemLeft}>
-//                 <Ionicons name={item.icon} size={24} color="#374151" />
-//                 <Text style={styles.menuItemText}>{item.title}</Text>
-//               </View>
-//               {item.hasArrow && (
-//                 <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-//               )}
-//             </TouchableOpacity>
-//           ))}
-//         </View>
-
-//         {/* Settings Section */}
-//         <View style={styles.settingsSection}>
-//           {/* Language Selector */}
-//           <View style={styles.settingItem}>
-//             <Text style={styles.settingLabel}>Language</Text>
-//             <TouchableOpacity style={styles.languageButton}>
-//               <Text style={styles.languageText}>English</Text>
-//               <Ionicons name="chevron-down" size={18} color="#374151" />
-//             </TouchableOpacity>
-//           </View>
-
-//           {/* Dark Mode Toggle */}
-//           <View style={styles.settingItem}>
-//             <Text style={styles.settingLabel}>Dark Mode</Text>
-//             <Switch
-//               value={darkMode}
-//               onValueChange={setDarkMode}
-//               trackColor={{ false: "#E5E7EB", true: "#004AAD" }}
-//               thumbColor="#fff"
-//             />
-//           </View>
-//         </View>
-
-//         {/* Logout Button */}
-//         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-//           <Ionicons name="log-out-outline" size={24} color="#DC2626" />
-//           <Text style={styles.logoutText}>Log Out</Text>
-//           <Ionicons name="chevron-forward" size={20} color="#DC2626" />
-//         </TouchableOpacity>
-//       </ScrollView>
-//     </SafeAreaView>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#F9FAFB",
-//   },
-//   header: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     justifyContent: "space-between",
-//     paddingHorizontal: 20,
-//     paddingVertical: 16,
-//     backgroundColor: "#fff",
-//     borderBottomWidth: 1,
-//     borderBottomColor: "#E5E7EB",
-//   },
-//   backButton: {
-//     width: 40,
-//   },
-//   headerTitle: {
-//     fontSize: 18,
-//     fontWeight: "600",
-//     color: "#111827",
-//   },
-//   headerRight: {
-//     width: 40,
-//   },
-//   profileSection: {
-//     alignItems: "center",
-//     paddingVertical: 24,
-//     backgroundColor: "#fff",
-//     marginBottom: 8,
-//   },
-//   profileImage: {
-//     width: 80,
-//     height: 80,
-//     borderRadius: 40,
-//     marginBottom: 12,
-//   },
-//   profileName: {
-//     fontSize: 20,
-//     fontWeight: "600",
-//     color: "#111827",
-//   },
-//   menuContainer: {
-//     backgroundColor: "#fff",
-//     marginBottom: 8,
-//   },
-//   menuItem: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     justifyContent: "space-between",
-//     paddingHorizontal: 20,
-//     paddingVertical: 16,
-//     borderBottomWidth: 1,
-//     borderBottomColor: "#F3F4F6",
-//   },
-//   menuItemLeft: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     gap: 16,
-//   },
-//   menuItemText: {
-//     fontSize: 16,
-//     color: "#374151",
-//   },
-//   settingsSection: {
-//     backgroundColor: "#fff",
-//     paddingVertical: 8,
-//     marginBottom: 8,
-//   },
-//   settingItem: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     justifyContent: "space-between",
-//     paddingHorizontal: 20,
-//     paddingVertical: 16,
-//   },
-//   settingLabel: {
-//     fontSize: 16,
-//     color: "#374151",
-//   },
-//   languageButton: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     gap: 8,
-//     paddingHorizontal: 12,
-//     paddingVertical: 6,
-//     backgroundColor: "#F3F4F6",
-//     borderRadius: 8,
-//   },
-//   languageText: {
-//     fontSize: 14,
-//     color: "#374151",
-//   },
-//   logoutButton: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     justifyContent: "space-between",
-//     backgroundColor: "#fff",
-//     paddingHorizontal: 20,
-//     paddingVertical: 16,
-//     marginBottom: 20,
-//   },
-//   logoutText: {
-//     flex: 1,
-//     marginLeft: 16,
-//     fontSize: 16,
-//     color: "#DC2626",
-//     fontWeight: "500",
-//   },
-// });
-
-import { address, arrow, coin, customerService, deposit, documents, logout, payment, Privacy, profile, terms, user, wallet } from "@/assets/images";
+import {
+  address,
+  arrow,
+  coin,
+  customerService,
+  deposit,
+  documents,
+  logout,
+  payment,
+  Privacy,
+  profile,
+  terms,
+  user,
+} from "@/assets/images";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -311,7 +33,6 @@ const AccountScreen = () => {
 
   const handleLogout = () => {
     setLogoutVisible(false);
-   
   };
 
   return (
@@ -341,55 +62,28 @@ const AccountScreen = () => {
           customStyle={{
             borderRadius: 10,
           }}
-          onpress={() => router.push("/TrackOrder")}
+          onpress={() => router.push("/")}
         />
 
         {/* Menu Items */}
-        <MenuItem
+        {/* <MenuItem
           label="wallet"
-          image={wallet}
-         onpress={() => router.push("/RateNow")}
-        />
+          // image={wallet}
+          onpress={() => router.push("/")}
+        /> */}
         <MenuItem
           label="Payment Method"
           image={payment}
-            onpress={() => router.push("/Confirmation")}
+          onpress={() => router.push("/")}
         />
-        <MenuItem label="Deposite" 
-        image={deposit} 
-        
-        />
+        <MenuItem label="Deposite" image={deposit} />
 
-        <MenuItem
-          label="Document"
-          image={documents}
-         
-        />
-        <MenuItem
-          label="Refer & Earn"
-          image={coin}
-        
-        />
-        <MenuItem
-          label="Address"
-          
-          image={address}
-        />
-         <MenuItem
-          label="Privacy Policy"
-         
-          image={Privacy}
-        />
-         <MenuItem
-          label="Terms and Conditions"
-         
-          image={terms}
-        />
-         <MenuItem
-          label="Customer Service"
-         
-          image={customerService}
-        />
+        <MenuItem label="Document" image={documents} />
+        <MenuItem label="Refer & Earn" image={coin} />
+        <MenuItem label="Address" image={address} />
+        <MenuItem label="Privacy Policy" image={Privacy} />
+        <MenuItem label="Terms and Conditions" image={terms} />
+        <MenuItem label="Customer Service" image={customerService} />
         {/* Language Selector */}
         <View style={styles.sectionRow}>
           <Text style={styles.languageText}>Language</Text>
@@ -458,7 +152,7 @@ const AccountScreen = () => {
 const MenuItem = ({
   label,
   image,
-  backgroundColor ,
+  backgroundColor,
   textColor = "grey",
   iconTint = "grey",
   customStyle = {},
@@ -480,10 +174,7 @@ const MenuItem = ({
       <Image source={image} style={styles.smallIcon} />
       <Text style={[styles.menuText, { color: textColor }]}>{label}</Text>
     </View>
-    <Image
-      source={arrow}
-      style={[styles.arrowIcon, { tintColor: iconTint }]}
-    />
+    <Image source={arrow} style={[styles.arrowIcon, { tintColor: iconTint }]} />
   </TouchableOpacity>
 );
 
@@ -492,7 +183,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 40, flexGrow: 1 },
   profileHeader: { alignItems: "center", marginVertical: 20 },
   profileImageContainer: {
-    position: 'relative',
+    position: "relative",
     width: 86,
     height: 86,
   },
@@ -502,11 +193,9 @@ const styles = StyleSheet.create({
     borderRadius: 43,
   },
   cameraIconContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 2,
     right: 5,
-   
-   
   },
   cameraIcon: {
     width: 23,
@@ -516,7 +205,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 18,
     textAlign: "center",
-    color: '#0A051F',
+    color: "#0A051F",
   },
   menuItem: {
     flexDirection: "row",
@@ -530,7 +219,7 @@ const styles = StyleSheet.create({
   },
   menuLeft: { flexDirection: "row", alignItems: "center" },
   smallIcon: { width: 24, height: 24, marginRight: 12 },
-  menuText: { fontSize: 16,  },
+  menuText: { fontSize: 16 },
   arrowIcon: { width: 18, height: 18 },
   sectionRow: {
     flexDirection: "row",
@@ -544,7 +233,7 @@ const styles = StyleSheet.create({
   },
   languageText: {
     fontSize: 16,
-   
+
     color: "grey",
   },
   dropdownContainer: {
@@ -557,7 +246,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     minWidth: 120,
-   
   },
   dropdownText: { fontSize: 16, color: "#0A0A23" },
 
@@ -578,7 +266,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 24,
-   
+
     color: "orange",
     marginBottom: 8,
   },
@@ -590,7 +278,7 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 24,
-  
+
     color: "#0A051F",
     marginVertical: 12,
   },
@@ -611,11 +299,11 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 16,
-   color:  "#004AAD",
+    color: "#004AAD",
   },
   logoutButton: {
     flex: 1,
-    backgroundColor:  "#004AAD",
+    backgroundColor: "#004AAD",
     borderRadius: 25,
     paddingVertical: 10,
     alignItems: "center",

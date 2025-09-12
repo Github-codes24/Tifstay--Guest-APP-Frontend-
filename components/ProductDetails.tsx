@@ -16,7 +16,6 @@ import Button from "./Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
 import ShareModal from "./modals/ShareModal";
-import ConfirmationModal from "./modals/MealSharedModal";
 import Header from "../components/Header";
 
 const { width } = Dimensions.get("window");
@@ -526,12 +525,6 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           : renderReviews()}
         {renderBottomButtons()}
       </ScrollView>
-
-      <ConfirmationModal
-        visible={showConfirmationModal}
-        onClose={() => setShowConfirmationModal(false)}
-        type={type}
-      />
       <ShareModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}

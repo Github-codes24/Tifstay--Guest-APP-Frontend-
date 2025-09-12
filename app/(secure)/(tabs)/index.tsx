@@ -17,7 +17,7 @@ import LocationModal from "@/components/modals/LocationModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import food1 from "@/assets/images/food1.png";
-import hostel1 from "@/assets/images/hostel1.png";
+import hostel1 from "@/assets/images/image/hostelBanner.png";
 import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
 
@@ -39,7 +39,7 @@ export default function DashboardScreen() {
 
   const imageMapping: { [key: string]: any } = {
     food1: food1,
-    hostel1: require("../../../assets/images/hostel1.png"),
+    hostel1: require("../../../assets/images/image/hostelBanner.png"),
   };
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function DashboardScreen() {
     ...hostel,
     image:
       imageMapping[hostel.image] ||
-      require("../../../assets/images/hostel1.png"),
+      require("../../../assets/images/image/hostelBanner.png"),
   }));
 
   const filteredTiffinServices = useMemo(() => {
@@ -186,7 +186,7 @@ export default function DashboardScreen() {
                 style={styles.searchBackButton}
                 onPress={handleSearchBack}
               >
-                <Ionicons name="chevron-back" size={24} color="#000" />
+                <Ionicons name="chevron-back" size={16} color="#000" />
               </TouchableOpacity>
             )}
             <Ionicons name="search" size={20} color="#6B7280" />
@@ -264,19 +264,37 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <>
-            {!isHostel && !searchQuery && (
+            {!searchQuery && (
               <View style={styles.banner}>
                 <Image
-                  source={food1}
+                  source={isHostel ? hostel1 : food1}
                   style={styles.bannerImage}
                   resizeMode="cover"
                 />
                 <View style={styles.bannerContent}>
-                  <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
-                  <Text style={styles.bannerSubtitle}>
-                    Enjoy pure taste of your{"\n"}home-made delights
-                  </Text>
-                  <Text style={styles.bannerLink}>www.website.com</Text>
+                  {isHostel ? (
+                    <>
+                      <Text style={styles.bannerTitle}>
+                        Premium{"\n"}Hostels
+                      </Text>
+                      <Text style={styles.bannerSubtitle}>
+                        Find your perfect home{"\n"}away from home
+                      </Text>
+                      <Text style={styles.bannerLink}>
+                        Safe & Secure Living
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.bannerTitle}>
+                        Indian{"\n"}Cuisine
+                      </Text>
+                      <Text style={styles.bannerSubtitle}>
+                        Enjoy pure taste of your{"\n"}home-made delights
+                      </Text>
+                      <Text style={styles.bannerLink}>www.website.com</Text>
+                    </>
+                  )}
                 </View>
               </View>
             )}
@@ -562,6 +580,11 @@ const styles = StyleSheet.create({
   searchBackButton: {
     marginRight: 8,
     padding: 4,
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   locationContainer: {
     flex: 1,
