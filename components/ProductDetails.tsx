@@ -15,8 +15,8 @@ import { router } from "expo-router";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
-import ShareModal from "./Share";
-import ConfirmationModal from "./ConfirmationModal";
+import ShareModal from "./modals/ShareModal";
+import ConfirmationModal from "./modals/MealSharedModal";
 import Header from "../components/Header";
 
 const { width } = Dimensions.get("window");
@@ -527,18 +527,15 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         {renderBottomButtons()}
       </ScrollView>
 
-      {/* Add the modals here */}
-      <ShareModal
-        visible={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        onShare={handleShare}
-        title={data.name}
-        type={type}
-      />
-
       <ConfirmationModal
         visible={showConfirmationModal}
         onClose={() => setShowConfirmationModal(false)}
+        type={type}
+      />
+      <ShareModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title={data.name}
         type={type}
       />
     </SafeAreaView>
@@ -551,9 +548,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-
-  // Header styles
-
   // Image carousel styles
   imageContainer: {
     height: 250,
@@ -1047,6 +1041,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 16,
     marginBottom: 16,
+    alignItems: "center",
   },
   primaryButton: {
     backgroundColor: colors.primary,

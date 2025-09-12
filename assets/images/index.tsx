@@ -27,6 +27,9 @@ import calender from "./calender.png";
 import location from "./loctaion.png";
 import person from "./person.png";
 import location1 from "./location1.png";
+import whatsapp from "./icons/whatsappLogo.png";
+import facebook from "./icons/messsengerLogo.png";
+import link from "./icons/copylinkLogo.png";
 
 import pen from "./pen.png";
 export {
@@ -60,4 +63,7 @@ export {
   person,
   location1,
   pen,
+  whatsapp,
+  facebook,
+  link,
 };

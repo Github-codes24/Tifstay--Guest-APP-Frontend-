@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Modal, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import Button from "./Buttons";
+import Button from "../Buttons";
 import colors from "@/constants/colors";
 
 const { width } = Dimensions.get("window");

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import colors from "../constants/colors";
+import colors from "../../constants/colors";
 
 interface LocationModalProps {
   visible: boolean;
