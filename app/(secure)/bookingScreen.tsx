@@ -8,12 +8,14 @@ import {
   ScrollView,
   Platform,
   Image,
+  SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { calender, location1, person } from "@/assets/images";
 import Header from "@/components/Header";
+import Buttons from "@/components/Buttons";
 
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
@@ -193,9 +195,7 @@ export default function BookingScreen() {
   const renderHostelBooking = () => (
     <>
       {/* Request Booking */}
-      <View style={styles.header}>
-        <Header title="Request Booking" />
-      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Request Booking</Text>
         <Text style={styles.hostelName}>
@@ -384,7 +384,6 @@ export default function BookingScreen() {
   const renderTiffinBooking = () => (
     <>
       {/* Personal Info */}
-      <Header title="Request Booking" style={styles.header} />
       <View style={styles.section}>
         <View style={{ flexDirection: "row" }}>
           <Image source={person} style={styles.icon} />
@@ -588,12 +587,11 @@ export default function BookingScreen() {
           Total Price: {serviceData.price || "₹120"}
         </Text>
       </View>
-      <TouchableOpacity
+      <Buttons
         style={styles.submitButton}
+        title="Submit Order Request"
         onPress={handleTiffinSubmit}
-      >
-        <Text style={styles.submitButtonText}>Submit Order Request</Text>
-      </TouchableOpacity>
+      />
       <Text style={styles.confirmationText}>
         Provider will reach out within 1 hour to confirm.
       </Text>
@@ -602,16 +600,25 @@ export default function BookingScreen() {
 
   // Main render with conditional logic
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {bookingType === "tiffin" ? renderTiffinBooking() : renderHostelBooking()}
-    </ScrollView>
+    <View style={styles.container}>
+      <Header
+        title={bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking"}
+        style={styles.header}
+      />
+      <ScrollView scrollEnabled={true} showsVerticalScrollIndicator={false}>
+        {bookingType === "tiffin"
+          ? renderTiffinBooking()
+          : renderHostelBooking()}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     backgroundColor: "#fff",
+    padding: 20,
+    flex: 1,
   },
   header: {
     marginTop: 20,
@@ -748,6 +755,9 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: "#004AAD",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 30,

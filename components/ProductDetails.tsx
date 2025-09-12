@@ -17,6 +17,7 @@ import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
 import ShareModal from "./modals/ShareModal";
 import Header from "../components/Header";
+import RoomSelectionModal from "./modals/RoomSelectionModal";
 
 const { width } = Dimensions.get("window");
 
@@ -30,6 +31,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
   // Handle share action
   const handleShare = async (platform: string) => {
     setShowShareModal(false);
@@ -476,12 +478,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
             onPress={() =>
               router.push({
                 pathname: "/bookingScreen",
-                params: {
-                  bookingType: "tiffin",
-                  serviceId: data.id,
-                  serviceName: data.name,
-                  price: data.price,
-                },
+                params: { bookingType: "tiffin" },
               })
             }
             width={width - 48}
@@ -501,18 +498,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <>
           <Button
             title="Select Room"
-            onPress={() =>
-              router.push({
-                pathname: "/bookingScreen",
-                params: {
-                  bookingType: "hostel",
-                  hostelId: data.id,
-                  hostelName: data.name,
-                  monthlyPrice: data.price,
-                  deposit: data.deposit,
-                },
-              })
-            }
+            onPress={() => setShowRoomSelectionModal(true)} // Open modal instead
             width={width - 48}
             height={56}
             style={styles.primaryButton}
@@ -520,7 +506,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           />
           <Button
             title="Share With Friend"
-            onPress={() => setShowShareModal(true)} // Updated to show share modal
+            onPress={() => setShowShareModal(true)}
             width={width - 48}
             height={56}
             style={styles.secondaryButton}
@@ -530,7 +516,6 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       )}
     </View>
   );
-
   // ==================== MAIN RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
@@ -552,6 +537,19 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         title={data.name}
         type={type}
       />
+      {/* Add Room Selection Modal for Hostels */}
+      {type === "hostel" && (
+        <RoomSelectionModal
+          visible={showRoomSelectionModal}
+          onClose={() => setShowRoomSelectionModal(false)}
+          hostelData={{
+            id: data.id,
+            name: data.name,
+            price: data.price,
+            deposit: data.deposit,
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
