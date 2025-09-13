@@ -35,7 +35,7 @@ const BookingDetailsCard: React.FC<BookingDetailsCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 12,
     marginHorizontal: 16,

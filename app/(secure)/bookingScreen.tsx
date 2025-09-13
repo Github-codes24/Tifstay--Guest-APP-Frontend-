@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   Image,
+  SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
@@ -381,7 +382,7 @@ export default function BookingScreen() {
 
   // Tiffin Booking Component
   const renderTiffinBooking = () => (
-    <>
+    <ScrollView>
       {/* Personal Info */}
       <View style={styles.section}>
         <View style={{ flexDirection: "row" }}>
@@ -594,12 +595,12 @@ export default function BookingScreen() {
       <Text style={styles.confirmationText}>
         Provider will reach out within 1 hour to confirm.
       </Text>
-    </>
+    </ScrollView>
   );
 
   // Main render with conditional logic
   return (
-    <>
+    <SafeAreaView style={styles.container}>
       <Header
         title={bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking"}
         style={styles.header}
@@ -611,7 +612,7 @@ export default function BookingScreen() {
             : renderHostelBooking()}
         </ScrollView>
       </View>
-    </>
+    </SafeAreaView>
   );
 }
 
@@ -622,7 +623,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    marginTop: 20,
+    backgroundColor: "#fff",
   },
   section: {
     borderWidth: 1,

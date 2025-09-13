@@ -56,7 +56,7 @@ export default function TiffinCard({
             <Ionicons
               name={isFav ? "heart" : "heart-outline"}
               size={20}
-              color={isFav ? "#FF4444" : "#666"}
+              color={isFav ? "#A5A5A5" : "#A5A5A5"}
             />
           </TouchableOpacity>
         </View>

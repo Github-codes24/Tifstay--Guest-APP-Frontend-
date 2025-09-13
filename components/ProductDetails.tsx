@@ -135,7 +135,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={24}
-            color={isFav ? "#FF4444" : "red"}
+            color={isFav ? "#A5A5A5" : "#A5A5A5"}
           />
         </TouchableOpacity>
       </View>
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
 
   // Details container
   detailsContainer: {
-    paddingTop: 16,
+    padding: 16,
   },
   section: {
     paddingHorizontal: 16,
