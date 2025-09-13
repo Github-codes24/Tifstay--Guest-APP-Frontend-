@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Image,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import colors from "@/constants/colors";
@@ -23,7 +23,7 @@ interface FilterModalProps {
   currentFilters?: any;
 }
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { width: screenWidth } = Dimensions.get("window");
 
 const FilterModal: React.FC<FilterModalProps> = ({
   visible,
@@ -32,6 +32,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
   isHostel,
   currentFilters = {},
 }) => {
+  const { top } = useSafeAreaInsets();
   // Tiffin Filters
   const [rating, setRating] = useState(currentFilters.rating || 4.5);
   const [cost, setCost] = useState(currentFilters.cost || "Low to High");
@@ -108,6 +109,25 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const acNonAcOptions = ["AC", "Non-AC", "Both"];
 
   const handleApplyFilters = () => {
+    // if(isHostel){
+    //   let filterApplied : any = {};
+    //   filterApplied.location = location !== "" ? location : undefined;
+    //   filterApplied.distance = distance !== "" ? distance : undefined;
+    //   filterApplied.priceRange = priceRange !== "" ? priceRange : undefined;
+    //   filterApplied.hostelType = hostelType !== "" ? hostelType : undefined;
+    //   filterApplied.roomType = roomType !== "" ? roomType : undefined;
+    //   filterApplied.acNonAc = acNonAc !== "" ? acNonAc : undefined;
+    //   filterApplied.amenities = selectedAmenities.length > 0 ? selectedAmenities : undefined;
+    //   filterApplied.userReviews = userReviews !== "" ? userReviews : undefined;
+    // }else{
+    //   let filterApplied: any = {};
+    //   filterApplied.rating = rating !== "" ? rating : undefined;
+    //   filterApplied.cost = cost !== "" ? cost : undefined;
+    //   filterApplied.offers = offers !== "" ? offers : undefined;
+    //   filterApplied.cashback = cashback !== "" ? cashback : undefined;
+    //   filterApplied.vegNonVeg = vegNonVeg !== "" ? vegNonVeg : undefined;
+    //   filterApplied.cuisine = cuisine !== "" ? cuisine : undefined;
+    // }
     const filters = isHostel
       ? {
           location,
@@ -181,22 +201,28 @@ const FilterModal: React.FC<FilterModalProps> = ({
     >
       <View style={styles.container}>
         {/* Map Image - Positioned absolutely to cover header area */}
-        <Image source={mapBanner} style={styles.mapImage} resizeMode="cover" />
+        <View style={styles.mapContainer}>
+          <Image
+            source={mapBanner}
+            style={styles.mapImage}
+            resizeMode="cover"
+          />
+          <View style={[styles.headerSafeArea, { paddingTop: top }]}>
+            <View style={styles.headerContainer}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TouchableOpacity style={styles.backButton} onPress={onClose}>
+                  <Ionicons name="chevron-back" size={24} color="#000" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Filter</Text>
+              </View>
 
-        {/* Header with transparent background */}
-        <SafeAreaView style={styles.headerSafeArea} edges={["top"]}>
-          <View style={styles.headerContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={onClose}>
-              <Ionicons name="chevron-back" size={24} color="#000" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerTitle}>Filter</Text>
-
-            <TouchableOpacity onPress={handleReset}>
-              <Text style={styles.resetText}>Reset</Text>
-            </TouchableOpacity>
+              <TouchableOpacity onPress={handleReset}>
+                <Text style={styles.resetText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </SafeAreaView>
+        </View>
+        {/* Header with transparent background */}
 
         {/* Content Container */}
         <View style={styles.contentContainer}>
@@ -299,7 +325,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </View>
 
                 {/* Hostel Type */}
-                <View style={styles.filterSection}>
+                <View
+                  style={[
+                    styles.filterSection,
+                    { zIndex: showHostelTypeDropdown ? 9999 : undefined },
+                  ]}
+                >
                   <Text style={styles.filterTitle}>Hostel Type</Text>
                   <TouchableOpacity
                     style={styles.dropdown}
@@ -338,7 +369,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </View>
 
                 {/* Room Type */}
-                <View style={styles.filterSection}>
+                <View
+                  style={[
+                    styles.filterSection,
+                    { zIndex: showRoomTypeDropdown ? 9999 : undefined },
+                  ]}
+                >
                   <Text style={styles.filterTitle}>Room-Type</Text>
                   <TouchableOpacity
                     style={styles.dropdown}
@@ -377,7 +413,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </View>
 
                 {/* AC/Non-AC */}
-                <View style={styles.filterSection}>
+                <View
+                  style={[
+                    styles.filterSection,
+                    { zIndex: showAcNonAcDropdown ? 9999 : undefined },
+                  ]}
+                >
                   <Text style={styles.filterTitle}>AC / Non-AC</Text>
                   <TouchableOpacity
                     style={styles.dropdown}
@@ -751,51 +792,35 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   mapImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapContainer: {
     width: screenWidth,
-    height: 250,
+    height: 337,
   },
-  headerSafeArea: {
-    position: "absolute",
-    top: 10,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
+  headerSafeArea: {},
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "transparent",
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.title,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#000",
-    flex: 1,
     textAlign: "center",
-    marginHorizontal: 16,
+    marginLeft: 8,
   },
   resetText: {
     color: colors.primary,
@@ -804,18 +829,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    marginTop: 200,
     backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
   },
   scrollView: {
     flex: 1,
@@ -854,23 +868,15 @@ const styles = StyleSheet.create({
   },
   dropdownList: {
     position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
+    top: 0,
+    left: 16,
+    right: 16,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 8,
     marginTop: 4,
     zIndex: 1000,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   dropdownItem: {
     paddingHorizontal: 16,

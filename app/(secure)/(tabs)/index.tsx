@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
@@ -35,6 +37,7 @@ export default function DashboardScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<any>({});
+  const hasFilters = Object.keys(appliedFilters).length > 0;
 
   const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
@@ -249,8 +252,8 @@ export default function DashboardScreen() {
                     ? "Search for hostel..."
                     : "Tiffin Service"
                   : isHostel
-                    ? "Search for hostel..."
-                    : "Search for tiffin services..."
+                  ? "Search for hostel..."
+                  : "Search for tiffin services..."
               }
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -270,10 +273,17 @@ export default function DashboardScreen() {
 
           {!isSearchFocused && (
             <TouchableOpacity
-              style={styles.filterButton}
+              style={[
+                styles.filterButton,
+                { backgroundColor: hasFilters ? colors.primary : colors.white },
+              ]}
               onPress={() => setShowFilterModal(true)} // Changed this line
             >
-              <Ionicons name="options" size={22} color="#2563EB" />
+              <Ionicons
+                name="options"
+                size={22}
+                color={hasFilters ? "white" : "#2563EB"}
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -303,8 +313,9 @@ export default function DashboardScreen() {
               <View style={styles.noResultsContainer}>
                 <Ionicons name="search" size={50} color="#9CA3AF" />
                 <Text style={styles.noResultsText}>
-                  {`No ${isHostel ? "hostels" : "services"
-                    } found matching "${searchQuery}"`}
+                  {`No ${
+                    isHostel ? "hostels" : "services"
+                  } found matching "${searchQuery}"`}
                 </Text>
                 <Text style={styles.noResultsSubtext}>
                   Try searching with different keywords
@@ -440,8 +451,8 @@ export default function DashboardScreen() {
                   {searchQuery
                     ? "Search Results"
                     : isHostel
-                      ? "Available Accommodations"
-                      : "Available Tiffin Services"}
+                    ? "Available Accommodations"
+                    : "Available Tiffin Services"}
                 </Text>
                 {!isHostel && (
                   <TouchableOpacity
@@ -449,7 +460,9 @@ export default function DashboardScreen() {
                     onPress={() => setIsVegOnly(!isVegOnly)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.vegText}>Veg</Text>
+                    <Text style={styles.vegText}>
+                      {isVegOnly ? "Veg" : "Non-Veg"}
+                    </Text>
                     <View
                       style={[
                         styles.vegSwitchContainer,

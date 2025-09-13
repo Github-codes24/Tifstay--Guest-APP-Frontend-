@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
+import { router } from "expo-router";
 
 interface TiffinCardProps {
   service: {
@@ -126,7 +127,15 @@ export default function TiffinCard({
               style={styles.bookButton}
               onPress={(e) => {
                 e.stopPropagation();
-                onBookPress?.();
+                router.push({
+                  pathname: "/bookingScreen",
+                  params: {
+                    bookingType: "tiffin",
+                    serviceId: service.id.toString(),
+                    serviceName: service.name,
+                    price: service.price,
+                  },
+                });
               }}
             >
               <Text style={styles.bookButtonText}>Book Now</Text>

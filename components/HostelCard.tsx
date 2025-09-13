@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
+import { router } from "expo-router";
 
 interface HostelCardProps {
   hostel: {
@@ -40,10 +41,10 @@ export default function HostelCard({
   // components/HostelCard.tsx (continued)
   const { isFavorite, toggleFavorite } = useFavorites();
   const isFav = isFavorite(hostel.id, "hostel");
-
+  const service = hostel;
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
-    toggleFavorite(hostel, "hostel");
+    toggleFavorite(service, "hostel");
   };
 
   return (
@@ -118,11 +119,22 @@ export default function HostelCard({
               <Text style={styles.price}>{hostel.price}</Text>
               <Text style={styles.deposit}>Deposit: ₹15000</Text>
             </View>
+
             <TouchableOpacity
               style={styles.bookButton}
               onPress={(e) => {
                 e.stopPropagation();
-                onBookPress?.();
+                // Navigate to booking screen with hostel data
+                router.push({
+                  pathname: "/bookingScreen",
+                  params: {
+                    bookingType: "hostel",
+                    hostelId: hostel.id.toString(),
+                    hostelName: hostel.name,
+                    monthlyPrice: hostel.price,
+                    deposit: hostel.deposit || "₹15000",
+                  },
+                });
               }}
             >
               <Text style={styles.bookButtonText}>Book Now</Text>

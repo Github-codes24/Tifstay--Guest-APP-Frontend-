@@ -165,7 +165,7 @@ const Booking: React.FC = () => {
   const handleSeeDetails = (order: Order) => {
     console.log("See details:", order.bookingId);
     router.push({
-      pathname: "/tiffin-details/[id]",
+      pathname: "/tiffin-order-details/[id]",
       params: {
         id: order.id,
       },
