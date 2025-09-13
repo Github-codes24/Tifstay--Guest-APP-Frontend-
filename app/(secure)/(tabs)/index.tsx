@@ -271,21 +271,21 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {!isSearchFocused && (
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                { backgroundColor: hasFilters ? colors.primary : colors.white },
-              ]}
-              onPress={() => setShowFilterModal(true)} // Changed this line
-            >
-              <Ionicons
-                name="options"
-                size={22}
-                color={hasFilters ? "white" : "#2563EB"}
-              />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: hasFilters ? colors.primary : "#F2EFFD",
+              },
+            ]}
+            onPress={() => setShowFilterModal(true)} // Changed this line
+          >
+            <Ionicons
+              name="options"
+              size={22}
+              color={hasFilters ? "white" : "#2563EB"}
+            />
+          </TouchableOpacity>
         </View>
 
         {isSearchFocused ? (
@@ -701,15 +701,15 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    backgroundColor: "#F2EFFD",
+    borderRadius: 8,
     height: 48,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     paddingHorizontal: 16,
   },
   searchContainerFocused: {
-    backgroundColor: "#F0F4FF",
+    backgroundColor: "#F2EFFD",
     borderColor: "#6B7EF5",
     paddingHorizontal: 12,
   },
@@ -723,8 +723,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   filterButton: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    backgroundColor: "#F2EFFD",
+    borderRadius: 8,
     height: 48,
     width: 48,
     alignItems: "center",
@@ -732,17 +732,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  // filterItem: {
-  //   flex: 1,
-  //   position: "relative",
-  //   zIndex: 1,
-  // },
   dropdownList: {
     position: "absolute",
     top: "100%",
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
+    backgroundColor: "#F2EFFD",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 8,

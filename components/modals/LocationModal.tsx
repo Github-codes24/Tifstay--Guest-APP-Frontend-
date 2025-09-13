@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import colors from "../../constants/colors";
+import Header from "../Header";
 
 interface LocationModalProps {
   visible: boolean;
@@ -53,37 +54,31 @@ export default function LocationModal({
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons
-              name="chevron-back"
-              size={24}
-              color={colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Allow location access</Text>
-          <View style={{ width: 24 }} />
+          <Header title="Allow location access" onBack={onClose} />
         </View>
 
         <View style={styles.content}>
-          <View style={styles.locationCard}>
-            <Ionicons name="location" size={24} color={colors.primary} />
-            <Text style={styles.locationText}>Location permission is off</Text>
-            <Switch
-              value={locationEnabled}
-              onValueChange={(value) => {
-                setLocationEnabled(value);
-                if (value) handleLocationPermission();
-              }}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.white}
-            />
+          <View style={styles.locationSection}>
+            <View style={styles.locationCard}>
+              <Ionicons name="location" size={24} color={colors.primary} />
+              <Text style={styles.locationText}>
+                Location permission is off
+              </Text>
+              <Switch
+                value={locationEnabled}
+                onValueChange={(value) => {
+                  setLocationEnabled(value);
+                  if (value) handleLocationPermission();
+                }}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
+              />
+            </View>
+            <Text style={styles.permissionText}>
+              Granting your location will help us provide accurate and
+              personalized results near you
+            </Text>
           </View>
-
-          <Text style={styles.permissionText}>
-            Granting your location will help us provide accurate and
-            personalized results near you
-          </Text>
-
           <View style={styles.addressSection}>
             <Text style={styles.sectionTitle}>Select Address</Text>
             <Text style={styles.sectionSubtitle}>
@@ -158,13 +153,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
   },
+  locationSection: {
+    marginBottom: 24,
+    backgroundColor: "#F2EFFD",
+    borderRadius: 12,
+    padding: 12,
+  },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.border,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   locationText: {
     flex: 1,
@@ -196,7 +194,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: colors.border,
     borderRadius: 12,
     marginBottom: 12,
   },
@@ -209,8 +206,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    backgroundColor: colors.border,
-    borderRadius: 12,
+    backgroundColor: "#F2EFFD",
+    borderRadius: 8,
     height: 50,
   },
   input: {

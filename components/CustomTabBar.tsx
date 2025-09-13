@@ -148,18 +148,8 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    backgroundColor: "#F7F6F4",
     paddingTop: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 10,
   },
   tabBarContent: {
     flexDirection: "row",
@@ -175,6 +165,7 @@ const styles = StyleSheet.create({
   tabItemContent: {
     alignItems: "center",
     justifyContent: "center",
+    top: 6,
   },
   iconContainer: {
     width: 50,

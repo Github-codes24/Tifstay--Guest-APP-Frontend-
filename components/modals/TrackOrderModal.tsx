@@ -142,8 +142,6 @@ const styles = StyleSheet.create({
   },
   headerStyle: {
     paddingTop: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   scrollView: {
     flex: 1,

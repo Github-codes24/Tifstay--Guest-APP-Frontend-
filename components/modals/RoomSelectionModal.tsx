@@ -530,9 +530,6 @@ const styles = StyleSheet.create({
   bottomContainer: {
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
   },
   reserveButton: {
     backgroundColor: colors.primary,

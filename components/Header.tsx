@@ -48,7 +48,7 @@ const Header: React.FC<HeaderProps> = ({
           style={[styles.backButton, backButtonStyle]}
           onPress={handleBack}
         >
-          <Ionicons name={backIconName} size={24} color="#000" />
+          <Ionicons name={backIconName} size={28} color="#000" />
         </TouchableOpacity>
       ) : (
         <View style={styles.headerSpacer} />
@@ -69,11 +69,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingTop: 26,
-    backgroundColor: "#fff",
   },
   backButton: {
     width: 36,
@@ -89,7 +87,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#000",
     flex: 1,
-    textAlign: "center",
     marginHorizontal: 16,
   },
   headerSpacer: {

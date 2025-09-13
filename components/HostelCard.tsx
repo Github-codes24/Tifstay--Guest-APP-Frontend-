@@ -18,8 +18,10 @@ interface HostelCardProps {
     image: any;
     availableBeds?: number;
     deposit?: string;
+    horizontal?: boolean;
   };
   onPress?: () => void;
+  horizontal?: boolean;
   onBookPress?: () => void;
 }
 
@@ -37,6 +39,7 @@ export default function HostelCard({
   hostel,
   onPress,
   onBookPress,
+  horizontal = false,
 }: HostelCardProps) {
   // components/HostelCard.tsx (continued)
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -49,9 +52,8 @@ export default function HostelCard({
 
   return (
     <TouchableOpacity
-      style={styles.hostelCard}
+      style={[styles.hostelCard, horizontal && styles.horizontalContainer]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={styles.cardContent}>
         {/* Left side - Image */}
@@ -165,6 +167,10 @@ const styles = StyleSheet.create({
   cardContent: {
     flexDirection: "row",
     padding: 12,
+  },
+  horizontalContainer: {
+    width: "100%",
+    marginBottom: 0,
   },
   imageContainer: {
     position: "relative",

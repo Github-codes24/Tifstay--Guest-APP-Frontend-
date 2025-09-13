@@ -23,6 +23,7 @@ interface TiffinCardProps {
   onPress?: () => void;
   onBookPress?: () => void;
   isVeg?: boolean;
+  horizontal?: boolean;
 }
 
 export default function TiffinCard({
@@ -30,6 +31,7 @@ export default function TiffinCard({
   onPress,
   onBookPress,
   isVeg,
+  horizontal = false,
 }: TiffinCardProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const isFav = isFavorite(service.id, "tiffin");
@@ -41,9 +43,8 @@ export default function TiffinCard({
 
   return (
     <TouchableOpacity
-      style={styles.serviceCard}
+      style={[styles.serviceCard, horizontal && styles.horizontalContainer]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={styles.cardContent}>
         <View style={styles.imageContainer}>
@@ -166,6 +167,10 @@ const styles = StyleSheet.create({
   cardContent: {
     flexDirection: "row",
     padding: 12,
+  },
+  horizontalContainer: {
+    width: "100%", // Take full width of parent
+    marginBottom: 0,
   },
   imageContainer: {
     position: "relative",

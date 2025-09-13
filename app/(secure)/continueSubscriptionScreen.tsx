@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import RNPickerSelect from "react-native-picker-select";
 import colors from "@/constants/colors";
+import Header from "@/components/Header";
+import Buttons from "@/components/Buttons";
 
 type ServiceType = "tiffin" | "hostel";
 type MealType = "breakfast" | "lunch" | "dinner";
@@ -383,58 +385,51 @@ export default function ContinueSubscriptionScreen() {
         {/* Purpose Toggle */}
         <View style={styles.purposeContainer}>
           <TouchableOpacity
-            style={[
-              styles.purposeButton,
-              purposeType === "work" && styles.purposeButtonActive,
-            ]}
+            style={styles.radioOption}
             onPress={() => setPurposeType("work")}
+            activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.purposeText,
-                purposeType === "work" && styles.purposeTextActive,
-              ]}
-            >
-              Work
-            </Text>
+            <View style={styles.radioButton}>
+              {purposeType === "work" && (
+                <View style={styles.radioButtonSelected} />
+              )}
+            </View>
+            <Text style={styles.radioText}>Work</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[
-              styles.purposeButton,
-              purposeType === "leisure" && styles.purposeButtonActive,
-            ]}
+            style={styles.radioOption}
             onPress={() => setPurposeType("leisure")}
+            activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.purposeText,
-                purposeType === "leisure" && styles.purposeTextActive,
-              ]}
-            >
-              Leisure
-            </Text>
+            <View style={styles.radioButton}>
+              {purposeType === "leisure" && (
+                <View style={styles.radioButtonSelected} />
+              )}
+            </View>
+            <Text style={styles.radioText}>Leisure</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Check Out Button */}
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Check Out</Text>
-      </TouchableOpacity>
+      <Buttons
+        title="Check Out"
+        onPress={handleSubmit}
+        style={styles.submitButton}
+        textStyle={styles.submitButtonText}
+      />
     </ScrollView>
   );
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Ionicons name="chevron-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Continue Subscription</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
+      <Header
+        title="Continue Subscription"
+        onBack={handleBack}
+        showBackButton={true}
+      />
       {/* Main Content */}
       <View style={styles.content}>
         {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
@@ -446,7 +441,7 @@ export default function ContinueSubscriptionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
@@ -454,8 +449,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     width: 40,
@@ -478,10 +471,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   section: {
-    backgroundColor: "#F8F9FA",
     borderRadius: 12,
     padding: 16,
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   sectionTitle: {
     fontSize: 18,
@@ -621,6 +615,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: "center",
+    width: "100%",
     marginTop: 20,
     marginBottom: 12,
   },
@@ -643,28 +638,33 @@ const styles = StyleSheet.create({
   },
   purposeContainer: {
     flexDirection: "row",
-    gap: 12,
     marginTop: 16,
+    gap: 24,
   },
-  purposeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+  radioOption: {
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    paddingVertical: 8,
   },
-  purposeButtonActive: {
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  radioButtonSelected: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
-  purposeText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  purposeTextActive: {
-    color: "#fff",
+  radioText: {
+    fontSize: 16,
+    color: "#374151",
     fontWeight: "500",
   },
 });

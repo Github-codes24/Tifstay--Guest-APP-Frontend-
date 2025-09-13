@@ -17,6 +17,7 @@ import visa from "@/assets/images/icons/visa.png";
 import paypal from "@/assets/images/icons/paypal.png";
 import stripe from "@/assets/images/icons/stripe.png";
 import wallet from "@/assets/images/icons/wallet.png";
+import Header from "@/components/Header";
 
 interface PaymentMethod {
   id: string;
@@ -92,16 +93,11 @@ const Payment: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="chevron-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <Header
+        title="Payment"
+        onBack={() => router.back()}
+        showBackButton={true}
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Title Section */}

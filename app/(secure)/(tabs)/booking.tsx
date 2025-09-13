@@ -14,6 +14,7 @@ import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
 import RatingModal from "@/components/modals/RatingModal"; // Add this import
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
+import Profile from "../account/profile";
 
 interface Order {
   id: string;
@@ -236,11 +237,26 @@ const Booking: React.FC = () => {
     return ["delivered", "completed"].includes(status);
   };
 
+  const handleProfilePress = () => {
+    router.push("/account/profile");
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Orders</Text>
-        <Text style={styles.headerSubtitle}>Track your bookings</Text>
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Orders</Text>
+          <Text style={styles.headerSubtitle}>Track your bookings</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={handleProfilePress}
+        >
+          <Image
+            source={{ uri: "https://i.pravatar.cc/100" }}
+            style={styles.profileImage}
+          />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tabContainer}>
@@ -378,23 +394,13 @@ const Booking: React.FC = () => {
                 )}
               </View>
 
+              {/* Subscription Note */}
               {isHistoryOrder(order.status) &&
                 order.serviceType === "tiffin" && (
                   <Text style={styles.subscriptionNote}>
                     This subscription expired soon, to extend select Continue
                     Subscription.
                   </Text>
-                )}
-
-              {order.serviceType === "hostel" &&
-                order.image &&
-                isHistoryOrder(order.status) && (
-                  <View style={styles.imageSection}>
-                    <Image
-                      source={require("@/assets/images/hostel1.png")}
-                      style={styles.hostelImage}
-                    />
-                  </View>
                 )}
 
               {activeTab === "pending" ? (
@@ -485,12 +491,19 @@ const Booking: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#ffffff",
+    paddingTop: 20,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   header: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 8,
   },
   headerTitle: {
     fontSize: 24,
@@ -502,10 +515,20 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 4,
   },
+  profileButton: {
+    marginLeft: 16,
+  },
+  profileImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
   tabContainer: {
     flexDirection: "row",
     paddingHorizontal: 16,
-    marginTop: 16,
+
     marginBottom: 8,
   },
   tab: {
@@ -586,22 +609,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   orderDetails: {
-    marginBottom: 16,
+    paddingVertical: 8,
   },
   detailRow: {
     flexDirection: "row",
-    marginBottom: 8,
+    textAlign: "right",
+    paddingVertical: 10,
+    alignItems: "center",
+    // justifyContent: "space-between",
   },
   detailLabel: {
-    fontSize: 14,
-    color: "#666",
-    width: 110,
+    fontSize: 15,
+    color: "#64748B",
+    fontWeight: "400",
   },
   detailValue: {
-    fontSize: 14,
-    color: "#000",
-    fontWeight: "500",
+    fontSize: 15,
+    color: "#0F172A",
+    fontWeight: "600",
+    textAlign: "right",
     flex: 1,
+    marginLeft: 16,
   },
   subscriptionNote: {
     fontSize: 12,
@@ -649,7 +677,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomSpacer: {
-    height: 100,
+    height: 25,
   },
 });
 

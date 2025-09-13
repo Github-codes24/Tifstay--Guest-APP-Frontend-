@@ -9,12 +9,15 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
+import Header from "@/components/Header";
+import Profile from "../account/profile";
 
 interface SkippedMeal {
   date: string;
@@ -147,6 +150,10 @@ export default function TiffinOrderDetails() {
     Alert.alert("Success", "Meal skip preferences saved successfully");
   };
 
+  const handleProfilePress = () => {
+    router.push("/account/profile");
+  };
+
   const isDateSkipped = (day: number) => {
     // This is a simple example - you'd need more complex logic for date ranges
     return [20, 21, 22, 23, 24, 25].includes(day);
@@ -265,22 +272,21 @@ export default function TiffinOrderDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="chevron-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order Details</Text>
-        <View style={styles.headerRight}>
-          <View style={styles.profileIcon}>
-            <Text style={styles.profileInitial}>O</Text>
-          </View>
+      <View style={styles.headerWrapper}>
+        <View style={styles.headerLeft}>
+          <Header title="Order Details" />
+          <TouchableOpacity
+            onPress={handleProfilePress}
+            style={styles.profileButton}
+          >
+            <Image
+              source={{ uri: "https://i.pravatar.cc/100" }}
+              style={styles.profileImage}
+            />
+          </TouchableOpacity>
         </View>
+        <Text style={styles.headerSubtitle}>Track your tiffin bookings</Text>
       </View>
-
-      <Text style={styles.headerSubtitle}>Track your tiffin bookings</Text>
 
       <ScrollView
         style={styles.scrollView}
@@ -555,34 +561,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
-  header: {
+  headerWrapper: {
+    flexDirection: "column",
+    alignItems: "center",
+    paddingHorizontal: 26,
+  },
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
   },
-  backButton: {
-    padding: 8,
+  profileButton: {
+    marginRight: 16,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#000",
-    flex: 1,
-    marginLeft: 8,
-  },
-  headerRight: {
-    marginLeft: 16,
-  },
-  profileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
+  profileImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
   },
   profileInitial: {
     color: "#fff",
@@ -594,6 +590,7 @@ const styles = StyleSheet.create({
     color: "#666",
     paddingHorizontal: 16,
     marginBottom: 16,
+    textAlign: "left",
   },
   scrollView: {
     flex: 1,

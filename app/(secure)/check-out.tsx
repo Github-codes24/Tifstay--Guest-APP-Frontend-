@@ -16,6 +16,7 @@ import CheckoutItemCard, {
   TiffinCheckoutData,
   HostelCheckoutData,
 } from "@/components/CheckoutItemCard";
+import Header from "@/components/Header";
 
 const Checkout: React.FC = () => {
   const { serviceType } = useLocalSearchParams();
@@ -78,16 +79,11 @@ const Checkout: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="chevron-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <Header
+        title="Checkout"
+        onBack={() => router.back()}
+        showBackButton={true}
+      />
 
       <ScrollView
         style={styles.scrollView}

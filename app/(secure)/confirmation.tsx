@@ -6,19 +6,18 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
-  Image,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import Button from "@/components/Buttons";
 import Logo from "@/components/Logo";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import demoData from "@/data/demoData.json";
+import { Ionicons } from "@expo/vector-icons";
 
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
-  const { serviceType, amount, serviceId, serviceName, paymentMethod } = params;
+  const { serviceType, serviceName } = params;
   const isTiffin = serviceType === "tiffin";
 
   // Generate order ID
@@ -263,21 +262,33 @@ const Confirmation: React.FC = () => {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recommendationsContent}
+            snapToInterval={320} // Width of card + margin
+            decelerationRate="fast"
             style={styles.recommendationsScroll}
           >
-            {recommendations.map((item: any) => (
-              <View key={item.id} style={styles.recommendationCard}>
+            {recommendations.map((item: any, index: number) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.recommendationCard,
+                  index === 0 && styles.firstCard,
+                  index === recommendations.length - 1 && styles.lastCard,
+                ]}
+              >
                 {isTiffin ? (
-                  <HostelCard
-                    hostel={item}
-                    onPress={() => handleBookNow(item)}
-                    onBookPress={() => handleBookNow(item)}
-                  />
-                ) : (
                   <TiffinCard
                     service={item}
                     onPress={() => handleBookNow(item)}
                     onBookPress={() => handleBookNow(item)}
+                    horizontal // Add this prop to TiffinCard component
+                  />
+                ) : (
+                  <HostelCard
+                    hostel={item}
+                    onPress={() => handleBookNow(item)}
+                    onBookPress={() => handleBookNow(item)}
+                    horizontal
                   />
                 )}
               </View>
@@ -462,21 +473,31 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   recommendationsSection: {
-    marginBottom: 24,
+    marginTop: 24,
+    marginBottom: 20,
   },
   recommendationTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#000",
-    marginBottom: 12,
-    paddingHorizontal: 16,
+    marginBottom: 16,
+    paddingHorizontal: 20,
+    color: "#1F2937",
   },
   recommendationsScroll: {
-    paddingHorizontal: 8,
+    flexGrow: 0,
+  },
+  recommendationsContent: {
+    paddingRight: 20,
   },
   recommendationCard: {
-    width: 320,
-    marginHorizontal: 8,
+    width: 300, // Fixed width for horizontal scroll
+    marginRight: 16,
+  },
+  firstCard: {
+    marginLeft: 20,
+  },
+  lastCard: {
+    marginRight: 20,
   },
   actionButtons: {
     alignItems: "center",

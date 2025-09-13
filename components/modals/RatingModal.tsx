@@ -320,6 +320,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: 20,
+    alignItems: "center",
   },
   cancelBtn: {
     backgroundColor: "#fff",
