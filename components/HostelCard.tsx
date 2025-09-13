@@ -56,24 +56,11 @@ export default function HostelCard({
       onPress={onPress}
     >
       <View style={styles.cardContent}>
-        {/* Left side - Image */}
         <View style={styles.imageContainer}>
           <Image source={hostel.image} style={styles.hostelImage} />
-          <TouchableOpacity
-            style={styles.favoriteButton}
-            onPress={handleFavoritePress}
-          >
-            <Ionicons
-              name={isFav ? "heart" : "heart-outline"}
-              size={20}
-              color={isFav ? "#A5A5A5" : "#A5A5A5"}
-            />
-          </TouchableOpacity>
         </View>
 
-        {/* Right side - Content */}
         <View style={styles.hostelInfo}>
-          {/* Title and Rating Row */}
           <View style={styles.headerRow}>
             <Text style={styles.hostelName} numberOfLines={1}>
               {hostel.name}
@@ -83,9 +70,20 @@ export default function HostelCard({
               <Text style={styles.rating}>{hostel.rating}</Text>
               <Text style={styles.ratingCount}>({55})</Text>
             </View>
+            <View style={styles.favoriteButtonContainer}>
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={handleFavoritePress}
+              >
+                <Ionicons
+                  name={isFav ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isFav ? "#A5A5A5" : "#A5A5A5"}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Type Tag and Location */}
           <View style={styles.typeLocationRow}>
             <View style={styles.typeTag}>
               <Text style={styles.typeText}>{hostel.type}</Text>
@@ -181,10 +179,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 12,
   },
+  favoriteButtonContainer: {
+    margin: 12,
+  },
   favoriteButton: {
-    position: "absolute",
-    top: 4,
-    right: 16,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 12,
     width: 24,

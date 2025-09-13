@@ -1,3 +1,4 @@
+// context/AppStateProvider.tsx
 import React, { createContext, useContext, useState } from "react";
 
 interface AppStateContextType {
@@ -5,6 +6,11 @@ interface AppStateContextType {
   setServiceType: (type: number) => void;
   user: any;
   setUser: (user: any) => void;
+  // Add filter state
+  isFilterApplied: boolean;
+  setIsFilterApplied: (value: boolean) => void;
+  appliedFilters: any;
+  setAppliedFilters: (filters: any) => void;
 }
 
 export const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -16,10 +22,22 @@ export const AppStateProvider = ({
 }) => {
   const [serviceType, setServiceType] = useState(0);
   const [user, setUser] = useState(null);
+  // Add filter states
+  const [isFilterApplied, setIsFilterApplied] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({});
 
   return (
     <AppStateContext.Provider
-      value={{ serviceType, setServiceType, user, setUser }}
+      value={{
+        serviceType,
+        setServiceType,
+        user,
+        setUser,
+        isFilterApplied,
+        setIsFilterApplied,
+        appliedFilters,
+        setAppliedFilters,
+      }}
     >
       {children}
     </AppStateContext.Provider>

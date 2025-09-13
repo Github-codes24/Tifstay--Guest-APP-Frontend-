@@ -49,16 +49,6 @@ export default function TiffinCard({
       <View style={styles.cardContent}>
         <View style={styles.imageContainer}>
           <Image source={service.image} style={styles.serviceImage} />
-          <TouchableOpacity
-            style={styles.favoriteButton}
-            onPress={handleFavoritePress}
-          >
-            <Ionicons
-              name={isFav ? "heart" : "heart-outline"}
-              size={20}
-              color={isFav ? "#A5A5A5" : "#A5A5A5"}
-            />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.serviceInfo}>
@@ -70,6 +60,18 @@ export default function TiffinCard({
               <Ionicons name="star" size={14} color="#FFA500" />
               <Text style={styles.rating}>{service.rating}</Text>
               <Text style={styles.reviews}>({service.reviews})</Text>
+            </View>
+            <View style={styles.favoriteButtonContainer}>
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={handleFavoritePress}
+              >
+                <Ionicons
+                  name={isFav ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isFav ? "#A5A5A5" : "#A5A5A5"}
+                />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -181,10 +183,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 12,
   },
+  favoriteButtonContainer: {
+    margin: 12,
+  },
   favoriteButton: {
-    position: "absolute",
-    top: 4,
-    right: 16,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 12,
     width: 24,

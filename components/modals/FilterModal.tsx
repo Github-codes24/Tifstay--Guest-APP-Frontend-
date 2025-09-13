@@ -33,34 +33,29 @@ const FilterModal: React.FC<FilterModalProps> = ({
   currentFilters = {},
 }) => {
   const { top } = useSafeAreaInsets();
-  // Tiffin Filters
-  const [rating, setRating] = useState(currentFilters.rating || 4.5);
-  const [cost, setCost] = useState(currentFilters.cost || "Low to High");
-  const [offers, setOffers] = useState(
-    currentFilters.offers || "Get 10% OFF on your first tiffin order"
-  );
-  const [cashback, setCashback] = useState(
-    currentFilters.cashback || "Get ₹50 cashback on UPI payment"
-  );
-  const [vegNonVeg, setVegNonVeg] = useState(currentFilters.vegNonVeg || "Veg");
-  const [cuisine, setCuisine] = useState(currentFilters.cuisine || "Roti");
 
-  // Hostel Filters
-  const [location, setLocation] = useState(currentFilters.location || "Nagpur");
-  const [distance, setDistance] = useState(currentFilters.distance || 2);
+  // Tiffin Filters - Initialize with empty values or currentFilters
+  const [rating, setRating] = useState(currentFilters.rating || null);
+  const [cost, setCost] = useState(currentFilters.cost || "");
+  const [offers, setOffers] = useState(currentFilters.offers || "");
+  const [cashback, setCashback] = useState(currentFilters.cashback || "");
+  const [vegNonVeg, setVegNonVeg] = useState(currentFilters.vegNonVeg || "");
+  const [cuisine, setCuisine] = useState(currentFilters.cuisine || "");
+
+  // Hostel Filters - Initialize with empty values or currentFilters
+  const [location, setLocation] = useState(currentFilters.location || "");
+  const [distance, setDistance] = useState(currentFilters.distance || 0);
   const [priceRange, setPriceRange] = useState(
-    currentFilters.priceRange || [5000, 12000]
+    currentFilters.priceRange || [0, 20000]
   );
-  const [hostelType, setHostelType] = useState(
-    currentFilters.hostelType || "Boys"
-  );
-  const [roomType, setRoomType] = useState(currentFilters.roomType || "Single");
-  const [acNonAc, setAcNonAc] = useState(currentFilters.acNonAc || "Select");
+  const [hostelType, setHostelType] = useState(currentFilters.hostelType || "");
+  const [roomType, setRoomType] = useState(currentFilters.roomType || "");
+  const [acNonAc, setAcNonAc] = useState(currentFilters.acNonAc || "");
   const [selectedAmenities, setSelectedAmenities] = useState(
     currentFilters.amenities || []
   );
   const [userReviews, setUserReviews] = useState(
-    currentFilters.userReviews || 4.5
+    currentFilters.userReviews || null
   );
 
   // Dropdown states
@@ -109,44 +104,26 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const acNonAcOptions = ["AC", "Non-AC", "Both"];
 
   const handleApplyFilters = () => {
-    // if(isHostel){
-    //   let filterApplied : any = {};
-    //   filterApplied.location = location !== "" ? location : undefined;
-    //   filterApplied.distance = distance !== "" ? distance : undefined;
-    //   filterApplied.priceRange = priceRange !== "" ? priceRange : undefined;
-    //   filterApplied.hostelType = hostelType !== "" ? hostelType : undefined;
-    //   filterApplied.roomType = roomType !== "" ? roomType : undefined;
-    //   filterApplied.acNonAc = acNonAc !== "" ? acNonAc : undefined;
-    //   filterApplied.amenities = selectedAmenities.length > 0 ? selectedAmenities : undefined;
-    //   filterApplied.userReviews = userReviews !== "" ? userReviews : undefined;
-    // }else{
-    //   let filterApplied: any = {};
-    //   filterApplied.rating = rating !== "" ? rating : undefined;
-    //   filterApplied.cost = cost !== "" ? cost : undefined;
-    //   filterApplied.offers = offers !== "" ? offers : undefined;
-    //   filterApplied.cashback = cashback !== "" ? cashback : undefined;
-    //   filterApplied.vegNonVeg = vegNonVeg !== "" ? vegNonVeg : undefined;
-    //   filterApplied.cuisine = cuisine !== "" ? cuisine : undefined;
-    // }
-    const filters = isHostel
-      ? {
-          location,
-          distance,
-          priceRange,
-          hostelType,
-          roomType,
-          acNonAc,
-          amenities: selectedAmenities,
-          userReviews,
-        }
-      : {
-          rating,
-          cost,
-          offers,
-          cashback,
-          vegNonVeg,
-          cuisine,
-        };
+    let filters: any = {};
+
+    if (isHostel) {
+      if (location) filters.location = location;
+      if (distance > 0) filters.distance = distance;
+      if (priceRange[0] > 0 || priceRange[1] < 20000)
+        filters.priceRange = priceRange;
+      if (hostelType) filters.hostelType = hostelType;
+      if (roomType) filters.roomType = roomType;
+      if (acNonAc && acNonAc !== "") filters.acNonAc = acNonAc;
+      if (selectedAmenities.length > 0) filters.amenities = selectedAmenities;
+      if (userReviews) filters.userReviews = userReviews;
+    } else {
+      if (rating) filters.rating = rating;
+      if (cost) filters.cost = cost;
+      if (offers) filters.offers = offers;
+      if (cashback) filters.cashback = cashback;
+      if (vegNonVeg) filters.vegNonVeg = vegNonVeg;
+      if (cuisine) filters.cuisine = cuisine;
+    }
 
     onApplyFilters(filters);
     onClose();
@@ -154,21 +131,21 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   const handleReset = () => {
     if (isHostel) {
-      setLocation("Nagpur");
-      setDistance(2);
-      setPriceRange([5000, 12000]);
-      setHostelType("Boys");
-      setRoomType("Single");
-      setAcNonAc("Select");
+      setLocation("");
+      setDistance(0);
+      setPriceRange([0, 20000]);
+      setHostelType("");
+      setRoomType("");
+      setAcNonAc("");
       setSelectedAmenities([]);
-      setUserReviews(4.5);
+      setUserReviews(null);
     } else {
-      setRating(4.5);
-      setCost("Low to High");
-      setOffers("Get 10% OFF on your first tiffin order");
-      setCashback("Get ₹50 cashback on UPI payment");
-      setVegNonVeg("Veg");
-      setCuisine("Roti");
+      setRating(null);
+      setCost("");
+      setOffers("");
+      setCashback("");
+      setVegNonVeg("");
+      setCuisine("");
     }
   };
 
@@ -222,7 +199,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </View>
           </View>
         </View>
-        {/* Header with transparent background */}
 
         {/* Content Container */}
         <View style={styles.contentContainer}>
@@ -244,7 +220,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowLocationDropdown(!showLocationDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{location}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !location && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {location || "Select Location"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showLocationDropdown && (
@@ -339,7 +322,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowHostelTypeDropdown(!showHostelTypeDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{hostelType}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !hostelType && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {hostelType || "Select"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showHostelTypeDropdown && (
@@ -383,7 +373,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowRoomTypeDropdown(!showRoomTypeDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{roomType}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !roomType && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {roomType || "Select"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showRoomTypeDropdown && (
@@ -427,7 +424,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowAcNonAcDropdown(!showAcNonAcDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{acNonAc}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !acNonAc && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {acNonAc || "Select"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showAcNonAcDropdown && (
@@ -580,7 +584,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowCostDropdown(!showCostDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{cost}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !cost && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {cost || "Select"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showCostDropdown && (
@@ -619,8 +630,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowOffersDropdown(!showOffersDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText} numberOfLines={1}>
-                      {offers}
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !offers && styles.dropdownPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {offers || "Select Offer"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
@@ -660,8 +677,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowCashbackDropdown(!showCashbackDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText} numberOfLines={1}>
-                      {cashback}
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !cashback && styles.dropdownPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {cashback || "Select Cashback"}
                     </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
@@ -701,7 +724,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowVegNonVegDropdown(!showVegNonVegDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{vegNonVeg}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !vegNonVeg && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {vegNonVeg || "Select"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showVegNonVegDropdown && (
@@ -740,7 +770,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       setShowCuisineDropdown(!showCuisineDropdown);
                     }}
                   >
-                    <Text style={styles.dropdownText}>{cuisine}</Text>
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !cuisine && styles.dropdownPlaceholder,
+                      ]}
+                    >
+                      {cuisine || "Select"}
+                    </Text>
                     <Ionicons name="chevron-down" size={20} color="#6B7280" />
                   </TouchableOpacity>
                   {showCuisineDropdown && (
@@ -866,17 +903,28 @@ const styles = StyleSheet.create({
     color: "#1F2937",
     flex: 1,
   },
+  dropdownPlaceholder: {
+    color: "#9CA3AF",
+  },
   dropdownList: {
     position: "absolute",
-    top: 0,
-    left: 16,
-    right: 16,
+    top: 60,
+    left: 20,
+    right: 20,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 8,
     marginTop: 4,
     zIndex: 1000,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   dropdownItem: {
     paddingHorizontal: 16,

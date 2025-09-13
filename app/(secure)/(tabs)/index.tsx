@@ -38,6 +38,7 @@ export default function DashboardScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<any>({});
   const hasFilters = Object.keys(appliedFilters).length > 0;
+  const [isFilterApplied, setIsFilterApplied] = useState(false);
 
   const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
@@ -95,11 +96,24 @@ export default function DashboardScreen() {
       );
     }
 
-    if (!isHostel && appliedFilters.vegNonVeg === "Veg") {
-      filtered = filtered.filter(
-        (service) =>
-          service.tags.includes("Veg") || service.tags.includes("veg")
-      );
+    if (!isHostel && appliedFilters.vegNonVeg) {
+      if (appliedFilters.vegNonVeg === "Veg") {
+        filtered = filtered.filter(
+          (service) =>
+            service.tags.includes("Veg") || service.tags.includes("veg")
+        );
+      } else if (appliedFilters.vegNonVeg === "Non-Veg") {
+        filtered = filtered.filter(
+          (service) =>
+            service.tags.includes("Non-Veg") || service.tags.includes("non-veg")
+        );
+      }
+    }
+
+    if (!isHostel && appliedFilters.cost === "Low to High") {
+      filtered.sort((a: any, b: any) => a.price - b.price);
+    } else if (!isHostel && appliedFilters.cost === "High to Low") {
+      filtered.sort((a: any, b: any) => b.price - a.price);
     }
 
     return filtered;
@@ -148,6 +162,18 @@ export default function DashboardScreen() {
       );
     }
 
+    if (isHostel && appliedFilters.userReviews) {
+      filtered = filtered.filter(
+        (hostel) => hostel.rating >= appliedFilters.userReviews
+      );
+    }
+
+    if (isHostel && appliedFilters.location) {
+      filtered = filtered.filter((hostel) =>
+        hostel.location.includes(appliedFilters.location)
+      );
+    }
+
     return filtered;
   }, [searchQuery, hostels, appliedFilters, isHostel]);
 
@@ -184,14 +210,122 @@ export default function DashboardScreen() {
     searchInputRef.current?.blur();
     Keyboard.dismiss();
   };
+
   const handleApplyFilters = (filters: any) => {
     setAppliedFilters(filters);
-    // Apply filtering logic here based on filters
+    setIsFilterApplied(Object.keys(filters).length > 0);
     console.log("Applied filters:", filters);
   };
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
 
+  // Show filtered view when filters are applied
+  if (isFilterApplied && hasFilters) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <View style={styles.filteredHeader}>
+            <TouchableOpacity
+              style={styles.filteredBackButton}
+              onPress={() => {
+                setIsFilterApplied(false);
+                setAppliedFilters({});
+              }}
+            >
+              <Ionicons name="chevron-back" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.filteredTitle}>Applied Filter</Text>
+          </View>
+        </SafeAreaView>
+
+        <View style={styles.filteredSearchContainer}>
+          <View style={styles.filteredSearchBar}>
+            <Ionicons name="search" size={20} color="#6B7280" />
+            <TextInput
+              placeholder={isHostel ? "Search for hostel..." : "Tiffin Service"}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.filteredSearchInput}
+              placeholderTextColor="#9CA3AF"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={handleClearSearch}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.micButton}>
+              <Ionicons name="mic" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[styles.filterButton, { backgroundColor: colors.primary }]}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Ionicons name="options" size={22} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.filteredResultsContainer}>
+            <Text style={styles.filteredResultsTitle}>Filtered Results</Text>
+            {displayedItems.length > 0 ? (
+              displayedItems.map((item: any) =>
+                isHostel ? (
+                  <HostelCard
+                    key={item.id}
+                    hostel={item}
+                    onPress={() => handleHostelPress(item)}
+                    onBookPress={() => handleBookPress(item)}
+                  />
+                ) : (
+                  <TiffinCard
+                    key={item.id}
+                    service={item}
+                    onPress={() => handleTiffinPress(item)}
+                    onBookPress={() => handleBookPress(item)}
+                  />
+                )
+              )
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Ionicons name="filter" size={50} color="#9CA3AF" />
+                <Text style={styles.noResultsText}>
+                  No {isHostel ? "hostels" : "tiffin services"} match your
+                  filters
+                </Text>
+                <Text style={styles.noResultsSubtext}>
+                  Try adjusting your filters
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.backToHomeButton}
+            onPress={() => {
+              setIsFilterApplied(false);
+              setAppliedFilters({});
+            }}
+          >
+            <Text style={styles.backToHomeText}>Back to Home</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <FilterModal
+          visible={showFilterModal}
+          onClose={() => setShowFilterModal(false)}
+          onApplyFilters={handleApplyFilters}
+          isHostel={isHostel}
+          currentFilters={appliedFilters}
+        />
+      </View>
+    );
+  }
+
+  // Normal dashboard view
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -278,7 +412,7 @@ export default function DashboardScreen() {
                 backgroundColor: hasFilters ? colors.primary : "#F2EFFD",
               },
             ]}
-            onPress={() => setShowFilterModal(true)} // Changed this line
+            onPress={() => setShowFilterModal(true)}
           >
             <Ionicons
               name="options"
@@ -325,7 +459,7 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <>
-            {!searchQuery && (
+            {!searchQuery && !hasFilters && (
               <View style={styles.banner}>
                 <Image
                   source={isHostel ? hostel1 : food1}
@@ -371,6 +505,7 @@ export default function DashboardScreen() {
                   onPress={() => {
                     setIsHostel(false);
                     setSearchQuery("");
+                    setAppliedFilters({});
                   }}
                 >
                   <Ionicons
@@ -396,6 +531,7 @@ export default function DashboardScreen() {
                   onPress={() => {
                     setIsHostel(true);
                     setSearchQuery("");
+                    setAppliedFilters({});
                   }}
                 >
                   <Ionicons
@@ -415,7 +551,7 @@ export default function DashboardScreen() {
               </View>
             </View>
 
-            {isHostel && (
+            {isHostel && !hasFilters && (
               <View style={styles.filterSection}>
                 <View style={styles.filterRow}>
                   <View style={styles.filterItem}>
@@ -448,13 +584,15 @@ export default function DashboardScreen() {
             <View style={styles.servicesSection}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>
-                  {searchQuery
+                  {hasFilters
+                    ? "Filtered Results"
+                    : searchQuery
                     ? "Search Results"
                     : isHostel
                     ? "Available Accommodations"
                     : "Available Tiffin Services"}
                 </Text>
-                {!isHostel && (
+                {!isHostel && !hasFilters && (
                   <TouchableOpacity
                     style={styles.vegToggle}
                     onPress={() => setIsVegOnly(!isVegOnly)}
@@ -492,7 +630,9 @@ export default function DashboardScreen() {
               {isHostel ? (
                 <>
                   <Text style={styles.servicesCount}>
-                    {searchQuery
+                    {hasFilters
+                      ? `${filteredHostels.length} filtered results`
+                      : searchQuery
                       ? `${filteredHostels.length} results found`
                       : `${hostels.length} properties found in ${userLocation}`}
                   </Text>
@@ -508,11 +648,9 @@ export default function DashboardScreen() {
                   ) : (
                     <View style={styles.noResultsContainer}>
                       <Ionicons name="search" size={50} color="#9CA3AF" />
-                      <Text style={styles.noResultsText}>
-                        {`No hostels found matching "${searchQuery}"`}
-                      </Text>
+                      <Text style={styles.noResultsText}>No hostels found</Text>
                       <Text style={styles.noResultsSubtext}>
-                        Try searching with different keywords
+                        Try adjusting your filters or search
                       </Text>
                     </View>
                   )}
@@ -520,7 +658,9 @@ export default function DashboardScreen() {
               ) : (
                 <>
                   <Text style={styles.servicesCount}>
-                    {searchQuery || isVegOnly
+                    {hasFilters
+                      ? `${filteredTiffinServices.length} filtered results`
+                      : searchQuery || isVegOnly
                       ? `${filteredTiffinServices.length} results found`
                       : `${tiffinServices.length} services found in ${userLocation}`}
                   </Text>
@@ -537,10 +677,10 @@ export default function DashboardScreen() {
                     <View style={styles.noResultsContainer}>
                       <Ionicons name="search" size={50} color="#9CA3AF" />
                       <Text style={styles.noResultsText}>
-                        {`No tiffin services found matching "${searchQuery}"`}
+                        No tiffin services found
                       </Text>
                       <Text style={styles.noResultsSubtext}>
-                        Try searching with different keywords
+                        Try adjusting your filters or search
                       </Text>
                     </View>
                   )}
@@ -982,5 +1122,73 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#004AAD",
     fontWeight: "500",
+  },
+  // Filtered view styles
+  filteredHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  filteredBackButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.title,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  filteredTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000",
+  },
+  filteredSearchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  filteredSearchBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F2EFFD",
+    borderRadius: 8,
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 16,
+  },
+  filteredSearchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    color: "#1F2937",
+  },
+  filteredResultsContainer: {
+    paddingHorizontal: 20,
+  },
+  filteredResultsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  backToHomeButton: {
+    marginHorizontal: 20,
+    marginVertical: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  backToHomeText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });
