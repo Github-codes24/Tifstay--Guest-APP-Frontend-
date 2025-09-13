@@ -1,5 +1,3 @@
-// components/CustomTabBar.tsx
-/* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,12 +18,11 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
   navigation,
 }) => {
   const insets = useSafeAreaInsets();
-  const { isFilterApplied } = useAppState();
+  const { isFilterApplied, isSearchFocused } = useAppState();
   const [animatedValues] = React.useState(() =>
     state.routes.map(() => new Animated.Value(0))
   );
 
-  // IMPORTANT: All hooks must be called before any conditional returns
   React.useEffect(() => {
     const animations = state.routes.map((_, index) => {
       return Animated.timing(animatedValues[index], {
@@ -45,9 +42,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
     notification: notificationTab,
     account: accountTab,
   };
-
-  // NOW we can conditionally return after all hooks have been called
-  if (isFilterApplied) {
+  if (isFilterApplied || isSearchFocused) {
     return null;
   }
 

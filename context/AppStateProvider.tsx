@@ -1,4 +1,3 @@
-// context/AppStateProvider.tsx
 import React, { createContext, useContext, useState } from "react";
 
 interface AppStateContextType {
@@ -6,11 +5,14 @@ interface AppStateContextType {
   setServiceType: (type: number) => void;
   user: any;
   setUser: (user: any) => void;
-  // Add filter state
+  // Filter state
   isFilterApplied: boolean;
   setIsFilterApplied: (value: boolean) => void;
   appliedFilters: any;
   setAppliedFilters: (filters: any) => void;
+  // Search focus state
+  isSearchFocused: boolean;
+  setIsSearchFocused: (value: boolean) => void;
 }
 
 export const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -22,9 +24,9 @@ export const AppStateProvider = ({
 }) => {
   const [serviceType, setServiceType] = useState(0);
   const [user, setUser] = useState(null);
-  // Add filter states
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({});
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   return (
     <AppStateContext.Provider
@@ -37,6 +39,8 @@ export const AppStateProvider = ({
         setIsFilterApplied,
         appliedFilters,
         setAppliedFilters,
+        isSearchFocused,
+        setIsSearchFocused,
       }}
     >
       {children}
