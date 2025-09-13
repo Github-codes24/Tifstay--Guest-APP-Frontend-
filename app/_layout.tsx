@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { AppStateProvider, useAppState } from "../context/AppStateProvider";
+import { FavoritesProvider } from "../context/FavoritesContext";
 
 const Navigation = () => {
   const { user } = useAppState();
@@ -15,7 +16,9 @@ const Navigation = () => {
 export default function RootLayout() {
   return (
     <AppStateProvider>
-      <Navigation />
+      <FavoritesProvider>
+        <Navigation />
+      </FavoritesProvider>
     </AppStateProvider>
   );
 }

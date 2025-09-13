@@ -1,7 +1,9 @@
+// components/HostelCard.tsx
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
+import { useFavorites } from "@/context/FavoritesContext";
 
 interface HostelCardProps {
   hostel: {
@@ -35,6 +37,15 @@ export default function HostelCard({
   onPress,
   onBookPress,
 }: HostelCardProps) {
+  // components/HostelCard.tsx (continued)
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const isFav = isFavorite(hostel.id, "hostel");
+
+  const handleFavoritePress = (e: any) => {
+    e.stopPropagation();
+    toggleFavorite(hostel, "hostel");
+  };
+
   return (
     <TouchableOpacity
       style={styles.hostelCard}
@@ -43,7 +54,19 @@ export default function HostelCard({
     >
       <View style={styles.cardContent}>
         {/* Left side - Image */}
-        <Image source={hostel.image} style={styles.hostelImage} />
+        <View style={styles.imageContainer}>
+          <Image source={hostel.image} style={styles.hostelImage} />
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={handleFavoritePress}
+          >
+            <Ionicons
+              name={isFav ? "heart" : "heart-outline"}
+              size={20}
+              color={isFav ? "#FF4444" : "#666"}
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Right side - Content */}
         <View style={styles.hostelInfo}>
@@ -131,11 +154,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 12,
   },
+  imageContainer: {
+    position: "relative",
+  },
   hostelImage: {
     width: 82,
     height: 82,
     borderRadius: 12,
     marginRight: 12,
+  },
+  favoriteButton: {
+    position: "absolute",
+    top: 4,
+    right: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   hostelInfo: {
     flex: 1,

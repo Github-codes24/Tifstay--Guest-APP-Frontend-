@@ -18,6 +18,7 @@ import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
 import ShareModal from "./modals/ShareModal";
 import Header from "../components/Header";
 import RoomSelectionModal from "./modals/RoomSelectionModal";
+import { useFavorites } from "@/context/FavoritesContext"; // Fixed path
 
 const { width } = Dimensions.get("window");
 
@@ -32,7 +33,24 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
-  // Handle share action
+
+  // Fixed: Import all needed functions from context
+  const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
+
+  // Fixed: Now isFavorite is available
+  const isFav = isFavorite(data.id, type);
+
+  const handleFavoritePress = () => {
+    if (isFav) {
+      removeFromFavorites(data.id, type);
+    } else {
+      addToFavorites({
+        id: data.id,
+        type,
+        data,
+      });
+    }
+  };
   const handleShare = async (platform: string) => {
     setShowShareModal(false);
 
@@ -73,7 +91,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
 
   // ==================== IMAGE CAROUSEL SECTION ====================
   const renderImageCarousel = () => {
-    const imageWidth = width - 32; // Same as image style width
+    const imageWidth = width - 32;
 
     return (
       <View style={styles.imageContainer}>
@@ -82,8 +100,8 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          snapToInterval={imageWidth} // Add this for better snapping
-          decelerationRate="fast" // Add this for smoother scrolling
+          snapToInterval={imageWidth}
+          decelerationRate="fast"
           onMomentumScrollEnd={(event) => {
             const index = Math.round(
               event.nativeEvent.contentOffset.x / imageWidth
@@ -110,8 +128,15 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         </View>
 
         {/* Favorite button */}
-        <TouchableOpacity style={styles.favoriteButton}>
-          <Ionicons name="heart-outline" size={24} color="red" />
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={handleFavoritePress}
+        >
+          <Ionicons
+            name={isFav ? "heart" : "heart-outline"}
+            size={24}
+            color={isFav ? "#FF4444" : "red"}
+          />
         </TouchableOpacity>
       </View>
     );

@@ -1,7 +1,9 @@
+// components/TiffinCard.tsx
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
+import { useFavorites } from "@/context/FavoritesContext";
 
 interface TiffinCardProps {
   service: {
@@ -28,6 +30,14 @@ export default function TiffinCard({
   onBookPress,
   isVeg,
 }: TiffinCardProps) {
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const isFav = isFavorite(service.id, "tiffin");
+
+  const handleFavoritePress = (e: any) => {
+    e.stopPropagation();
+    toggleFavorite(service, "tiffin");
+  };
+
   return (
     <TouchableOpacity
       style={styles.serviceCard}
@@ -35,7 +45,19 @@ export default function TiffinCard({
       activeOpacity={0.7}
     >
       <View style={styles.cardContent}>
-        <Image source={service.image} style={styles.serviceImage} />
+        <View style={styles.imageContainer}>
+          <Image source={service.image} style={styles.serviceImage} />
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={handleFavoritePress}
+          >
+            <Ionicons
+              name={isFav ? "heart" : "heart-outline"}
+              size={20}
+              color={isFav ? "#FF4444" : "#666"}
+            />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.serviceInfo}>
           <View style={styles.headerRow}>
@@ -136,11 +158,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 12,
   },
+  imageContainer: {
+    position: "relative",
+  },
   serviceImage: {
     width: 80,
     height: 80,
     borderRadius: 12,
     marginRight: 12,
+  },
+  favoriteButton: {
+    position: "absolute",
+    top: 4,
+    right: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   serviceInfo: {
     flex: 1,
@@ -213,7 +257,6 @@ const styles = StyleSheet.create({
   vegTag: {
     borderRadius: 12,
     paddingVertical: 4,
-    // paddingHorizontal handled separately in active/inactive
   },
   vegTagActive: {
     backgroundColor: "#10B981",
