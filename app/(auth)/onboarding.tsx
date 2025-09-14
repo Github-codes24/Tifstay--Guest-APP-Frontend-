@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../../components/Buttons";
+import { useAuthStore } from "@/store/authStore";
 
 const { width } = Dimensions.get("window");
 
@@ -21,6 +22,14 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { setHasSeenOnboarding } = useAuthStore();
+
+  const handleGetStarted = () => {
+    // Mark onboarding as completed
+    setHasSeenOnboarding(true);
+    // Navigate to login
+    router.replace("/login");
+  };
 
   // Animation values
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -142,7 +151,7 @@ export default function OnboardingScreen() {
 
           <Button
             title="Get Started"
-            onPress={() => router.navigate("/login")}
+            onPress={handleGetStarted} // Changed this line
             width={width - 48}
             height={56}
           />

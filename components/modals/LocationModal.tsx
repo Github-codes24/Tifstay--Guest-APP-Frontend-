@@ -27,6 +27,7 @@ export default function LocationModal({
   onLocationSelected,
 }: LocationModalProps) {
   const [locationEnabled, setLocationEnabled] = useState(false);
+  const [manualLocation, setManualLocation] = useState(""); // Add this state
 
   const handleLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -43,6 +44,12 @@ export default function LocationModal({
   const handleSelectPreset = (type: string) => {
     onLocationSelected({ type });
     onClose();
+  };
+  const handleManualSubmit = () => {
+    if (manualLocation.trim()) {
+      onLocationSelected(manualLocation);
+      onClose();
+    }
   };
 
   return (
@@ -107,6 +114,10 @@ export default function LocationModal({
                 placeholder="Enter Location Manually"
                 style={styles.input}
                 placeholderTextColor={colors.textSecondary}
+                value={manualLocation}
+                onChangeText={setManualLocation}
+                onSubmitEditing={handleManualSubmit} // Add this
+                returnKeyType="done" // Add this
               />
             </TouchableOpacity>
           </View>

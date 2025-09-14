@@ -25,15 +25,31 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { useAuthStore } from "@/store/authStore";
 const AccountScreen = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [logoutVisible, setLogoutVisible] = useState(false);
 
+  const { logout } = useAuthStore();
+
   const handleLogout = () => {
-    setLogoutVisible(false);
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        onPress: () => {
+          logout();
+          router.replace("/(auth)/login");
+        },
+        style: "destructive",
+      },
+    ]);
   };
 
   return (

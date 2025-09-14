@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
@@ -24,11 +22,12 @@ import demoData from "@/data/demoData.json";
 import colors from "@/constants/colors";
 import FilterModal from "@/components/modals/FilterModal";
 import { useAppState } from "@/context/AppStateProvider";
+import { useAuthStore } from "@/store/authStore";
+import * as Location from "expo-location";
 
 export default function DashboardScreen() {
   const router = useRouter();
 
-  // Use context for filter and search state
   const {
     isFilterApplied,
     setIsFilterApplied,
@@ -39,8 +38,14 @@ export default function DashboardScreen() {
   } = useAppState();
 
   // Local states
-  const [showLocationModal, setShowLocationModal] = useState(true);
-  const [userLocation, setUserLocation] = useState("Nagpur, Maharashtra");
+  const {
+    user,
+    userLocation,
+    setUserLocation,
+    hasSelectedLocation,
+    setHasSelectedLocation,
+  } = useAuthStore();
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
   const [isVegOnly, setIsVegOnly] = useState(false);
@@ -57,6 +62,11 @@ export default function DashboardScreen() {
     food1: food1,
     hostel1: require("../../../assets/images/image/hostelBanner.png"),
   };
+  useEffect(() => {
+    if (!hasSelectedLocation) {
+      setShowLocationModal(true);
+    }
+  }, [hasSelectedLocation]);
 
   useEffect(() => {
     Animated.timing(vegAnimated, {
@@ -187,9 +197,50 @@ export default function DashboardScreen() {
     return filtered;
   }, [searchQuery, hostels, appliedFilters, isHostel]);
 
-  const handleLocationSelected = (location: any) => {
+  const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
+
+    if (location.coords) {
+      try {
+        const [address] = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        if (address) {
+          const formattedAddress = `${address.street || ""} ${
+            address.city || ""
+          } ${address.region || ""}`.trim();
+          setUserLocation(formattedAddress || "Current Location");
+        } else {
+          setUserLocation("Current Location");
+        }
+      } catch (error) {
+        console.error("Error reverse geocoding:", error);
+        setUserLocation("Current Location");
+      }
+    } else if (location.type) {
+      if (location.type === "home") {
+        setUserLocation("Home Location");
+      } else if (location.type === "work") {
+        setUserLocation("Work Location");
+      }
+    } else if (typeof location === "string") {
+      setUserLocation(location);
+    }
+
+    // Mark that location has been selected
+    setHasSelectedLocation(true);
+
     console.log("Location selected:", location);
+  };
+  const handleLocationModalClose = () => {
+    setShowLocationModal(false);
+    // If user hasn't selected a location yet, mark it as selected anyway
+    // to prevent the modal from showing again
+    if (!hasSelectedLocation) {
+      setHasSelectedLocation(true);
+    }
   };
 
   const handleTiffinPress = (service: any) => {
@@ -501,7 +552,10 @@ export default function DashboardScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <View style={styles.locationContainer}>
-            <TouchableOpacity style={styles.locationButton}>
+            <TouchableOpacity
+              style={styles.locationButton}
+              onPress={() => setShowLocationModal(true)} // Add this onPress
+            >
               <Ionicons name="home" size={20} color="#000" />
               <Text style={styles.locationText}>Home Location</Text>
               <Ionicons name="chevron-down" size={20} color="#000" />
@@ -796,7 +850,7 @@ export default function DashboardScreen() {
 
       <LocationModal
         visible={showLocationModal}
-        onClose={() => setShowLocationModal(false)}
+        onClose={handleLocationModalClose} // Use the new handler
         onLocationSelected={handleLocationSelected}
       />
       <FilterModal

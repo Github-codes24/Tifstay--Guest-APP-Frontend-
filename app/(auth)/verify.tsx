@@ -1,124 +1,95 @@
-import React, { useEffect, useRef, useState } from "react";
+import { router } from "expo-router";
+import React, { useState, useRef, useEffect } from "react";
 import {
-  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
+  TextInput,
+  Alert,
 } from "react-native";
+import { useAuthStore } from "@/store/authStore";
 import CustomButton from "../../components/CustomButton";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
-import { useAppState } from "../../context/AppStateProvider";
 
 export default function VerifyScreen() {
-  const { setUser } = useAppState();
+  const [otp, setOtp] = useState(["", "", "", ""]);
+  const inputRefs = useRef<TextInput[]>([]);
+  const { login } = useAuthStore();
 
-  const [timer, setTimer] = useState<number>(0);
-  const [isResendDisabled, setIsResendDisabled] = useState<boolean>(false);
-  const [otp, setOtp] = useState<string[]>(["", "", "", ""]);
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const handleOtpChange = (value: string, index: number) => {
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
 
-  // Timer countdown logic
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-
-    if (timer > 0) {
-      setIsResendDisabled(true);
-      interval = setInterval(() => {
-        setTimer((prev) => prev - 1);
-      }, 1000);
-    } else {
-      setIsResendDisabled(false);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [timer]);
-
-  // Handle OTP input change
-  const handleInputChange = (text: string, index: number) => {
-    if (/^\d?$/.test(text)) {
-      const updatedOtp = [...otp];
-      updatedOtp[index] = text;
-      setOtp(updatedOtp);
-
-      if (text && index < 3) {
-        inputRefs.current[index + 1]?.focus();
-      }
-
-      if (!text && index > 0) {
-        inputRefs.current[index - 1]?.focus();
-      }
+    // Auto-focus next input
+    if (value && index < 3) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
-  const handleResend = () => {
-    if (!isResendDisabled) {
-      console.log("OTP resent");
-      setTimer(30);
-      setOtp(["", "", "", ""]);
-      inputRefs.current[0]?.focus();
-    }
-  };
+  const handleVerifyOTP = () => {
+    const otpCode = otp.join("");
 
-  const handleVerify = () => {
-    const isComplete = otp.every((digit) => digit.trim() !== "");
-
-    if (!isComplete) {
-      Alert.alert("Incomplete OTP", "Please enter all 4 digits.");
+    if (otpCode.length !== 4) {
+      Alert.alert("Invalid OTP", "Please enter a 4-digit OTP");
       return;
     }
 
-    const finalOtp = otp.join("");
-    console.log("Verifying OTP:", finalOtp);
+    // Simulate OTP verification (replace with actual API call)
+    if (otpCode === "1234") {
+      // Demo OTP
+      // Create user object
+      const user = {
+        id: "user123",
+        name: "John Doe",
+        phoneNumber: "+1234567890", // Get from previous screen
+        email: "john@example.com",
+      };
 
-    setUser({
-      id: "1",
-      name: "Guest User",
-      phone: "+1234567890",
-    });
+      // Login user
+      login(user);
+
+      // Show success screen
+      router.replace("/success");
+    } else {
+      Alert.alert("Invalid OTP", "Please enter correct OTP");
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Logo showText={false} />
+        <Text style={styles.title}>Enter Verification Code</Text>
+        <Text style={styles.subtitle}>
+          We have sent a 4-digit code to your phone
+        </Text>
 
-        <Text style={styles.title}>Verify OTP</Text>
-        <Text style={styles.subtitle}>Enter 4 Digit Code</Text>
-
-        <View style={styles.inputRow}>
-          {[0, 1, 2, 3].map((index) => (
+        <View style={styles.otpContainer}>
+          {otp.map((digit, index) => (
             <TextInput
               key={index}
               ref={(ref) => {
-                inputRefs.current[index] = ref;
+                if (ref) inputRefs.current[index] = ref;
               }}
-              style={styles.codeInput}
+              style={styles.otpInput}
+              value={digit}
+              onChangeText={(value) => handleOtpChange(value, index)}
               keyboardType="numeric"
               maxLength={1}
-              value={otp[index]}
-              onChangeText={(text) => handleInputChange(text, index)}
+              selectTextOnFocus
             />
           ))}
         </View>
 
-        <Text style={styles.resend}>
-          {" Didn't Receive the Code?"}
-          {isResendDisabled ? (
-            <Text style={styles.timerText}>Resend in {timer}s</Text>
-          ) : (
-            <TouchableOpacity onPress={handleResend}>
-              <Text style={styles.resendLink}>Resend</Text>
-            </TouchableOpacity>
-          )}
-        </Text>
+        <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
 
-        <CustomButton title="Verify" onPress={handleVerify} />
+        <TouchableOpacity style={styles.resendButton}>
+          <Text style={styles.resendText}>Resend OTP</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -138,38 +109,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     textAlign: "center",
+    marginBottom: 8,
     marginTop: 16,
+    color: colors.textPrimary,
   },
   subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
     textAlign: "center",
-    marginVertical: 8,
+    marginBottom: 32,
   },
-  inputRow: {
+  otpContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginVertical: 20,
+    gap: 16,
+    marginBottom: 32,
   },
-  codeInput: {
+  otpInput: {
     width: 60,
     height: 60,
     borderWidth: 1,
-    borderRadius: 10,
-    textAlign: "center",
-    marginHorizontal: 8,
-    fontSize: 20,
-  },
-  resend: {
-    textAlign: "center",
-    marginBottom: 28,
-    color: colors.textSecondary,
-  },
-  resendLink: {
-    color: colors.primaryOrange,
+    borderColor: colors.border,
+    borderRadius: 12,
+    fontSize: 24,
     fontWeight: "600",
-    marginBottom: -5,
+    textAlign: "center",
+    color: colors.textPrimary,
   },
-  timerText: {
-    color: colors.textSecondary,
+  resendButton: {
+    marginTop: 24,
+    alignItems: "center",
+  },
+  resendText: {
+    color: colors.primary,
+    fontSize: 14,
     fontWeight: "600",
   },
 });

@@ -1,11 +1,11 @@
 import { Stack, Redirect } from "expo-router";
-import { useAppState } from "../../context/AppStateProvider";
+import { useAuthStore } from "@/store/authStore";
 
 export default function SecureLayout() {
-  const { user } = useAppState();
+  const { isAuthenticated } = useAuthStore();
 
-  if (!user) {
-    return <Redirect href="/login" />;
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (
@@ -17,7 +17,6 @@ export default function SecureLayout() {
       <Stack.Screen name="(account)" />
       <Stack.Screen name="my-orders" />
       <Stack.Screen name="bookingScreen" />
-      {/* Rest of all screens which is not tab */}
     </Stack>
   );
 }

@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState } from "react";
+import { useAuthStore } from "@/store/authStore";
 
 interface AppStateContextType {
   serviceType: number;
   setServiceType: (type: number) => void;
-  user: any;
-  setUser: (user: any) => void;
   // Filter state
   isFilterApplied: boolean;
   setIsFilterApplied: (value: boolean) => void;
@@ -23,7 +22,6 @@ export const AppStateProvider = ({
   children: React.ReactNode;
 }) => {
   const [serviceType, setServiceType] = useState(0);
-  const [user, setUser] = useState(null);
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({});
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -33,8 +31,6 @@ export const AppStateProvider = ({
       value={{
         serviceType,
         setServiceType,
-        user,
-        setUser,
         isFilterApplied,
         setIsFilterApplied,
         appliedFilters,
