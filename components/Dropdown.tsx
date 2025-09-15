@@ -75,7 +75,7 @@ const Dropdown: React.FC<DropdownProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: "relative",
-    zIndex: 1,
+    zIndex: 999,
   },
   dropdown: {
     flexDirection: "row",
@@ -97,13 +97,17 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
   dropdownList: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 8,
     marginTop: 4,
-    zIndex: 1000,
-    elevation: 5,
+    zIndex: 9999,
+    elevation: 999,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,

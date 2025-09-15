@@ -24,6 +24,7 @@ import FilterModal from "@/components/modals/FilterModal";
 import { useAppState } from "@/context/AppStateProvider";
 import { useAuthStore } from "@/store/authStore";
 import * as Location from "expo-location";
+import Dropdown from "@/components/Dropdown";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -49,10 +50,32 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
   const [isVegOnly, setIsVegOnly] = useState(false);
-  const [hostelType, setHostelType] = useState("Boys");
-  const [area, setArea] = useState("Nagpur");
-  const [maxRent, setMaxRent] = useState("10000");
+  const [hostelType, setHostelType] = useState(""); // Changed to empty string
+  const [area, setArea] = useState(""); // Changed to empty string
+  const [maxRent, setMaxRent] = useState(""); // Changed to empty string
   const [showFilterModal, setShowFilterModal] = useState(false);
+
+  // Dropdown options with "All" option
+  const hostelTypeOptions = ["All", "Boys", "Girls", "Co-ed"];
+  const areaOptions = [
+    "All",
+    "Nagpur",
+    "Mumbai",
+    "Pune",
+    "Delhi",
+    "Bangalore",
+    "Chennai",
+    "Kolkata",
+  ];
+  const maxRentOptions = [
+    "All",
+    "5000",
+    "10000",
+    "15000",
+    "20000",
+    "25000",
+    "30000",
+  ];
 
   const hasFilters = Object.keys(appliedFilters).length > 0;
   const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
@@ -62,6 +85,7 @@ export default function DashboardScreen() {
     food1: food1,
     hostel1: require("../../../assets/images/image/hostelBanner.png"),
   };
+
   useEffect(() => {
     if (!hasSelectedLocation) {
       setShowLocationModal(true);
@@ -155,6 +179,23 @@ export default function DashboardScreen() {
       );
     }
 
+    // Apply quick filter dropdowns - only filter if not "All" or empty
+    if (hostelType && hostelType !== "All") {
+      filtered = filtered.filter((hostel) => hostel.type === hostelType);
+    }
+
+    if (area && area !== "All") {
+      filtered = filtered.filter((hostel) =>
+        hostel.location.toLowerCase().includes(area.toLowerCase())
+      );
+    }
+    if (maxRent && maxRent !== "All") {
+      const maxRentValue = parseInt(maxRent);
+      filtered = filtered.filter(
+        (hostel) => parseInt(hostel.price) <= maxRentValue
+      );
+    }
+
     // Apply filter modal filters for hostels
     if (isHostel && appliedFilters.hostelType) {
       filtered = filtered.filter(
@@ -195,7 +236,15 @@ export default function DashboardScreen() {
     }
 
     return filtered;
-  }, [searchQuery, hostels, appliedFilters, isHostel]);
+  }, [
+    searchQuery,
+    hostels,
+    appliedFilters,
+    isHostel,
+    hostelType,
+    area,
+    maxRent,
+  ]);
 
   const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
@@ -234,6 +283,7 @@ export default function DashboardScreen() {
 
     console.log("Location selected:", location);
   };
+
   const handleLocationModalClose = () => {
     setShowLocationModal(false);
     // If user hasn't selected a location yet, mark it as selected anyway
@@ -276,6 +326,19 @@ export default function DashboardScreen() {
     setAppliedFilters(filters);
     setIsFilterApplied(Object.keys(filters).length > 0);
     console.log("Applied filters:", filters);
+  };
+
+  // Handle dropdown selection to convert "All" to empty string
+  const handleHostelTypeSelect = (value: string) => {
+    setHostelType(value === "All" ? "" : value);
+  };
+
+  const handleAreaSelect = (value: string) => {
+    setArea(value === "All" ? "" : value);
+  };
+
+  const handleMaxRentSelect = (value: string) => {
+    setMaxRent(value === "All" ? "" : value);
   };
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
@@ -554,7 +617,7 @@ export default function DashboardScreen() {
           <View style={styles.locationContainer}>
             <TouchableOpacity
               style={styles.locationButton}
-              onPress={() => setShowLocationModal(true)} // Add this onPress
+              onPress={() => setShowLocationModal(true)}
             >
               <Ionicons name="home" size={20} color="#000" />
               <Text style={styles.locationText}>Home Location</Text>
@@ -664,6 +727,10 @@ export default function DashboardScreen() {
                 setSearchQuery("");
                 setAppliedFilters({});
                 setIsFilterApplied(false);
+                // Reset dropdown filters when switching
+                setHostelType("");
+                setArea("");
+                setMaxRent("");
               }}
             >
               <Ionicons
@@ -715,26 +782,32 @@ export default function DashboardScreen() {
             <View style={styles.filterRow}>
               <View style={styles.filterItem}>
                 <Text style={styles.filterLabel}>Hostel Type</Text>
-                <TouchableOpacity style={styles.filterDropdown}>
-                  <Text style={styles.filterValue}>{hostelType}</Text>
-                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
-                </TouchableOpacity>
+                <Dropdown
+                  options={hostelTypeOptions}
+                  value={hostelType || "All"}
+                  onSelect={handleHostelTypeSelect}
+                  placeholder="All"
+                />
               </View>
 
               <View style={styles.filterItem}>
                 <Text style={styles.filterLabel}>Area</Text>
-                <TouchableOpacity style={styles.filterDropdown}>
-                  <Text style={styles.filterValue}>{area}</Text>
-                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
-                </TouchableOpacity>
+                <Dropdown
+                  options={areaOptions}
+                  value={area || "All"}
+                  onSelect={handleAreaSelect}
+                  placeholder="All"
+                />
               </View>
 
               <View style={styles.filterItem}>
                 <Text style={styles.filterLabel}>Max Rent (₹)</Text>
-                <TouchableOpacity style={styles.filterDropdown}>
-                  <Text style={styles.filterValue}>{maxRent}</Text>
-                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
-                </TouchableOpacity>
+                <Dropdown
+                  options={maxRentOptions}
+                  value={maxRent || "All"}
+                  onSelect={handleMaxRentSelect}
+                  placeholder="All"
+                />
               </View>
             </View>
           </View>
@@ -793,7 +866,7 @@ export default function DashboardScreen() {
                   ? `${filteredHostels.length} filtered results`
                   : searchQuery
                   ? `${filteredHostels.length} results found`
-                  : `${hostels.length} properties found in ${userLocation}`}
+                  : `${filteredHostels.length} properties found in ${userLocation}`}
               </Text>
               {filteredHostels.length > 0 ? (
                 filteredHostels.map((hostel: any) => (
@@ -850,7 +923,7 @@ export default function DashboardScreen() {
 
       <LocationModal
         visible={showLocationModal}
-        onClose={handleLocationModalClose} // Use the new handler
+        onClose={handleLocationModalClose}
         onLocationSelected={handleLocationSelected}
       />
       <FilterModal
@@ -1056,35 +1129,24 @@ const styles = StyleSheet.create({
   filterSection: {
     paddingHorizontal: 20,
     marginTop: 20,
+    zIndex: 10, // Add this
   },
   filterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
+    zIndex: 10, // Add this
   },
   filterItem: {
     flex: 1,
+    zIndex: 10, // Add this
   },
   filterLabel: {
     fontSize: 14,
     color: "#374151",
     fontWeight: "500",
     marginBottom: 6,
-  },
-  filterDropdown: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  filterValue: {
-    fontSize: 14,
-    color: "#1F2937",
+    zIndex: 1,
   },
   servicesSection: {
     marginTop: 24,
