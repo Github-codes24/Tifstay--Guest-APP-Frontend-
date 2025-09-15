@@ -36,7 +36,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
 }) => {
   const { top } = useSafeAreaInsets();
 
-  // Tiffin Filters - Initialize with empty values or currentFilters
   const [rating, setRating] = useState(currentFilters.rating || null);
   const [cost, setCost] = useState(currentFilters.cost || "");
   const [offers, setOffers] = useState(currentFilters.offers || "");
@@ -44,7 +43,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [vegNonVeg, setVegNonVeg] = useState(currentFilters.vegNonVeg || "");
   const [cuisine, setCuisine] = useState(currentFilters.cuisine || "");
 
-  // Hostel Filters - Initialize with empty values or currentFilters
   const [location, setLocation] = useState(currentFilters.location || "");
   const [distance, setDistance] = useState(currentFilters.distance || 0);
   const [priceRange, setPriceRange] = useState(
@@ -69,7 +67,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
     "Laundry",
   ];
 
-  // Dropdown options
   const costOptions = ["Low to High", "High to Low"];
   const offerOptions = [
     "Get 10% OFF on your first tiffin order",
@@ -156,11 +153,10 @@ const FilterModal: React.FC<FilterModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* Map Image - Positioned absolutely to cover header area */}
         <View style={styles.mapContainer}>
           <Image
-            source={mapBanner}
             style={styles.mapImage}
+            source={mapBanner}
             resizeMode="cover"
           />
           <View style={[styles.headerSafeArea, { paddingTop: top }]}>
@@ -179,7 +175,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
           </View>
         </View>
 
-        {/* Content Container */}
         <View style={styles.contentContainer}>
           <ScrollView
             style={styles.scrollView}
@@ -187,9 +182,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
             contentContainerStyle={styles.scrollViewContent}
           >
             {isHostel ? (
-              // Hostel Filters
               <>
-                {/* Location */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Location*</Text>
                   <Dropdown
@@ -200,7 +193,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Distance */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Distance*</Text>
                   <View style={styles.sliderContainer}>
@@ -224,7 +216,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
-                {/* Price Range */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Price Range*</Text>
                   <View style={styles.priceRangeContainer}>
@@ -251,7 +242,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
-                {/* Hostel Type */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Hostel Type</Text>
                   <Dropdown
@@ -262,7 +252,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Room Type */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Room-Type</Text>
                   <Dropdown
@@ -273,7 +262,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* AC/Non-AC */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>AC / Non-AC</Text>
                   <Dropdown
@@ -284,7 +272,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Amenities */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Amenities</Text>
                   <View style={styles.amenitiesGrid}>
@@ -398,7 +385,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
-                {/* Cost */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cost</Text>
                   <Dropdown
@@ -409,7 +395,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Offers */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Offers</Text>
                   <Dropdown
@@ -421,7 +406,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Cashback */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cashback</Text>
                   <Dropdown
@@ -433,7 +417,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Veg/Non-veg */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Veg/Non-veg</Text>
                   <Dropdown
@@ -444,7 +427,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   />
                 </View>
 
-                {/* Cuisine */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cuisine</Text>
                   <Dropdown

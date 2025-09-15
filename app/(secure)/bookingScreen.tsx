@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from "react";
 import {
   View,
@@ -26,9 +25,7 @@ export default function BookingScreen() {
   const params = useLocalSearchParams();
   const bookingType = (params.bookingType as BookingType) || "tiffin";
 
-  // Extract service data from params
   const serviceData = {
-    // For Tiffin
     serviceId: params.serviceId,
     serviceName: params.serviceName,
     price: params.price,
@@ -39,11 +36,9 @@ export default function BookingScreen() {
     deposit: params.deposit,
   };
 
-  // Common states
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
-  // Tiffin specific states
   const [address, setAddress] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [numberOfTiffin, setNumberOfTiffin] = useState("4");
@@ -65,7 +60,6 @@ export default function BookingScreen() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Hostel specific states
   const [hostelPlan, setHostelPlan] = useState("monthly");
   const [checkInDate, setCheckInDate] = useState(new Date());
   const [checkOutDate, setCheckOutDate] = useState(new Date());
@@ -105,7 +99,6 @@ export default function BookingScreen() {
   };
 
   const handleTiffinSubmit = () => {
-    // Handle tiffin order submission
     const bookingData = {
       serviceType: "tiffin",
       fullName,
@@ -126,13 +119,12 @@ export default function BookingScreen() {
       pathname: "/check-out",
       params: {
         serviceType: "tiffin",
-        bookingData: JSON.stringify(bookingData), // Stringify complex data
+        bookingData: JSON.stringify(bookingData),
       },
     });
   };
 
   const handleHostelSubmit = () => {
-    // Handle hostel booking submission
     const bookingData = {
       serviceType: "hostel",
       fullName,
@@ -153,7 +145,7 @@ export default function BookingScreen() {
       pathname: "/check-out",
       params: {
         serviceType: "hostel",
-        bookingData: JSON.stringify(bookingData), // Stringify complex data
+        bookingData: JSON.stringify(bookingData),
       },
     });
   };
@@ -192,11 +184,8 @@ export default function BookingScreen() {
     </TouchableOpacity>
   );
 
-  // Hostel Booking Component
   const renderHostelBooking = () => (
     <>
-      {/* Request Booking */}
-
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Request Booking</Text>
         <Text style={styles.hostelName}>
@@ -255,7 +244,6 @@ export default function BookingScreen() {
         />
       </View>
 
-      {/* Upload Aadhaar Card */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo</Text>
         <TouchableOpacity style={styles.uploadButton}>
@@ -266,7 +254,6 @@ export default function BookingScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Upload Your Photo */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Your Photo</Text>
         <TouchableOpacity style={styles.uploadButton}>
@@ -277,7 +264,6 @@ export default function BookingScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Booking Details */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📅 Booking Details</Text>
 
@@ -334,7 +320,6 @@ export default function BookingScreen() {
           onChangeText={setMessage}
         />
 
-        {/* Purpose Toggle */}
         <View style={styles.purposeContainer}>
           <TouchableOpacity
             style={[
@@ -371,7 +356,6 @@ export default function BookingScreen() {
         </View>
       </View>
 
-      {/* Book Now Button */}
       <TouchableOpacity
         style={styles.submitButton}
         onPress={handleHostelSubmit}
@@ -381,7 +365,6 @@ export default function BookingScreen() {
     </>
   );
 
-  // Tiffin Booking Component
   const renderTiffinBooking = () => (
     <ScrollView>
       {/* Personal Info */}
@@ -599,7 +582,6 @@ export default function BookingScreen() {
     </ScrollView>
   );
 
-  // Main render with conditional logic
   return (
     <SafeAreaView style={styles.container}>
       <Header

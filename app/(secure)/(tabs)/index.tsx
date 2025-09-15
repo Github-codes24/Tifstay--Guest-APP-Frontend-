@@ -9,6 +9,7 @@ import {
   ScrollView,
   Animated,
   Keyboard,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -50,12 +51,11 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
   const [isVegOnly, setIsVegOnly] = useState(false);
-  const [hostelType, setHostelType] = useState(""); // Changed to empty string
-  const [area, setArea] = useState(""); // Changed to empty string
-  const [maxRent, setMaxRent] = useState(""); // Changed to empty string
+  const [hostelType, setHostelType] = useState("");
+  const [area, setArea] = useState("");
+  const [maxRent, setMaxRent] = useState("");
   const [showFilterModal, setShowFilterModal] = useState(false);
 
-  // Dropdown options with "All" option
   const hostelTypeOptions = ["All", "Boys", "Girls", "Co-ed"];
   const areaOptions = [
     "All",
@@ -179,7 +179,6 @@ export default function DashboardScreen() {
       );
     }
 
-    // Apply quick filter dropdowns - only filter if not "All" or empty
     if (hostelType && hostelType !== "All") {
       filtered = filtered.filter((hostel) => hostel.type === hostelType);
     }
@@ -196,7 +195,6 @@ export default function DashboardScreen() {
       );
     }
 
-    // Apply filter modal filters for hostels
     if (isHostel && appliedFilters.hostelType) {
       filtered = filtered.filter(
         (hostel) => hostel.type === appliedFilters.hostelType
@@ -206,8 +204,8 @@ export default function DashboardScreen() {
     if (isHostel && appliedFilters.priceRange) {
       filtered = filtered.filter(
         (hostel) =>
-          hostel.price >= appliedFilters.priceRange[0] &&
-          hostel.price <= appliedFilters.priceRange[1]
+          parseInt(hostel.price) >= appliedFilters.priceRange[0] &&
+          parseInt(hostel.price) <= appliedFilters.priceRange[1]
       );
     }
 
@@ -286,8 +284,7 @@ export default function DashboardScreen() {
 
   const handleLocationModalClose = () => {
     setShowLocationModal(false);
-    // If user hasn't selected a location yet, mark it as selected anyway
-    // to prevent the modal from showing again
+
     if (!hasSelectedLocation) {
       setHasSelectedLocation(true);
     }
@@ -328,7 +325,6 @@ export default function DashboardScreen() {
     console.log("Applied filters:", filters);
   };
 
-  // Handle dropdown selection to convert "All" to empty string
   const handleHostelTypeSelect = (value: string) => {
     setHostelType(value === "All" ? "" : value);
   };
@@ -343,7 +339,24 @@ export default function DashboardScreen() {
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
 
-  // Show full-screen search view when search is focused
+  const renderTiffinItem = ({ item }: { item: any }) => (
+    <TiffinCard
+      service={item}
+      onPress={() => handleTiffinPress(item)}
+      onBookPress={() => handleBookPress(item)}
+    />
+  );
+
+  const renderHostelItem = ({ item }: { item: any }) => (
+    <HostelCard
+      hostel={item}
+      onPress={() => handleHostelPress(item)}
+      onBookPress={() => handleBookPress(item)}
+    />
+  );
+
+  const keyExtractor = (item: any) => item.id.toString();
+
   if (isSearchFocused) {
     return (
       <View style={styles.container}>
@@ -380,130 +393,112 @@ export default function DashboardScreen() {
           </View>
         </SafeAreaView>
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.searchResultsContainer}>
-            <Text style={styles.searchResultsTitle}>
-              {searchQuery ? "Search Results" : "Popular Searches"}
-            </Text>
+        <View style={styles.searchResultsContainer}>
+          <Text style={styles.searchResultsTitle}>
+            {searchQuery ? "Search Results" : "Popular Searches"}
+          </Text>
 
-            {searchQuery && displayedItems.length > 0 ? (
-              displayedItems.map((item: any) =>
-                isHostel ? (
-                  <HostelCard
-                    key={item.id}
-                    hostel={item}
-                    onPress={() => handleHostelPress(item)}
-                    onBookPress={() => handleBookPress(item)}
-                  />
+          {searchQuery && displayedItems.length > 0 ? (
+            <FlatList
+              data={displayedItems}
+              renderItem={isHostel ? renderHostelItem : renderTiffinItem}
+              keyExtractor={keyExtractor}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingBottom: 20,
+              }}
+            />
+          ) : searchQuery.length > 0 ? (
+            <View style={styles.noResultsContainer}>
+              <Ionicons name="search" size={50} color="#9CA3AF" />
+              <Text style={styles.noResultsText}>
+                {`No ${
+                  isHostel ? "hostels" : "services"
+                } found matching "${searchQuery}"`}
+              </Text>
+              <Text style={styles.noResultsSubtext}>
+                Try searching with different keywords
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.recentSearchesContainer}>
+              <View style={styles.suggestionTags}>
+                {isHostel ? (
+                  <>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("WiFi")}
+                    >
+                      <Text style={styles.suggestionTagText}>WiFi</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("AC")}
+                    >
+                      <Text style={styles.suggestionTagText}>AC</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Near College")}
+                    >
+                      <Text style={styles.suggestionTagText}>Near College</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Parking")}
+                    >
+                      <Text style={styles.suggestionTagText}>Parking</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Mess")}
+                    >
+                      <Text style={styles.suggestionTagText}>Mess</Text>
+                    </TouchableOpacity>
+                  </>
                 ) : (
-                  <TiffinCard
-                    key={item.id}
-                    service={item}
-                    onPress={() => handleTiffinPress(item)}
-                    onBookPress={() => handleBookPress(item)}
-                  />
-                )
-              )
-            ) : searchQuery.length > 0 ? (
-              <View style={styles.noResultsContainer}>
-                <Ionicons name="search" size={50} color="#9CA3AF" />
-                <Text style={styles.noResultsText}>
-                  {`No ${
-                    isHostel ? "hostels" : "services"
-                  } found matching "${searchQuery}"`}
-                </Text>
-                <Text style={styles.noResultsSubtext}>
-                  Try searching with different keywords
-                </Text>
+                  <>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Veg")}
+                    >
+                      <Text style={styles.suggestionTagText}>Veg</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Maharashtrian")}
+                    >
+                      <Text style={styles.suggestionTagText}>
+                        Maharashtrian
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Healthy")}
+                    >
+                      <Text style={styles.suggestionTagText}>Healthy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Home Style")}
+                    >
+                      <Text style={styles.suggestionTagText}>Home Style</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.suggestionTag}
+                      onPress={() => setSearchQuery("Budget")}
+                    >
+                      <Text style={styles.suggestionTagText}>Budget</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
-            ) : (
-              // Show popular searches when no query
-              <View style={styles.recentSearchesContainer}>
-                <View style={styles.suggestionTags}>
-                  {isHostel ? (
-                    <>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("WiFi")}
-                      >
-                        <Text style={styles.suggestionTagText}>WiFi</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("AC")}
-                      >
-                        <Text style={styles.suggestionTagText}>AC</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Near College")}
-                      >
-                        <Text style={styles.suggestionTagText}>
-                          Near College
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Parking")}
-                      >
-                        <Text style={styles.suggestionTagText}>Parking</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Mess")}
-                      >
-                        <Text style={styles.suggestionTagText}>Mess</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Veg")}
-                      >
-                        <Text style={styles.suggestionTagText}>Veg</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Maharashtrian")}
-                      >
-                        <Text style={styles.suggestionTagText}>
-                          Maharashtrian
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Healthy")}
-                      >
-                        <Text style={styles.suggestionTagText}>Healthy</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Home Style")}
-                      >
-                        <Text style={styles.suggestionTagText}>Home Style</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.suggestionTag}
-                        onPress={() => setSearchQuery("Budget")}
-                      >
-                        <Text style={styles.suggestionTagText}>Budget</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              </View>
-            )}
-          </View>
-        </ScrollView>
+            </View>
+          )}
+        </View>
       </View>
     );
   }
-
-  // Show filtered view when filters are applied
   if (isFilterApplied && hasFilters) {
     return (
       <View style={styles.container}>
@@ -549,31 +544,29 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.filteredResultsContainer}>
-            <Text style={styles.filteredResultsTitle}>Filtered Results</Text>
-            {displayedItems.length > 0 ? (
-              displayedItems.map((item: any) =>
-                isHostel ? (
-                  <HostelCard
-                    key={item.id}
-                    hostel={item}
-                    onPress={() => handleHostelPress(item)}
-                    onBookPress={() => handleBookPress(item)}
-                  />
-                ) : (
-                  <TiffinCard
-                    key={item.id}
-                    service={item}
-                    onPress={() => handleTiffinPress(item)}
-                    onBookPress={() => handleBookPress(item)}
-                  />
-                )
-              )
-            ) : (
+        <View style={styles.filteredResultsContainer}>
+          <Text style={styles.filteredResultsTitle}>Filtered Results</Text>
+          {displayedItems.length > 0 ? (
+            <FlatList
+              data={displayedItems}
+              renderItem={isHostel ? renderHostelItem : renderTiffinItem}
+              keyExtractor={keyExtractor}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              ListFooterComponent={
+                <TouchableOpacity
+                  style={styles.backToHomeButton}
+                  onPress={() => {
+                    setIsFilterApplied(false);
+                    setAppliedFilters({});
+                  }}
+                >
+                  <Text style={styles.backToHomeText}>Back to Home</Text>
+                </TouchableOpacity>
+              }
+            />
+          ) : (
+            <>
               <View style={styles.noResultsContainer}>
                 <Ionicons name="filter" size={50} color="#9CA3AF" />
                 <Text style={styles.noResultsText}>
@@ -584,19 +577,18 @@ export default function DashboardScreen() {
                   Try adjusting your filters
                 </Text>
               </View>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.backToHomeButton}
-            onPress={() => {
-              setIsFilterApplied(false);
-              setAppliedFilters({});
-            }}
-          >
-            <Text style={styles.backToHomeText}>Back to Home</Text>
-          </TouchableOpacity>
-        </ScrollView>
+              <TouchableOpacity
+                style={styles.backToHomeButton}
+                onPress={() => {
+                  setIsFilterApplied(false);
+                  setAppliedFilters({});
+                }}
+              >
+                <Text style={styles.backToHomeText}>Back to Home</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
         <FilterModal
           visible={showFilterModal}
@@ -638,288 +630,265 @@ export default function DashboardScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView
+      <FlatList
+        data={displayedItems}
+        renderItem={isHostel ? renderHostelItem : renderTiffinItem}
+        keyExtractor={keyExtractor}
         showsVerticalScrollIndicator={false}
-        style={styles.scrollView}
-      >
-        <View style={styles.searchWrapper}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#6B7280" />
-            <TextInput
-              ref={searchInputRef}
-              placeholder={
-                isHostel
-                  ? "Search for hostel..."
-                  : "Search for tiffin services..."
-              }
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              style={styles.searchInput}
-              placeholderTextColor="#9CA3AF"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={handleClearSearch}>
-                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.micButton}>
-              <Ionicons name="mic" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              {
-                backgroundColor: hasFilters ? colors.primary : "#F2EFFD",
-              },
-            ]}
-            onPress={() => setShowFilterModal(true)}
-          >
-            <Ionicons
-              name="options"
-              size={22}
-              color={hasFilters ? "white" : "#2563EB"}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {!searchQuery && !hasFilters && (
-          <View style={styles.banner}>
-            <Image
-              source={isHostel ? hostel1 : food1}
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
-            <View style={styles.bannerContent}>
-              {isHostel ? (
-                <>
-                  <Text style={styles.bannerTitle}>Premium{"\n"}Hostels</Text>
-                  <Text style={styles.bannerSubtitle}>
-                    Find your perfect home{"\n"}away from home
-                  </Text>
-                  <Text style={styles.bannerLink}>Safe & Secure Living</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
-                  <Text style={styles.bannerSubtitle}>
-                    Enjoy pure taste of your{"\n"}home-made delights
-                  </Text>
-                  <Text style={styles.bannerLink}>www.website.com</Text>
-                </>
-              )}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.serviceSection}>
-          <Text style={styles.sectionTitle}>What are you looking for?</Text>
-          <View style={styles.serviceButtons}>
-            <TouchableOpacity
-              style={[
-                styles.serviceButton,
-                !isHostel && styles.serviceButtonSelected,
-              ]}
-              onPress={() => {
-                setIsHostel(false);
-                setSearchQuery("");
-                setAppliedFilters({});
-                setIsFilterApplied(false);
-                // Reset dropdown filters when switching
-                setHostelType("");
-                setArea("");
-                setMaxRent("");
-              }}
-            >
-              <Ionicons
-                name="restaurant"
-                size={24}
-                color={!isHostel ? "#fff" : "#004AAD"}
-              />
-              <Text
-                style={[
-                  styles.serviceButtonText,
-                  !isHostel && styles.serviceButtonTextSelected,
-                ]}
-              >
-                Tiffin/Restaurants
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.serviceButton,
-                isHostel && styles.serviceButtonSelected,
-              ]}
-              onPress={() => {
-                setIsHostel(true);
-                setSearchQuery("");
-                setAppliedFilters({});
-                setIsFilterApplied(false);
-              }}
-            >
-              <Ionicons
-                name="business"
-                size={24}
-                color={isHostel ? "#fff" : "#004AAD"}
-              />
-              <Text
-                style={[
-                  styles.serviceButtonText,
-                  isHostel && styles.serviceButtonTextSelected,
-                ]}
-              >
-                PG/Hostels
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {isHostel && !hasFilters && (
-          <View style={styles.filterSection}>
-            <View style={styles.filterRow}>
-              <View style={styles.filterItem}>
-                <Text style={styles.filterLabel}>Hostel Type</Text>
-                <Dropdown
-                  options={hostelTypeOptions}
-                  value={hostelType || "All"}
-                  onSelect={handleHostelTypeSelect}
-                  placeholder="All"
+        ListHeaderComponent={
+          <>
+            <View style={styles.searchWrapper}>
+              <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color="#6B7280" />
+                <TextInput
+                  ref={searchInputRef}
+                  placeholder={
+                    isHostel
+                      ? "Search for hostel..."
+                      : "Search for tiffin services..."
+                  }
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onFocus={() => setIsSearchFocused(true)}
+                  style={styles.searchInput}
+                  placeholderTextColor="#9CA3AF"
                 />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={handleClearSearch}>
+                    <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.micButton}>
+                  <Ionicons name="mic" size={20} color="#6B7280" />
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.filterItem}>
-                <Text style={styles.filterLabel}>Area</Text>
-                <Dropdown
-                  options={areaOptions}
-                  value={area || "All"}
-                  onSelect={handleAreaSelect}
-                  placeholder="All"
-                />
-              </View>
-
-              <View style={styles.filterItem}>
-                <Text style={styles.filterLabel}>Max Rent (₹)</Text>
-                <Dropdown
-                  options={maxRentOptions}
-                  value={maxRent || "All"}
-                  onSelect={handleMaxRentSelect}
-                  placeholder="All"
-                />
-              </View>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.servicesSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {hasFilters
-                ? "Filtered Results"
-                : searchQuery
-                ? "Search Results"
-                : isHostel
-                ? "Available Accommodations"
-                : "Available Tiffin Services"}
-            </Text>
-            {!isHostel && !hasFilters && (
               <TouchableOpacity
-                style={styles.vegToggle}
-                onPress={() => setIsVegOnly(!isVegOnly)}
-                activeOpacity={0.7}
+                style={[
+                  styles.filterButton,
+                  {
+                    backgroundColor: hasFilters ? colors.primary : "#F2EFFD",
+                  },
+                ]}
+                onPress={() => setShowFilterModal(true)}
               >
-                <Text style={styles.vegText}>
-                  {isVegOnly ? "Veg" : "Non-Veg"}
-                </Text>
-                <View
-                  style={[
-                    styles.vegSwitchContainer,
-                    isVegOnly && styles.vegSwitchActive,
-                  ]}
-                >
-                  <Animated.View
-                    style={[
-                      styles.vegSwitchThumb,
-                      {
-                        transform: [
-                          {
-                            translateX: vegAnimated.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, 20],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                </View>
+                <Ionicons
+                  name="options"
+                  size={22}
+                  color={hasFilters ? "white" : "#2563EB"}
+                />
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
 
-          {isHostel ? (
-            <>
-              <Text style={styles.servicesCount}>
-                {hasFilters
-                  ? `${filteredHostels.length} filtered results`
-                  : searchQuery
-                  ? `${filteredHostels.length} results found`
-                  : `${filteredHostels.length} properties found in ${userLocation}`}
-              </Text>
-              {filteredHostels.length > 0 ? (
-                filteredHostels.map((hostel: any) => (
-                  <HostelCard
-                    key={hostel.id}
-                    hostel={hostel}
-                    onPress={() => handleHostelPress(hostel)}
-                    onBookPress={() => handleBookPress(hostel)}
-                  />
-                ))
-              ) : (
-                <View style={styles.noResultsContainer}>
-                  <Ionicons name="search" size={50} color="#9CA3AF" />
-                  <Text style={styles.noResultsText}>No hostels found</Text>
-                  <Text style={styles.noResultsSubtext}>
-                    Try adjusting your filters or search
-                  </Text>
+            {!searchQuery && !hasFilters && (
+              <View style={styles.banner}>
+                <Image
+                  source={isHostel ? hostel1 : food1}
+                  style={styles.bannerImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.bannerContent}>
+                  {isHostel ? (
+                    <>
+                      <Text style={styles.bannerTitle}>
+                        Premium{"\n"}Hostels
+                      </Text>
+                      <Text style={styles.bannerSubtitle}>
+                        Find your perfect home{"\n"}away from home
+                      </Text>
+                      <Text style={styles.bannerLink}>
+                        Safe & Secure Living
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.bannerTitle}>
+                        Indian{"\n"}Cuisine
+                      </Text>
+                      <Text style={styles.bannerSubtitle}>
+                        Enjoy pure taste of your{"\n"}home-made delights
+                      </Text>
+                      <Text style={styles.bannerLink}>www.website.com</Text>
+                    </>
+                  )}
                 </View>
-              )}
-            </>
-          ) : (
-            <>
+              </View>
+            )}
+
+            <View style={styles.serviceSection}>
+              <Text style={styles.sectionTitle}>What are you looking for?</Text>
+              <View style={styles.serviceButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.serviceButton,
+                    !isHostel && styles.serviceButtonSelected,
+                  ]}
+                  onPress={() => {
+                    setIsHostel(false);
+                    setSearchQuery("");
+                    setAppliedFilters({});
+                    setIsFilterApplied(false);
+                    // Reset dropdown filters when switching
+                    setHostelType("");
+                    setArea("");
+                    setMaxRent("");
+                  }}
+                >
+                  <Ionicons
+                    name="restaurant"
+                    size={24}
+                    color={!isHostel ? "#fff" : "#004AAD"}
+                  />
+                  <Text
+                    style={[
+                      styles.serviceButtonText,
+                      !isHostel && styles.serviceButtonTextSelected,
+                    ]}
+                  >
+                    Tiffin/Restaurants
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.serviceButton,
+                    isHostel && styles.serviceButtonSelected,
+                  ]}
+                  onPress={() => {
+                    setIsHostel(true);
+                    setSearchQuery("");
+                    setAppliedFilters({});
+                    setIsFilterApplied(false);
+                  }}
+                >
+                  <Ionicons
+                    name="business"
+                    size={24}
+                    color={isHostel ? "#fff" : "#004AAD"}
+                  />
+                  <Text
+                    style={[
+                      styles.serviceButtonText,
+                      isHostel && styles.serviceButtonTextSelected,
+                    ]}
+                  >
+                    PG/Hostels
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {isHostel && !hasFilters && (
+              <View style={styles.filterSection}>
+                <View style={styles.filterRow}>
+                  <View style={styles.filterItem}>
+                    <Text style={styles.filterLabel}>Hostel Type</Text>
+                    <Dropdown
+                      options={hostelTypeOptions}
+                      value={hostelType || "All"}
+                      onSelect={handleHostelTypeSelect}
+                      placeholder="All"
+                    />
+                  </View>
+
+                  <View style={styles.filterItem}>
+                    <Text style={styles.filterLabel}>Area</Text>
+                    <Dropdown
+                      options={areaOptions}
+                      value={area || "All"}
+                      onSelect={handleAreaSelect}
+                      placeholder="All"
+                    />
+                  </View>
+
+                  <View style={styles.filterItem}>
+                    <Text style={styles.filterLabel}>Max Rent (₹)</Text>
+                    <Dropdown
+                      options={maxRentOptions}
+                      value={maxRent || "All"}
+                      onSelect={handleMaxRentSelect}
+                      placeholder="All"
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.servicesSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  {hasFilters
+                    ? "Filtered Results"
+                    : searchQuery
+                    ? "Search Results"
+                    : isHostel
+                    ? "Available Accommodations"
+                    : "Available Tiffin Services"}
+                </Text>
+                {!isHostel && !hasFilters && (
+                  <TouchableOpacity
+                    style={styles.vegToggle}
+                    onPress={() => setIsVegOnly(!isVegOnly)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.vegText}>
+                      {isVegOnly ? "Veg" : "Non-Veg"}
+                    </Text>
+                    <View
+                      style={[
+                        styles.vegSwitchContainer,
+                        isVegOnly && styles.vegSwitchActive,
+                      ]}
+                    >
+                      <Animated.View
+                        style={[
+                          styles.vegSwitchThumb,
+                          {
+                            transform: [
+                              {
+                                translateX: vegAnimated.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0, 20],
+                                }),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <Text style={styles.servicesCount}>
-                {hasFilters
+                {isHostel
+                  ? hasFilters
+                    ? `${filteredHostels.length} filtered results`
+                    : searchQuery
+                    ? `${filteredHostels.length} results found`
+                    : `${filteredHostels.length} properties found in ${userLocation}`
+                  : hasFilters
                   ? `${filteredTiffinServices.length} filtered results`
                   : searchQuery || isVegOnly
                   ? `${filteredTiffinServices.length} results found`
                   : `${tiffinServices.length} services found in ${userLocation}`}
               </Text>
-              {filteredTiffinServices.length > 0 ? (
-                filteredTiffinServices.map((service: any) => (
-                  <TiffinCard
-                    key={service.id}
-                    service={service}
-                    onPress={() => handleTiffinPress(service)}
-                    onBookPress={() => handleBookPress(service)}
-                  />
-                ))
-              ) : (
-                <View style={styles.noResultsContainer}>
-                  <Ionicons name="search" size={50} color="#9CA3AF" />
-                  <Text style={styles.noResultsText}>
-                    No tiffin services found
-                  </Text>
-                  <Text style={styles.noResultsSubtext}>
-                    Try adjusting your filters or search
-                  </Text>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-      </ScrollView>
+            </View>
+          </>
+        }
+        ListEmptyComponent={
+          <View style={styles.noResultsContainer}>
+            <Ionicons name="search" size={50} color="#9CA3AF" />
+            <Text style={styles.noResultsText}>
+              {isHostel ? "No hostels found" : "No tiffin services found"}
+            </Text>
+            <Text style={styles.noResultsSubtext}>
+              Try adjusting your filters or search
+            </Text>
+          </View>
+        }
+        contentContainerStyle={{ paddingBottom: 20 }}
+      />
 
       <LocationModal
         visible={showLocationModal}
@@ -941,12 +910,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+    paddingHorizontal: 20,
   },
   safeArea: {
     backgroundColor: "#fff",
   },
   header: {
-    paddingHorizontal: 20,
     paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1004,7 +973,6 @@ const styles = StyleSheet.create({
   searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
     marginTop: 16,
     gap: 12,
   },
@@ -1048,7 +1016,6 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
   },
   searchResultsContainer: {
-    paddingHorizontal: 20,
     paddingTop: 20,
   },
   searchResultsTitle: {
@@ -1057,7 +1024,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   banner: {
-    marginHorizontal: 20,
     marginTop: 20,
     height: 180,
     borderRadius: 16,
@@ -1091,7 +1057,6 @@ const styles = StyleSheet.create({
   },
   serviceSection: {
     marginTop: 24,
-    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1127,19 +1092,18 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   filterSection: {
-    paddingHorizontal: 20,
     marginTop: 20,
-    zIndex: 10, // Add this
+    zIndex: 10,
   },
   filterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
-    zIndex: 10, // Add this
+    zIndex: 10,
   },
   filterItem: {
     flex: 1,
-    zIndex: 10, // Add this
+    zIndex: 10,
   },
   filterLabel: {
     fontSize: 14,
@@ -1150,7 +1114,7 @@ const styles = StyleSheet.create({
   },
   servicesSection: {
     marginTop: 24,
-    paddingHorizontal: 20,
+
     paddingBottom: 20,
   },
   sectionHeader: {
@@ -1233,11 +1197,9 @@ const styles = StyleSheet.create({
     color: "#004AAD",
     fontWeight: "500",
   },
-  // Filtered view styles
   filteredHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
     paddingVertical: 12,
   },
   filteredBackButton: {
@@ -1258,7 +1220,6 @@ const styles = StyleSheet.create({
   filteredSearchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
     marginTop: 16,
     marginBottom: 20,
     gap: 12,
@@ -1281,7 +1242,7 @@ const styles = StyleSheet.create({
     color: "#1F2937",
   },
   filteredResultsContainer: {
-    paddingHorizontal: 20,
+    // paddingHorizontal: 20,
   },
   filteredResultsTitle: {
     fontSize: 18,
@@ -1302,11 +1263,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.primary,
   },
-  // Search focused view styles
   searchFocusedHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 12,
   },
@@ -1334,6 +1293,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 12,
-    paddingHorizontal: 20,
   },
 });
