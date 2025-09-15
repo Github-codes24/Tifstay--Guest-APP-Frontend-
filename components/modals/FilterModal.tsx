@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import colors from "@/constants/colors";
 import mapBanner from "@/assets/images/image/mapBanner.png";
+import Buttons from "@/components/Buttons";
+import Dropdown from "@/components/Dropdown";
 
 interface FilterModalProps {
   visible: boolean;
@@ -57,17 +59,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [userReviews, setUserReviews] = useState(
     currentFilters.userReviews || null
   );
-
-  // Dropdown states
-  const [showCostDropdown, setShowCostDropdown] = useState(false);
-  const [showOffersDropdown, setShowOffersDropdown] = useState(false);
-  const [showCashbackDropdown, setShowCashbackDropdown] = useState(false);
-  const [showVegNonVegDropdown, setShowVegNonVegDropdown] = useState(false);
-  const [showCuisineDropdown, setShowCuisineDropdown] = useState(false);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [showHostelTypeDropdown, setShowHostelTypeDropdown] = useState(false);
-  const [showRoomTypeDropdown, setShowRoomTypeDropdown] = useState(false);
-  const [showAcNonAcDropdown, setShowAcNonAcDropdown] = useState(false);
 
   const amenities = [
     "Wi-Fi",
@@ -157,18 +148,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
     );
   };
 
-  const closeAllDropdowns = () => {
-    setShowCostDropdown(false);
-    setShowOffersDropdown(false);
-    setShowCashbackDropdown(false);
-    setShowVegNonVegDropdown(false);
-    setShowCuisineDropdown(false);
-    setShowLocationDropdown(false);
-    setShowHostelTypeDropdown(false);
-    setShowRoomTypeDropdown(false);
-    setShowAcNonAcDropdown(false);
-  };
-
   return (
     <Modal
       visible={visible}
@@ -213,47 +192,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 {/* Location */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Location*</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowLocationDropdown(!showLocationDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !location && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {location || "Select Location"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showLocationDropdown && (
-                    <View style={styles.dropdownList}>
-                      {locationOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setLocation(option);
-                            setShowLocationDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              location === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={locationOptions}
+                    value={location}
+                    onSelect={setLocation}
+                    placeholder="Select Location"
+                  />
                 </View>
 
                 {/* Distance */}
@@ -308,156 +252,36 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </View>
 
                 {/* Hostel Type */}
-                <View
-                  style={[
-                    styles.filterSection,
-                    { zIndex: showHostelTypeDropdown ? 9999 : undefined },
-                  ]}
-                >
+                <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Hostel Type</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowHostelTypeDropdown(!showHostelTypeDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !hostelType && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {hostelType || "Select"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showHostelTypeDropdown && (
-                    <View style={styles.dropdownList}>
-                      {hostelTypeOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setHostelType(option);
-                            setShowHostelTypeDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              hostelType === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={hostelTypeOptions}
+                    value={hostelType}
+                    onSelect={setHostelType}
+                    placeholder="Select"
+                  />
                 </View>
 
                 {/* Room Type */}
-                <View
-                  style={[
-                    styles.filterSection,
-                    { zIndex: showRoomTypeDropdown ? 9999 : undefined },
-                  ]}
-                >
+                <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Room-Type</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowRoomTypeDropdown(!showRoomTypeDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !roomType && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {roomType || "Select"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showRoomTypeDropdown && (
-                    <View style={styles.dropdownList}>
-                      {roomTypeOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setRoomType(option);
-                            setShowRoomTypeDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              roomType === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={roomTypeOptions}
+                    value={roomType}
+                    onSelect={setRoomType}
+                    placeholder="Select"
+                  />
                 </View>
 
                 {/* AC/Non-AC */}
-                <View
-                  style={[
-                    styles.filterSection,
-                    { zIndex: showAcNonAcDropdown ? 9999 : undefined },
-                  ]}
-                >
+                <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>AC / Non-AC</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowAcNonAcDropdown(!showAcNonAcDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !acNonAc && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {acNonAc || "Select"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showAcNonAcDropdown && (
-                    <View style={styles.dropdownList}>
-                      {acNonAcOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setAcNonAc(option);
-                            setShowAcNonAcDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              acNonAc === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={acNonAcOptions}
+                    value={acNonAc}
+                    onSelect={setAcNonAc}
+                    placeholder="Select"
+                  />
                 </View>
 
                 {/* Amenities */}
@@ -577,245 +401,65 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 {/* Cost */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cost</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowCostDropdown(!showCostDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !cost && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {cost || "Select"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showCostDropdown && (
-                    <View style={styles.dropdownList}>
-                      {costOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setCost(option);
-                            setShowCostDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              cost === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={costOptions}
+                    value={cost}
+                    onSelect={setCost}
+                    placeholder="Select"
+                  />
                 </View>
 
                 {/* Offers */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Offers</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowOffersDropdown(!showOffersDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !offers && styles.dropdownPlaceholder,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {offers || "Select Offer"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showOffersDropdown && (
-                    <View style={styles.dropdownList}>
-                      {offerOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setOffers(option);
-                            setShowOffersDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              offers === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={offerOptions}
+                    value={offers}
+                    onSelect={setOffers}
+                    placeholder="Select Offer"
+                    numberOfLines={1}
+                  />
                 </View>
 
                 {/* Cashback */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cashback</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowCashbackDropdown(!showCashbackDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !cashback && styles.dropdownPlaceholder,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {cashback || "Select Cashback"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showCashbackDropdown && (
-                    <View style={styles.dropdownList}>
-                      {cashbackOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setCashback(option);
-                            setShowCashbackDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              cashback === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={cashbackOptions}
+                    value={cashback}
+                    onSelect={setCashback}
+                    placeholder="Select Cashback"
+                    numberOfLines={1}
+                  />
                 </View>
 
                 {/* Veg/Non-veg */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Veg/Non-veg</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowVegNonVegDropdown(!showVegNonVegDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !vegNonVeg && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {vegNonVeg || "Select"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showVegNonVegDropdown && (
-                    <View style={styles.dropdownList}>
-                      {vegNonVegOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setVegNonVeg(option);
-                            setShowVegNonVegDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              vegNonVeg === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={vegNonVegOptions}
+                    value={vegNonVeg}
+                    onSelect={setVegNonVeg}
+                    placeholder="Select"
+                  />
                 </View>
 
                 {/* Cuisine */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cuisine</Text>
-                  <TouchableOpacity
-                    style={styles.dropdown}
-                    onPress={() => {
-                      closeAllDropdowns();
-                      setShowCuisineDropdown(!showCuisineDropdown);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        !cuisine && styles.dropdownPlaceholder,
-                      ]}
-                    >
-                      {cuisine || "Select"}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                  </TouchableOpacity>
-                  {showCuisineDropdown && (
-                    <View style={styles.dropdownList}>
-                      {cuisineOptions.map((option) => (
-                        <TouchableOpacity
-                          key={option}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setCuisine(option);
-                            setShowCuisineDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              cuisine === option &&
-                                styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <Dropdown
+                    options={cuisineOptions}
+                    value={cuisine}
+                    onSelect={setCuisine}
+                    placeholder="Select"
+                  />
                 </View>
               </>
             )}
           </ScrollView>
 
           <View style={styles.bottomContainer}>
-            <TouchableOpacity
-              style={styles.applyButton}
-              onPress={handleApplyFilters}
-            >
-              <Text style={styles.applyButtonText}>Apply Filter</Text>
-            </TouchableOpacity>
+            <Buttons title="Apply Filter" onPress={handleApplyFilters} />
           </View>
         </View>
       </View>
@@ -878,67 +522,12 @@ const styles = StyleSheet.create({
   filterSection: {
     paddingHorizontal: 20,
     marginBottom: 24,
-    position: "relative",
-    zIndex: 1,
   },
   filterTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#1F2937",
     marginBottom: 12,
-  },
-  dropdown: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  dropdownText: {
-    fontSize: 15,
-    color: "#1F2937",
-    flex: 1,
-  },
-  dropdownPlaceholder: {
-    color: "#9CA3AF",
-  },
-  dropdownList: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    right: 20,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    marginTop: 4,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  dropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: "#1F2937",
-  },
-  dropdownItemTextSelected: {
-    color: colors.primary,
-    fontWeight: "600",
   },
   ratingContainer: {
     flexDirection: "row",
@@ -1035,17 +624,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
     backgroundColor: "#fff",
-  },
-  applyButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
     alignItems: "center",
-  },
-  applyButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
+    marginBottom: 20,
   },
 });
 

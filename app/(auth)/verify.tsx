@@ -45,15 +45,15 @@ export default function VerifyScreen() {
       const user = {
         id: "user123",
         name: "John Doe",
-        phoneNumber: "+1234567890", // Get from previous screen
+        phoneNumber: "+1234567890", // Get from previous screen1212
         email: "john@example.com",
       };
 
       // Login user
       login(user);
 
-      // Show success screen
-      router.replace("/success");
+      // Show success screen - CORRECTED PATH
+      router.replace("/(auth)/success");
     } else {
       Alert.alert("Invalid OTP", "Please enter correct OTP");
     }
@@ -66,6 +66,9 @@ export default function VerifyScreen() {
         <Text style={styles.title}>Enter Verification Code</Text>
         <Text style={styles.subtitle}>
           We have sent a 4-digit code to your phone
+        </Text>
+        <Text style={styles.demoText}>
+          Use &quot;1234&quot; as OTP for demo purpose
         </Text>
 
         <View style={styles.otpContainer}>
@@ -112,6 +115,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 16,
     color: colors.textPrimary,
+  },
+  demoText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 32,
   },
   subtitle: {
     fontSize: 14,

@@ -1229,15 +1229,16 @@ const styles = StyleSheet.create({
   backToHomeButton: {
     marginHorizontal: 20,
     marginVertical: 20,
-    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   backToHomeText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#fff",
+    color: colors.primary,
   },
   // Search focused view styles
   searchFocusedHeader: {
