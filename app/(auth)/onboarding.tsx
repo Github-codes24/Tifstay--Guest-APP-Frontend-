@@ -25,9 +25,8 @@ export default function OnboardingScreen() {
   const { setHasSeenOnboarding } = useAuthStore();
 
   const handleGetStarted = () => {
-    // Mark onboarding as completed
     setHasSeenOnboarding(true);
-    // Navigate to login
+
     router.replace("/login");
   };
 
@@ -35,11 +34,9 @@ export default function OnboardingScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Auto-advance from splash after 3 seconds
   useEffect(() => {
     if (currentIndex === 0) {
       const timer = setTimeout(() => {
-        // Add fade animation before scrolling
         Animated.sequence([
           Animated.timing(fadeAnim, {
             toValue: 0.3,
@@ -151,7 +148,7 @@ export default function OnboardingScreen() {
 
           <Button
             title="Get Started"
-            onPress={handleGetStarted} // Changed this line
+            onPress={handleGetStarted}
             width={width - 48}
             height={56}
           />
@@ -218,7 +215,6 @@ const styles = StyleSheet.create({
     tintColor: "#004AAD",
   },
 
-  // Unified dots positioning
   dotsWrapper: {
     position: "absolute",
     bottom: 50,
@@ -235,8 +231,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#E0E0E0",
   },
-
-  // Onboarding Screen Styles
   onboardingContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -245,7 +239,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 100,
-    paddingBottom: 100, // Adjusted to accommodate dots
+    paddingBottom: 100,
   },
   onboardingLogoSection: {
     alignItems: "center",

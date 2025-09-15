@@ -27,7 +27,6 @@ export default function ContinueSubscriptionScreen() {
   const serviceName = params.serviceName || "";
   const price = params.price || "";
 
-  // Tiffin States
   const [numberOfTiffin, setNumberOfTiffin] = useState("4");
   const [selectTiffinNumber, setSelectTiffinNumber] = useState("4");
   const [mealPreferences, setMealPreferences] = useState({
@@ -41,7 +40,6 @@ export default function ContinueSubscriptionScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Hostel States
   const [hostelPlan, setHostelPlan] = useState("monthly");
   const [checkInDate, setCheckInDate] = useState(new Date());
   const [checkOutDate, setCheckOutDate] = useState(new Date());
@@ -50,7 +48,6 @@ export default function ContinueSubscriptionScreen() {
   const [message, setMessage] = useState("");
   const [purposeType, setPurposeType] = useState<"work" | "leisure">("work");
 
-  // Checkbox Component
   const Checkbox = ({
     checked,
     onPress,
@@ -66,7 +63,6 @@ export default function ContinueSubscriptionScreen() {
     </TouchableOpacity>
   );
 
-  // Radio Button Component
   const RadioButton = ({
     label,
     value,
@@ -133,10 +129,8 @@ export default function ContinueSubscriptionScreen() {
     setMealPreferences((prev) => ({ ...prev, [meal]: !prev[meal] }));
   };
 
-  // Tiffin Subscription Form
   const renderTiffinForm = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Booking Details Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📅 Booking Details</Text>
 
@@ -180,7 +174,6 @@ export default function ContinueSubscriptionScreen() {
           />
         </View>
 
-        {/* Meal Preferences */}
         <Text style={styles.subSectionTitle}>Meal Preference</Text>
         {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
           <View style={styles.checkboxRow} key={meal}>
@@ -196,7 +189,6 @@ export default function ContinueSubscriptionScreen() {
           </View>
         ))}
 
-        {/* Food Type */}
         <Text style={styles.subSectionTitle}>Food Type</Text>
         <RadioButton
           label="Veg"
@@ -217,7 +209,6 @@ export default function ContinueSubscriptionScreen() {
           onPress={setFoodType}
         />
 
-        {/* Order Type */}
         <Text style={styles.subSectionTitle}>Choose Order Type</Text>
         <RadioButton
           label="Dining"
@@ -232,7 +223,6 @@ export default function ContinueSubscriptionScreen() {
           onPress={(value) => setOrderType(value as "dining" | "delivery")}
         />
 
-        {/* Plan Type */}
         <Text style={styles.subSectionTitle}>Choose Plan Type</Text>
         <RadioButton
           label="Daily (₹120/meal) - Save 10%"
@@ -253,7 +243,6 @@ export default function ContinueSubscriptionScreen() {
           onPress={setPlanType}
         />
 
-        {/* Select Date */}
         <Text style={styles.subSectionTitle}>Select Date</Text>
         <TouchableOpacity
           style={styles.datePickerButton}
@@ -275,7 +264,6 @@ export default function ContinueSubscriptionScreen() {
         )}
       </View>
 
-      {/* Summary */}
       <View style={styles.summarySection}>
         <Text style={styles.serviceName}>
           {serviceName || "Maharashtrian Ghar Ka Khana"}
@@ -283,7 +271,6 @@ export default function ContinueSubscriptionScreen() {
         <Text style={styles.priceText}>Price: ₹120/meal</Text>
       </View>
 
-      {/* Submit Button */}
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.submitButtonText}>Submit Booking Request</Text>
       </TouchableOpacity>
@@ -294,10 +281,8 @@ export default function ContinueSubscriptionScreen() {
     </ScrollView>
   );
 
-  // Hostel Subscription Form
   const renderHostelForm = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Hostel Details */}
       <View style={styles.section}>
         <Text style={styles.hostelName}>
           {serviceName || "Scholars Den Boys Hostel"}
@@ -325,7 +310,6 @@ export default function ContinueSubscriptionScreen() {
         <Text style={styles.priceText}>{price || "₹8000/month"}</Text>
       </View>
 
-      {/* Booking Details */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📅 Booking Details</Text>
 
@@ -382,7 +366,6 @@ export default function ContinueSubscriptionScreen() {
           onChangeText={setMessage}
         />
 
-        {/* Purpose Toggle */}
         <View style={styles.purposeContainer}>
           <TouchableOpacity
             style={styles.radioOption}
@@ -412,7 +395,6 @@ export default function ContinueSubscriptionScreen() {
         </View>
       </View>
 
-      {/* Check Out Button */}
       <Buttons
         title="Check Out"
         onPress={handleSubmit}

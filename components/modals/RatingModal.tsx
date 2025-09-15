@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import Button from "@/components/Buttons"; // Changed import
+import Button from "@/components/Buttons";
 import Logo from "@/components/Logo";
 import colors from "@/constants/colors";
 

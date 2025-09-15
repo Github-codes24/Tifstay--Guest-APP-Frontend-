@@ -3,7 +3,6 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ✅ Notification data with direct image imports
 const notifications = [
   {
     id: 1,
@@ -41,7 +40,6 @@ const notifications = [
   },
 ];
 
-// ✅ Screen Component
 export default function NotificationScreen() {
   const grouped = groupByDate(notifications);
 
@@ -94,7 +92,6 @@ export default function NotificationScreen() {
   );
 }
 
-// ✅ Group notifications by date
 function groupByDate(data: typeof notifications) {
   const grouped: Record<string, typeof notifications> = {};
   for (const item of data) {
@@ -106,7 +103,6 @@ function groupByDate(data: typeof notifications) {
   return grouped;
 }
 
-// ✅ Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -114,7 +110,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   header: {
-    flexDirection: "row", // 👈 horizontal layout
+    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,

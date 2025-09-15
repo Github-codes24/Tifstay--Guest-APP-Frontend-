@@ -29,7 +29,7 @@ export default function BookingScreen() {
     serviceId: params.serviceId,
     serviceName: params.serviceName,
     price: params.price,
-    // For Hostel
+
     hostelId: params.hostelId,
     hostelName: params.hostelName,
     monthlyPrice: params.monthlyPrice,
@@ -367,7 +367,6 @@ export default function BookingScreen() {
 
   const renderTiffinBooking = () => (
     <ScrollView>
-      {/* Personal Info */}
       <View style={styles.section}>
         <View style={{ flexDirection: "row" }}>
           <Image source={person} style={styles.icon} />
@@ -390,7 +389,6 @@ export default function BookingScreen() {
         />
       </View>
 
-      {/* Delivery Address */}
       <View style={styles.section}>
         <View style={{ flexDirection: "row" }}>
           <Image source={location1} style={styles.icon} />
@@ -429,7 +427,6 @@ export default function BookingScreen() {
         />
       </View>
 
-      {/* Booking Details */}
       <View style={styles.section}>
         <View style={{ flexDirection: "row" }}>
           <Image source={calender} style={styles.icon} />
@@ -461,7 +458,6 @@ export default function BookingScreen() {
           />
         </View>
 
-        {/* Apply Preferences */}
         <Text style={[styles.sectionTitle]}>Apply Preferences</Text>
         {Object.entries(sameAsSelections).map(([key, value]) => (
           <View style={styles.checkboxRow} key={key}>
@@ -477,7 +473,6 @@ export default function BookingScreen() {
           </View>
         ))}
 
-        {/* Meal Preferences */}
         <Text style={[styles.sectionTitle]}>Meal Preference</Text>
         {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
           <View style={styles.checkboxRow} key={meal}>
@@ -491,7 +486,6 @@ export default function BookingScreen() {
           </View>
         ))}
 
-        {/* Food Type */}
         <Text style={[styles.sectionTitle]}>Food Type</Text>
         <RadioButton
           label="Veg"
@@ -512,7 +506,6 @@ export default function BookingScreen() {
           onPress={setSelectedfood}
         />
 
-        {/* Date Picker */}
         <Text style={[styles.sectionTitle]}>Select Date</Text>
         <TouchableOpacity
           style={styles.datePickerButton}
@@ -549,7 +542,6 @@ export default function BookingScreen() {
           </View>
         ))}
 
-        {/* Plan Type */}
         <Text style={[styles.sectionTitle]}>Choose Plan Type</Text>
         {["daily", "weekly", "monthly"].map((plan) => (
           <RadioButton
@@ -562,7 +554,6 @@ export default function BookingScreen() {
         ))}
       </View>
 
-      {/* Summary & Submit */}
       <View style={styles.summaryBox}>
         <Text style={styles.summaryTitle}>
           {serviceData.serviceName || "Maharashtrian Ghar Ka Khana"}
@@ -759,7 +750,7 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-  // Hostel specific styles
+
   hostelName: {
     fontSize: 18,
     fontWeight: "600",

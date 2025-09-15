@@ -1,4 +1,3 @@
-// app/checkout.tsx
 import React from "react";
 import {
   View,
@@ -24,7 +23,6 @@ const Checkout: React.FC = () => {
   const isHostel = serviceType === "hostel";
   console.log("Service Type:", serviceType);
 
-  // Sample data - replace with actual data from navigation params or context
   const tiffinData: TiffinCheckoutData = {
     id: "1",
     title: "Maharashtrian Ghar Ka Khana",
@@ -52,7 +50,6 @@ const Checkout: React.FC = () => {
 
   const checkoutData = isTiffin ? tiffinData : hostelData;
 
-  // Calculate transaction details based on service type
   const getTransactionDetails = () => {
     if (isTiffin) {
       return {
@@ -78,7 +75,6 @@ const Checkout: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <Header
         title="Checkout"
         onBack={() => router.back()}
@@ -89,7 +85,6 @@ const Checkout: React.FC = () => {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Item Ordered Section */}
         <View style={styles.itemOrderedSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Item ordered</Text>
@@ -98,20 +93,17 @@ const Checkout: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Use the reusable component */}
           <CheckoutItemCard
             serviceType={isTiffin ? "tiffin" : "hostel"}
             data={checkoutData}
           />
         </View>
 
-        {/* Transaction Details */}
         <View style={styles.transactionSection}>
           <Text style={styles.paymentSectionTitle}>Transaction Details</Text>
 
           <View style={styles.transactionDetails}>
             {isTiffin ? (
-              // Tiffin Transaction Details
               <>
                 <View style={styles.transactionRow}>
                   <Text style={styles.transactionLabel}>

@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Button from "@/components/Buttons";
@@ -15,17 +16,19 @@ import HostelCard from "@/components/HostelCard";
 import demoData from "@/data/demoData.json";
 import { Ionicons } from "@expo/vector-icons";
 
+const { width: screenWidth } = Dimensions.get("window");
+const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
+const CARD_MARGIN = 10;
+
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
   const { serviceType, serviceName } = params;
   const isTiffin = serviceType === "tiffin";
 
-  // Generate order ID
   const orderId = `${isTiffin ? "mk" : "hkl"}${Math.floor(
     Math.random() * 10000000
   )}`;
 
-  // Default booking details for tiffin
   const tiffinBookingDetails = {
     id: orderId,
     tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
@@ -37,7 +40,6 @@ const Confirmation: React.FC = () => {
     plan: "Daily",
   };
 
-  // Default booking details for hostel
   const hostelBookingDetails = {
     id: orderId,
     hostelBooking: serviceName || "Scholars Den Boys Hostel",
@@ -47,16 +49,13 @@ const Confirmation: React.FC = () => {
 
   const bookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
 
-  // Get recommendation data (show opposite service)
   const getRecommendations = () => {
     if (isTiffin) {
-      // Show hostel recommendations for tiffin booking
       return demoData.hostels.slice(0, 3).map((hostel) => ({
         ...hostel,
         image: require("../../assets/images/hostel1.png"),
       }));
     } else {
-      // Show tiffin recommendations for hostel booking
       return demoData.tiffinServices.slice(0, 3).map((service) => ({
         ...service,
         image: require("../../assets/images/food1.png"),
@@ -110,7 +109,6 @@ const Confirmation: React.FC = () => {
           </Text>
         </View>
 
-        {/* Booking Summary */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.sectionTitle}>Booking Summary</Text>
@@ -120,7 +118,6 @@ const Confirmation: React.FC = () => {
           </View>
 
           {isTiffin ? (
-            // Tiffin booking summary
             <>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Tiffin Service:</Text>
@@ -194,7 +191,6 @@ const Confirmation: React.FC = () => {
           )}
         </View>
 
-        {/* Contact Admin Buttons */}
         <View style={styles.adminContactRow}>
           <TouchableOpacity
             style={styles.contactButton}
@@ -217,7 +213,6 @@ const Confirmation: React.FC = () => {
           Having issue? Contact our support team at +34 12345 5210
         </Text>
 
-        {/* What's Next Section - Only for Tiffin */}
         {isTiffin && (
           <View style={styles.whatsNextSection}>
             <Text style={styles.sectionTitle}>{"What's Next?"}</Text>
@@ -253,7 +248,6 @@ const Confirmation: React.FC = () => {
           </View>
         )}
 
-        {/* Recommendations Section */}
         <View style={styles.recommendationsSection}>
           <Text style={styles.recommendationTitle}>
             {isTiffin ? "Healthy Bites Tiffin" : "Green Valley Boys Hostel"}
@@ -262,35 +256,31 @@ const Confirmation: React.FC = () => {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recommendationsContent}
-            snapToInterval={320} // Width of card + margin
+            pagingEnabled
+            snapToInterval={CARD_WIDTH + CARD_MARGIN * 2}
             decelerationRate="fast"
+            contentContainerStyle={styles.recommendationsContent}
             style={styles.recommendationsScroll}
           >
             {recommendations.map((item: any, index: number) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.recommendationCard,
-                  index === 0 && styles.firstCard,
-                  index === recommendations.length - 1 && styles.lastCard,
-                ]}
-              >
-                {isTiffin ? (
-                  <TiffinCard
-                    service={item}
-                    onPress={() => handleBookNow(item)}
-                    onBookPress={() => handleBookNow(item)}
-                    horizontal // Add this prop to TiffinCard component
-                  />
-                ) : (
-                  <HostelCard
-                    hostel={item}
-                    onPress={() => handleBookNow(item)}
-                    onBookPress={() => handleBookNow(item)}
-                    horizontal
-                  />
-                )}
+              <View key={item.id} style={styles.cardWrapper}>
+                <View style={styles.recommendationCard}>
+                  {isTiffin ? (
+                    <HostelCard
+                      hostel={item}
+                      onPress={() => handleBookNow(item)}
+                      onBookPress={() => handleBookNow(item)}
+                      horizontal={true}
+                    />
+                  ) : (
+                    <TiffinCard
+                      service={item}
+                      onPress={() => handleBookNow(item)}
+                      onBookPress={() => handleBookNow(item)}
+                      horizontal={true}
+                    />
+                  )}
+                </View>
               </View>
             ))}
           </ScrollView>
@@ -487,17 +477,24 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   recommendationsContent: {
-    paddingRight: 20,
+    paddingHorizontal: (screenWidth - CARD_WIDTH) / 2 - CARD_MARGIN,
+  },
+  cardWrapper: {
+    width: CARD_WIDTH + CARD_MARGIN * 2,
+    paddingHorizontal: CARD_MARGIN,
   },
   recommendationCard: {
-    width: 300, // Fixed width for horizontal scroll
-    marginRight: 16,
-  },
-  firstCard: {
-    marginLeft: 20,
-  },
-  lastCard: {
-    marginRight: 20,
+    width: CARD_WIDTH,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionButtons: {
     alignItems: "center",

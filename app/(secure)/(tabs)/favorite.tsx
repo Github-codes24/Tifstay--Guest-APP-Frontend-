@@ -1,4 +1,3 @@
-// app/(tabs)/favorites.tsx
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";

@@ -1,4 +1,3 @@
-// components/modals/RoomSelectionModal.tsx
 import React, { useState } from "react";
 import {
   View,

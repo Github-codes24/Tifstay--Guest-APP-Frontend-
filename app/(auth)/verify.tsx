@@ -24,7 +24,6 @@ export default function VerifyScreen() {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-focus next input
     if (value && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -38,21 +37,16 @@ export default function VerifyScreen() {
       return;
     }
 
-    // Simulate OTP verification (replace with actual API call)
     if (otpCode === "1234") {
-      // Demo OTP
-      // Create user object
       const user = {
         id: "user123",
         name: "John Doe",
-        phoneNumber: "+1234567890", // Get from previous screen1212
+        phoneNumber: "+1234567890",
         email: "john@example.com",
       };
 
-      // Login user
       login(user);
 
-      // Show success screen - CORRECTED PATH
       router.replace("/(auth)/success");
     } else {
       Alert.alert("Invalid OTP", "Please enter correct OTP");

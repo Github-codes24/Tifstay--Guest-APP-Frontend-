@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
-import RatingModal from "@/components/modals/RatingModal"; // Add this import
+import RatingModal from "@/components/modals/RatingModal";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
 import Profile from "../account/profile";
 
@@ -44,7 +44,6 @@ const Booking: React.FC = () => {
   const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
 
-  // Demo data for all orders
   const allOrders: Order[] = [
     {
       id: "1",
@@ -394,7 +393,6 @@ const Booking: React.FC = () => {
                 )}
               </View>
 
-              {/* Subscription Note */}
               {isHistoryOrder(order.status) &&
                 order.serviceType === "tiffin" && (
                   <Text style={styles.subscriptionNote}>
@@ -616,7 +614,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
     paddingVertical: 10,
     alignItems: "center",
-    // justifyContent: "space-between",
   },
   detailLabel: {
     fontSize: 15,

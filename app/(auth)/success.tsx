@@ -11,10 +11,8 @@ export default function SuccessScreen() {
   React.useEffect(() => {
     const timeout = setTimeout(() => {
       if (isAuthenticated) {
-        // Navigate to dashboard after successful login
         router.replace("/(secure)/(tabs)");
       } else {
-        // Fallback to login if something went wrong
         router.replace("/(auth)/login");
       }
     }, 2000);

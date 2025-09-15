@@ -1,4 +1,3 @@
-// app/payment.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -77,7 +76,6 @@ const Payment: React.FC = () => {
     console.log("Service type:", serviceType);
     console.log("Amount:", amount);
 
-    // Navigate to confirmation with all necessary params
     router.push({
       pathname: "/confirmation",
       params: {
@@ -92,7 +90,6 @@ const Payment: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <Header
         title="Payment"
         onBack={() => router.back()}
@@ -100,7 +97,6 @@ const Payment: React.FC = () => {
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Title Section */}
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>Payment</Text>
           <Text style={styles.subtitle}>
@@ -108,7 +104,6 @@ const Payment: React.FC = () => {
           </Text>
         </View>
 
-        {/* Payment Info Box - Show what's being paid for */}
         <View style={styles.paymentInfoBox}>
           <View style={styles.paymentInfoRow}>
             <Text style={styles.paymentInfoLabel}>
@@ -123,7 +118,6 @@ const Payment: React.FC = () => {
           </View>
         </View>
 
-        {/* Payment Methods */}
         <View style={styles.methodsContainer}>
           {paymentMethods.map((method) => (
             <TouchableOpacity
@@ -136,13 +130,11 @@ const Payment: React.FC = () => {
               onPress={() => setSelectedMethod(method.id)}
             >
               {method.isCard ? (
-                // Special styling for Mastercard
                 <View style={styles.mastercardContent}>
                   <Image source={mastercard} style={styles.mastercardLogo} />
                   <Text style={styles.cardNumber}>{method.cardNumber}</Text>
                 </View>
               ) : (
-                // Regular payment method layout
                 <>
                   <View style={styles.methodLeft}>
                     {method.icon && (
@@ -166,12 +158,11 @@ const Payment: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Continue Button */}
       <View style={styles.buttonContainer}>
         <Button
           title={`Pay ${amount}`}
           onPress={handleContinue}
-          width={undefined} // Will use default 80% width
+          width={undefined}
           style={styles.continueButton}
         />
       </View>

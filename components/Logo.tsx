@@ -1,4 +1,3 @@
-// components/Logo.tsx
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import colors from "../constants/colors";

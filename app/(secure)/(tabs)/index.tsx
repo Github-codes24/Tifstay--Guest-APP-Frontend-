@@ -276,7 +276,6 @@ export default function DashboardScreen() {
       setUserLocation(location);
     }
 
-    // Mark that location has been selected
     setHasSelectedLocation(true);
 
     console.log("Location selected:", location);

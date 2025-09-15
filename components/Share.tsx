@@ -1,4 +1,3 @@
-// components/ShareModal.tsx
 import React from "react";
 import {
   View,

@@ -1,4 +1,3 @@
-// app/tiffin-order-details/[id].tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -50,10 +49,8 @@ export default function TiffinOrderDetails() {
     ]
   );
 
-  // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Demo booking data
   const bookingData = {
     bookingId: "TF2024002",
     orderedOn: "21/07/2025",
@@ -328,7 +325,6 @@ export default function TiffinOrderDetails() {
             </View>
           </View>
 
-          {/* Calendar Section */}
           <View style={styles.calendarSection}>
             <View style={styles.calendarHeader}>
               <TouchableOpacity onPress={handlePreviousMonth}>
@@ -350,7 +346,6 @@ export default function TiffinOrderDetails() {
               </TouchableOpacity>
             </View>
 
-            {/* Calendar Days Header */}
             <View style={styles.calendarDaysHeader}>
               {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
                 <Text key={day} style={styles.calendarDayHeader}>
@@ -359,7 +354,6 @@ export default function TiffinOrderDetails() {
               ))}
             </View>
 
-            {/* Calendar Days Grid */}
             <View style={styles.calendarGrid}>
               {getDaysInMonth(currentMonth).map((day, index) =>
                 renderCalendarDay(day, index)
@@ -367,10 +361,8 @@ export default function TiffinOrderDetails() {
             </View>
           </View>
 
-          {/* Selected Date Meal Status */}
           {renderSelectedDateMeals()}
 
-          {/* Skip Meal Toggle */}
           <View style={styles.skipMealSection}>
             <View style={styles.skipMealHeader}>
               <View style={styles.skipMealIcon}>
@@ -491,7 +483,6 @@ export default function TiffinOrderDetails() {
             )}
           </View>
 
-          {/* Previously Skipped Meals */}
           {skippedMealsHistory.length > 0 && (
             <View style={styles.skipHistorySection}>
               <Text style={styles.skipHistoryTitle}>

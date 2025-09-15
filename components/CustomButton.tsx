@@ -1,4 +1,3 @@
-// components/CustomButton.tsx
 import React from "react";
 import {
   Image,
@@ -17,8 +16,8 @@ interface ButtonProps {
   onPress: () => void;
   variant?: "primary" | "secondary";
   icon?: ImageSourcePropType;
-  style?: ViewStyle
-  textStyle?: TextStyle
+  style?: ViewStyle;
+  textStyle?: TextStyle;
   disabled?: boolean;
 }
 
@@ -33,7 +32,11 @@ const CustomButton: React.FC<ButtonProps> = ({
 }) => {
   return (
     <TouchableOpacity
-      style={[styles.button, variant === "secondary" && styles.secondary, style]}
+      style={[
+        styles.button,
+        variant === "secondary" && styles.secondary,
+        style,
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
       disabled={disabled}
@@ -44,7 +47,8 @@ const CustomButton: React.FC<ButtonProps> = ({
         )}
         <Text
           style={[
-            styles.text, textStyle,
+            styles.text,
+            textStyle,
             {
               color:
                 variant === "secondary" ? colors.textPrimary : colors.white,
@@ -62,7 +66,7 @@ export default CustomButton;
 
 const styles = StyleSheet.create({
   button: {
-    width: '100%',
+    width: "100%",
     height: 56,
     borderRadius: 12,
     backgroundColor: colors.primary,

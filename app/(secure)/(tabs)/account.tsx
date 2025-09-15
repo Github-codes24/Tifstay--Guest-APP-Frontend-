@@ -67,18 +67,13 @@ const AccountScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
             <Image source={user} style={styles.largeImage} />
-            {/* <View style={styles.cameraIconContainer}>
-              <Image source={Images.photos} style={styles.cameraIcon} />
-            </View> */}
           </View>
           <Text style={styles.title}>Onil Karmokar</Text>
         </View>
 
-        {/* Profile Tab */}
         <MenuItem
           label="Profile"
           image={profile}
@@ -91,7 +86,6 @@ const AccountScreen = () => {
           onpress={() => router.push("/(secure)/account/profile")}
         />
 
-        {/* Menu Items */}
         <MenuItem
           label="wallet"
           image={require("../../../assets/images/icon/wallet.png")}
@@ -137,7 +131,7 @@ const AccountScreen = () => {
           onpress={() => router.push("/(secure)/account/contactUs")}
           image={customerService}
         />
-        {/* Language Selector */}
+
         <View style={styles.sectionRow}>
           <Text style={styles.languageText}>Language</Text>
           <TouchableOpacity
@@ -155,13 +149,11 @@ const AccountScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Dark Mode Toggle */}
         <View style={styles.sectionRow}>
           <Text style={styles.languageText}>Dark Mode</Text>
           <Switch value={darkMode} onValueChange={setDarkMode} />
         </View>
 
-        {/* Logout */}
         <MenuItem
           label="Log Out"
           image={logout}
@@ -169,7 +161,6 @@ const AccountScreen = () => {
         />
       </ScrollView>
 
-      {/* Logout Modal */}
       <Modal
         transparent
         visible={logoutVisible}
