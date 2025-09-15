@@ -35,7 +35,9 @@ import chat1 from "./chat1.png";
 import call from "./call.png";
 import map from "./image/mapBanner.png";
 import pen from "./pen.png";
-
+import vegIcon from "./icons/vegIcon.png";
+import nonVegIcon from "./icons/non_vegIcon.png";
+import bothIcon from "./icons/BothIcon.png";
 export {
   food1,
   foodTray,
@@ -74,4 +76,7 @@ export {
   mail2,
   chat1,
   map,
+  vegIcon,
+  nonVegIcon,
+  bothIcon,
 };

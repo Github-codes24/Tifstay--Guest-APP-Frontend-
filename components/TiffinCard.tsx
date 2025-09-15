@@ -5,6 +5,10 @@ import colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
 import { router } from "expo-router";
 
+import vegIcon from "@/assets/images/icons/vegIcon.png";
+import nonVegIcon from "@/assets/images/icons/non_vegIcon.png";
+import bothIcon from "@/assets/images/icons/BothIcon.png";
+
 interface TiffinCardProps {
   service: {
     id: number;
@@ -21,7 +25,6 @@ interface TiffinCardProps {
   };
   onPress?: () => void;
   onBookPress?: () => void;
-  isVeg?: boolean;
   horizontal?: boolean;
 }
 
@@ -29,11 +32,29 @@ export default function TiffinCard({
   service,
   onPress,
   onBookPress,
-  isVeg,
   horizontal = false,
 }: TiffinCardProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const isFav = isFavorite(service.id, "tiffin");
+
+  const getVegType = () => {
+    const tags = service.tags.map((tag) => tag.toLowerCase());
+
+    const hasVeg = tags.includes("veg");
+    const hasNonVeg = tags.includes("non-veg");
+
+    if (hasVeg && hasNonVeg) {
+      return "both";
+    } else if (hasNonVeg) {
+      return "non-veg";
+    } else if (hasVeg) {
+      return "veg";
+    } else {
+      return "both";
+    }
+  };
+
+  const vegType = getVegType();
 
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
@@ -89,19 +110,13 @@ export default function TiffinCard({
           </View>
 
           <View style={styles.infoRow}>
-            <View
-              style={[
-                styles.vegTag,
-                isVeg ? styles.vegTagActive : styles.vegTagInactive,
-              ]}
-            >
-              {isVeg ? (
-                <Image
-                  source={require("../assets/images/vegIcon.png")}
-                  style={styles.vegIcon}
-                />
+            <View style={styles.vegTag}>
+              {vegType === "veg" ? (
+                <Image source={vegIcon} style={styles.vegIcon} />
+              ) : vegType === "non-veg" ? (
+                <Image source={nonVegIcon} style={styles.nonVegIcon} />
               ) : (
-                <Text style={styles.bothText}>Both</Text>
+                <Image source={bothIcon} style={styles.bothIcon} />
               )}
             </View>
             <View style={styles.locationTimeContainer}>
@@ -170,7 +185,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   horizontalContainer: {
-    width: "100%", // Take full width of parent
+    width: "100%",
     marginBottom: 0,
   },
   imageContainer: {
@@ -270,38 +285,29 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   vegTag: {
-    borderRadius: 12,
-    paddingVertical: 4,
-  },
-  vegTagActive: {
-    backgroundColor: "#10B981",
-    borderWidth: 0,
-    paddingHorizontal: 0,
-  },
-  vegTagInactive: {
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "grey",
-    paddingHorizontal: 10,
+    marginRight: 8,
   },
   vegIcon: {
     width: 52,
-    height: 16,
+    height: 20,
   },
-  bothText: {
-    fontSize: 10,
-    color: "#0A051F",
+  nonVegIcon: {
+    width: 71,
+    height: 19,
+  },
+  bothIcon: {
+    width: 46,
+    height: 20,
   },
   locationTimeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
     flex: 1,
   },
   locationText: {
     fontSize: 10,
     color: "#6B7280",
-    marginRight: 8,
+    marginRight: 4,
   },
   timingText: {
     fontSize: 10,
