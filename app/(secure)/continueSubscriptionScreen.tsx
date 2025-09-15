@@ -106,8 +106,7 @@ export default function ContinueSubscriptionScreen() {
         message,
       });
     }
-    // Navigate to checkout or confirmation
-    router.push("/");
+    router.push("/check-out");
   };
 
   const onChangeTiffinDate = (event: any, selectedDate?: Date) => {

@@ -320,7 +320,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
-                {/* User Reviews */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>User Reviews*</Text>
                   <View style={styles.ratingContainer}>

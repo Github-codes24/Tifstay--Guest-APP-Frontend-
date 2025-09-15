@@ -97,10 +97,6 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
   dropdownList: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#E5E7EB",

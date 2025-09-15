@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import LocationModal from "@/components/modals/LocationModal";
+import VegFilterModal from "@/components/modals/VegFilterModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import food1 from "@/assets/images/food1.png";
@@ -49,7 +50,8 @@ export default function DashboardScreen() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
-  const [isVegOnly, setIsVegOnly] = useState(false);
+  const [showVegFilterModal, setShowVegFilterModal] = useState(false);
+  const [vegFilter, setVegFilter] = useState<"off" | "all" | "veg">("off");
   const [hostelType, setHostelType] = useState("");
   const [area, setArea] = useState("");
   const [maxRent, setMaxRent] = useState("");
@@ -77,7 +79,9 @@ export default function DashboardScreen() {
   ];
 
   const hasFilters = Object.keys(appliedFilters).length > 0;
-  const vegAnimated = useRef(new Animated.Value(isVegOnly ? 1 : 0)).current;
+  const vegAnimated = useRef(
+    new Animated.Value(vegFilter !== "off" ? 1 : 0)
+  ).current;
   const searchInputRef = useRef<TextInput>(null);
 
   const imageMapping: { [key: string]: any } = {
@@ -93,11 +97,11 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     Animated.timing(vegAnimated, {
-      toValue: isVegOnly ? 1 : 0,
+      toValue: vegFilter !== "off" ? 1 : 0,
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }, [isVegOnly]);
+  }, [vegFilter]);
 
   const tiffinServices = demoData.tiffinServices.map((service) => ({
     ...service,
@@ -125,12 +129,21 @@ export default function DashboardScreen() {
       );
     }
 
-    if (isVegOnly) {
-      filtered = filtered.filter(
-        (service) =>
-          service.tags.includes("Veg") || service.tags.includes("veg")
-      );
+    // Apply veg filter
+    if (vegFilter === "veg") {
+      // Pure Veg - Show only items with ONLY veg tag
+      filtered = filtered.filter((service) => {
+        const tags = service.tags.map((tag) => tag.toLowerCase());
+        return tags.includes("veg") && !tags.includes("non-veg");
+      });
+    } else if (vegFilter === "all") {
+      // All Restaurants (when toggle is ON) - Show only items with BOTH tags
+      filtered = filtered.filter((service) => {
+        const tags = service.tags.map((tag) => tag.toLowerCase());
+        return tags.includes("veg") && tags.includes("non-veg");
+      });
     }
+    // vegFilter === "off" shows everything (no filter)
 
     // Apply filter modal filters for tiffin
     if (!isHostel && appliedFilters.rating) {
@@ -141,26 +154,34 @@ export default function DashboardScreen() {
 
     if (!isHostel && appliedFilters.vegNonVeg) {
       if (appliedFilters.vegNonVeg === "Veg") {
-        filtered = filtered.filter(
-          (service) =>
-            service.tags.includes("Veg") || service.tags.includes("veg")
-        );
+        filtered = filtered.filter((service) => {
+          const tags = service.tags.map((tag) => tag.toLowerCase());
+          return tags.includes("veg") && !tags.includes("non-veg");
+        });
       } else if (appliedFilters.vegNonVeg === "Non-Veg") {
-        filtered = filtered.filter(
-          (service) =>
-            service.tags.includes("Non-Veg") || service.tags.includes("non-veg")
-        );
+        filtered = filtered.filter((service) => {
+          const tags = service.tags.map((tag) => tag.toLowerCase());
+          return tags.includes("non-veg");
+        });
       }
     }
 
     if (!isHostel && appliedFilters.cost === "Low to High") {
-      filtered.sort((a: any, b: any) => a.price - b.price);
+      filtered.sort(
+        (a: any, b: any) =>
+          parseFloat(a.price.replace(/[^0-9]/g, "")) -
+          parseFloat(b.price.replace(/[^0-9]/g, ""))
+      );
     } else if (!isHostel && appliedFilters.cost === "High to Low") {
-      filtered.sort((a: any, b: any) => b.price - a.price);
+      filtered.sort(
+        (a: any, b: any) =>
+          parseFloat(b.price.replace(/[^0-9]/g, "")) -
+          parseFloat(a.price.replace(/[^0-9]/g, ""))
+      );
     }
 
     return filtered;
-  }, [searchQuery, tiffinServices, isVegOnly, appliedFilters, isHostel]);
+  }, [searchQuery, tiffinServices, vegFilter, appliedFilters, isHostel]);
 
   const filteredHostels = useMemo(() => {
     let filtered = [...hostels];
@@ -276,13 +297,11 @@ export default function DashboardScreen() {
     }
 
     setHasSelectedLocation(true);
-
     console.log("Location selected:", location);
   };
 
   const handleLocationModalClose = () => {
     setShowLocationModal(false);
-
     if (!hasSelectedLocation) {
       setHasSelectedLocation(true);
     }
@@ -323,6 +342,20 @@ export default function DashboardScreen() {
     console.log("Applied filters:", filters);
   };
 
+  const handleVegFilterApply = (filter: "all" | "veg") => {
+    setVegFilter(filter);
+  };
+
+  const handleVegTogglePress = () => {
+    if (vegFilter === "off") {
+      // If toggle is OFF, turn it ON and show modal
+      setShowVegFilterModal(true);
+    } else {
+      // If toggle is ON (either "all" or "veg"), turn it OFF
+      setVegFilter("off");
+    }
+  };
+
   const handleHostelTypeSelect = (value: string) => {
     setHostelType(value === "All" ? "" : value);
   };
@@ -355,6 +388,7 @@ export default function DashboardScreen() {
 
   const keyExtractor = (item: any) => item.id.toString();
 
+  // Search focused view
   if (isSearchFocused) {
     return (
       <View style={styles.container}>
@@ -497,6 +531,8 @@ export default function DashboardScreen() {
       </View>
     );
   }
+
+  // Filtered view
   if (isFilterApplied && hasFilters) {
     return (
       <View style={styles.container}>
@@ -726,10 +762,10 @@ export default function DashboardScreen() {
                     setSearchQuery("");
                     setAppliedFilters({});
                     setIsFilterApplied(false);
-                    // Reset dropdown filters when switching
                     setHostelType("");
                     setArea("");
                     setMaxRent("");
+                    setVegFilter("off");
                   }}
                 >
                   <Ionicons
@@ -826,16 +862,16 @@ export default function DashboardScreen() {
                 {!isHostel && !hasFilters && (
                   <TouchableOpacity
                     style={styles.vegToggle}
-                    onPress={() => setIsVegOnly(!isVegOnly)}
+                    onPress={handleVegTogglePress}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.vegText}>
-                      {isVegOnly ? "Veg" : "Non-Veg"}
+                      {vegFilter === "off" ? "Non-Veg" : "Veg"}
                     </Text>
                     <View
                       style={[
                         styles.vegSwitchContainer,
-                        isVegOnly && styles.vegSwitchActive,
+                        vegFilter !== "off" && styles.vegSwitchActive,
                       ]}
                     >
                       <Animated.View
@@ -867,7 +903,7 @@ export default function DashboardScreen() {
                     : `${filteredHostels.length} properties found in ${userLocation}`
                   : hasFilters
                   ? `${filteredTiffinServices.length} filtered results`
-                  : searchQuery || isVegOnly
+                  : searchQuery || vegFilter !== "off"
                   ? `${filteredTiffinServices.length} results found`
                   : `${tiffinServices.length} services found in ${userLocation}`}
               </Text>
@@ -888,6 +924,7 @@ export default function DashboardScreen() {
         contentContainerStyle={{ paddingBottom: 20 }}
       />
 
+      {/* All Modals */}
       <LocationModal
         visible={showLocationModal}
         onClose={handleLocationModalClose}
@@ -899,6 +936,12 @@ export default function DashboardScreen() {
         onApplyFilters={handleApplyFilters}
         isHostel={isHostel}
         currentFilters={appliedFilters}
+      />
+      <VegFilterModal
+        visible={showVegFilterModal}
+        onClose={() => setShowVegFilterModal(false)}
+        currentFilter={vegFilter === "off" ? "all" : vegFilter}
+        onApply={handleVegFilterApply}
       />
     </View>
   );
@@ -1112,7 +1155,6 @@ const styles = StyleSheet.create({
   },
   servicesSection: {
     marginTop: 24,
-
     paddingBottom: 20,
   },
   sectionHeader: {
@@ -1134,9 +1176,10 @@ const styles = StyleSheet.create({
   vegSwitchContainer: {
     width: 44,
     height: 24,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "red",
     borderRadius: 12,
-    padding: 2,
+    paddingTop: 4,
+    paddingBottom: 4,
     justifyContent: "center",
   },
   vegSwitchActive: {
@@ -1144,7 +1187,7 @@ const styles = StyleSheet.create({
   },
   vegSwitchThumb: {
     width: 20,
-    height: 20,
+    height: 15,
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
     shadowColor: "#000",
