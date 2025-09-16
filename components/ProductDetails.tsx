@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   locationBox: {
-    padding: 16,
+    // padding: 16,
   },
   locationTitle: {
     fontSize: 16,

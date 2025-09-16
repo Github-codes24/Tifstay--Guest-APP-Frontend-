@@ -26,6 +26,7 @@ import { useAppState } from "@/context/AppStateProvider";
 import { useAuthStore } from "@/store/authStore";
 import * as Location from "expo-location";
 import Dropdown from "@/components/Dropdown";
+import { hostellogo, tiffinlogo } from "@/assets/images";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -768,11 +769,18 @@ export default function DashboardScreen() {
                     setVegFilter("off");
                   }}
                 >
-                  <Ionicons
+                  {/* <Ionicons
                     name="restaurant"
                     size={24}
                     color={!isHostel ? "#fff" : "#004AAD"}
+                  /> */}
+                  <Image
+                  source={tiffinlogo}
+                  tintColor={!isHostel ? "#fff" : "#004AAD"}
+                  style={styles.image}
                   />
+                    
+                  
                   <Text
                     style={[
                       styles.serviceButtonText,
@@ -795,10 +803,15 @@ export default function DashboardScreen() {
                     setIsFilterApplied(false);
                   }}
                 >
-                  <Ionicons
+                  {/* <Ionicons
                     name="business"
                     size={24}
                     color={isHostel ? "#fff" : "#004AAD"}
+                  /> */}
+                   <Image
+                  source={hostellogo}
+                 tintColor={isHostel ? "#fff" : "#004AAD"}
+                  style={styles.image}
                   />
                   <Text
                     style={[
@@ -857,7 +870,7 @@ export default function DashboardScreen() {
                     ? "Search Results"
                     : isHostel
                     ? "Available Accommodations"
-                    : "Available Tiffin Services"}
+                    : "Available Tiffin Service"}
                 </Text>
                 {!isHostel && !hasFilters && (
                   <TouchableOpacity
@@ -1110,10 +1123,10 @@ const styles = StyleSheet.create({
   },
   serviceButton: {
     flex: 1,
-    flexDirection: "row",
+    // flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 15,
     borderRadius: 12,
     gap: 8,
     backgroundColor: "#F3F4F6",
@@ -1334,5 +1347,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 12,
+  },
+  image:{
+    width:24,
+    height:24
   },
 });

@@ -176,7 +176,7 @@ export default function BookingScreen() {
     selected: string;
     onPress: (value: string) => void;
   }) => (
-    <TouchableOpacity style={styles.radioRow} onPress={() => onPress(value)}>
+    <TouchableOpacity onPress={() => onPress(value)}>
       <View style={styles.radioOuter}>
         {selected === value && <View style={styles.radioInner} />}
       </View>
@@ -320,7 +320,7 @@ export default function BookingScreen() {
           onChangeText={setMessage}
         />
 
-        <View style={styles.purposeContainer}>
+        {/* <View style={styles.purposeContainer}>
           <TouchableOpacity
             style={[
               styles.purposeButton,
@@ -353,7 +353,34 @@ export default function BookingScreen() {
               Leisure
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
+        <View style={styles.section}>
+  <Text style={styles.label}>Purpose of Stay</Text>
+  <View style={{ flexDirection: "row", marginTop: 10 }}>
+    {/* Work */}
+    <TouchableOpacity
+      style={{ flexDirection: "row", alignItems: "center", marginRight: 20 }}
+      onPress={() => setPurposeType("work")}
+    >
+      <View style={styles.radioOuter}>
+        {purposeType === "work" && <View style={styles.radioInner} />}
+      </View>
+      <Text style={styles.radioLabel}>Work</Text>
+    </TouchableOpacity>
+
+    {/* Leisure */}
+    <TouchableOpacity
+      style={{ flexDirection: "row", alignItems: "center" }}
+      onPress={() => setPurposeType("leisure")}
+    >
+      <View style={styles.radioOuter}>
+        {purposeType === "leisure" && <View style={styles.radioInner} />}
+      </View>
+      <Text style={styles.radioLabel}>Leisure</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+
       </View>
 
       <TouchableOpacity
@@ -671,31 +698,27 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-  radioRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  radioOuter: {
-    height: 20,
-    width: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#004AAD",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  radioInner: {
-    height: 10,
-    width: 10,
-    borderRadius: 5,
-    backgroundColor: "#004AAD",
-  },
-  radioLabel: {
-    fontSize: 14,
-    color: "#333",
-  },
+ radioOuter: {
+  height: 20,
+  width: 20,
+  borderRadius: 10,
+  borderWidth: 2,
+  borderColor: "#004AAD",
+  alignItems: "center",
+  justifyContent: "center",
+  marginRight: 10,
+},
+radioInner: {
+  height: 10,
+  width: 10,
+  borderRadius: 5,
+  backgroundColor: "#004AAD",
+},
+radioLabel: {
+  fontSize: 14,
+  color: "#333",
+},
+
   datePickerButton: {
     borderWidth: 1,
     borderColor: "#aaa",

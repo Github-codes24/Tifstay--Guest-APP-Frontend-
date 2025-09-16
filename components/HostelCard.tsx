@@ -61,7 +61,7 @@ export default function HostelCard({
 
         <View style={styles.hostelInfo}>
           <View style={styles.headerRow}>
-            <Text style={styles.hostelName} numberOfLines={1}>
+            <Text style={styles.hostelName}  >
               {hostel.name}
             </Text>
             <View style={styles.ratingContainer}>

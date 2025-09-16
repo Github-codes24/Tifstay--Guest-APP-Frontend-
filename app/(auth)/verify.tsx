@@ -19,6 +19,28 @@ export default function VerifyScreen() {
   const inputRefs = useRef<TextInput[]>([]);
   const { login } = useAuthStore();
 
+  const [timer, setTimer] = useState(30);
+  const [isResendDisabled, setIsResendDisabled] = useState(true);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (isResendDisabled) {
+      interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev === 1) {
+            clearInterval(interval);
+            setIsResendDisabled(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [isResendDisabled]);
+
   const handleOtpChange = (value: string, index: number) => {
     const newOtp = [...otp];
     newOtp[index] = value;
@@ -26,6 +48,10 @@ export default function VerifyScreen() {
 
     if (value && index < 3) {
       inputRefs.current[index + 1]?.focus();
+    }
+
+    if (!value && index > 0) {
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
@@ -46,24 +72,28 @@ export default function VerifyScreen() {
       };
 
       login(user);
-
       router.replace("/(auth)/success");
     } else {
       Alert.alert("Invalid OTP", "Please enter correct OTP");
     }
   };
 
+  const handleResend = () => {
+    if (isResendDisabled) return;
+
+    setOtp(["", "", "", ""]);
+    setTimer(30);
+    setIsResendDisabled(true);
+
+   
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Logo showText={false} />
-        <Text style={styles.title}>Enter Verification Code</Text>
-        <Text style={styles.subtitle}>
-          We have sent a 4-digit code to your phone
-        </Text>
-        <Text style={styles.demoText}>
-          Use &quot;1234&quot; as OTP for demo purpose
-        </Text>
+
+        <Text style={styles.title}>Verify OTP</Text>
 
         <View style={styles.otpContainer}>
           {otp.map((digit, index) => (
@@ -82,11 +112,18 @@ export default function VerifyScreen() {
           ))}
         </View>
 
-        <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
+        <View style={styles.resendContainer}>
+          <Text style={styles.resendPrompt}>Didn't receive the code?</Text>
+          {isResendDisabled ? (
+            <Text style={styles.timerText}> Resend in {timer}s</Text>
+          ) : (
+            <TouchableOpacity onPress={handleResend}>
+              <Text style={styles.resendText}> Resend</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <TouchableOpacity style={styles.resendButton}>
-          <Text style={styles.resendText}>Resend OTP</Text>
-        </TouchableOpacity>
+        <CustomButton title="Verify" onPress={handleVerifyOTP} />
       </View>
     </SafeAreaView>
   );
@@ -100,33 +137,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
+  
     backgroundColor: colors.white,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: 10,
     color: colors.textPrimary,
-  },
-  demoText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 32,
   },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 16,
-    marginBottom: 32,
+    marginBottom: 24,
+    gap: 12,
   },
   otpInput: {
     width: 60,
@@ -138,14 +163,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     color: colors.textPrimary,
+    backgroundColor: "#EDEDED",
   },
-  resendButton: {
-    marginTop: 24,
+  resendContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
+    marginBottom: 12,
+  },
+  resendPrompt: {
+    fontSize: 14,
+    fontWeight:500,
+    color:'#333333',
   },
   resendText: {
-    color: colors.primary,
     fontSize: 14,
-    fontWeight: "600",
+    color:'#FF6B00',
+    fontWeight: "500",
+  },
+  timerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 4,
   },
 });

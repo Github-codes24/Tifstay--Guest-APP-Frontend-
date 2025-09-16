@@ -15,6 +15,7 @@ import CustomButton from "@/components/CustomButton";
 import colors from "@/constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { calender } from "@/assets/images";
 
 
 const EditProfile = () => {
@@ -78,14 +79,20 @@ const EditProfile = () => {
             labelStyle={styles.label}
             containerStyle={{ marginTop: 20 }}
           />
-          <LabeledInput
-            label="Date of Birth"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            labelStyle={styles.label}
-            containerStyle={{ marginTop: 20 }}
-          />
+        
+<LabeledInput
+  label="Date of Birth"
+  value={phone}
+  onChangeText={setPhone}
+  keyboardType="phone-pad"
+  labelStyle={styles.label}
+  containerStyle={{ marginTop: 20 }}
+ 
+/>
+ {/* <Image source={calender} style={{ width: 20, height: 20, resizeMode: 'contain' }} /> */}
+
+
+
         </View>
         {/* Fixed Save Button */}
       </KeyboardAwareScrollView>

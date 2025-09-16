@@ -84,60 +84,8 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
         },
       ],
     },
-    {
-      id: "2",
-      roomNumber: "102",
-      totalBeds: 4,
-      description: "Corner room with attached bathroom and balcony",
-      image: require("@/assets/images/image/roomBanner.png"),
-      beds: [
-        {
-          id: "4",
-          bedNumber: 1,
-          status: "available",
-          availability: "Available",
-        },
-        {
-          id: "5",
-          bedNumber: 2,
-          status: "occupied",
-          availability: "15th Sep-15th Oct",
-        },
-        {
-          id: "6",
-          bedNumber: 3,
-          status: "available",
-          availability: "Available",
-        },
-        {
-          id: "7",
-          bedNumber: 4,
-          status: "available",
-          availability: "Available",
-        },
-      ],
-    },
-    {
-      id: "3",
-      roomNumber: "103",
-      totalBeds: 2,
-      description: "Premium double room with AC and attached bathroom",
-      image: require("@/assets/images/image/roomBanner.png"),
-      beds: [
-        {
-          id: "8",
-          bedNumber: 1,
-          status: "available",
-          availability: "Available",
-        },
-        {
-          id: "9",
-          bedNumber: 2,
-          status: "available",
-          availability: "Available",
-        },
-      ],
-    },
+   
+  
   ];
 
   const currentRoom =
@@ -353,6 +301,13 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    borderWidth:1,
+    borderColor:'#A5A5A5',
+    borderRadius:10,
+    marginHorizontal:16,
+    marginVertical:16,
+    marginBottom:30,
+    // padding:10,
   },
   imageContainer: {
     margin: 16,

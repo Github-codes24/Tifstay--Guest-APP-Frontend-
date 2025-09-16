@@ -7,8 +7,6 @@ import {
   StyleSheet,
   SafeAreaView,
   TextInput,
-  Switch,
-  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -26,8 +24,8 @@ export default function LocationModal({
   onClose,
   onLocationSelected,
 }: LocationModalProps) {
+  const [manualLocation, setManualLocation] = useState("");
   const [locationEnabled, setLocationEnabled] = useState(false);
-  const [manualLocation, setManualLocation] = useState(""); // Add this state
 
   const handleLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -38,6 +36,7 @@ export default function LocationModal({
 
     let location = await Location.getCurrentPositionAsync({});
     onLocationSelected(location);
+    setLocationEnabled(true);
     onClose();
   };
 
@@ -45,6 +44,7 @@ export default function LocationModal({
     onLocationSelected({ type });
     onClose();
   };
+
   const handleManualSubmit = () => {
     if (manualLocation.trim()) {
       onLocationSelected(manualLocation);
@@ -71,21 +71,22 @@ export default function LocationModal({
               <Text style={styles.locationText}>
                 Location permission is off
               </Text>
-              <Switch
-                value={locationEnabled}
-                onValueChange={(value) => {
-                  setLocationEnabled(value);
-                  if (value) handleLocationPermission();
-                }}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.white}
-              />
+
+              {/* Replacing Toggle with Button */}
+              <TouchableOpacity
+                style={styles.allowButton}
+                onPress={handleLocationPermission}
+              >
+                <Text style={styles.allowButtonText}>GRANT</Text>
+              </TouchableOpacity>
             </View>
+
             <Text style={styles.permissionText}>
               Granting your location will help us provide accurate and
               personalized results near you
             </Text>
           </View>
+
           <View style={styles.addressSection}>
             <Text style={styles.sectionTitle}>Select Address</Text>
             <Text style={styles.sectionSubtitle}>
@@ -116,25 +117,10 @@ export default function LocationModal({
                 placeholderTextColor={colors.textSecondary}
                 value={manualLocation}
                 onChangeText={setManualLocation}
-                onSubmitEditing={handleManualSubmit} // Add this
-                returnKeyType="done" // Add this
+                onSubmitEditing={handleManualSubmit}
+                returnKeyType="done"
               />
             </TouchableOpacity>
-          </View>
-
-          {/* Avatar Group */}
-          <View style={styles.avatarGroup}>
-            {[1, 2, 3].map((i) => (
-              <View
-                key={i}
-                style={[styles.avatar, { marginLeft: i > 1 ? -10 : 0 }]}
-              >
-                <Image
-                  source={{ uri: `https://i.pravatar.cc/100?img=${i}` }}
-                  style={styles.avatarImage}
-                />
-              </View>
-            ))}
           </View>
         </View>
       </SafeAreaView>
@@ -151,13 +137,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
   },
   content: {
     flex: 1,
@@ -207,6 +186,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 12,
+   
   },
   addressText: {
     marginLeft: 12,
@@ -226,23 +206,19 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
   },
-  avatarGroup: {
-    flexDirection: "row",
-    justifyContent: "center",
-    position: "absolute",
-    bottom: 40,
-    alignSelf: "center",
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
+
+  allowButton: {
+  backgroundColor: colors.primary,
+  borderRadius: 10,
+  height: 30,
+  width: 78,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+  allowButtonText: {
+    color: colors.white,
+    fontWeight: "500",
+    fontSize: 14,
   },
 });

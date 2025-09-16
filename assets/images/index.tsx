@@ -38,6 +38,8 @@ import pen from "./pen.png";
 import vegIcon from "./icons/vegIcon.png";
 import nonVegIcon from "./icons/non_vegIcon.png";
 import bothIcon from "./icons/BothIcon.png";
+import tiffinlogo from "./tiffinlogo.png";
+import hostellogo from "./hostellogo.png";
 export {
   food1,
   foodTray,
@@ -79,4 +81,6 @@ export {
   vegIcon,
   nonVegIcon,
   bothIcon,
+  tiffinlogo,
+  hostellogo
 };

@@ -28,7 +28,7 @@ export default function RegisterScreen() {
           icon="phone-portrait"
           keyboardType="phone-pad"
         />
-        <InputField placeholder="Password" icon="lock-closed" isPassword />
+        {/* <InputField placeholder="Password" icon="lock-closed" isPassword /> */}
 
         <CustomButton
           title="Continue"

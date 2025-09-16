@@ -73,7 +73,7 @@ export default function TiffinCard({
 
         <View style={styles.serviceInfo}>
           <View style={styles.headerRow}>
-            <Text style={styles.serviceName} numberOfLines={1}>
+            <Text style={styles.serviceName} >
               {service.name}
             </Text>
             <View style={styles.ratingContainer}>
