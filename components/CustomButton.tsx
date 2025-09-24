@@ -1,12 +1,13 @@
-// components/CustomButton.tsx
 import React from "react";
 import {
   Image,
   ImageSourcePropType,
   StyleSheet,
   Text,
+  TextStyle,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from "react-native";
 import colors from "../constants/colors";
 
@@ -15,6 +16,9 @@ interface ButtonProps {
   onPress: () => void;
   variant?: "primary" | "secondary";
   icon?: ImageSourcePropType;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+  disabled?: boolean;
 }
 
 const CustomButton: React.FC<ButtonProps> = ({
@@ -22,12 +26,20 @@ const CustomButton: React.FC<ButtonProps> = ({
   onPress,
   variant = "primary",
   icon,
+  style,
+  textStyle,
+  disabled = false,
 }) => {
   return (
     <TouchableOpacity
-      style={[styles.button, variant === "secondary" && styles.secondary]}
+      style={[
+        styles.button,
+        variant === "secondary" && styles.secondary,
+        style,
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
+      disabled={disabled}
     >
       <View style={styles.content}>
         {icon && (
@@ -36,6 +48,7 @@ const CustomButton: React.FC<ButtonProps> = ({
         <Text
           style={[
             styles.text,
+            textStyle,
             {
               color:
                 variant === "secondary" ? colors.textPrimary : colors.white,
@@ -53,7 +66,7 @@ export default CustomButton;
 
 const styles = StyleSheet.create({
   button: {
-    width: 357,
+    width: "100%",
     height: 56,
     borderRadius: 12,
     backgroundColor: colors.primary,

@@ -2,6 +2,12 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
+import { useFavorites } from "@/context/FavoritesContext";
+import { router } from "expo-router";
+
+import vegIcon from "@/assets/images/icons/vegIcon.png";
+import nonVegIcon from "@/assets/images/icons/non_vegIcon.png";
+import bothIcon from "@/assets/images/icons/BothIcon.png";
 
 interface TiffinCardProps {
   service: {
@@ -19,28 +25,55 @@ interface TiffinCardProps {
   };
   onPress?: () => void;
   onBookPress?: () => void;
+  horizontal?: boolean;
 }
 
 export default function TiffinCard({
   service,
   onPress,
   onBookPress,
+  horizontal = false,
 }: TiffinCardProps) {
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const isFav = isFavorite(service.id, "tiffin");
+
+  const getVegType = () => {
+    const tags = service.tags.map((tag) => tag.toLowerCase());
+
+    const hasVeg = tags.includes("veg");
+    const hasNonVeg = tags.includes("non-veg");
+
+    if (hasVeg && hasNonVeg) {
+      return "both";
+    } else if (hasNonVeg) {
+      return "non-veg";
+    } else if (hasVeg) {
+      return "veg";
+    } else {
+      return "both";
+    }
+  };
+
+  const vegType = getVegType();
+
+  const handleFavoritePress = (e: any) => {
+    e.stopPropagation();
+    toggleFavorite(service, "tiffin");
+  };
+
   return (
     <TouchableOpacity
-      style={styles.serviceCard}
+      style={[styles.serviceCard, horizontal && styles.horizontalContainer]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={styles.cardContent}>
-        {/* Left side - Image */}
-        <Image source={service.image} style={styles.serviceImage} />
+        <View style={styles.imageContainer}>
+          <Image source={service.image} style={styles.serviceImage} />
+        </View>
 
-        {/* Right side - Content */}
         <View style={styles.serviceInfo}>
-          {/* Title and Rating Row */}
           <View style={styles.headerRow}>
-            <Text style={styles.serviceName} numberOfLines={1}>
+            <Text style={styles.serviceName} >
               {service.name}
             </Text>
             <View style={styles.ratingContainer}>
@@ -48,14 +81,24 @@ export default function TiffinCard({
               <Text style={styles.rating}>{service.rating}</Text>
               <Text style={styles.reviews}>({service.reviews})</Text>
             </View>
+            <View style={styles.favoriteButtonContainer}>
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={handleFavoritePress}
+              >
+                <Ionicons
+                  name={isFav ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isFav ? "#A5A5A5" : "#A5A5A5"}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Description */}
           <Text style={styles.serviceDescription} numberOfLines={2}>
             {service.description}
           </Text>
 
-          {/* Price Row */}
           <View style={styles.priceRow}>
             <View>
               <Text style={styles.price}>{service.price}</Text>
@@ -66,13 +109,15 @@ export default function TiffinCard({
             </View>
           </View>
 
-          {/* Veg Tag and Location/Time Row */}
           <View style={styles.infoRow}>
             <View style={styles.vegTag}>
-              <Image
-                source={require("../assets/images/vegIcon.png")}
-                style={styles.vegIcon}
-              />
+              {vegType === "veg" ? (
+                <Image source={vegIcon} style={styles.vegIcon} />
+              ) : vegType === "non-veg" ? (
+                <Image source={nonVegIcon} style={styles.nonVegIcon} />
+              ) : (
+                <Image source={bothIcon} style={styles.bothIcon} />
+              )}
             </View>
             <View style={styles.locationTimeContainer}>
               <Ionicons
@@ -90,7 +135,6 @@ export default function TiffinCard({
             </View>
           </View>
 
-          {/* Book Button */}
           <View style={styles.bookButtonContainer}>
             <View>
               <Text style={styles.price}>{service.price}</Text>
@@ -100,7 +144,15 @@ export default function TiffinCard({
               style={styles.bookButton}
               onPress={(e) => {
                 e.stopPropagation();
-                onBookPress?.();
+                router.push({
+                  pathname: "/bookingScreen",
+                  params: {
+                    bookingType: "tiffin",
+                    serviceId: service.id.toString(),
+                    serviceName: service.name,
+                    price: service.price,
+                  },
+                });
               }}
             >
               <Text style={styles.bookButtonText}>Book Now</Text>
@@ -132,11 +184,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 12,
   },
+  horizontalContainer: {
+    width: "100%",
+    marginBottom: 0,
+  },
+  imageContainer: {
+    position: "relative",
+  },
   serviceImage: {
     width: 80,
     height: 80,
     borderRadius: 12,
     marginRight: 12,
+  },
+  favoriteButtonContainer: {
+    margin: 12,
+  },
+  favoriteButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   serviceInfo: {
     flex: 1,
@@ -207,24 +285,29 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   vegTag: {
-    backgroundColor: "#10B981",
-    paddingHorizontal: 2,
-    paddingVertical: 4,
-    borderRadius: 12,
+    marginRight: 8,
   },
   vegIcon: {
     width: 52,
-    height: 16,
+    height: 20,
+  },
+  nonVegIcon: {
+    width: 71,
+    height: 19,
+  },
+  bothIcon: {
+    width: 46,
+    height: 20,
   },
   locationTimeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
     flex: 1,
   },
   locationText: {
     fontSize: 10,
     color: "#6B7280",
+    marginRight: 4,
   },
   timingText: {
     fontSize: 10,
