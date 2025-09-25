@@ -8,6 +8,7 @@ import {
   View,
   Alert,
 } from "react-native";
+import axios from "axios";
 import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
@@ -19,22 +20,18 @@ export default function LoginScreen() {
 
   const phoneRegex = {
     tenDigits: /^[0-9]{10}$/,
-
     indianMobile: /^[6-9][0-9]{9}$/,
-
     usFormat: /^($[0-9]{3}$|[0-9]{3})[-\s]?[0-9]{3}[-\s]?[0-9]{4}$/,
-
     international:
       /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,4}$/,
   };
 
   const validatePhoneNumber = (phoneNum: string) => {
     const digitsOnly = phoneNum.replace(/\D/g, "");
-
     return phoneRegex.tenDigits.test(digitsOnly);
   };
 
-  const handleGetOTP = () => {
+  const handleGetOTP = async () => {
     if (!validatePhoneNumber(phoneNumber)) {
       setError("Please enter a valid 10-digit phone number");
       Alert.alert(
@@ -45,12 +42,51 @@ export default function LoginScreen() {
     }
 
     setError("");
-    router.navigate("/verify");
+    try {
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/login",
+        { phoneNumber },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (response.data.success) {
+        const otpCode = response.data.data?.guest?.otpCode;
+
+        Alert.alert(
+          "OTP Sent",
+          `Your OTP is ${otpCode}`, // only show OTP
+          [
+            {
+              text: "OK",
+              onPress: () =>
+                router.push({
+                  pathname: "/verify",
+                  params: { phoneNumber }, // pass only phone number
+                }),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Login Failed", response.data.message || "Unknown error");
+      }
+    } catch (error: any) {
+if (error.response) {
+  const serverMessage = error.response.data?.message || "Something went wrong";
+  Alert.alert("Login Failed", serverMessage);
+} else if (error.request) {
+  Alert.alert(
+    "Network Error",
+    "No response from server. Please check your connection."
+  );
+} else {
+  Alert.alert("Error", error.message);
+}
+
+    }
   };
 
   const handlePhoneNumberChange = (inputText: string) => {
     const digitsOnly = inputText.replace(/[^0-9]/g, "");
-
     const limitedInput = digitsOnly.substring(0, 10);
     setPhoneNumber(limitedInput);
 

@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
 import {
   SafeAreaView,
@@ -9,22 +9,23 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/store/authStore";
 import CustomButton from "../../components/CustomButton";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
+import axios from "axios";
 
 export default function VerifyScreen() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const inputRefs = useRef<TextInput[]>([]);
   const { login } = useAuthStore();
-
+  const { phoneNumber } = useLocalSearchParams();
   const [timer, setTimer] = useState(30);
   const [isResendDisabled, setIsResendDisabled] = useState(true);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-
     if (isResendDisabled) {
       interval = setInterval(() => {
         setTimer((prev) => {
@@ -37,7 +38,6 @@ export default function VerifyScreen() {
         });
       }, 1000);
     }
-
     return () => clearInterval(interval);
   }, [isResendDisabled]);
 
@@ -45,56 +45,52 @@ export default function VerifyScreen() {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-
     if (value && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
-
     if (!value && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  const handleVerifyOTP = () => {
+  const handleVerifyOTP = async () => {
     const otpCode = otp.join("");
-
     if (otpCode.length !== 4) {
       Alert.alert("Invalid OTP", "Please enter a 4-digit OTP");
       return;
     }
+    try {
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
+        { phoneNumber, otp: otpCode }
+      );
+      if (response.data.success) {
+        const token = response.data.token; // get token from response
+        // Save in Zustand + AsyncStorage
+        await AsyncStorage.setItem("token", token);
+        login(response.data.data, token);
 
-    if (otpCode === "1234") {
-      const user = {
-        id: "user123",
-        name: "John Doe",
-        phoneNumber: "+1234567890",
-        email: "john@example.com",
-      };
-
-      login(user);
-      router.replace("/(auth)/success");
-    } else {
-      Alert.alert("Invalid OTP", "Please enter correct OTP");
+        router.replace("/(secure)/(tabs)");
+      } else {
+        Alert.alert("Failed", response.data.message || "OTP verification failed");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error?.response?.data?.message || "Something went wrong");
     }
   };
 
   const handleResend = () => {
     if (isResendDisabled) return;
-
     setOtp(["", "", "", ""]);
     setTimer(30);
     setIsResendDisabled(true);
-
-   
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Logo showText={false} />
-
         <Text style={styles.title}>Verify OTP</Text>
-
         <View style={styles.otpContainer}>
           {otp.map((digit, index) => (
             <TextInput
@@ -111,7 +107,6 @@ export default function VerifyScreen() {
             />
           ))}
         </View>
-
         <View style={styles.resendContainer}>
           <Text style={styles.resendPrompt}>Didn't receive the code?</Text>
           {isResendDisabled ? (
@@ -122,7 +117,6 @@ export default function VerifyScreen() {
             </TouchableOpacity>
           )}
         </View>
-
         <CustomButton title="Verify" onPress={handleVerifyOTP} />
       </View>
     </SafeAreaView>
@@ -137,7 +131,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-  
     backgroundColor: colors.white,
   },
   title: {
@@ -173,12 +166,12 @@ const styles = StyleSheet.create({
   },
   resendPrompt: {
     fontSize: 14,
-    fontWeight:500,
-    color:'#333333',
+    fontWeight: "500",
+    color: "#333333",
   },
   resendText: {
     fontSize: 14,
-    color:'#FF6B00',
+    color: "#FF6B00",
     fontWeight: "500",
   },
   timerText: {

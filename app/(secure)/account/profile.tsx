@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,8 +6,8 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
-
 
 import { router } from "expo-router";
 import colors from "@/constants/colors";
@@ -15,79 +15,125 @@ import { arrow } from "@/assets/images";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const MyProfileScreen = () => {
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const response = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+        { headers: { Authorization: `Bearer ${token}` } } // <-- Authorization header
+      );
+
+      setProfile(response.data.data.guest); // backend se guest object
+    } catch (error: any) {
+      console.log(error.response?.data || error.message);
+    }
+  };
+
+  const deleteGuestAccount = () => {
+    Alert.alert(
+      "Confirm Delete",
+      "Do you really want to delete this account?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "OK", onPress: handleDelete },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleDelete = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "No token found. Redirecting to register.", [
+          { text: "OK", onPress: () => router.replace("/(auth)/register") },
+        ]);
+        return;
+      }
+
+      const response = await axios.delete(
+        "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success || response.data.data?.guest?.isDeleted) {
+        await AsyncStorage.removeItem("token");
+        router.replace("/login");
+        return;
+      }
+
+      Alert.alert("Error", response.data.message || "Failed to delete account");
+    } catch (error: any) {
+      console.log(error.response?.data || error.message);
+      await AsyncStorage.removeItem("token");
+      router.replace("/(auth)/login");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-
-      <View style={[styles.header, { justifyContent: 'space-between' }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      {/* Header */}
+      <View style={[styles.header, { justifyContent: "space-between" }]}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={16} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Profile</Text>
         </View>
         <TouchableOpacity onPress={() => router.push("/account/editProfile")}>
-          <Text style={{ color: colors.primary, fontWeight: '500' }}>Edit</Text>
+          <Text style={{ color: colors.primary, fontWeight: "500" }}>Edit</Text>
         </TouchableOpacity>
       </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
-          <Image source={require('@/assets/images/user.png')} style={styles.profileImage} />
-          <Text style={styles.profileName}>Onil Karmokar</Text>
+          <Image
+            source={require("@/assets/images/user.png")}
+            style={styles.profileImage}
+          />
+          <Text style={styles.profileName}>{profile?.name || "Loading..."}</Text>
         </View>
 
         <View style={styles.infoCard}>
-          <InfoRow
-            icon={require('@/assets/images/name.png')}
-            label="Name"
-            value="Onil Karmokar"
-          />
-          <InfoRow
-            icon={require('@/assets/images/email1.png')}
-            label="Email"
-            value="maharashtrian@gmail.com"
-          />
-          <InfoRow
-            icon={require('@/assets/images/phone.png')}
-            label="Phone Number"
-            value="715-601-4598"
-          />
-          <InfoRow
-            icon={require('@/assets/images/cal.png')}
-            label="Date of Birth"
-            value={`12.09.2008`}
-          />
+          <InfoRow icon={require("@/assets/images/name.png")} label="Name" value={profile?.name || ""} />
+          <InfoRow icon={require("@/assets/images/email1.png")} label="Email" value={profile?.email || ""} />
+          <InfoRow icon={require("@/assets/images/phone.png")} label="Phone Number" value={profile?.phoneNumber || ""} />
+          <InfoRow icon={require("@/assets/images/cal.png")} label="Date of Birth" value={profile?.dob || ""} />
         </View>
 
-        <MenuItem label="Manage Profile" icon={require('@/assets/images/manage.png')}
-          onPress={() => { router.push('/account/editProfile') }}
+        <MenuItem
+          label="Manage Profile"
+          icon={require("@/assets/images/manage.png")}
+          onPress={() => router.push("/account/editProfile")}
         />
-
         <MenuItem
           label="Change Password"
-          icon={require('@/assets/images/lock1.png')}
-          onPress={() => { router.push('/(secure)/account/changepass') }}
+          icon={require("@/assets/images/lock1.png")}
+          onPress={() => router.push("/(secure)/account/changepass")}
         />
-
         <MenuItem
           label="Delete Account"
-          icon={require('@/assets/images/del.png')}
-          onPress={() => { }}
+          icon={require("@/assets/images/del.png")}
+          onPress={deleteGuestAccount}
         />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const InfoRow = ({
-  icon,
-  label,
-  value,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-}) => (
+const InfoRow = ({ icon, label, value }: { icon: any; label: string; value: string }) => (
   <View style={styles.infoRow}>
     <Image source={icon} style={styles.infoIcon} />
     <View style={styles.infoTextContainer}>
@@ -97,15 +143,7 @@ const InfoRow = ({
   </View>
 );
 
-const MenuItem = ({
-  label,
-  icon,
-  onPress,
-}: {
-  label: string;
-  icon: any;
-  onPress?: () => void;
-}) => (
+const MenuItem = ({ label, icon, onPress }: { label: string; icon: any; onPress?: () => void }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress}>
     <View style={styles.menuLeft}>
       <Image source={icon} style={styles.menuIcon} />
@@ -116,95 +154,25 @@ const MenuItem = ({
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollContent: {
-    paddingBottom: 30,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  scrollContent: { paddingBottom: 30 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
   backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
-  profileSection: {
-    alignItems: "center",
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  profileImage: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-  },
-  profileName: {
-    fontSize: 18,
-    // fontFamily:fonts.interSemibold,
-    marginTop: 12,
-  },
-  infoCard: {
-    backgroundColor: "#F8F5FF",
-    marginHorizontal: 26,
-    // height: 296,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 14,
-  },
-  infoRow: {
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  infoIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  infoTextContainer: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    // fontFamily:fonts.interSemibold,
-    color: colors.title,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 12,
-    // fontFamily:fonts.interMedium,
-    color: colors.grey,
-    lineHeight: 20,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    justifyContent: "space-between",
-    backgroundColor: "#F8F7FF",
-    marginTop: 16,
-    height: 72,
-    marginHorizontal: 26,
-    borderRadius: 12,
-  },
-  menuLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  menuIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  menuText: {
-    fontSize: 14,
-    // fontFamily:fonts.interSemibold,
-    color: colors.title,
-  },
-  arrowIcon: {
-    width: 18,
-    height: 18,
-    tintColor: colors.title,
-  },
+  profileSection: { alignItems: "center", marginTop: 24, marginBottom: 16 },
+  profileImage: { width: 86, height: 86, borderRadius: 43 },
+  profileName: { fontSize: 18, marginTop: 12 },
+  infoCard: { backgroundColor: "#F8F5FF", marginHorizontal: 26, borderRadius: 12, padding: 16, marginTop: 14 },
+  infoRow: { flexDirection: "row", marginBottom: 16 },
+  infoIcon: { width: 40, height: 40, marginRight: 12 },
+  infoTextContainer: { flex: 1 },
+  infoLabel: { fontSize: 14, fontWeight: "600", color: colors.title, marginBottom: 2 },
+  infoValue: { fontSize: 12, color: colors.grey, lineHeight: 20 },
+  menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 24, paddingHorizontal: 20, justifyContent: "space-between", backgroundColor: "#F8F7FF", marginTop: 16, height: 72, marginHorizontal: 26, borderRadius: 12 },
+  menuLeft: { flexDirection: "row", alignItems: "center" },
+  menuIcon: { width: 40, height: 40, marginRight: 12 },
+  menuText: { fontSize: 14, color: colors.title },
+  arrowIcon: { width: 18, height: 18, tintColor: colors.title },
 });
 
 export default MyProfileScreen;

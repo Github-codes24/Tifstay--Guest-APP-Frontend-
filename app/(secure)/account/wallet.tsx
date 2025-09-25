@@ -1,9 +1,12 @@
 // WalletScreen.tsx
 import * as React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "@/constants/colors";
 
 type Txn = {
@@ -25,6 +28,7 @@ const COLORS = {
     green: "#13A10E",
 };
 
+// Dummy transactions (can be replaced with API later)
 const TXNS: Txn[] = [
     {
         id: "1",
@@ -69,7 +73,34 @@ const formatINR = (value: number, fractionDigits = 0) =>
     }).format(Math.abs(value));
 
 export default function WalletScreen() {
-    const balance = 25000;
+    const [balance, setBalance] = useState<number>(0);
+
+    // Fetch deposit balance from API
+    const fetchDepositAmount = async () => {
+        try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) return Alert.alert("Error", "User not authenticated");
+
+            const response = await axios.get(
+                "https://tifstay-project-be.onrender.com/api/guest/deposit/getDepositAmount",
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+
+            if (response.data?.success) {
+                setBalance(response.data.data?.depositedAmount || 0);
+            } else {
+                Alert.alert("Error", response.data?.message || "Cannot fetch deposit");
+            }
+        } catch (error: any) {
+            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+        }
+    };
+
+    useEffect(() => {
+        fetchDepositAmount();
+    }, []);
 
     const onAddMoney = () => {
         router.push("/(secure)/account/addmoney");
@@ -97,7 +128,10 @@ export default function WalletScreen() {
                 <View style={styles.balanceCard}>
                     <View style={styles.balanceRow}>
                         <View style={styles.walletIcon}>
-                            <Image source={require('../../../assets/images/wallet1.png')} style={{ height: 24, width: 24 }} />
+                            <Image
+                                source={require('../../../assets/images/wallet1.png')}
+                                style={{ height: 24, width: 24 }}
+                            />
                         </View>
                         <Text style={styles.balanceLabel}>Wallet Balance</Text>
                     </View>
@@ -124,12 +158,8 @@ export default function WalletScreen() {
                         const isCredit = t.amount > 0;
                         return (
                             <View key={t.id} style={styles.itemRow}>
-                                {/* Left icon circle */}
-                                {/* <View style={styles.avatar}> */}
                                 <Image source={t.icon} style={{ height: 32, width: 32 }} />
-                                {/* </View> */}
 
-                                {/* Middle text */}
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.itemTitle} numberOfLines={1}>
                                         {t.title}
@@ -141,7 +171,6 @@ export default function WalletScreen() {
                                     </View>
                                 </View>
 
-                                {/* Amount */}
                                 <Text
                                     style={[
                                         styles.amount,
@@ -161,7 +190,6 @@ export default function WalletScreen() {
 
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: COLORS.bg },
-
     header: {
         flexDirection: "row",
         alignItems: "center",
@@ -177,13 +205,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    headerTitle: {
-        marginLeft: 12,
-        fontSize: 18,
-        fontWeight: "600",
-        color: COLORS.text,
-    },
-
+    headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: "600", color: COLORS.text },
     balanceCard: {
         backgroundColor: "#F5F5F5",
         borderRadius: 16,
@@ -193,75 +215,17 @@ const styles = StyleSheet.create({
         borderColor: "#EEF2F6",
     },
     balanceRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    walletIcon: {
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        backgroundColor: "#EEE7FF",
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    walletIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: "#EEE7FF", alignItems: "center", justifyContent: "center" },
     balanceLabel: { fontSize: 16, color: colors.grey, fontWeight: "600" },
-    balanceValue: {
-        paddingVertical: 25,
-        fontSize: 30,
-        fontWeight: "700",
-        color: colors.title,
-        letterSpacing: 0.5,
-    },
-    addBtn: {
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: colors.primary,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    balanceValue: { paddingVertical: 25, fontSize: 30, fontWeight: "700", color: colors.title, letterSpacing: 0.5 },
+    addBtn: { height: 48, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
     addBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-
-    histHeader: {
-        marginTop: 20,
-        marginBottom: 24,
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    histTitle: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.title,
-    },
+    histHeader: { marginTop: 20, marginBottom: 24, flexDirection: "row", alignItems: "center" },
+    histTitle: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.title },
     seeAll: { flexDirection: "row", alignItems: "center", gap: 6 },
     seeAllText: { color: colors.primary, fontWeight: "400", fontSize: 12 },
-
-    itemRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#E5E7EB",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    itemTitle: {
-        fontSize: 14,
-        color: colors.grey,
-        fontWeight: "500",
-    },
-    itemSub: {
-        fontSize: 10,
-        color: colors.gray,
-        fontWeight: "400",
-    },
-    // dot: { color: COLORS.subText, marginTop: -1 },
-    amount: {
-        fontSize: 14,
-        fontWeight: "500",
-        color: colors.grey,
-        minWidth: 110,
-        textAlign: "right",
-    },
+    itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    itemTitle: { fontSize: 14, color: colors.grey, fontWeight: "500" },
+    itemSub: { fontSize: 10, color: colors.gray, fontWeight: "400" },
+    amount: { fontSize: 14, fontWeight: "500", color: colors.grey, minWidth: 110, textAlign: "right" },
 });

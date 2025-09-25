@@ -25,30 +25,22 @@ export default function RegisterScreen() {
     const trimmedName = name.trim();
     const trimmedPhone = phoneNumber.trim();
 
-    // ✅ Empty field check
     if (!trimmedName || !trimmedPhone) {
       Alert.alert("Error", "Please enter both name and phone number");
       return;
     }
 
-    // ✅ Name validation: letters + spaces only
     if (!/^[A-Za-z ]+$/.test(trimmedName)) {
       Alert.alert("Error", "Name can only contain letters and spaces");
       return;
     }
 
-    // ✅ Phone validation: 10-digit Indian number
     if (!/^[6-9]\d{9}$/.test(trimmedPhone)) {
       Alert.alert("Error", "Enter a valid 10-digit Indian phone number");
       return;
     }
 
     try {
-      console.log("Posting Data:", {
-        name: trimmedName,
-        phoneNumber: trimmedPhone,
-      });
-
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/register",
         {
@@ -58,32 +50,34 @@ export default function RegisterScreen() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      console.log("API Response:", response.data);
-
       const success = response.data?.success;
       const message = response.data?.message;
+      const otpCode = response.data?.data?.guest?.otpCode;
 
       if (success) {
         Alert.alert(
           "Success",
-          "Account registered",
-          [{ text: "OK", onPress: () => router.push("/login") }]
+          `Account registered!\nOTP: ${otpCode}`,
+          [
+            {
+              text: "OK",
+              onPress: () =>
+                router.push({
+                  pathname: "/verify",
+                  params: { phoneNumber: trimmedPhone, otp: otpCode },
+                }),
+            },
+          ]
         );
       } else {
         Alert.alert("Registration Failed", message || "Unknown error");
       }
     } catch (error: any) {
-      console.error("API Error:", error);
-
       if (error.response) {
+        // ✅ Just show clean error message
         const serverMessage =
-          error.response.data?.message ||
-          error.response.data?.error ||
-          JSON.stringify(error.response.data);
-        Alert.alert(
-          `Registration Failed (Status ${error.response.status})`,
-          serverMessage
-        );
+          error.response.data?.message || "User already registered";
+        Alert.alert("Registration Failed", serverMessage);
       } else if (error.request) {
         Alert.alert(
           "Network Error",
