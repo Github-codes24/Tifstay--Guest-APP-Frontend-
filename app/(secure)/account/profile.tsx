@@ -41,46 +41,46 @@ const MyProfileScreen = () => {
     }
   };
 
-  const deleteGuestAccount = () => {
-    Alert.alert(
-      "Confirm Delete",
-      "Do you really want to delete this account?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "OK", onPress: handleDelete },
-      ],
-      { cancelable: true }
-    );
-  };
+  // const deleteGuestAccount = () => {
+  //   Alert.alert(
+  //     "Confirm Delete",
+  //     "Do you really want to delete this account?",
+  //     [
+  //       { text: "Cancel", style: "cancel" },
+  //       { text: "OK", onPress: handleDelete },
+  //     ],
+  //     { cancelable: true }
+  //   );
+  // };
 
-  const handleDelete = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        Alert.alert("Error", "No token found. Redirecting to register.", [
-          { text: "OK", onPress: () => router.replace("/(auth)/register") },
-        ]);
-        return;
-      }
+  // const handleDelete = async () => {
+  //   try {
+  //     const token = await AsyncStorage.getItem("token");
+  //     if (!token) {
+  //       Alert.alert("Error", "No token found. Redirecting to register.", [
+  //         { text: "OK", onPress: () => router.replace("/(auth)/register") },
+  //       ]);
+  //       return;
+  //     }
 
-      const response = await axios.delete(
-        "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+  //     const response = await axios.delete(
+  //       "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
 
-      if (response.data.success || response.data.data?.guest?.isDeleted) {
-        await AsyncStorage.removeItem("token");
-        router.replace("/login");
-        return;
-      }
+  //     if (response.data.success || response.data.data?.guest?.isDeleted) {
+  //       await AsyncStorage.removeItem("token");
+  //       router.replace("/login");
+  //       return;
+  //     }
 
-      Alert.alert("Error", response.data.message || "Failed to delete account");
-    } catch (error: any) {
-      console.log(error.response?.data || error.message);
-      await AsyncStorage.removeItem("token");
-      router.replace("/(auth)/login");
-    }
-  };
+  //     Alert.alert("Error", response.data.message || "Failed to delete account");
+  //   } catch (error: any) {
+  //     console.log(error.response?.data || error.message);
+  //     await AsyncStorage.removeItem("token");
+  //     router.replace("/(auth)/login");
+  //   }
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -126,8 +126,9 @@ const MyProfileScreen = () => {
         <MenuItem
           label="Delete Account"
           icon={require("@/assets/images/del.png")}
-          onPress={deleteGuestAccount}
+          onPress={() => router.push("/(secure)/account/deleteAccount")} // ✅ direct navigate
         />
+
       </ScrollView>
     </SafeAreaView>
   );
