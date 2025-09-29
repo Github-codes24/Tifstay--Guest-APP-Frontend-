@@ -76,31 +76,34 @@ export default function WalletScreen() {
     const [balance, setBalance] = useState<number>(0);
 
     // Fetch deposit balance from API
-    const fetchDepositAmount = async () => {
-        try {
-            const token = await AsyncStorage.getItem("token");
-            if (!token) return Alert.alert("Error", "User not authenticated");
+// Fetch wallet balance from API
+const fetchWalletAmount = async () => {
+    try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return Alert.alert("Error", "User not authenticated");
 
-            const response = await axios.get(
-                "https://tifstay-project-be.onrender.com/api/guest/deposit/getDepositAmount",
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-
-            if (response.data?.success) {
-                setBalance(response.data.data?.depositedAmount || 0);
-            } else {
-                Alert.alert("Error", response.data?.message || "Cannot fetch deposit");
+        const response = await axios.get(
+            "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+            {
+                headers: { Authorization: `Bearer ${token}` },
             }
-        } catch (error: any) {
-            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
-        }
-    };
+        );
 
-    useEffect(() => {
-        fetchDepositAmount();
-    }, []);
+        if (response.data?.success) {
+            // Assuming your API returns amount in response.data.data.walletAmount
+            setBalance(response.data.data?.walletAmount || 0);
+        } else {
+            Alert.alert("Error", response.data?.message || "Cannot fetch wallet amount");
+        }
+    } catch (error: any) {
+        Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+    }
+};
+
+useEffect(() => {
+    fetchWalletAmount();
+}, []);
+
 
     const onAddMoney = () => {
         router.push("/(secure)/account/addmoney");

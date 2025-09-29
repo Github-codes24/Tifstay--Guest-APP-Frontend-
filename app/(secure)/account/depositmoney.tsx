@@ -16,7 +16,7 @@ const INR = (n: number, fd = 0) =>
     maximumFractionDigits: fd,
   }).format(n);
 
-export default function AddMoneyScreen() {
+export default function AddDepositScreen() {
   const currentBalance = 25000;
   const [amountStr, setAmountStr] = useState<string>("0");
   const amount = useMemo(() => parseInt(amountStr || "0", 10) || 0, [amountStr]);
@@ -40,44 +40,41 @@ export default function AddMoneyScreen() {
 
   const onSelectCard = () => {};
 
-const onAddMoney = async () => {
-  if (amount <= 0) return;
+  const onAddDeposit = async () => {
+    if (amount <= 0) return;
 
-  try {
-    const token = await AsyncStorage.getItem("token");
-    if (!token) return Alert.alert("Error", "User not authenticated");
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return Alert.alert("Error", "User not authenticated");
 
-    const response = await axios.post(
-      "https://tifstay-project-be.onrender.com/api/guest/wallet/create-link",
-      { amount },
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/deposit/create-link",
+        { amount },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-    if (response.data?.success) {
-      const paymentUrl = response.data.data?.paymentLinkUrl; 
-      if (paymentUrl) {
-        const supported = await Linking.canOpenURL(paymentUrl);
-        if (supported) {
-          Alert.alert("Redirecting", "Opening payment link...");
-          await Linking.openURL(paymentUrl);
+      if (response.data?.success) {
+        const paymentUrl = response.data.data?.paymentLinkUrl;
+        if (paymentUrl) {
+          const supported = await Linking.canOpenURL(paymentUrl);
+          if (supported) {
+            Alert.alert("Redirecting", "Opening payment link...");
+            await Linking.openURL(paymentUrl);
+          } else {
+            Alert.alert("Error", "Cannot open payment link.");
+          }
         } else {
-          Alert.alert("Error", "Cannot open payment link.");
+          Alert.alert("Success", "Deposit link created.");
         }
       } else {
-        Alert.alert("Success", "Payment link created.");
+        Alert.alert("Error", response.data?.message || "Something went wrong");
       }
-    } else {
-      Alert.alert("Error", response.data?.message || "Something went wrong");
+    } catch (error: any) {
+      Alert.alert("Error", error.response?.data?.message || "Something went wrong");
     }
-  } catch (error: any) {
-    Alert.alert("Error", error.response?.data?.message || "Something went wrong");
-  }
-};
-
-
-
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -85,7 +82,7 @@ const onAddMoney = async () => {
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={16} color="#000" />
         </Pressable>
-        <Text style={styles.headerTitle}>Add Money</Text>
+        <Text style={styles.headerTitle}>Add Security Deposit Amount</Text>
       </View>
 
       <View style={styles.amountCard}>
@@ -94,10 +91,9 @@ const onAddMoney = async () => {
         <Text style={styles.bigAmount}>{INR(amount, 0)}</Text>
 
         <View style={styles.quickRow}>
-          {[
-            { label: "+ ₹1,000", val: 1000 },
+          {[{ label: "+ ₹1,000", val: 1000 },
             { label: "+ ₹5,000", val: 5000 },
-            { label: "+ ₹10,000", val: 10000 },
+            { label: "+ ₹10,000", val: 10000 }
           ].map((q) => (
             <Pressable
               key={q.label}
@@ -156,11 +152,11 @@ const onAddMoney = async () => {
         </View>
 
         <Pressable
-          onPress={onAddMoney}
+          onPress={onAddDeposit}
           style={[styles.primaryBtn, amount <= 0 && { opacity: 0.5 }]}
           disabled={amount <= 0}
         >
-          <Text style={styles.primaryBtnText}>Add Money</Text>
+          <Text style={styles.primaryBtnText}>Add</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -195,12 +191,7 @@ function Key({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
   backButton: {
     width: 28,
     height: 28,
@@ -220,84 +211,21 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginHorizontal: 16,
   },
-  cardTitle: {
-    textAlign: "center",
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.title,
-  },
-  cardSub: {
-    textAlign: "center",
-    fontSize: 12,
-    color: colors.grey,
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  bigAmount: {
-    textAlign: "center",
-    fontSize: 30,
-    fontWeight: "700",
-    color: colors.title,
-    marginTop: 16,
-  },
-  quickRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 12,
-    marginTop: 16,
-  },
-  quickChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: colors.lightBg,
-  },
+  cardTitle: { textAlign: "center", fontSize: 14, fontWeight: "500", color: colors.title },
+  cardSub: { textAlign: "center", fontSize: 12, color: colors.grey, marginTop: 2, fontWeight: "500" },
+  bigAmount: { textAlign: "center", fontSize: 30, fontWeight: "700", color: colors.title, marginTop: 16 },
+  quickRow: { flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 },
+  quickChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 50, borderWidth: 1, borderColor: colors.lightBg },
   quickText: { fontWeight: "500", color: colors.title, fontSize: 12 },
-  cardRow: {
-    height: 56,
-    borderRadius: 10,
-    backgroundColor: "#DFE1E6",
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  cardRow: { height: 56, borderRadius: 10, backgroundColor: "#DFE1E6", paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   mcWrap: { flexDirection: "row", alignItems: "center" },
   mcDot: { width: 16, height: 16, borderRadius: 8 },
-  cardRowText: {
-    flex: 1,
-    color: colors.title,
-    fontSize: 14,
-    fontWeight: "400",
-    letterSpacing: 0.2,
-  },
+  cardRowText: { flex: 1, color: colors.title, fontSize: 14, fontWeight: "400", letterSpacing: 0.2 },
   keypad: { marginVertical: 18, gap: 12, marginHorizontal: 16 },
   keypadRow: { flexDirection: "row", gap: 12, backgroundColor: "#F2F2F2" },
-  key: {
-    flex: 1,
-    height: 60,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  keyGhost: {
-    flex: 1,
-    height: 60,
-    borderRadius: 12,
-    backgroundColor: "transparent",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  key: { flex: 1, height: 60, borderRadius: 12, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  keyGhost: { flex: 1, height: 60, borderRadius: 12, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
   keyText: { fontSize: 22, fontWeight: "400", color: "#111827" },
-  primaryBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 16,
-  },
+  primaryBtn: { height: 52, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", marginHorizontal: 16 },
   primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });
