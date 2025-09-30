@@ -9,28 +9,62 @@ import {
   Animated,
   Keyboard,
   FlatList,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import LocationModal from "@/components/modals/LocationModal";
 import VegFilterModal from "@/components/modals/VegFilterModal";
+import FilterModal from "@/components/modals/FilterModal";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
-import food1 from "@/assets/images/food1.png";
-import hostel1 from "@/assets/images/image/hostelBanner.png";
-import demoData from "@/data/demoData.json";
+import Dropdown from "@/components/Dropdown";
 import colors from "@/constants/colors";
-import FilterModal from "@/components/modals/FilterModal";
+import demoData from "@/data/demoData.json";
 import { useAppState } from "@/context/AppStateProvider";
 import { useAuthStore } from "@/store/authStore";
-import * as Location from "expo-location";
-import Dropdown from "@/components/Dropdown";
 import { hostellogo, tiffinlogo } from "@/assets/images";
+import food1 from "@/assets/images/food1.png";
+import hostel1 from "@/assets/images/image/hostelBanner.png";
+
+interface Hostel {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  price: string;
+  amenities: string[];
+  rating: number;
+  image: any;
+}
+
+interface TiffinService {
+  id: string;
+  name: string;
+  description: string;
+  location: string;
+  price: string;
+  tags: string[];
+  rating: number;
+  image: any;
+}
+
+interface Filters {
+  rating?: number;
+  vegNonVeg?: string;
+  cost?: string;
+  hostelType?: string;
+  priceRange?: [number, number];
+  amenities?: string[];
+  userReviews?: number;
+  location?: string;
+}
 
 export default function DashboardScreen() {
   const router = useRouter();
-
   const {
     isFilterApplied,
     setIsFilterApplied,
@@ -39,8 +73,6 @@ export default function DashboardScreen() {
     isSearchFocused,
     setIsSearchFocused,
   } = useAppState();
-
-  // Local states
   const {
     user,
     userLocation,
@@ -48,6 +80,7 @@ export default function DashboardScreen() {
     hasSelectedLocation,
     setHasSelectedLocation,
   } = useAuthStore();
+
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
@@ -57,45 +90,167 @@ export default function DashboardScreen() {
   const [area, setArea] = useState("");
   const [maxRent, setMaxRent] = useState("");
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [hostels, setHostels] = useState<Hostel[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const hostelTypeOptions = ["All", "Boys", "Girls", "Co-ed"];
-  const areaOptions = [
-    "All",
-    "Nagpur",
-    "Mumbai",
-    "Pune",
-    "Delhi",
-    "Bangalore",
-    "Chennai",
-    "Kolkata",
-  ];
-  const maxRentOptions = [
-    "All",
-    "5000",
-    "10000",
-    "15000",
-    "20000",
-    "25000",
-    "30000",
-  ];
+  const areaOptions = ["All", "Nagpur", "Mumbai", "Pune", "Delhi", "Bangalore", "Chennai", "Kolkata"];
+  const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
 
   const hasFilters = Object.keys(appliedFilters).length > 0;
-  const vegAnimated = useRef(
-    new Animated.Value(vegFilter !== "off" ? 1 : 0)
-  ).current;
+  const vegAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
   const imageMapping: { [key: string]: any } = {
-    food1: food1,
-    hostel1: require("../../../assets/images/image/hostelBanner.png"),
+    food1,
+    hostel1,
   };
 
-  useEffect(() => {
-    if (!hasSelectedLocation) {
-      setShowLocationModal(true);
+  // --- Auth token helper ---
+  const getAuthToken = async (): Promise<string | null> => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.warn("No auth token found in AsyncStorage");
+        Alert.alert(
+          "Authentication Required",
+          "Please log in to access hostel services.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Log In", onPress: () => router.push("/login") },
+          ]
+        );
+      }
+      return token;
+    } catch (error) {
+      console.error("Error fetching auth token:", error);
+      Alert.alert("Error", "Failed to retrieve authentication token. Please try again.");
+      return null;
     }
+  };
+
+  // --- Fetch all hostels ---
+  useEffect(() => {
+    if (!isHostel) return;
+
+    const fetchAllHostels = async () => {
+      const token = await getAuthToken();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      try {
+        const response = await fetch(
+          "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices",
+          { headers }
+        );
+        const result = await response.json();
+        if (result.success) {
+          const mappedHostels = result.data.map((hostel: any) => ({
+            id: hostel.hostelName + Math.random().toString(),
+            name: hostel.hostelName || "Unknown Hostel",
+            type: hostel.hostelType || "Unknown",
+            location: hostel.fullAddress || "Unknown Location",
+            price: hostel.pricing?.price?.toString() || "0",
+            amenities: hostel.facilities || [],
+            rating: hostel.rating || 0,
+            image: imageMapping["hostel1"],
+          }));
+          setHostels(mappedHostels);
+          Alert.alert("Success", `getAllHostelsServices API integrated successfully. Loaded ${mappedHostels.length} hostels.`);
+        } else {
+          setHostels([]);
+          Alert.alert("No Hostels Found", result.message || "No hostels available at the moment.");
+        }
+      } catch (error) {
+        console.error("Failed to fetch hostels:", error);
+        setHostels([]);
+        Alert.alert("Error", "Failed to fetch hostels. Please check your connection and try again.");
+      }
+    };
+
+    fetchAllHostels();
+  }, [isHostel]);
+
+  // --- Fetch hostels by recent search ---
+  useEffect(() => {
+    if (!isHostel || !isSearchFocused || !searchQuery) return;
+
+    const fetchRecentSearch = async () => {
+      const token = await getAuthToken();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      try {
+        const response = await fetch(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelsByRecentSearch?query=${encodeURIComponent(searchQuery)}`,
+          { headers }
+        );
+        const result = await response.json();
+        if (result.success && result.data.length > 0) {
+          const mappedHostels = result.data.map((hostel: any) => ({
+            id: hostel.hostelName + Math.random().toString(),
+            name: hostel.hostelName || "Unknown Hostel",
+            type: hostel.hostelType || "Unknown",
+            location: hostel.fullAddress || "Unknown Location",
+            price: hostel.pricing?.price?.toString() || "0",
+            amenities: hostel.facilities || [],
+            rating: hostel.rating || 0,
+            image: imageMapping["hostel1"],
+          }));
+          setHostels(mappedHostels);
+          Alert.alert("Success", `getHostelsByRecentSearch API integrated successfully. Found ${mappedHostels.length} hostels for "${searchQuery}".`);
+        } else {
+          setHostels([]);
+          Alert.alert("No Results", `No hostels found matching "${searchQuery}".`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch recent search:", error);
+        setHostels([]);
+        Alert.alert("Error", "Failed to search hostels. Please check your connection and try again.");
+      }
+    };
+
+    fetchRecentSearch();
+  }, [isHostel, isSearchFocused, searchQuery]);
+
+  // --- Fetch hostel suggestions ---
+  useEffect(() => {
+    if (!isHostel || !isSearchFocused || searchQuery) return;
+
+    const fetchSuggestions = async () => {
+      const token = await getAuthToken();
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      try {
+        const response = await fetch(
+          "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelSuggestions",
+          { headers }
+        );
+        const result = await response.json();
+        if (result.success) {
+          setSuggestions(result.data || []);
+          Alert.alert("Success", "getHostelSuggestions API integrated successfully. Loaded suggestions.");
+        } else {
+          setSuggestions([]);
+          Alert.alert("No Suggestions", result.message || "No suggestions available at the moment.");
+        }
+      } catch (error) {
+        console.error("Failed to fetch suggestions:", error);
+        setSuggestions([]);
+        Alert.alert("Error", "Failed to fetch suggestions. Please check your connection and try again.");
+      }
+    };
+
+    fetchSuggestions();
+  }, [isHostel, isSearchFocused, searchQuery]);
+
+  // --- Location Modal ---
+  useEffect(() => {
+    if (!hasSelectedLocation) setShowLocationModal(true);
   }, [hasSelectedLocation]);
 
+  // --- Veg Filter Animation ---
   useEffect(() => {
     Animated.timing(vegAnimated, {
       toValue: vegFilter !== "off" ? 1 : 0,
@@ -104,23 +259,18 @@ export default function DashboardScreen() {
     }).start();
   }, [vegFilter]);
 
-  const tiffinServices = demoData.tiffinServices.map((service) => ({
+  // --- Data mappings ---
+  const tiffinServices: TiffinService[] = demoData.tiffinServices.map((service) => ({
     ...service,
     image: imageMapping[service.image] || food1,
   }));
 
-  const hostels = demoData.hostels.map((hostel) => ({
-    ...hostel,
-    image:
-      imageMapping[hostel.image] ||
-      require("../../../assets/images/image/hostelBanner.png"),
-  }));
-
+  // --- Filtering logic (Tiffin & Hostels) ---
   const filteredTiffinServices = useMemo(() => {
     let filtered = [...tiffinServices];
+    const query = searchQuery.toLowerCase().trim();
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (query) {
       filtered = filtered.filter(
         (service) =>
           service.name.toLowerCase().includes(query) ||
@@ -130,284 +280,187 @@ export default function DashboardScreen() {
       );
     }
 
-    // Apply veg filter
     if (vegFilter === "veg") {
-      // Pure Veg - Show only items with ONLY veg tag
       filtered = filtered.filter((service) => {
         const tags = service.tags.map((tag) => tag.toLowerCase());
         return tags.includes("veg") && !tags.includes("non-veg");
       });
     } else if (vegFilter === "all") {
-      // All Restaurants (when toggle is ON) - Show only items with BOTH tags
       filtered = filtered.filter((service) => {
         const tags = service.tags.map((tag) => tag.toLowerCase());
         return tags.includes("veg") && tags.includes("non-veg");
       });
     }
-    // vegFilter === "off" shows everything (no filter)
 
-    // Apply filter modal filters for tiffin
-    if (!isHostel && appliedFilters.rating) {
-      filtered = filtered.filter(
-        (service) => service.rating >= appliedFilters.rating
-      );
+    if (appliedFilters.rating) {
+      filtered = filtered.filter((service) => service.rating >= appliedFilters.rating);
     }
 
-    if (!isHostel && appliedFilters.vegNonVeg) {
+    if (appliedFilters.vegNonVeg) {
       if (appliedFilters.vegNonVeg === "Veg") {
         filtered = filtered.filter((service) => {
           const tags = service.tags.map((tag) => tag.toLowerCase());
           return tags.includes("veg") && !tags.includes("non-veg");
         });
       } else if (appliedFilters.vegNonVeg === "Non-Veg") {
-        filtered = filtered.filter((service) => {
-          const tags = service.tags.map((tag) => tag.toLowerCase());
-          return tags.includes("non-veg");
-        });
+        filtered = filtered.filter((service) =>
+          service.tags.map((tag) => tag.toLowerCase()).includes("non-veg")
+        );
       }
     }
 
-    if (!isHostel && appliedFilters.cost === "Low to High") {
+    if (appliedFilters.cost === "Low to High") {
       filtered.sort(
-        (a: any, b: any) =>
+        (a, b) =>
           parseFloat(a.price.replace(/[^0-9]/g, "")) -
           parseFloat(b.price.replace(/[^0-9]/g, ""))
       );
-    } else if (!isHostel && appliedFilters.cost === "High to Low") {
+    } else if (appliedFilters.cost === "High to Low") {
       filtered.sort(
-        (a: any, b: any) =>
+        (a, b) =>
           parseFloat(b.price.replace(/[^0-9]/g, "")) -
           parseFloat(a.price.replace(/[^0-9]/g, ""))
       );
     }
 
     return filtered;
-  }, [searchQuery, tiffinServices, vegFilter, appliedFilters, isHostel]);
+  }, [tiffinServices, searchQuery, vegFilter, appliedFilters]);
 
   const filteredHostels = useMemo(() => {
     let filtered = [...hostels];
+    const query = searchQuery.toLowerCase().trim();
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (query) {
       filtered = filtered.filter(
         (hostel) =>
           hostel.name.toLowerCase().includes(query) ||
           hostel.type.toLowerCase().includes(query) ||
           hostel.location.toLowerCase().includes(query) ||
-          hostel.amenities.some((amenity) =>
-            amenity.toLowerCase().includes(query)
-          )
+          hostel.amenities.some((amenity) => amenity.toLowerCase().includes(query))
       );
     }
 
     if (hostelType && hostelType !== "All") {
-      filtered = filtered.filter((hostel) => hostel.type === hostelType);
+      filtered = filtered.filter((h) => h.type === hostelType);
     }
-
     if (area && area !== "All") {
-      filtered = filtered.filter((hostel) =>
-        hostel.location.toLowerCase().includes(area.toLowerCase())
-      );
+      filtered = filtered.filter((h) => h.location.toLowerCase().includes(area.toLowerCase()));
     }
     if (maxRent && maxRent !== "All") {
-      const maxRentValue = parseInt(maxRent);
+      const max = parseInt(maxRent);
+      filtered = filtered.filter((h) => parseInt(h.price) <= max);
+    }
+
+    if (appliedFilters.hostelType) {
+      filtered = filtered.filter((h) => h.type === appliedFilters.hostelType);
+    }
+    if (appliedFilters.priceRange) {
       filtered = filtered.filter(
-        (hostel) => parseInt(hostel.price) <= maxRentValue
+        (h) =>
+          parseInt(h.price) >= appliedFilters.priceRange[0] &&
+          parseInt(h.price) <= appliedFilters.priceRange[1]
       );
     }
-
-    if (isHostel && appliedFilters.hostelType) {
-      filtered = filtered.filter(
-        (hostel) => hostel.type === appliedFilters.hostelType
+    if (appliedFilters.amenities?.length) {
+      filtered = filtered.filter((h) =>
+        appliedFilters.amenities.every((a) => h.amenities.includes(a))
       );
     }
-
-    if (isHostel && appliedFilters.priceRange) {
-      filtered = filtered.filter(
-        (hostel) =>
-          parseInt(hostel.price) >= appliedFilters.priceRange[0] &&
-          parseInt(hostel.price) <= appliedFilters.priceRange[1]
-      );
+    if (appliedFilters.userReviews) {
+      filtered = filtered.filter((h) => h.rating >= appliedFilters.userReviews);
     }
-
-    if (
-      isHostel &&
-      appliedFilters.amenities &&
-      appliedFilters.amenities.length > 0
-    ) {
-      filtered = filtered.filter((hostel) =>
-        appliedFilters.amenities.every((amenity: string) =>
-          hostel.amenities.includes(amenity)
-        )
-      );
-    }
-
-    if (isHostel && appliedFilters.userReviews) {
-      filtered = filtered.filter(
-        (hostel) => hostel.rating >= appliedFilters.userReviews
-      );
-    }
-
-    if (isHostel && appliedFilters.location) {
-      filtered = filtered.filter((hostel) =>
-        hostel.location.includes(appliedFilters.location)
-      );
+    if (appliedFilters.location) {
+      filtered = filtered.filter((h) => h.location.includes(appliedFilters.location));
     }
 
     return filtered;
-  }, [
-    searchQuery,
-    hostels,
-    appliedFilters,
-    isHostel,
-    hostelType,
-    area,
-    maxRent,
-  ]);
+  }, [hostels, searchQuery, hostelType, area, maxRent, appliedFilters]);
 
+  const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
+
+  // --- Handlers ---
   const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
-
     if (location.coords) {
       try {
         const [address] = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         });
-
-        if (address) {
-          const formattedAddress = `${address.street || ""} ${
-            address.city || ""
-          } ${address.region || ""}`.trim();
-          setUserLocation(formattedAddress || "Current Location");
-        } else {
-          setUserLocation("Current Location");
-        }
+        setUserLocation(
+          address
+            ? `${address.street || ""} ${address.city || ""} ${address.region || ""}`.trim()
+            : "Current Location"
+        );
       } catch (error) {
         console.error("Error reverse geocoding:", error);
         setUserLocation("Current Location");
-      }
-    } else if (location.type) {
-      if (location.type === "home") {
-        setUserLocation("Home Location");
-      } else if (location.type === "work") {
-        setUserLocation("Work Location");
+        Alert.alert("Error", "Failed to retrieve location details. Using default location.");
       }
     } else if (typeof location === "string") {
       setUserLocation(location);
+    } else if (location.type === "home") {
+      setUserLocation("Home Location");
+    } else if (location.type === "work") {
+      setUserLocation("Work Location");
     }
-
     setHasSelectedLocation(true);
-    console.log("Location selected:", location);
   };
 
   const handleLocationModalClose = () => {
     setShowLocationModal(false);
-    if (!hasSelectedLocation) {
-      setHasSelectedLocation(true);
-    }
+    if (!hasSelectedLocation) setHasSelectedLocation(true);
   };
 
-  const handleTiffinPress = (service: any) => {
-    console.log("Tiffin pressed:", service);
-    router.navigate(`/tiffin-details/${service.id}`);
-  };
-
-  const handleHostelPress = (hostel: any) => {
-    console.log("Hostel pressed:", hostel);
-    router.navigate(`/hostel-details/${hostel.id}`);
-  };
-
-  const handleBookPress = (item: any) => {
-    console.log("Book pressed:", item);
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery("");
-  };
-
-  const handleProfilePress = () => {
-    router.push("/account");
-  };
-
+  const handleTiffinPress = (service: TiffinService) => router.navigate(`/tiffin-details/${service.id}`);
+  const handleHostelPress = (hostel: Hostel) => router.navigate(`/hostel-details/${hostel.id}`);
+  const handleBookPress = (item: Hostel | TiffinService) => console.log("Book pressed", item);
+  const handleClearSearch = () => setSearchQuery("");
+  const handleProfilePress = () => router.push("/account");
   const handleSearchBack = () => {
     setSearchQuery("");
     setIsSearchFocused(false);
     searchInputRef.current?.blur();
     Keyboard.dismiss();
   };
-
-  const handleApplyFilters = (filters: any) => {
+  const handleApplyFilters = (filters: Filters) => {
     setAppliedFilters(filters);
     setIsFilterApplied(Object.keys(filters).length > 0);
-    console.log("Applied filters:", filters);
   };
-
-  const handleVegFilterApply = (filter: "all" | "veg") => {
-    setVegFilter(filter);
-  };
-
+  const handleVegFilterApply = (filter: "all" | "veg") => setVegFilter(filter);
   const handleVegTogglePress = () => {
     if (vegFilter === "off") {
-      // If toggle is OFF, turn it ON and show modal
       setShowVegFilterModal(true);
     } else {
-      // If toggle is ON (either "all" or "veg"), turn it OFF
       setVegFilter("off");
     }
   };
+  const handleHostelTypeSelect = (value: string) => setHostelType(value === "All" ? "" : value);
+  const handleAreaSelect = (value: string) => setArea(value === "All" ? "" : value);
+  const handleMaxRentSelect = (value: string) => setMaxRent(value === "All" ? "" : value);
 
-  const handleHostelTypeSelect = (value: string) => {
-    setHostelType(value === "All" ? "" : value);
-  };
-
-  const handleAreaSelect = (value: string) => {
-    setArea(value === "All" ? "" : value);
-  };
-
-  const handleMaxRentSelect = (value: string) => {
-    setMaxRent(value === "All" ? "" : value);
-  };
-
-  const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
-
-  const renderTiffinItem = ({ item }: { item: any }) => (
-    <TiffinCard
-      service={item}
-      onPress={() => handleTiffinPress(item)}
-      onBookPress={() => handleBookPress(item)}
-    />
+  const renderTiffinItem = ({ item }: { item: TiffinService }) => (
+    <TiffinCard service={item} onPress={() => handleTiffinPress(item)} onBookPress={() => handleBookPress(item)} />
   );
-
-  const renderHostelItem = ({ item }: { item: any }) => (
-    <HostelCard
-      hostel={item}
-      onPress={() => handleHostelPress(item)}
-      onBookPress={() => handleBookPress(item)}
-    />
+  const renderHostelItem = ({ item }: { item: Hostel }) => (
+    <HostelCard hostel={item} onPress={() => handleHostelPress(item)} onBookPress={() => handleBookPress(item)} />
   );
+  const keyExtractor = (item: Hostel | TiffinService) => item.id.toString();
 
-  const keyExtractor = (item: any) => item.id.toString();
-
-  // Search focused view
+  // --- Search Focused View ---
   if (isSearchFocused) {
     return (
       <View style={styles.container}>
         <SafeAreaView style={styles.safeArea} edges={["top"]}>
           <View style={styles.searchFocusedHeader}>
-            <TouchableOpacity
-              style={styles.searchBackButton}
-              onPress={handleSearchBack}
-            >
+            <TouchableOpacity style={styles.searchBackButton} onPress={handleSearchBack}>
               <Ionicons name="chevron-back" size={24} color="#000" />
             </TouchableOpacity>
             <View style={styles.searchFocusedInputContainer}>
               <Ionicons name="search" size={20} color="#6B7280" />
               <TextInput
                 ref={searchInputRef}
-                placeholder={
-                  isHostel ? "Search for hostel..." : "Tiffin Service"
-                }
+                placeholder={isHostel ? "Search for hostel..." : "Tiffin Service"}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 style={styles.searchFocusedInput}
@@ -427,100 +480,71 @@ export default function DashboardScreen() {
         </SafeAreaView>
 
         <View style={styles.searchResultsContainer}>
-          <Text style={styles.searchResultsTitle}>
-            {searchQuery ? "Search Results" : "Popular Searches"}
-          </Text>
-
+          <Text style={styles.searchResultsTitle}>{searchQuery ? "Search Results" : "Popular Searches"}</Text>
           {searchQuery && displayedItems.length > 0 ? (
             <FlatList
               data={displayedItems}
               renderItem={isHostel ? renderHostelItem : renderTiffinItem}
               keyExtractor={keyExtractor}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingBottom: 20,
-              }}
+              contentContainerStyle={{ paddingBottom: 20 }}
             />
           ) : searchQuery.length > 0 ? (
             <View style={styles.noResultsContainer}>
               <Ionicons name="search" size={50} color="#9CA3AF" />
               <Text style={styles.noResultsText}>
-                {`No ${
-                  isHostel ? "hostels" : "services"
-                } found matching "${searchQuery}"`}
+                {`No ${isHostel ? "hostels" : "services"} found matching "${searchQuery}"`}
               </Text>
-              <Text style={styles.noResultsSubtext}>
-                Try searching with different keywords
-              </Text>
+              <Text style={styles.noResultsSubtext}>Try searching with different keywords</Text>
             </View>
           ) : (
             <View style={styles.recentSearchesContainer}>
               <View style={styles.suggestionTags}>
                 {isHostel ? (
-                  <>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("WiFi")}
-                    >
-                      <Text style={styles.suggestionTagText}>WiFi</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("AC")}
-                    >
-                      <Text style={styles.suggestionTagText}>AC</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Near College")}
-                    >
-                      <Text style={styles.suggestionTagText}>Near College</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Parking")}
-                    >
-                      <Text style={styles.suggestionTagText}>Parking</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Mess")}
-                    >
-                      <Text style={styles.suggestionTagText}>Mess</Text>
-                    </TouchableOpacity>
-                  </>
+                  suggestions.length > 0 ? (
+                    suggestions.map((suggestion, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.suggestionTag}
+                        onPress={() => setSearchQuery(suggestion)}
+                      >
+                        <Text style={styles.suggestionTagText}>{suggestion}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("WiFi")}>
+                        <Text style={styles.suggestionTagText}>WiFi</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("AC")}>
+                        <Text style={styles.suggestionTagText}>AC</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Near College")}>
+                        <Text style={styles.suggestionTagText}>Near College</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Parking")}>
+                        <Text style={styles.suggestionTagText}>Parking</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Mess")}>
+                        <Text style={styles.suggestionTagText}>Mess</Text>
+                      </TouchableOpacity>
+                    </>
+                  )
                 ) : (
                   <>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Veg")}
-                    >
+                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Veg")}>
                       <Text style={styles.suggestionTagText}>Veg</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Maharashtrian")}
-                    >
-                      <Text style={styles.suggestionTagText}>
-                        Maharashtrian
-                      </Text>
+                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Maharashtrian")}>
+                      <Text style={styles.suggestionTagText}>Maharashtrian</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Healthy")}
-                    >
+                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Healthy")}>
                       <Text style={styles.suggestionTagText}>Healthy</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Home Style")}
-                    >
+                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Home Style")}>
                       <Text style={styles.suggestionTagText}>Home Style</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.suggestionTag}
-                      onPress={() => setSearchQuery("Budget")}
-                    >
+                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Budget")}>
                       <Text style={styles.suggestionTagText}>Budget</Text>
                     </TouchableOpacity>
                   </>
@@ -533,7 +557,7 @@ export default function DashboardScreen() {
     );
   }
 
-  // Filtered view
+  // --- Filtered View ---
   if (isFilterApplied && hasFilters) {
     return (
       <View style={styles.container}>
@@ -605,12 +629,9 @@ export default function DashboardScreen() {
               <View style={styles.noResultsContainer}>
                 <Ionicons name="filter" size={50} color="#9CA3AF" />
                 <Text style={styles.noResultsText}>
-                  No {isHostel ? "hostels" : "tiffin services"} match your
-                  filters
+                  No {isHostel ? "hostels" : "tiffin services"} match your filters
                 </Text>
-                <Text style={styles.noResultsSubtext}>
-                  Try adjusting your filters
-                </Text>
+                <Text style={styles.noResultsSubtext}>Try adjusting your filters</Text>
               </View>
               <TouchableOpacity
                 style={styles.backToHomeButton}
@@ -636,27 +657,21 @@ export default function DashboardScreen() {
     );
   }
 
-  // Normal dashboard view
+  // --- Normal Dashboard View ---
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <View style={styles.locationContainer}>
-            <TouchableOpacity
-              style={styles.locationButton}
-              onPress={() => setShowLocationModal(true)}
-            >
+            <TouchableOpacity style={styles.locationButton} onPress={() => setShowLocationModal(true)}>
               <Ionicons name="home" size={20} color="#000" />
               <Text style={styles.locationText}>Home Location</Text>
               <Ionicons name="chevron-down" size={20} color="#000" />
             </TouchableOpacity>
-            <Text style={styles.locationSubtext}>{userLocation}</Text>
+            <Text style={styles.locationSubtext}>{userLocation || "Unknown Location"}</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={handleProfilePress}
-          >
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
             <Image
               source={{ uri: "https://i.pravatar.cc/100" }}
               style={styles.profileImage}
@@ -677,11 +692,7 @@ export default function DashboardScreen() {
                 <Ionicons name="search" size={20} color="#6B7280" />
                 <TextInput
                   ref={searchInputRef}
-                  placeholder={
-                    isHostel
-                      ? "Search for hostel..."
-                      : "Search for tiffin services..."
-                  }
+                  placeholder={isHostel ? "Search for hostel..." : "Search for tiffin services..."}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   onFocus={() => setIsSearchFocused(true)}
@@ -697,52 +708,28 @@ export default function DashboardScreen() {
                   <Ionicons name="mic" size={20} color="#6B7280" />
                 </TouchableOpacity>
               </View>
-
               <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  {
-                    backgroundColor: hasFilters ? colors.primary : "#F2EFFD",
-                  },
-                ]}
+                style={[styles.filterButton, { backgroundColor: hasFilters ? colors.primary : "#F2EFFD" }]}
                 onPress={() => setShowFilterModal(true)}
               >
-                <Ionicons
-                  name="options"
-                  size={22}
-                  color={hasFilters ? "white" : "#2563EB"}
-                />
+                <Ionicons name="options" size={22} color={hasFilters ? "white" : "#2563EB"} />
               </TouchableOpacity>
             </View>
 
             {!searchQuery && !hasFilters && (
               <View style={styles.banner}>
-                <Image
-                  source={isHostel ? hostel1 : food1}
-                  style={styles.bannerImage}
-                  resizeMode="cover"
-                />
+                <Image source={isHostel ? hostel1 : food1} style={styles.bannerImage} resizeMode="cover" />
                 <View style={styles.bannerContent}>
                   {isHostel ? (
                     <>
-                      <Text style={styles.bannerTitle}>
-                        Premium{"\n"}Hostels
-                      </Text>
-                      <Text style={styles.bannerSubtitle}>
-                        Find your perfect home{"\n"}away from home
-                      </Text>
-                      <Text style={styles.bannerLink}>
-                        Safe & Secure Living
-                      </Text>
+                      <Text style={styles.bannerTitle}>Premium{"\n"}Hostels</Text>
+                      <Text style={styles.bannerSubtitle}>Find your perfect home{"\n"}away from home</Text>
+                      <Text style={styles.bannerLink}>Safe & Secure Living</Text>
                     </>
                   ) : (
                     <>
-                      <Text style={styles.bannerTitle}>
-                        Indian{"\n"}Cuisine
-                      </Text>
-                      <Text style={styles.bannerSubtitle}>
-                        Enjoy pure taste of your{"\n"}home-made delights
-                      </Text>
+                      <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
+                      <Text style={styles.bannerSubtitle}>Enjoy pure taste of your{"\n"}home-made delights</Text>
                       <Text style={styles.bannerLink}>www.website.com</Text>
                     </>
                   )}
@@ -754,10 +741,7 @@ export default function DashboardScreen() {
               <Text style={styles.sectionTitle}>What are you looking for?</Text>
               <View style={styles.serviceButtons}>
                 <TouchableOpacity
-                  style={[
-                    styles.serviceButton,
-                    !isHostel && styles.serviceButtonSelected,
-                  ]}
+                  style={[styles.serviceButton, !isHostel && styles.serviceButtonSelected]}
                   onPress={() => {
                     setIsHostel(false);
                     setSearchQuery("");
@@ -769,33 +753,17 @@ export default function DashboardScreen() {
                     setVegFilter("off");
                   }}
                 >
-                  {/* <Ionicons
-                    name="restaurant"
-                    size={24}
-                    color={!isHostel ? "#fff" : "#004AAD"}
-                  /> */}
                   <Image
-                  source={tiffinlogo}
-                  tintColor={!isHostel ? "#fff" : "#004AAD"}
-                  style={styles.image}
+                    source={tiffinlogo}
+                    style={styles.image}
+                    tintColor={!isHostel ? "#fff" : "#004AAD"}
                   />
-                    
-                  
-                  <Text
-                    style={[
-                      styles.serviceButtonText,
-                      !isHostel && styles.serviceButtonTextSelected,
-                    ]}
-                  >
+                  <Text style={[styles.serviceButtonText, !isHostel && styles.serviceButtonTextSelected]}>
                     Tiffin/Restaurants
                   </Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
-                  style={[
-                    styles.serviceButton,
-                    isHostel && styles.serviceButtonSelected,
-                  ]}
+                  style={[styles.serviceButton, isHostel && styles.serviceButtonSelected]}
                   onPress={() => {
                     setIsHostel(true);
                     setSearchQuery("");
@@ -803,22 +771,12 @@ export default function DashboardScreen() {
                     setIsFilterApplied(false);
                   }}
                 >
-                  {/* <Ionicons
-                    name="business"
-                    size={24}
-                    color={isHostel ? "#fff" : "#004AAD"}
-                  /> */}
-                   <Image
-                  source={hostellogo}
-                 tintColor={isHostel ? "#fff" : "#004AAD"}
-                  style={styles.image}
+                  <Image
+                    source={hostellogo}
+                    style={styles.image}
+                    tintColor={isHostel ? "#fff" : "#004AAD"}
                   />
-                  <Text
-                    style={[
-                      styles.serviceButtonText,
-                      isHostel && styles.serviceButtonTextSelected,
-                    ]}
-                  >
+                  <Text style={styles.serviceButtonText, isHostel && styles.serviceButtonTextSelected}>
                     PG/Hostels
                   </Text>
                 </TouchableOpacity>
@@ -837,7 +795,6 @@ export default function DashboardScreen() {
                       placeholder="All"
                     />
                   </View>
-
                   <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Area</Text>
                     <Dropdown
@@ -847,7 +804,6 @@ export default function DashboardScreen() {
                       placeholder="All"
                     />
                   </View>
-
                   <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Max Rent (₹)</Text>
                     <Dropdown
@@ -873,20 +829,9 @@ export default function DashboardScreen() {
                     : "Available Tiffin Service"}
                 </Text>
                 {!isHostel && !hasFilters && (
-                  <TouchableOpacity
-                    style={styles.vegToggle}
-                    onPress={handleVegTogglePress}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.vegText}>
-                      {vegFilter === "off" ? "Non-Veg" : "Veg"}
-                    </Text>
-                    <View
-                      style={[
-                        styles.vegSwitchContainer,
-                        vegFilter !== "off" && styles.vegSwitchActive,
-                      ]}
-                    >
+                  <TouchableOpacity style={styles.vegToggle} onPress={handleVegTogglePress} activeOpacity={0.7}>
+                    <Text style={styles.vegText}>{vegFilter === "off" ? "Non-Veg" : "Veg"}</Text>
+                    <View style={[styles.vegSwitchContainer, vegFilter !== "off" && styles.vegSwitchActive]}>
                       <Animated.View
                         style={[
                           styles.vegSwitchThumb,
@@ -906,19 +851,18 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-
               <Text style={styles.servicesCount}>
                 {isHostel
                   ? hasFilters
                     ? `${filteredHostels.length} filtered results`
                     : searchQuery
                     ? `${filteredHostels.length} results found`
-                    : `${filteredHostels.length} properties found in ${userLocation}`
+                    : `${filteredHostels.length} properties found in ${userLocation || "Unknown Location"}`
                   : hasFilters
                   ? `${filteredTiffinServices.length} filtered results`
                   : searchQuery || vegFilter !== "off"
                   ? `${filteredTiffinServices.length} results found`
-                  : `${tiffinServices.length} services found in ${userLocation}`}
+                  : `${tiffinServices.length} services found in ${userLocation || "Unknown Location"}`}
               </Text>
             </View>
           </>
@@ -929,15 +873,12 @@ export default function DashboardScreen() {
             <Text style={styles.noResultsText}>
               {isHostel ? "No hostels found" : "No tiffin services found"}
             </Text>
-            <Text style={styles.noResultsSubtext}>
-              Try adjusting your filters or search
-            </Text>
+            <Text style={styles.noResultsSubtext}>Try adjusting your filters or search</Text>
           </View>
         }
         contentContainerStyle={{ paddingBottom: 20 }}
       />
 
-      {/* All Modals */}
       <LocationModal
         visible={showLocationModal}
         onClose={handleLocationModalClose}
@@ -976,15 +917,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.title,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   searchBackButton: {
     width: 32,
     height: 32,
@@ -1021,18 +953,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#E5E7EB",
   },
-  scrollView: {
-    flex: 1,
-  },
   searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 16,
     gap: 12,
-  },
-  searchWrapperFocused: {
-    marginTop: 20,
-    gap: 8,
   },
   searchContainer: {
     flex: 1,
@@ -1045,11 +970,6 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     paddingHorizontal: 16,
   },
-  searchContainerFocused: {
-    backgroundColor: "#F2EFFD",
-    borderColor: "#6B7EF5",
-    paddingHorizontal: 12,
-  },
   searchInput: {
     flex: 1,
     marginLeft: 10,
@@ -1060,7 +980,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   filterButton: {
-    backgroundColor: "#F2EFFD",
     borderRadius: 8,
     height: 48,
     width: 48,
@@ -1123,7 +1042,6 @@ const styles = StyleSheet.create({
   },
   serviceButton: {
     flex: 1,
-    // flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 15,
@@ -1204,10 +1122,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
     elevation: 2,
@@ -1296,7 +1211,7 @@ const styles = StyleSheet.create({
     color: "#1F2937",
   },
   filteredResultsContainer: {
-    // paddingHorizontal: 20,
+    flex: 1,
   },
   filteredResultsTitle: {
     fontSize: 18,
@@ -1343,13 +1258,8 @@ const styles = StyleSheet.create({
   recentSearchesContainer: {
     marginTop: 20,
   },
-  recentSearchesTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  image:{
-    width:24,
-    height:24
+  image: {
+    width: 24,
+    height: 24,
   },
 });
