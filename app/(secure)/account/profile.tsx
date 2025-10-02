@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -17,13 +17,10 @@ import { Ionicons } from "@expo/vector-icons";
 
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 
 const MyProfileScreen = () => {
   const [profile, setProfile] = useState<any>(null);
-
-  useEffect(() => {
-    fetchProfile();
-  }, []);
 
   const fetchProfile = async () => {
     try {
@@ -32,62 +29,63 @@ const MyProfileScreen = () => {
 
       const response = await axios.get(
         "https://tifstay-project-be.onrender.com/api/guest/getProfile",
-        { headers: { Authorization: `Bearer ${token}` } } // <-- Authorization header
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setProfile(response.data.data.guest); // backend se guest object
+      setProfile(response.data.data.guest);
     } catch (error: any) {
       console.log(error.response?.data || error.message);
     }
   };
 
-  // const deleteGuestAccount = () => {
-  //   Alert.alert(
-  //     "Confirm Delete",
-  //     "Do you really want to delete this account?",
-  //     [
-  //       { text: "Cancel", style: "cancel" },
-  //       { text: "OK", onPress: handleDelete },
-  //     ],
-  //     { cancelable: true }
-  //   );
-  // };
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
 
-  // const handleDelete = async () => {
-  //   try {
-  //     const token = await AsyncStorage.getItem("token");
-  //     if (!token) {
-  //       Alert.alert("Error", "No token found. Redirecting to register.", [
-  //         { text: "OK", onPress: () => router.replace("/(auth)/register") },
-  //       ]);
-  //       return;
-  //     }
+  const displayValue = (value: string | undefined) => value || "";
 
-  //     const response = await axios.delete(
-  //       "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
-  //       { headers: { Authorization: `Bearer ${token}` } }
-  //     );
+  // 🔥 Delete account / logout function
+  const handleDeleteAccount = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
 
-  //     if (response.data.success || response.data.data?.guest?.isDeleted) {
-  //       await AsyncStorage.removeItem("token");
-  //       router.replace("/login");
-  //       return;
-  //     }
+      if (token) {
+        await axios.delete(
+          "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
 
-  //     Alert.alert("Error", response.data.message || "Failed to delete account");
-  //   } catch (error: any) {
-  //     console.log(error.response?.data || error.message);
-  //     await AsyncStorage.removeItem("token");
-  //     router.replace("/(auth)/login");
-  //   }
-  // };
+      // ✅ Token clear
+      await AsyncStorage.removeItem("token");
+
+      // ✅ Show success and navigate inside Alert
+      Alert.alert("Success", "Account deleted successfully", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace("/(auth)/login"); // ⚡ direct login screen
+          },
+        },
+      ]);
+    } catch (error: any) {
+      console.log(error.response?.data || error.message);
+      Alert.alert("Error", "Failed to delete account.");
+    }
+  };
+
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { justifyContent: "space-between" }]}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
             <Ionicons name="chevron-back" size={16} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Profile</Text>
@@ -103,14 +101,30 @@ const MyProfileScreen = () => {
             source={require("@/assets/images/user.png")}
             style={styles.profileImage}
           />
-          <Text style={styles.profileName}>{profile?.name || "Loading..."}</Text>
+          <Text style={styles.profileName}>{displayValue(profile?.name) || "Loading..."}</Text>
         </View>
 
         <View style={styles.infoCard}>
-          <InfoRow icon={require("@/assets/images/name.png")} label="Name" value={profile?.name || ""} />
-          <InfoRow icon={require("@/assets/images/email1.png")} label="Email" value={profile?.email || ""} />
-          <InfoRow icon={require("@/assets/images/phone.png")} label="Phone Number" value={profile?.phoneNumber || ""} />
-          <InfoRow icon={require("@/assets/images/cal.png")} label="Date of Birth" value={profile?.dob || ""} />
+          <InfoRow
+            icon={require("@/assets/images/name.png")}
+            label="Name"
+            value={displayValue(profile?.name)}
+          />
+          <InfoRow
+            icon={require("@/assets/images/email1.png")}
+            label="Email"
+            value={displayValue(profile?.email)}
+          />
+          <InfoRow
+            icon={require("@/assets/images/phone.png")}
+            label="Phone Number"
+            value={displayValue(profile?.phoneNumber)}
+          />
+          <InfoRow
+            icon={require("@/assets/images/cal.png")}
+            label="Date of Birth"
+            value={displayValue(profile?.dob)}
+          />
         </View>
 
         <MenuItem
@@ -126,9 +140,8 @@ const MyProfileScreen = () => {
         <MenuItem
           label="Delete Account"
           icon={require("@/assets/images/del.png")}
-          onPress={() => router.push("/(secure)/account/deleteAccount")} // ✅ direct navigate
+          onPress={handleDeleteAccount}
         />
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -157,19 +170,49 @@ const MenuItem = ({ label, icon, onPress }: { label: string; icon: any; onPress?
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   scrollContent: { paddingBottom: 30 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
-  backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.title,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
   profileSection: { alignItems: "center", marginTop: 24, marginBottom: 16 },
   profileImage: { width: 86, height: 86, borderRadius: 43 },
   profileName: { fontSize: 18, marginTop: 12 },
-  infoCard: { backgroundColor: "#F8F5FF", marginHorizontal: 26, borderRadius: 12, padding: 16, marginTop: 14 },
+  infoCard: {
+    backgroundColor: "#F8F5FF",
+    marginHorizontal: 26,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 14,
+  },
   infoRow: { flexDirection: "row", marginBottom: 16 },
   infoIcon: { width: 40, height: 40, marginRight: 12 },
   infoTextContainer: { flex: 1 },
   infoLabel: { fontSize: 14, fontWeight: "600", color: colors.title, marginBottom: 2 },
   infoValue: { fontSize: 12, color: colors.grey, lineHeight: 20 },
-  menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 24, paddingHorizontal: 20, justifyContent: "space-between", backgroundColor: "#F8F7FF", marginTop: 16, height: 72, marginHorizontal: 26, borderRadius: 12 },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    justifyContent: "space-between",
+    backgroundColor: "#F8F7FF",
+    marginTop: 16,
+    height: 72,
+    marginHorizontal: 26,
+    borderRadius: 12,
+  },
   menuLeft: { flexDirection: "row", alignItems: "center" },
   menuIcon: { width: 40, height: 40, marginRight: 12 },
   menuText: { fontSize: 14, color: colors.title },

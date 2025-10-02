@@ -68,11 +68,18 @@ const DepositScreen = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
+            {/* Updated Header */}
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="chevron-back" size={16} color="#000" />
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                        <Ionicons name="chevron-back" size={16} color="#000" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Deposit</Text>
+                </View>
+
+                <TouchableOpacity onPress={() => router.push("/(secure)/account/AllTransactionsScreen")}>
+                    <Text style={styles.allTransactionsText}>All Transactions</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Deposit</Text>
             </View>
 
             <KeyboardAwareScrollView enableOnAndroid extraScrollHeight={80} showsHorizontalScrollIndicator={false}>
@@ -92,7 +99,6 @@ const DepositScreen = () => {
                         >
                             <Text style={styles.addDepositText}>Add Deposit Amount</Text>
                         </TouchableOpacity>
-
                     </View>
 
                     {/* Withdraw Options */}
@@ -202,7 +208,14 @@ const styles = StyleSheet.create({
     inputMargin: { marginTop: 20, paddingHorizontal: 0 },
     inputTall: { minHeight: 56 },
     label: { fontSize: 14, fontWeight: "400", color: colors.title },
-    header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
+    header: { 
+        flexDirection: "row", 
+        alignItems: "center", 
+        justifyContent: "space-between", // 👈 ensures left-right alignment
+        paddingHorizontal: 16, 
+        paddingVertical: 12 
+    },
     backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
-    headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" }
+    headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
+    allTransactionsText: { fontSize: 14, fontWeight: "500", color: "#004AAD" } // 👈 Added style
 });

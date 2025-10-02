@@ -1,7 +1,7 @@
 import colors from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useState, useCallback } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -51,7 +51,6 @@ const AddressScreen = () => {
     }
   };
 
-  // ✅ UseFocusEffect ensures screen fetches data whenever it comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchAddresses();
@@ -59,43 +58,39 @@ const AddressScreen = () => {
   );
 
   const deleteAddress = async (addressId) => {
-    Alert.alert(
-      "Confirm Delete",
-      "Are you sure you want to delete this address?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const token = await AsyncStorage.getItem("token");
-              if (!token) {
-                Alert.alert("Error", "No token found!");
-                return;
-              }
+    Alert.alert("Confirm Delete", "Are you sure you want to delete this address?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+              Alert.alert("Error", "No token found!");
+              return;
+            }
 
-              const response = await axios.delete(
-                `https://tifstay-project-be.onrender.com/api/guest/address/deleteAddress/${addressId}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                }
-              );
-
-              if (response.data.success) {
-                Alert.alert("Success", "Address deleted successfully");
-                fetchAddresses(); // Refresh list
-              } else {
-                Alert.alert("Error", "Failed to delete address");
+            const response = await axios.delete(
+              `https://tifstay-project-be.onrender.com/api/guest/address/deleteAddress/${addressId}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
               }
-            } catch (error) {
-              console.log("Error deleting address:", error);
+            );
+
+            if (response.data.success) {
+              Alert.alert("Success", "Address deleted successfully");
+              fetchAddresses();
+            } else {
               Alert.alert("Error", "Failed to delete address");
             }
-          },
+          } catch (error) {
+            console.log("Error deleting address:", error);
+            Alert.alert("Error", "Failed to delete address");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const renderAddress = ({ item }) => (
@@ -112,9 +107,7 @@ const AddressScreen = () => {
         </Text>
       </View>
       <View style={{ flexDirection: "row", position: "absolute", right: 19, top: 12 }}>
-        <TouchableOpacity
-          onPress={() => navigation.push(`/(secure)/account/${item._id}`)}
-        >
+        <TouchableOpacity onPress={() => navigation.push(`/(secure)/account/${item._id}`)}>
           <Image
             source={require("../../../assets/images/editicon.png")}
             style={styles.actionIcon}
@@ -135,7 +128,9 @@ const AddressScreen = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+      <SafeAreaView
+        style={[styles.container, { justifyContent: "center", alignItems: "center" }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
@@ -143,6 +138,7 @@ const AddressScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.back()}>
           <Ionicons name="chevron-back" size={16} color="#000" />
@@ -162,11 +158,10 @@ const AddressScreen = () => {
               <Text style={{ textAlign: "center", paddingVertical: 8, color: "#A5A5A5" }}>
                 or
               </Text>
+              {/* Always show add new address */}
               <TouchableOpacity
                 style={styles.addCard}
-                onPress={() =>
-                  navigation.push("/(secure)/account/addAddress")
-                }
+                onPress={() => navigation.push("/(secure)/account/addAddress")}
               >
                 <Image
                   source={require("../../../assets/images/add.png")}
@@ -181,9 +176,24 @@ const AddressScreen = () => {
           )}
         />
       ) : (
-        <Text style={{ textAlign: "center", marginTop: 20, color: "#A5A5A5" }}>
-          No addresses found.
-        </Text>
+        <View style={{ marginTop: 20 }}>
+          <Text style={{ textAlign: "center", color: "#A5A5A5" }}>No addresses found.</Text>
+
+          {/* Add button even if no address */}
+          <TouchableOpacity
+            style={[styles.addCard, { marginTop: 20 }]}
+            onPress={() => navigation.push("/(secure)/account/addAddress")}
+          >
+            <Image
+              source={require("../../../assets/images/add.png")}
+              style={styles.image}
+              resizeMode="contain"
+            />
+            <View style={styles.textContainer}>
+              <Text style={styles.title}>Add a new address</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -219,7 +229,12 @@ const styles = StyleSheet.create({
   title: { fontWeight: "700", color: "#9C9BA6", fontSize: 14 },
   address: { marginTop: 4, fontSize: 14, color: "#333" },
   actionIcon: { height: 20, width: 20, marginLeft: 10 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   backButton: {
     width: 28,
     height: 28,

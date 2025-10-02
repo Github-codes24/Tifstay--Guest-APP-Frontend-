@@ -45,12 +45,8 @@ export default function VerifyScreen() {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    if (value && index < 3) {
-      inputRefs.current[index + 1]?.focus();
-    }
-    if (!value && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
+    if (value && index < 3) inputRefs.current[index + 1]?.focus();
+    if (!value && index > 0) inputRefs.current[index - 1]?.focus();
   };
 
   const handleVerifyOTP = async () => {
@@ -64,18 +60,30 @@ export default function VerifyScreen() {
         "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
         { phoneNumber, otp: otpCode }
       );
+
       if (response.data.success) {
-        const token = response.data.token; // get token from response
-        // Save in Zustand + AsyncStorage
+        const token = response.data.token; // JWT token
+        const guestId = response.data.data.guest._id; // guest ID from response
+
+        // Save both in AsyncStorage
         await AsyncStorage.setItem("token", token);
+        await AsyncStorage.setItem("guestId", guestId);
+
+        // Save in Zustand store as well
         login(response.data.data, token);
 
         router.replace("/(secure)/(tabs)");
       } else {
-        Alert.alert("Failed", response.data.message || "OTP verification failed");
+        Alert.alert(
+          "Failed",
+          response.data.message || "OTP verification failed"
+        );
       }
     } catch (error: any) {
-      Alert.alert("Error", error?.response?.data?.message || "Something went wrong");
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message || "Something went wrong"
+      );
     }
   };
 
@@ -124,15 +132,8 @@ export default function VerifyScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    backgroundColor: colors.white,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.white },
+  container: { flex: 1, paddingHorizontal: 24, backgroundColor: colors.white },
   title: {
     fontSize: 24,
     fontWeight: "600",
@@ -140,12 +141,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: colors.textPrimary,
   },
-  otpContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 24,
-    gap: 12,
-  },
+  otpContainer: { flexDirection: "row", justifyContent: "center", marginBottom: 24, gap: 12 },
   otpInput: {
     width: 60,
     height: 60,
@@ -158,25 +154,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     backgroundColor: "#EDEDED",
   },
-  resendContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  resendPrompt: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333333",
-  },
-  resendText: {
-    fontSize: 14,
-    color: "#FF6B00",
-    fontWeight: "500",
-  },
-  timerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginLeft: 4,
-  },
+  resendContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 12 },
+  resendPrompt: { fontSize: 14, fontWeight: "500", color: "#333333" },
+  resendText: { fontSize: 14, color: "#FF6B00", fontWeight: "500" },
+  timerText: { fontSize: 14, color: colors.textSecondary, marginLeft: 4 },
 });
