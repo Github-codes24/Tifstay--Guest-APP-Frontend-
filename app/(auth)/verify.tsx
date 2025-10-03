@@ -64,7 +64,8 @@ export default function VerifyScreen() {
       if (response.data.success) {
         const token = response.data.token; // JWT token
         const guestId = response.data.data.guest._id; // guest ID from response
-
+          
+        console.log("User Token:", token);
         // Save both in AsyncStorage
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("guestId", guestId);

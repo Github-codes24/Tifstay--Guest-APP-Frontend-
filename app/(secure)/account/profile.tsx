@@ -46,35 +46,6 @@ const MyProfileScreen = () => {
 
   const displayValue = (value: string | undefined) => value || "";
 
-  // 🔥 Delete account / logout function
-  const handleDeleteAccount = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-
-      if (token) {
-        await axios.delete(
-          "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
-
-      // ✅ Token clear
-      await AsyncStorage.removeItem("token");
-
-      // ✅ Show success and navigate inside Alert
-      Alert.alert("Success", "Account deleted successfully", [
-        {
-          text: "OK",
-          onPress: () => {
-            router.replace("/(auth)/login"); // ⚡ direct login screen
-          },
-        },
-      ]);
-    } catch (error: any) {
-      console.log(error.response?.data || error.message);
-      Alert.alert("Error", "Failed to delete account.");
-    }
-  };
 
 
   return (
@@ -98,9 +69,14 @@ const MyProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           <Image
-            source={require("@/assets/images/user.png")}
+            source={
+              profile?.profileImage
+                ? { uri: profile.profileImage }
+                : require("@/assets/images/user.png")
+            }
             style={styles.profileImage}
           />
+
           <Text style={styles.profileName}>{displayValue(profile?.name) || "Loading..."}</Text>
         </View>
 
@@ -140,8 +116,9 @@ const MyProfileScreen = () => {
         <MenuItem
           label="Delete Account"
           icon={require("@/assets/images/del.png")}
-          onPress={handleDeleteAccount}
+          onPress={() => router.push("/(secure)/account/deleteAccount")}
         />
+
       </ScrollView>
     </SafeAreaView>
   );

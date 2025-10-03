@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  ScrollView,
   Text,
   StyleSheet,
   Image,
@@ -44,10 +43,10 @@ const EditProfile = () => {
       const data = await res.json();
       if (data.success) {
         const guest = data.data.guest;
-        setName(guest.name);
-        setEmail(guest.email);
-        setPhone(guest.phoneNumber);
-        setDob(guest.dob);
+        setName(guest.name || "");
+        setEmail(guest.email || "");
+        setPhone(guest.phoneNumber || "");
+        setDob(guest.dob || "");
       }
     } catch (err: any) {
       console.log(err.message);
@@ -72,10 +71,12 @@ const EditProfile = () => {
       if (!token) throw new Error("No token found");
 
       const formData = new FormData();
-      formData.append("name", name);
-      formData.append("email", email);
-      formData.append("dob", dob);
-      formData.append("phoneNumber", phone);
+
+      // Only append fields if they are not empty
+      if (name.trim()) formData.append("name", name.trim());
+      if (email.trim()) formData.append("email", email.trim());
+      if (phone.trim()) formData.append("phoneNumber", phone.trim());
+      if (dob.trim()) formData.append("dob", dob.trim());
 
       if (profileImage) {
         formData.append("profileImage", {
@@ -91,11 +92,12 @@ const EditProfile = () => {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+            // remove Content-Type, fetch will set it automatically for FormData
           },
           body: formData,
         }
       );
+
       const data = await res.json();
 
       if (data.success) {
@@ -113,7 +115,10 @@ const EditProfile = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="chevron-back" size={16} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
@@ -137,18 +142,42 @@ const EditProfile = () => {
               style={styles.profileImage}
             />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{name}</Text>
+          <Text style={styles.headerTitle}>{name || "Guest"}</Text>
         </View>
 
         <View style={{ gap: 8 }}>
-          <LabeledInput label="Name" value={name} onChangeText={setName} labelStyle={styles.label} />
-          <LabeledInput label="Email" value={email} onChangeText={setEmail} labelStyle={styles.label} />
-          <LabeledInput label="Phone Number" value={phone} onChangeText={setPhone} labelStyle={styles.label} />
-          <LabeledInput label="Date of Birth" value={dob} onChangeText={setDob} labelStyle={styles.label} />
+          <LabeledInput
+            label="Name"
+            value={name}
+            onChangeText={setName}
+            labelStyle={styles.label}
+          />
+          <LabeledInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            labelStyle={styles.label}
+          />
+          <LabeledInput
+            label="Phone Number"
+            value={phone}
+            onChangeText={setPhone}
+            labelStyle={styles.label}
+          />
+          <LabeledInput
+            label="Date of Birth"
+            value={dob}
+            onChangeText={setDob}
+            labelStyle={styles.label}
+          />
         </View>
       </KeyboardAwareScrollView>
 
-      <CustomButton title="Save" onPress={handleSave} style={{ width: "90%", alignSelf: "center", marginVertical: 0 }} />
+      <CustomButton
+        title="Save"
+        onPress={handleSave}
+        style={{ width: "90%", alignSelf: "center", marginVertical: 0 }}
+      />
     </SafeAreaView>
   );
 };
@@ -157,8 +186,21 @@ const styles = StyleSheet.create({
   profileContainer: { alignItems: "center", marginTop: 28 },
   profileImage: { width: 86, height: 86, borderRadius: 50, marginBottom: 12 },
   label: { color: colors.title, fontSize: 14, marginBottom: 8 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
-  backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.title,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
 });
 

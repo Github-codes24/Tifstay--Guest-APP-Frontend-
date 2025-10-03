@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,15 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import axios from "axios";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
 import RatingModal from "@/components/modals/RatingModal";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
-import Profile from "../account/profile";
 
 interface Order {
   id: string;
@@ -36,109 +37,56 @@ interface Order {
 }
 
 const Booking: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"pending" | "confirmed">(
-    "pending"
-  );
+  const [activeTab, setActiveTab] = useState<"pending" | "confirmed">("pending");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
 
-  const allOrders: Order[] = [
-    {
-      id: "1",
-      bookingId: "TF2024002",
-      serviceType: "tiffin",
-      serviceName: "Maharashtrian Ghar Ka Khana",
-      customer: "Onil Karmokar",
-      startDate: "21/07/25",
-      mealType: "Lunch",
-      foodType: "Veg",
-      plan: "Daily",
-      orderType: "Delivery",
-      status: "pending",
-    },
-    {
-      id: "2",
-      bookingId: "TF2024003",
-      serviceType: "tiffin",
-      serviceName: "Maharashtrian Ghar Ka Khana",
-      customer: "Onil Karmokar",
-      startDate: "21/07/25",
-      mealType: "Breakfast, Lunch, Dinner",
-      foodType: "Veg",
-      plan: "Monthly",
-      orderType: "Delivery",
-      status: "pending",
-    },
-    {
-      id: "7",
-      bookingId: "HS2024002",
-      serviceType: "hostel",
-      serviceName: "Green Valley Boys Hostel",
-      customer: "Onil Karmokar",
-      checkInDate: "01/10/25",
-      checkOutDate: "01/11/25",
-      status: "pending",
-      image: "hostel1",
-    },
-    {
-      id: "3",
-      bookingId: "TF2024001",
-      serviceType: "tiffin",
-      serviceName: "Maharashtrian Ghar Ka Khana",
-      customer: "Onil Karmokar",
-      startDate: "21/07/25",
-      mealType: "Breakfast, Lunch, Dinner",
-      foodType: "Veg",
-      plan: "Daily",
-      orderType: "Delivery",
-      status: "confirmed",
-    },
-    {
-      id: "4",
-      bookingId: "TF2023999",
-      serviceType: "tiffin",
-      serviceName: "Maharashtrian Ghar Ka Khana",
-      customer: "Onil Karmokar",
-      startDate: "21/07/25",
-      mealType: "Lunch",
-      foodType: "Veg",
-      plan: "Daily",
-      orderType: "Delivery",
-      status: "delivered",
-    },
-    {
-      id: "5",
-      bookingId: "HS2024001",
-      serviceType: "hostel",
-      serviceName: "Scholars Den Boys Hostel",
-      customer: "Onil Karmokar",
-      checkInDate: "01/08/25",
-      checkOutDate: "01/09/25",
-      status: "confirmed",
-      image: "hostel1",
-    },
-    {
-      id: "6",
-      bookingId: "HS2023998",
-      serviceType: "hostel",
-      serviceName: "Scholars Den Boys Hostel",
-      customer: "Onil Karmokar",
-      checkInDate: "01/08/25",
-      checkOutDate: "01/09/25",
-      status: "completed",
-      image: "hostel1",
-    },
-  ];
+  useEffect(() => {
+    fetchOrders();
+  }, [activeTab]);
 
-  const filteredOrders = allOrders.filter((order) => {
-    if (activeTab === "pending") {
-      return order.status === "pending";
+const fetchOrders = async () => {
+  setLoading(true);
+  try {
+    const url =
+      activeTab === "pending"
+        ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings"
+        : "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
+
+    const response = await axios.get(url);
+    console.log("API Response:", response.data);
+
+    if (response.data.success) {
+      const apiOrders: Order[] = response.data.data.map((item: any) => ({
+        id: item._id, // booking ID
+        bookingId: item._id,
+        serviceType: "hostel",
+        serviceName: item.hostelId?.hostelName || "Unknown Hostel",
+        customer: item.fullName,
+        checkInDate: item.checkInDate ? new Date(item.checkInDate).toLocaleDateString() : "",
+        checkOutDate: item.checkOutDate ? new Date(item.checkOutDate).toLocaleDateString() : "",
+        status: item.status.toLowerCase() as Order["status"],
+        image: item.userPhoto,
+      }));
+      setOrders(apiOrders);
     } else {
-      return ["confirmed", "delivered", "completed"].includes(order.status);
+      setOrders([]);
     }
-  });
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    Alert.alert("Error", "Failed to fetch orders");
+    setOrders([]);
+  }
+  setLoading(false);
+};
+
+
+  const filteredOrders = orders;
 
   const handleTrackOrder = (order: Order) => {
     console.log("Track order:", order.bookingId);
@@ -153,9 +101,7 @@ const Booking: React.FC = () => {
       params: {
         serviceType: order.serviceType,
         serviceName: order.serviceName,
-        price:
-          order.price ||
-          (order.serviceType === "tiffin" ? "₹120" : "₹8000/month"),
+        price: order.price || "₹8000/month",
         orderId: order.id,
         bookingId: order.bookingId,
       },
@@ -165,10 +111,8 @@ const Booking: React.FC = () => {
   const handleSeeDetails = (order: Order) => {
     console.log("See details:", order.bookingId);
     router.push({
-      pathname: "/tiffin-order-details/[id]",
-      params: {
-        id: order.id,
-      },
+      pathname: "/hostel-details/[id]",
+      params: { id: order.id },
     });
   };
 
@@ -181,21 +125,13 @@ const Booking: React.FC = () => {
   const handleRepeatOrder = (order: Order) => {
     console.log("Repeat order:", order.bookingId);
     router.push({
-      pathname:
-        order.serviceType === "tiffin"
-          ? `/tiffin-details/[id]`
-          : `/hostel-details/[id]`,
-      params: {
-        id: order.id,
-        repeatOrder: "true",
-      },
+      pathname: `/hostel-details/[id]`,
+      params: { id: order.id, repeatOrder: "true" },
     });
   };
 
   const handleRatingSubmitSuccess = () => {
-    // You can add any additional logic here after successful rating submission
     console.log("Rating submitted successfully!");
-    // Optionally refresh orders or show a success toast
   };
 
   const getStatusColor = (status: string) => {
@@ -203,7 +139,6 @@ const Booking: React.FC = () => {
       case "pending":
         return "#FFA500";
       case "confirmed":
-        return "#10B981";
       case "delivered":
         return "#10B981";
       case "completed":
@@ -232,13 +167,9 @@ const Booking: React.FC = () => {
     }
   };
 
-  const isHistoryOrder = (status: string) => {
-    return ["delivered", "completed"].includes(status);
-  };
+  const isHistoryOrder = (status: string) => ["delivered", "completed"].includes(status);
 
-  const handleProfilePress = () => {
-    router.push("/account/profile");
-  };
+  const handleProfilePress = () => router.push("/account/profile");
 
   return (
     <SafeAreaView style={styles.container}>
@@ -247,14 +178,8 @@ const Booking: React.FC = () => {
           <Text style={styles.headerTitle}>My Orders</Text>
           <Text style={styles.headerSubtitle}>Track your bookings</Text>
         </View>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={handleProfilePress}
-        >
-          <Image
-            source={{ uri: "https://i.pravatar.cc/100" }}
-            style={styles.profileImage}
-          />
+        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+          <Image source={{ uri: "https://i.pravatar.cc/100" }} style={styles.profileImage} />
         </TouchableOpacity>
       </View>
 
@@ -263,12 +188,7 @@ const Booking: React.FC = () => {
           style={[styles.tab, activeTab === "pending" && styles.activeTab]}
           onPress={() => setActiveTab("pending")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "pending" && styles.activeTabText,
-            ]}
-          >
+          <Text style={[styles.tabText, activeTab === "pending" && styles.activeTabText]}>
             Pending
           </Text>
         </TouchableOpacity>
@@ -276,21 +196,13 @@ const Booking: React.FC = () => {
           style={[styles.tab, activeTab === "confirmed" && styles.activeTab]}
           onPress={() => setActiveTab("confirmed")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "confirmed" && styles.activeTabText,
-            ]}
-          >
+          <Text style={[styles.tabText, activeTab === "confirmed" && styles.activeTabText]}>
             Confirmed
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={60} color="#9CA3AF" />
@@ -306,149 +218,49 @@ const Booking: React.FC = () => {
             <View key={order.id} style={styles.orderCard}>
               <View style={styles.orderHeader}>
                 <Text style={styles.bookingId}>Booking #{order.bookingId}</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: `${getStatusColor(order.status)}20` },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      { color: getStatusColor(order.status) },
-                    ]}
-                  >
+                <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
+                  <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
                     {getStatusText(order.status)}
                   </Text>
                 </View>
               </View>
 
-              {isHistoryOrder(order.status) && activeTab === "confirmed" && (
-                <Text style={styles.bookingSummaryLabel}>Booking Summary</Text>
-              )}
               <View style={styles.orderDetails}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>
-                    {order.serviceType === "tiffin"
-                      ? "Tiffin Service"
-                      : "Hostel Booking"}
-                    :
-                  </Text>
+                  <Text style={styles.detailLabel}>Hostel Booking:</Text>
                   <Text style={styles.detailValue} numberOfLines={1}>
                     {order.serviceName}
                   </Text>
                 </View>
-
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Customer:</Text>
                   <Text style={styles.detailValue}>{order.customer}</Text>
                 </View>
-
-                {order.serviceType === "tiffin" ? (
-                  <>
-                    {order.startDate && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Start Date:</Text>
-                        <Text style={styles.detailValue}>
-                          {order.startDate}
-                        </Text>
-                      </View>
-                    )}
-                    {order.mealType && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Meal Type:</Text>
-                        <Text style={styles.detailValue}>{order.mealType}</Text>
-                      </View>
-                    )}
-                    {order.plan && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Plan:</Text>
-                        <Text style={styles.detailValue}>{order.plan}</Text>
-                      </View>
-                    )}
-                    {order.orderType && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Order Type:</Text>
-                        <Text style={styles.detailValue}>
-                          {order.orderType}
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Check-in date:</Text>
-                      <Text style={styles.detailValue}>
-                        {order.checkInDate}
-                      </Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Check-out date:</Text>
-                      <Text style={styles.detailValue}>
-                        {order.checkOutDate}
-                      </Text>
-                    </View>
-                  </>
-                )}
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Check-in date:</Text>
+                  <Text style={styles.detailValue}>{order.checkInDate}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Check-out date:</Text>
+                  <Text style={styles.detailValue}>{order.checkOutDate}</Text>
+                </View>
               </View>
 
-              {isHistoryOrder(order.status) &&
-                order.serviceType === "tiffin" && (
-                  <Text style={styles.subscriptionNote}>
-                    This subscription expired soon, to extend select Continue
-                    Subscription.
-                  </Text>
-                )}
-
               {activeTab === "pending" ? (
-                <Button
-                  title="Track Order"
-                  onPress={() => handleTrackOrder(order)}
-                  style={styles.primaryButtonStyle}
-                  height={48}
-                />
+                <Button title="Track Order" onPress={() => handleTrackOrder(order)} style={styles.primaryButtonStyle} height={48} />
               ) : (
                 <>
-                  {order.status === "confirmed" &&
-                    !isHistoryOrder(order.status) && (
-                      <>
-                        <Button
-                          title="Continue Subscription"
-                          onPress={() => handleContinueSubscription(order)}
-                          style={styles.primaryButtonStyle}
-                          height={48}
-                        />
-                        <Button
-                          title="See Details"
-                          onPress={() => handleSeeDetails(order)}
-                          style={styles.secondaryButtonStyle}
-                          textStyle={styles.secondaryButtonTextStyle}
-                          height={48}
-                        />
-                      </>
-                    )}
-
-                  {isHistoryOrder(order.status) && (
+                  {order.status === "confirmed" && !isHistoryOrder(order.status) && (
                     <>
-                      <View style={styles.buttonRow}>
-                        <Button
-                          title="Rate Now"
-                          onPress={() => handleRateNow(order)}
-                          style={styles.rateButtonStyle}
-                          textStyle={styles.secondaryButtonTextStyle}
-                          width={160}
-                          height={48}
-                        />
-                        <Button
-                          title="Repeat Order"
-                          onPress={() => handleRepeatOrder(order)}
-                          style={styles.repeatButtonStyle}
-                          width={160}
-                          height={48}
-                        />
-                      </View>
+                      <Button title="Continue Subscription" onPress={() => handleContinueSubscription(order)} style={styles.primaryButtonStyle} height={48} />
+                      <Button title="See Details" onPress={() => handleSeeDetails(order)} style={styles.secondaryButtonStyle} textStyle={styles.secondaryButtonTextStyle} height={48} />
                     </>
+                  )}
+                  {isHistoryOrder(order.status) && (
+                    <View style={styles.buttonRow}>
+                      <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.rateButtonStyle} textStyle={styles.secondaryButtonTextStyle} width={160} height={48} />
+                      <Button title="Repeat Order" onPress={() => handleRepeatOrder(order)} style={styles.repeatButtonStyle} width={160} height={48} />
+                    </View>
                   )}
                 </>
               )}

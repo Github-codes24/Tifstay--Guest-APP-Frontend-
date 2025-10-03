@@ -30,7 +30,6 @@ import { useAuthStore } from "@/store/authStore";
 import { hostellogo, tiffinlogo } from "@/assets/images";
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
-// import { useRouter, NavigateOptions } from "expo-router";
 
 interface Hostel {
   id: string;
@@ -41,6 +40,9 @@ interface Hostel {
   amenities: string[];
   rating: number;
   image: any;
+  planType?: string;
+  roomType?: string;
+  acNonAc?: string;
 }
 
 interface TiffinService {
@@ -58,11 +60,18 @@ interface Filters {
   rating?: number;
   vegNonVeg?: string;
   cost?: string;
-  hostelType?: string;
+  offers?: string;
+  cashback?: string;
+  cuisine?: string;
+  location?: string;
+  distance?: number;
   priceRange?: [number, number];
+  hostelType?: string;
+  roomType?: string;
+  acNonAc?: string;
+  planType?: string;
   amenities?: string[];
   userReviews?: number;
-  location?: string;
 }
 
 export default function DashboardScreen() {
@@ -96,10 +105,18 @@ export default function DashboardScreen() {
   const [searchedHostels, setSearchedHostels] = useState<Hostel[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingHostels, setIsLoadingHostels] = useState(false); // New loading state
+  const [isLoadingHostels, setIsLoadingHostels] = useState(false);
+  const [cities, setCities] = useState<string[]>([]);
+  const [hostelTypes, setHostelTypes] = useState<string[]>([]);
+  const [roomTypes, setRoomTypes] = useState<string[]>([]);
+  const [planTypes, setPlanTypes] = useState<string[]>([]);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [isLoadingHostelTypes, setIsLoadingHostelTypes] = useState(false);
+  const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
+  const [isLoadingPlanTypes, setIsLoadingPlanTypes] = useState(false);
 
-  const hostelTypeOptions = ["All", "Boys", "Girls", "Co-ed"];
-  const areaOptions = ["All", "Nagpur", "Mumbai", "Pune", "Delhi", "Bangalore", "Chennai", "Kolkata"];
+  const hostelTypeOptions = useMemo(() => ["All", ...hostelTypes], [hostelTypes]);
+  const areaOptions = useMemo(() => ["All", ...cities], [cities]);
   const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
 
   const hasFilters = Object.keys(appliedFilters).length > 0;
@@ -127,6 +144,7 @@ export default function DashboardScreen() {
           ]
         );
       }
+      console.log("Auth token retrieved:", token ? "Valid token" : "No token");
       return token;
     } catch (error) {
       console.error("Error fetching auth token:", error);
@@ -148,8 +166,9 @@ export default function DashboardScreen() {
         { headers }
       );
       const result = await response.json();
-      console.log("getAllHostelServices response:", result);
-      if (result.success) {
+      console.log("getAllHostelServices response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data) {
+        
         const mappedHostels = result.data.map((hostel: any) => ({
           id: hostel.hostelName + Math.random().toString(),
           name: hostel.hostelName || "Unknown Hostel",
@@ -159,6 +178,9 @@ export default function DashboardScreen() {
           amenities: hostel.facilities || [],
           rating: hostel.rating || 0,
           image: imageMapping["hostel1"],
+          planType: hostel.pricing?.planType || undefined,
+          roomType: hostel.roomType || undefined,
+          acNonAc: hostel.acNonAc || undefined,
         }));
         setAllHostels(mappedHostels);
         await AsyncStorage.setItem("cachedHostels", JSON.stringify(mappedHostels));
@@ -186,11 +208,168 @@ export default function DashboardScreen() {
     }
   };
 
+  // --- Fetch cities ---
+  const fetchCities = async () => {
+    setIsLoadingCities(true);
+    const token = await getAuthToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const response = await fetch(
+        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getCitiesFromHostelServices",
+        { headers }
+      );
+      const result = await response.json();
+      console.log("getCitiesFromHostelServices response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data && Array.isArray(result.data)) {
+        setCities(result.data);
+        // Alert.alert(
+        //   "API Success",
+        //   `Cities API connected successfully! Response: ${JSON.stringify(result.data)}`,
+        //   [{ text: "OK" }]
+        // );
+      } else {
+        console.warn("getCitiesFromHostelServices failed:", result.message || "No data returned");
+        setCities([]);
+        Alert.alert("Error", result.message || "Failed to fetch cities.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch cities:", error);
+      setCities([]);
+      Alert.alert("Error", "Failed to fetch cities. Please check your connection and try again.");
+    } finally {
+      setIsLoadingCities(false);
+    }
+  };
+
+  // --- Fetch hostel types ---
+  const fetchHostelTypes = async () => {
+    setIsLoadingHostelTypes(true);
+    const token = await getAuthToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const response = await fetch(
+        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelTypes",
+        { headers }
+      );
+      const result = await response.json();
+      console.log("getHostelTypes response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data && Array.isArray(result.data)) {
+        setHostelTypes(result.data);
+        // Alert.alert(
+        //   "API Success",
+        //   `Hostel Types API connected successfully! Response: ${JSON.stringify(result.data)}`,
+        //   [{ text: "OK" }]
+        // );
+      } else {
+        console.warn("getHostelTypes failed:", result.message || "No data returned");
+        setHostelTypes([]);
+        Alert.alert("Error", result.message || "Failed to fetch hostel types.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch hostel types:", error);
+      setHostelTypes([]);
+      Alert.alert("Error", "Failed to fetch hostel types. Please check your connection and try again.");
+    } finally {
+      setIsLoadingHostelTypes(false);
+    }
+  };
+
+  // --- Fetch room types ---
+  const fetchRoomTypes = async () => {
+    setIsLoadingRoomTypes(true);
+    const token = await getAuthToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const response = await fetch(
+        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomTypes",
+        { headers }
+      );
+      const result = await response.json();
+      console.log("getRoomTypes response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data && Array.isArray(result.data)) {
+        setRoomTypes(result.data.map(String));
+        // Alert.alert(
+        //   "API Success",
+        //   `Room Types API connected successfully! Response: ${JSON.stringify(result.data)}`,
+        //   [{ text: "OK" }]
+        // );
+      } else {
+        console.warn("getRoomTypes failed:", result.message || "No data returned");
+        setRoomTypes([]);
+        Alert.alert("Error", result.message || "Failed to fetch room types.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch room types:", error);
+      setRoomTypes([]);
+      Alert.alert("Error", "Failed to fetch room types. Please check your connection and try again.");
+    } finally {
+      setIsLoadingRoomTypes(false);
+    }
+  };
+
+  // --- Fetch plan types ---
+  const fetchPlanTypes = async () => {
+    setIsLoadingPlanTypes(true);
+    const token = await getAuthToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const response = await fetch(
+        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPlanTypes",
+        { headers }
+      );
+      const result = await response.json();
+      console.log("getPlanTypes response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data && Array.isArray(result.data)) {
+        setPlanTypes(result.data);
+        // Alert.alert(
+        //   "API Success",
+        //   `Plan Types API connected successfully! Response: ${JSON.stringify(result.data)}`,
+        //   [{ text: "OK" }]
+        // );
+      } else {
+        console.warn("getPlanTypes failed:", result.message || "No data returned");
+        setPlanTypes([]);
+        Alert.alert("Error", result.message || "Failed to fetch plan types.");
+      }
+    } catch (error) {
+      console.error("Failed to fetch plan types:", error);
+      setPlanTypes([]);
+      Alert.alert("Error", "Failed to fetch plan types. Please check your connection and try again.");
+    } finally {
+      setIsLoadingPlanTypes(false);
+    }
+  };
+
+  // --- Refetch data when FilterModal opens if data is missing ---
   useEffect(() => {
-    if (!isHostel) return;
+    if (showFilterModal && isHostel) {
+      if (cities.length === 0 && !isLoadingCities) fetchCities();
+      if (hostelTypes.length === 0 && !isLoadingHostelTypes) fetchHostelTypes();
+      if (roomTypes.length === 0 && !isLoadingRoomTypes) fetchRoomTypes();
+      if (planTypes.length === 0 && !isLoadingPlanTypes) fetchPlanTypes();
+    }
+  }, [showFilterModal, isHostel, cities, hostelTypes, roomTypes, planTypes]);
+
+  // --- Fetch data when switching to hostel mode ---
+  useEffect(() => {
+    if (!isHostel) {
+      setCities([]);
+      setHostelTypes([]);
+      setRoomTypes([]);
+      setPlanTypes([]);
+      return;
+    }
 
     let isMounted = true;
-    fetchAllHostels().then(() => {
+    Promise.all([fetchAllHostels(), fetchCities(), fetchHostelTypes(), fetchRoomTypes(), fetchPlanTypes()]).then(() => {
       if (!isMounted) return;
     });
 
@@ -219,8 +398,8 @@ export default function DashboardScreen() {
           { headers }
         );
         const result = await response.json();
-        console.log("getHostelsByRecentSearch response:", result);
-        if (result.success && result.data.length > 0) {
+        console.log("getHostelsByRecentSearch response:", JSON.stringify(result, null, 2));
+        if (result.success && result.data && Array.isArray(result.data)) {
           const mappedHostels = result.data.map((hostel: any) => ({
             id: hostel.hostelName + Math.random().toString(),
             name: hostel.hostelName || "Unknown Hostel",
@@ -230,6 +409,9 @@ export default function DashboardScreen() {
             amenities: hostel.facilities || [],
             rating: hostel.rating || 0,
             image: imageMapping["hostel1"],
+            planType: hostel.pricing?.planType || undefined,
+            roomType: hostel.roomType || undefined,
+            acNonAc: hostel.acNonAc || undefined,
           }));
           setSearchedHostels(mappedHostels);
         } else {
@@ -273,9 +455,9 @@ export default function DashboardScreen() {
           { headers }
         );
         const result = await response.json();
-        console.log("getHostelSuggestions response:", result);
-        if (result.success) {
-          setSuggestions(result.data || []);
+        console.log("getHostelSuggestions response:", JSON.stringify(result, null, 2));
+        if (result.success && result.data && Array.isArray(result.data)) {
+          setSuggestions(result.data);
         } else {
           setSuggestions([]);
         }
@@ -349,6 +531,11 @@ export default function DashboardScreen() {
         filtered = filtered.filter((service) =>
           service.tags.map((tag) => tag.toLowerCase()).includes("non-veg")
         );
+      } else if (appliedFilters.vegNonVeg === "Both") {
+        filtered = filtered.filter((service) => {
+          const tags = service.tags.map((tag) => tag.toLowerCase());
+          return tags.includes("veg") && tags.includes("non-veg");
+        });
       }
     }
 
@@ -366,6 +553,24 @@ export default function DashboardScreen() {
       );
     }
 
+    if (appliedFilters.offers) {
+      filtered = filtered.filter((service) =>
+        service.description.toLowerCase().includes(appliedFilters.offers.toLowerCase())
+      );
+    }
+
+    if (appliedFilters.cashback) {
+      filtered = filtered.filter((service) =>
+        service.description.toLowerCase().includes(appliedFilters.cashback.toLowerCase())
+      );
+    }
+
+    if (appliedFilters.cuisine) {
+      filtered = filtered.filter((service) =>
+        service.tags.map((tag) => tag.toLowerCase()).includes(appliedFilters.cuisine.toLowerCase())
+      );
+    }
+
     return filtered;
   }, [tiffinServices, searchQuery, vegFilter, appliedFilters]);
 
@@ -380,7 +585,10 @@ export default function DashboardScreen() {
           hostel.name.toLowerCase().includes(query) ||
           hostel.type.toLowerCase().includes(query) ||
           hostel.location.toLowerCase().includes(query) ||
-          hostel.amenities.some((amenity) => amenity.toLowerCase().includes(query))
+          hostel.amenities.some((amenity) => amenity.toLowerCase().includes(query)) ||
+          (hostel.planType && hostel.planType.toLowerCase().includes(query)) ||
+          (hostel.roomType && hostel.roomType.toLowerCase().includes(query)) ||
+          (hostel.acNonAc && hostel.acNonAc.toLowerCase().includes(query))
       );
     }
 
@@ -415,6 +623,19 @@ export default function DashboardScreen() {
     }
     if (appliedFilters.location) {
       filtered = filtered.filter((h) => h.location.includes(appliedFilters.location));
+    }
+    if (appliedFilters.distance && appliedFilters.distance > 0) {
+      // Placeholder for distance-based filtering (requires coordinates)
+      filtered = filtered.filter((h) => true); // Implement actual distance logic if needed
+    }
+    if (appliedFilters.planType) {
+      filtered = filtered.filter((h) => h.planType === appliedFilters.planType);
+    }
+    if (appliedFilters.roomType) {
+      filtered = filtered.filter((h) => h.roomType === appliedFilters.roomType);
+    }
+    if (appliedFilters.acNonAc) {
+      filtered = filtered.filter((h) => h.acNonAc === appliedFilters.acNonAc);
     }
 
     return filtered;
@@ -461,17 +682,16 @@ export default function DashboardScreen() {
     router.navigate({
       pathname: `/hostel-details/${hostel.id}`,
       params: { type: "hostel" },
-    } as NavigateOptions);
+    });
   };
 
-  // Updated: Navigate to details only for hostels; log for tiffin
   const handleBookPress = (item: Hostel | TiffinService) => {
-    if ('amenities' in item) {  // It's a Hostel
+    if ("amenities" in item) {
       router.navigate({
         pathname: `/hostel-details/${item.id}`,
         params: { type: "hostel" },
-      } as NavigateOptions);
-    } else {  // It's a TiffinService
+      });
+    } else {
       console.log("Book pressed for tiffin", item);
     }
   };
@@ -487,7 +707,7 @@ export default function DashboardScreen() {
     searchInputRef.current?.blur();
     Keyboard.dismiss();
     if (isHostel) {
-      fetchAllHostels(); // Refetch all hostels when exiting search
+      fetchAllHostels();
     }
   };
 
@@ -495,7 +715,7 @@ export default function DashboardScreen() {
     setAppliedFilters(filters);
     setIsFilterApplied(Object.keys(filters).length > 0);
     if (isHostel) {
-      fetchAllHostels(); // Refetch all hostels when applying filters
+      fetchAllHostels();
     }
   };
 
@@ -670,7 +890,7 @@ export default function DashboardScreen() {
                 setIsFilterApplied(false);
                 setAppliedFilters({});
                 if (isHostel) {
-                  fetchAllHostels(); // Refetch all hostels when clearing filters
+                  fetchAllHostels();
                 }
               }}
             >
@@ -767,6 +987,14 @@ export default function DashboardScreen() {
           onApplyFilters={handleApplyFilters}
           isHostel={isHostel}
           currentFilters={appliedFilters}
+          cities={cities}
+          isLoadingCities={isLoadingCities}
+          hostelTypes={hostelTypes}
+          isLoadingHostelTypes={isLoadingHostelTypes}
+          roomTypes={roomTypes}
+          isLoadingRoomTypes={isLoadingRoomTypes}
+          planTypes={planTypes}
+          isLoadingPlanTypes={isLoadingPlanTypes}
         />
       </View>
     );
@@ -867,6 +1095,10 @@ export default function DashboardScreen() {
                     setMaxRent("");
                     setVegFilter("off");
                     setSearchedHostels([]);
+                    setCities([]);
+                    setHostelTypes([]);
+                    setRoomTypes([]);
+                    setPlanTypes([]);
                   }}
                 >
                   <Image
@@ -886,7 +1118,11 @@ export default function DashboardScreen() {
                     setAppliedFilters({});
                     setIsFilterApplied(false);
                     setSearchedHostels([]);
-                    fetchAllHostels(); // Refetch all hostels when switching to hostel mode
+                    fetchAllHostels();
+                    fetchCities();
+                    fetchHostelTypes();
+                    fetchRoomTypes();
+                    fetchPlanTypes();
                   }}
                 >
                   <Image
@@ -906,21 +1142,29 @@ export default function DashboardScreen() {
                 <View style={styles.filterRow}>
                   <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Hostel Type</Text>
-                    <Dropdown
-                      options={hostelTypeOptions}
-                      value={hostelType || "All"}
-                      onSelect={handleHostelTypeSelect}
-                      placeholder="All"
-                    />
+                    {isLoadingHostelTypes ? (
+                      <ActivityIndicator size="small" color="#6B7280" />
+                    ) : (
+                      <Dropdown
+                        options={hostelTypeOptions}
+                        value={hostelType || "All"}
+                        onSelect={handleHostelTypeSelect}
+                        placeholder="All"
+                      />
+                    )}
                   </View>
                   <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Area</Text>
-                    <Dropdown
-                      options={areaOptions}
-                      value={area || "All"}
-                      onSelect={handleAreaSelect}
-                      placeholder="All"
-                    />
+                    {isLoadingCities ? (
+                      <ActivityIndicator size="small" color="#6B7280" />
+                    ) : (
+                      <Dropdown
+                        options={areaOptions}
+                        value={area || "All"}
+                        onSelect={handleAreaSelect}
+                        placeholder="All"
+                      />
+                    )}
                   </View>
                   <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Max Rent (₹)</Text>
@@ -986,10 +1230,20 @@ export default function DashboardScreen() {
           </>
         }
         ListEmptyComponent={
-          isHostel && isLoadingHostels ? (
+          isHostel && (isLoadingHostels || isLoadingCities || isLoadingHostelTypes || isLoadingRoomTypes || isLoadingPlanTypes) ? (
             <View style={styles.noResultsContainer}>
               <ActivityIndicator size="large" color="#6B7280" />
-              <Text style={styles.noResultsSubtext}>Loading hostels...</Text>
+              <Text style={styles.noResultsSubtext}>
+                {isLoadingCities
+                  ? "Loading cities..."
+                  : isLoadingHostelTypes
+                    ? "Loading hostel types..."
+                    : isLoadingRoomTypes
+                      ? "Loading room types..."
+                      : isLoadingPlanTypes
+                        ? "Loading plan types..."
+                        : "Loading hostels..."}
+              </Text>
             </View>
           ) : (
             <View style={styles.noResultsContainer}>
@@ -1015,6 +1269,14 @@ export default function DashboardScreen() {
         onApplyFilters={handleApplyFilters}
         isHostel={isHostel}
         currentFilters={appliedFilters}
+        cities={cities}
+        isLoadingCities={isLoadingCities}
+        hostelTypes={hostelTypes}
+        isLoadingHostelTypes={isLoadingHostelTypes}
+        roomTypes={roomTypes}
+        isLoadingRoomTypes={isLoadingRoomTypes}
+        planTypes={planTypes}
+        isLoadingPlanTypes={isLoadingPlanTypes}
       />
       <VegFilterModal
         visible={showVegFilterModal}

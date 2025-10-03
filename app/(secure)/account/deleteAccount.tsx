@@ -22,39 +22,71 @@ const DeleteAccountScreen = () => {
     const [loading, setLoading] = useState(false);
     const [successModal, setSuccessModal] = useState(false);
 
-    const handleDelete = async () => {
-        if (!accepted) {
-            Alert.alert("Error", "Please accept the terms & conditions first");
-            return;
-        }
+const handleDelete = async () => {
+  if (!accepted) {
+    Alert.alert("Error", "Please accept the terms & conditions first");
+    return;
+  }
 
-        try {
-            setLoading(true);
-            const token = await AsyncStorage.getItem("token");
-            if (!token) {
-                Alert.alert("Error", "No token found. Please login again.");
-                router.replace("/(auth)/login");
-                return;
-            }
+  try {
+    setLoading(true);
+    const token = await AsyncStorage.getItem("token");
 
-            const response = await axios.delete(
-                "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+    if (!token) {
+      Alert.alert("Error", "No token found. Please login again.");
+      router.replace("/(auth)/login");
+      return;
+    }
 
-            if (response.data.success || response.data.data?.guest?.isDeleted) {
-                await AsyncStorage.removeItem("token");
-                setSuccessModal(true); // ✅ show modal instead of screen navigation
-            } else {
-                Alert.alert("Error", response.data.message || "Failed to delete account");
-            }
-        } catch (error: any) {
-            console.log(error.response?.data || error.message);
-            Alert.alert("Error", "Something went wrong. Please try again.");
-        } finally {
-            setLoading(false);
-        }
-    };
+const handleDelete = async () => {
+  if (!accepted) {
+    Alert.alert("Error", "Please accept the terms & conditions first");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const token = await AsyncStorage.getItem("token");
+
+    if (!token) {
+      Alert.alert("Error", "No token found. Please login again.");
+      router.replace("/(auth)/login");
+      return;
+    }
+
+    const response = await axios.delete(
+      "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (response.data.success || response.data.data?.guest?.isDeleted) {
+      // ✅ Token clear
+      await AsyncStorage.removeItem("token");
+
+      // ✅ Success flow
+      Alert.alert("Success", "Your account has been deleted.", [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace("/(auth)/login"); // ⚡ force reset to login
+          },
+        },
+      ]);
+    } else {
+      Alert.alert("Error", response.data.message || "Failed to delete account");
+    }
+  } catch (error: any) {
+    console.log("Delete error:", error.response?.data || error.message);
+
+    // ⚡ Even if server fails → force logout
+    await AsyncStorage.removeItem("token");
+    router.replace("/(auth)/login");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
     return (
         <SafeAreaView style={styles.safeArea}>

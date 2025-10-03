@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Modal,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,14 @@ interface FilterModalProps {
   onApplyFilters: (filters: any) => void;
   isHostel: boolean;
   currentFilters?: any;
+  cities?: string[];
+  isLoadingCities?: boolean;
+  hostelTypes?: string[];
+  isLoadingHostelTypes?: boolean;
+  roomTypes?: string[];
+  isLoadingRoomTypes?: boolean;
+  planTypes?: string[];
+  isLoadingPlanTypes?: boolean;
 }
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -33,6 +42,14 @@ const FilterModal: React.FC<FilterModalProps> = ({
   onApplyFilters,
   isHostel,
   currentFilters = {},
+  cities = [],
+  isLoadingCities = false,
+  hostelTypes = [],
+  isLoadingHostelTypes = false,
+  roomTypes = [],
+  isLoadingRoomTypes = false,
+  planTypes = [],
+  isLoadingPlanTypes = false,
 }) => {
   const { top } = useSafeAreaInsets();
 
@@ -42,31 +59,17 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [cashback, setCashback] = useState(currentFilters.cashback || "");
   const [vegNonVeg, setVegNonVeg] = useState(currentFilters.vegNonVeg || "");
   const [cuisine, setCuisine] = useState(currentFilters.cuisine || "");
-
   const [location, setLocation] = useState(currentFilters.location || "");
   const [distance, setDistance] = useState(currentFilters.distance || 0);
-  const [priceRange, setPriceRange] = useState(
-    currentFilters.priceRange || [0, 20000]
-  );
+  const [priceRange, setPriceRange] = useState(currentFilters.priceRange || [0, 20000]);
   const [hostelType, setHostelType] = useState(currentFilters.hostelType || "");
   const [roomType, setRoomType] = useState(currentFilters.roomType || "");
   const [acNonAc, setAcNonAc] = useState(currentFilters.acNonAc || "");
-  const [selectedAmenities, setSelectedAmenities] = useState(
-    currentFilters.amenities || []
-  );
-  const [userReviews, setUserReviews] = useState(
-    currentFilters.userReviews || null
-  );
+  const [planType, setPlanType] = useState(currentFilters.planType || "");
+  const [selectedAmenities, setSelectedAmenities] = useState(currentFilters.amenities || []);
+  const [userReviews, setUserReviews] = useState(currentFilters.userReviews || null);
 
-  const amenities = [
-    "Wi-Fi",
-    "Study Hall",
-    "Security",
-    "Mess",
-    "Common TV",
-    "Laundry",
-  ];
-
+  const amenities = ["Wi-Fi", "Study Hall", "Security", "Mess", "Common TV", "Laundry"];
   const costOptions = ["Low to High", "High to Low"];
   const offerOptions = [
     "Get 10% OFF on your first tiffin order",
@@ -79,29 +82,46 @@ const FilterModal: React.FC<FilterModalProps> = ({
     "Get 5% cashback on all orders",
   ];
   const vegNonVegOptions = ["Veg", "Non-Veg", "Both"];
-  const cuisineOptions = [
-    "Roti",
-    "Rice",
-    "South Indian",
-    "North Indian",
-    "Chinese",
-  ];
-  const locationOptions = ["Nagpur", "Mumbai", "Pune", "Delhi", "Bangalore"];
-  const hostelTypeOptions = ["Boys", "Girls", "Co-ed"];
-  const roomTypeOptions = ["Single", "Double", "Triple", "Dormitory"];
+  const cuisineOptions = ["Roti", "Rice", "South Indian", "North Indian", "Chinese"];
   const acNonAcOptions = ["AC", "Non-AC", "Both"];
+  const locationOptions = useMemo(() => ["All", ...(Array.isArray(cities) ? cities : [])], [cities]);
+  const hostelTypeOptions = useMemo(() => ["All", ...(Array.isArray(hostelTypes) ? hostelTypes : [])], [hostelTypes]);
+
+  // Hardcoded room types as fallback
+  // Only API values, empty array if nothing returned
+  const roomTypeOptions = useMemo(() => {
+    return Array.isArray(roomTypes) ? roomTypes : [];
+  }, [roomTypes]);
+
+  const isRoomTypeDropdownDisabled = roomTypeOptions.length === 0;
+
+
+  const planTypeOptions = useMemo(() => ["All", ...(Array.isArray(planTypes) ? planTypes : [])], [planTypes]);
+
+
+
+  // Debug logging for Room Type section
+  useEffect(() => {
+    console.log("FilterModal Room Type Debug:", {
+      isLoadingRoomTypes,
+      roomTypes,
+      roomTypeOptions,
+      visible,
+      isHostel,
+    });
+  }, [isLoadingRoomTypes, roomTypes, roomTypeOptions, visible, isHostel]);
 
   const handleApplyFilters = () => {
     let filters: any = {};
 
     if (isHostel) {
-      if (location) filters.location = location;
+      if (location && location !== "All") filters.location = location;
       if (distance > 0) filters.distance = distance;
-      if (priceRange[0] > 0 || priceRange[1] < 20000)
-        filters.priceRange = priceRange;
-      if (hostelType) filters.hostelType = hostelType;
-      if (roomType) filters.roomType = roomType;
-      if (acNonAc && acNonAc !== "") filters.acNonAc = acNonAc;
+      if (priceRange[0] > 0 || priceRange[1] < 20000) filters.priceRange = priceRange;
+      if (hostelType && hostelType !== "All") filters.hostelType = hostelType;
+      if (roomType && roomType !== "All") filters.roomType = roomType;
+      if (acNonAc && acNonAc !== "All") filters.acNonAc = acNonAc;
+      if (planType && planType !== "All") filters.planType = planType;
       if (selectedAmenities.length > 0) filters.amenities = selectedAmenities;
       if (userReviews) filters.userReviews = userReviews;
     } else {
@@ -125,6 +145,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
       setHostelType("");
       setRoomType("");
       setAcNonAc("");
+      setPlanType("");
       setSelectedAmenities([]);
       setUserReviews(null);
     } else {
@@ -139,11 +160,11 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   const toggleAmenity = (amenity: string) => {
     setSelectedAmenities((prev: string[]) =>
-      prev.includes(amenity)
-        ? prev.filter((a) => a !== amenity)
-        : [...prev, amenity]
+      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
     );
   };
+
+
 
   return (
     <Modal
@@ -154,11 +175,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     >
       <View style={styles.container}>
         <View style={styles.mapContainer}>
-          <Image
-            style={styles.mapImage}
-            source={mapBanner}
-            resizeMode="cover"
-          />
+          <Image style={styles.mapImage} source={mapBanner} resizeMode="cover" />
           <View style={[styles.headerSafeArea, { paddingTop: top }]}>
             <View style={styles.headerContainer}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -167,7 +184,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Filter</Text>
               </View>
-
               <TouchableOpacity onPress={handleReset}>
                 <Text style={styles.resetText}>Reset</Text>
               </TouchableOpacity>
@@ -183,22 +199,32 @@ const FilterModal: React.FC<FilterModalProps> = ({
           >
             {isHostel ? (
               <>
+                {/* Location */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Location*</Text>
-                  <Dropdown
-                    options={locationOptions}
-                    value={location}
-                    onSelect={setLocation}
-                    placeholder="Select Location"
-                  />
+                  <View style={{ position: "relative" }}>
+                    {isLoadingCities && (!cities || cities.length === 0) ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : (
+                      <Dropdown
+                        options={locationOptions}
+                        value={location || "All"}
+                        onSelect={setLocation}
+                        placeholder="Select Location"
+                        disabled={isLoadingCities || locationOptions.length === 1}
+                      />
+                    )}
+                    {!isLoadingCities && locationOptions.length === 1 && (
+                      <Text style={styles.noDataText}>No locations available</Text>
+                    )}
+                  </View>
                 </View>
 
+                {/* Distance */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Distance*</Text>
                   <View style={styles.sliderContainer}>
-                    <Text style={styles.sliderValue}>
-                      {distance.toFixed(1)} km
-                    </Text>
+                    <Text style={styles.sliderValue}>{distance.toFixed(1)} km</Text>
                     <Slider
                       style={styles.slider}
                       minimumValue={0}
@@ -216,15 +242,33 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
+                {/* Plan Type */}
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterTitle}>Plan Type</Text>
+                  <View style={{ position: "relative" }}>
+                    {isLoadingPlanTypes && (!planTypes || planTypes.length === 0) ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : (
+                      <Dropdown
+                        options={planTypeOptions}
+                        value={planType || "All"}
+                        onSelect={setPlanType}
+                        placeholder="Select Plan Type"
+                        disabled={isLoadingPlanTypes || planTypeOptions.length === 1}
+                      />
+                    )}
+                    {!isLoadingPlanTypes && planTypeOptions.length === 1 && (
+                      <Text style={styles.noDataText}>No plan types available</Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Price Range */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Price Range*</Text>
                   <View style={styles.priceRangeContainer}>
-                    <Text style={styles.priceText}>
-                      ₹{Math.round(priceRange[0])}
-                    </Text>
-                    <Text style={styles.priceText}>
-                      ₹{Math.round(priceRange[1])}
-                    </Text>
+                    <Text style={styles.priceText}>₹{Math.round(priceRange[0])}</Text>
+                    <Text style={styles.priceText}>₹{Math.round(priceRange[1])}</Text>
                   </View>
                   <View style={styles.rangeSliderContainer}>
                     <Slider
@@ -232,9 +276,17 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       minimumValue={0}
                       maximumValue={20000}
                       value={priceRange[0]}
-                      onValueChange={(value) =>
-                        setPriceRange([value, priceRange[1]])
-                      }
+                      onValueChange={(value) => setPriceRange([value, priceRange[1]])}
+                      minimumTrackTintColor={colors.primary}
+                      maximumTrackTintColor="#E5E7EB"
+                      thumbTintColor={colors.primary}
+                    />
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={0}
+                      maximumValue={20000}
+                      value={priceRange[1]}
+                      onValueChange={(value) => setPriceRange([priceRange[0], value])}
                       minimumTrackTintColor={colors.primary}
                       maximumTrackTintColor="#E5E7EB"
                       thumbTintColor={colors.primary}
@@ -242,36 +294,58 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
+                {/* Hostel Type */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Hostel Type</Text>
-                  <Dropdown
-                    options={hostelTypeOptions}
-                    value={hostelType}
-                    onSelect={setHostelType}
-                    placeholder="Select"
-                  />
+                  <View style={styles.relativeContainer}>
+                    {isLoadingHostelTypes && (!hostelTypes || hostelTypes.length === 0) ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : (
+                      <Dropdown
+                        options={hostelTypeOptions}
+                        value={hostelType || "All"}
+                        onSelect={setHostelType}
+                        placeholder="Select Hostel Type"
+                        disabled={isLoadingHostelTypes || hostelTypeOptions.length === 1}
+                      />
+                    )}
+                    {!isLoadingHostelTypes && hostelTypeOptions.length === 1 && (
+                      <Text style={styles.noDataText}>No hostel types available</Text>
+                    )}
+                  </View>
                 </View>
 
+                {/* Room Type */}
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>Room-Type</Text>
-                  <Dropdown
-                    options={roomTypeOptions}
-                    value={roomType}
-                    onSelect={setRoomType}
-                    placeholder="Select"
-                  />
+                  <Text style={styles.filterTitle}>Room Type</Text>
+                  <View style={styles.relativeContainer}>
+                    <Dropdown
+                      options={roomTypes && roomTypes.length > 0 ? roomTypes : ["No Room types available"]}
+                      value={roomTypes && roomTypes.length > 0 ? roomType : "All"}
+                      onSelect={setRoomType}
+                      placeholder="Select Room Type"
+                      disabled={!roomTypes || roomTypes.length === 0} 
+                    />
+                  </View>
                 </View>
 
+
+
+
+                {/* AC / Non-AC */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>AC / Non-AC</Text>
-                  <Dropdown
-                    options={acNonAcOptions}
-                    value={acNonAc}
-                    onSelect={setAcNonAc}
-                    placeholder="Select"
-                  />
+                  <View style={styles.relativeContainer}>
+                    <Dropdown
+                      options={acNonAcOptions}
+                      value={acNonAc || "All"}
+                      onSelect={setAcNonAc}
+                      placeholder="Select AC/Non-AC"
+                    />
+                  </View>
                 </View>
 
+                {/* Amenities */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Amenities</Text>
                   <View style={styles.amenitiesGrid}>
@@ -280,8 +354,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                         key={amenity}
                         style={[
                           styles.amenityButton,
-                          selectedAmenities.includes(amenity) &&
-                            styles.amenityButtonSelected,
+                          selectedAmenities.includes(amenity) && styles.amenityButtonSelected,
                         ]}
                         onPress={() => toggleAmenity(amenity)}
                       >
@@ -290,27 +363,22 @@ const FilterModal: React.FC<FilterModalProps> = ({
                             amenity === "Wi-Fi"
                               ? "wifi"
                               : amenity === "Study Hall"
-                              ? "book"
-                              : amenity === "Security"
-                              ? "shield-checkmark"
-                              : amenity === "Mess"
-                              ? "restaurant"
-                              : amenity === "Common TV"
-                              ? "tv"
-                              : "shirt"
+                                ? "book"
+                                : amenity === "Security"
+                                  ? "shield-checkmark"
+                                  : amenity === "Mess"
+                                    ? "restaurant"
+                                    : amenity === "Common TV"
+                                      ? "tv"
+                                      : "shirt"
                           }
                           size={20}
-                          color={
-                            selectedAmenities.includes(amenity)
-                              ? "#fff"
-                              : colors.primary
-                          }
+                          color={selectedAmenities.includes(amenity) ? "#fff" : colors.primary}
                         />
                         <Text
                           style={[
                             styles.amenityText,
-                            selectedAmenities.includes(amenity) &&
-                              styles.amenityTextSelected,
+                            selectedAmenities.includes(amenity) && styles.amenityTextSelected,
                           ]}
                         >
                           {amenity}
@@ -320,6 +388,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   </View>
                 </View>
 
+                {/* User Reviews */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>User Reviews*</Text>
                   <View style={styles.ratingContainer}>
@@ -351,9 +420,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 </View>
               </>
             ) : (
-              // Tiffin Filters
               <>
-                {/* User Ratings */}
+                {/* Non-Hostel filters */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>User Ratings*</Text>
                   <View style={styles.ratingContainer}>
@@ -379,6 +447,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                         >
                           {value}
                         </Text>
+
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -390,7 +459,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                     options={costOptions}
                     value={cost}
                     onSelect={setCost}
-                    placeholder="Select"
+                    placeholder="Select Cost"
                   />
                 </View>
 
@@ -422,7 +491,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                     options={vegNonVegOptions}
                     value={vegNonVeg}
                     onSelect={setVegNonVeg}
-                    placeholder="Select"
+                    placeholder="Select Veg/Non-veg"
                   />
                 </View>
 
@@ -432,7 +501,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                     options={cuisineOptions}
                     value={cuisine}
                     onSelect={setCuisine}
-                    placeholder="Select"
+                    placeholder="Select Cuisine"
                   />
                 </View>
               </>
@@ -513,13 +582,14 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: "row",
     gap: 8,
+    flexWrap: "wrap",
   },
   ratingButton: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -607,6 +677,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     marginBottom: 20,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  dropdownLoader: {
+    position: "absolute",
+    right: 16,
+    top: "30%",
+  },
+  relativeContainer: {
+    position: "relative",
   },
 });
 
