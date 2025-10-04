@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -27,7 +27,8 @@ interface ProductDetailsProps {
   type: "tiffin" | "hostel";
 }
 
-export default function ProductDetails({ data, type }: ProductDetailsProps) {
+export default function ProductDetails({ data: rawData, type }: ProductDetailsProps) {
+  const [mappedData, setMappedData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Details");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -37,27 +38,100 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
 
-  // Fixed: Now isFavorite is available
-  const isFav = isFavorite(data.id, type);
+  // Map raw API data to component-expected structure
+  useEffect(() => {
+    console.log("🟢 ProductDetails received rawData:", rawData); // ✅ Moved outside nested useEffect
+
+    if (!rawData || !rawData.success || !rawData.data) {
+      console.error("Invalid API data provided");
+      return;
+    }
+
+    const apiData = rawData.data;
+
+    let processedData: any = {};
+
+    if (type === "hostel") {
+      const rooms = Array.isArray(apiData.rooms) ? apiData.rooms : [];
+      const totalBeds = rooms.reduce((acc: number, room: any) => {
+        return acc + (Array.isArray(room.totalBeds) ? room.totalBeds.length : 0);
+      }, 0);
+      const availableBeds = rooms.reduce((acc: number, room: any) => {
+        if (!Array.isArray(room.totalBeds)) return acc;
+        return acc + room.totalBeds.filter((bed: any) => bed.status === "Unoccupied").length;
+      }, 0);
+
+      processedData = {
+        id: apiData._id,
+        name: apiData.hostelName || "Unknown Hostel",
+        type: apiData.hostelType || "Boys Hostel",
+        description: apiData.description || "No description available.",
+        images: Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos : [],
+        totalRooms: typeof apiData.totalRooms === 'number' ? apiData.totalRooms : rooms.length,
+        totalBeds,
+        availableBeds,
+        deposit: typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0,
+        offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
+        amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
+        fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "",
+        sublocation: typeof apiData.location?.area === 'string' ? apiData.location.area : "",
+        rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Default rules: No smoking, visitors till 8 PM.",
+        userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
+        reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
+        rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
+        reviews: 0, // Fallback
+        price: `₹${typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0}/MONTH`,
+        location: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Unknown",
+        rooms: rooms, // Keep for potential use
+      };
+    } else if (type === "tiffin") {
+      // Stub mapping for tiffin - update with real schema if provided
+      processedData = {
+        ...apiData,
+        images: Array.isArray(apiData.images) ? apiData.images : [],
+        tags: Array.isArray(apiData.tags) ? apiData.tags : [],
+        mealPreferences: Array.isArray(apiData.mealPreferences) ? apiData.mealPreferences : [],
+        whatsIncluded: Array.isArray(apiData.whatsIncluded) ? apiData.whatsIncluded : [],
+        orderTypes: Array.isArray(apiData.orderTypes) ? apiData.orderTypes : [],
+        whyChooseUs: Array.isArray(apiData.whyChooseUs) ? apiData.whyChooseUs : [],
+        fullAddress: typeof apiData.fullAddress === 'string' ? apiData.fullAddress : "",
+        servingRadius: typeof apiData.servingRadius === 'string' ? apiData.servingRadius : "5 km",
+        rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
+        reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
+        price: `₹${typeof apiData.price === 'number' ? apiData.price : 0}/Month`,
+        offer: apiData.offer ? parseInt(String(apiData.offer)) : null,
+        timing: typeof apiData.timing === 'string' ? apiData.timing : "7 AM - 9 PM",
+        userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
+        reviews: 0,
+      };
+    }
+
+    setMappedData(processedData);
+  }, [rawData, type]);
+
+  // Fixed: Now isFavorite is available, use mappedData
+  const isFav = mappedData ? isFavorite(mappedData.id, type) : false;
 
   const handleFavoritePress = () => {
+    if (!mappedData) return;
     if (isFav) {
-      removeFromFavorites(data.id, type);
+      removeFromFavorites(mappedData.id, type);
     } else {
       addToFavorites({
-        id: data.id,
+        id: mappedData.id,
         type,
-        data,
+        data: mappedData,
       });
     }
   };
   const handleShare = async (platform: string) => {
+    if (!mappedData) return;
     setShowShareModal(false);
 
     const message =
       type === "tiffin"
-        ? `Check out this amazing tiffin service: ${data.name} - ${data.description}`
-        : `Check out this great hostel: ${data.name} - ${data.description}`;
+        ? `Check out this amazing tiffin service: ${mappedData.name} - ${mappedData.description}`
+        : `Check out this great hostel: ${mappedData.name} - ${mappedData.description}`;
 
     try {
       if (platform === "whatsapp") {
@@ -80,6 +154,22 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
     }
   };
 
+  // Early return if data not ready
+  if (!mappedData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header
+          title={type === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+          backIconName="chevron-back"
+          onBack={() => router.back()}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Loading details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
     <Header
@@ -96,7 +186,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
     return (
       <View style={styles.imageContainer}>
         <FlatList
-          data={data.images}
+          data={mappedData.images || []}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -116,7 +206,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
 
         {/* Pagination dots */}
         <View style={styles.pagination}>
-          {data.images.map((_: any, index: number) => (
+          {(mappedData.images || []).map((_: any, index: number) => (
             <View
               key={index}
               style={[
@@ -147,11 +237,11 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
     <View style={styles.basicInfo}>
       {/* Title */}
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>{data.name}</Text>
+        <Text style={styles.title}>{mappedData.name}</Text>
         <View style={styles.ratingContainer}>
           <Ionicons name="star" size={16} color="#FFA500" />
           <Text style={styles.rating}>
-            {data.rating} ({data.reviews || data.reviewCount})
+            {mappedData.rating} ({mappedData.reviews || mappedData.reviewCount})
           </Text>
         </View>
       </View>
@@ -162,51 +252,51 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       {type === "hostel" && (
         <View style={styles.tagsContainer}>
           <View style={styles.tag}>
-            <Text style={styles.tagText}>{data.type}</Text>
+            <Text style={styles.tagText}>{mappedData.type}</Text>
           </View>
           <View style={styles.locationTag}>
             <Ionicons name="location-outline" size={16} color="#666" />
-            <Text style={styles.locationTagText}>{data.location}</Text>
+            <Text style={styles.locationTagText}>{mappedData.location}</Text>
           </View>
         </View>
       )}
 
       {/* Hostel-specific location info */}
-      {type === "hostel" && data.sublocation && (
-        <Text style={styles.sublocation}>{data.sublocation}</Text>
+      {type === "hostel" && mappedData.sublocation && (
+        <Text style={styles.sublocation}>{mappedData.sublocation}</Text>
       )}
 
       {/* Hostel room availability */}
       {type === "hostel" && (
         <View style={styles.roomAvailability}>
-          <Text style={styles.roomText}>Total Rooms: {data.totalRooms}</Text>
+          <Text style={styles.roomText}>Total Rooms: {mappedData.totalRooms}</Text>
           <View style={styles.bedInfo}>
             <Ionicons name="bed-outline" size={16} color="#666" />
             <Text style={styles.roomText}>
-              {data.availableBeds}/{data.totalBeds} bed available
+              {mappedData.availableBeds}/{mappedData.totalBeds} bed available
             </Text>
           </View>
         </View>
       )}
 
       {/* Description */}
-      <Text style={styles.description}>{data.description}</Text>
+      <Text style={styles.description}>{mappedData.description}</Text>
 
       {/* Tags and timing for Tiffin */}
       {type === "tiffin" && (
         <View style={styles.tiffinTags}>
-          {data.tags?.map((tag: string, index: number) => (
+          {mappedData.tags?.map((tag: string, index: number) => (
             <View key={index} style={styles.greenTag}>
               <Text style={styles.greenTagText}>{tag}</Text>
             </View>
           ))}
           <View style={styles.timingTag}>
             <Ionicons name="location-outline" size={14} color="#666" />
-            <Text style={styles.timingText}>{data.location}</Text>
+            <Text style={styles.timingText}>{mappedData.location}</Text>
           </View>
           <View style={styles.timingTag}>
             <Ionicons name="time-outline" size={14} color="#666" />
-            <Text style={styles.timingText}>{data.timing}</Text>
+            <Text style={styles.timingText}>{mappedData.timing}</Text>
           </View>
         </View>
       )}
@@ -228,15 +318,15 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
             <Text style={styles.oldPrice}>₹2000/week</Text>
           </View>
           <View style={styles.priceMainRow}>
-            <Text style={styles.currentPrice}>{data.price}</Text>
-            {data.offer && (
+            <Text style={styles.currentPrice}>{mappedData.price}</Text>
+            {mappedData.offer && (
               <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>{data.offer}% OFF</Text>
+                <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
               </View>
             )}
           </View>
           <Text style={styles.depositNote}>
-            Note: You have to pay security deposit of {data.deposit} on monthly
+            Note: You have to pay security deposit of {mappedData.deposit} on monthly
             booking. It will be refunded to you on check-out.
           </Text>
         </View>
@@ -247,9 +337,9 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <View style={styles.tiffinPricing}>
           <View style={styles.pricingHeader}>
             <Text style={styles.pricingSectionTitle}>With One Meal (Veg)</Text>
-            {data.offer && (
+            {mappedData.offer && (
               <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>{data.offer}% OFF</Text>
+                <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
               </View>
             )}
           </View>
@@ -310,7 +400,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       {/* Meal Preference */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Meal Preference</Text>
-        {data.mealPreferences?.map((meal: any, index: number) => (
+        {mappedData.mealPreferences?.map((meal: any, index: number) => (
           <View key={index} style={styles.mealPrefItem}>
             <Text style={styles.bulletPoint}>•</Text>
             <Text style={styles.mealPrefText}>
@@ -323,7 +413,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       {/* What's Included */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{"What's included"}</Text>
-        {data.whatsIncluded?.map((item: string, index: number) => (
+        {mappedData.whatsIncluded?.map((item: string, index: number) => (
           <View key={index} style={styles.includedItem}>
             <Text style={styles.bulletPoint}>•</Text>
             <Text style={styles.includedText}>{item}</Text>
@@ -334,7 +424,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       {/* Order Type Available */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Order Type Available</Text>
-        {data.orderTypes?.map((orderType: string, index: number) => (
+        {mappedData.orderTypes?.map((orderType: string, index: number) => (
           <View key={index} style={styles.orderTypeItem}>
             <Text style={styles.bulletPoint}>•</Text>
             <Text style={styles.orderTypeText}>{orderType}</Text>
@@ -346,7 +436,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle} />
         <Text style={styles.sectionTitle}>Why Choose Us</Text>
-        {data.whyChooseUs?.map((item: string, index: number) => (
+        {mappedData.whyChooseUs?.map((item: string, index: number) => (
           <View key={index} style={styles.whyItem}>
             <Text style={styles.bulletPoint}>•</Text>
             <Text style={styles.whyText}>{item}</Text>
@@ -359,9 +449,9 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
           <Text style={styles.locationTitle}>Near Medical College</Text>
-          <Text style={styles.locationAddress}>{data.fullAddress}</Text>
+          <Text style={styles.locationAddress}>{mappedData.fullAddress}</Text>
           <Text style={styles.serviceRadius}>
-            Service Radius: {data.servingRadius}
+            Service Radius: {mappedData.servingRadius}
           </Text>
         </View>
       </View>
@@ -376,7 +466,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <Text style={styles.sectionTitle}>Facilities & Amenities</Text>
         <View style={styles.facilitiesContainer}>
           <View style={styles.facilitiesGrid}>
-            {data.amenities?.map((amenity: any, index: number) => {
+            {mappedData.amenities?.map((amenity: any, index: number) => {
               const amenityName =
                 typeof amenity === "string" ? amenity : amenity.name;
               const isAvailable =
@@ -420,7 +510,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
             style={styles.rulesIcon}
           />
           <Text style={styles.rulesText}>
-            {data.rulesAndPolicies ||
+            {mappedData.rulesAndPolicies ||
               "No smoking inside premises. Visitors allowed till 8 PM. Mess timing: 7-10 AM, 12-2 PM, 7-9 PM. Maintain cleanliness in common areas."}
           </Text>
         </View>
@@ -432,7 +522,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
         <View style={styles.locationBox}>
           <Text style={styles.locationTitle}>Near Medical College</Text>
           <Text style={styles.locationAddress}>
-            {data.fullAddress || `${data.sublocation}, ${data.location}`}
+            {mappedData.fullAddress || `${mappedData.sublocation}, ${mappedData.location}`}
           </Text>
         </View>
       </View>
@@ -443,7 +533,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
   const renderReviews = () => (
     <View style={styles.reviewsContainer}>
       <FlatList
-        data={data.userReviews || []}
+        data={mappedData.userReviews || []}
         scrollEnabled={false}
         ListEmptyComponent={
           <Text style={styles.emptyText}>No reviews available yet.</Text>
@@ -559,7 +649,7 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
       <ShareModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
-        title={data.name}
+        title={mappedData.name}
         type={type}
       />
       {/* Add Room Selection Modal for Hostels */}
@@ -568,10 +658,10 @@ export default function ProductDetails({ data, type }: ProductDetailsProps) {
           visible={showRoomSelectionModal}
           onClose={() => setShowRoomSelectionModal(false)}
           hostelData={{
-            id: data.id,
-            name: data.name,
-            price: data.price,
-            deposit: data.deposit,
+            id: mappedData.id,
+            name: mappedData.name,
+            price: mappedData.price,
+            deposit: mappedData.deposit,
           }}
         />
       )}

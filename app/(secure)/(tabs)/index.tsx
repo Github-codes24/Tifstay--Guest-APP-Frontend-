@@ -170,17 +170,17 @@ export default function DashboardScreen() {
       if (result.success && result.data) {
         
         const mappedHostels = result.data.map((hostel: any) => ({
-          id: hostel.hostelName + Math.random().toString(),
+          id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
           name: hostel.hostelName || "Unknown Hostel",
           type: hostel.hostelType || "Unknown",
           location: hostel.fullAddress || "Unknown Location",
-          price: hostel.pricing?.price?.toString() || "0",
+          price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
           amenities: hostel.facilities || [],
           rating: hostel.rating || 0,
           image: imageMapping["hostel1"],
-          planType: hostel.pricing?.planType || undefined,
-          roomType: hostel.roomType || undefined,
-          acNonAc: hostel.acNonAc || undefined,
+          planType: undefined, // Adjust if needed
+          roomType: undefined, // Adjust if needed
+          acNonAc: undefined, // Adjust if needed
         }));
         setAllHostels(mappedHostels);
         await AsyncStorage.setItem("cachedHostels", JSON.stringify(mappedHostels));
@@ -401,17 +401,17 @@ export default function DashboardScreen() {
         console.log("getHostelsByRecentSearch response:", JSON.stringify(result, null, 2));
         if (result.success && result.data && Array.isArray(result.data)) {
           const mappedHostels = result.data.map((hostel: any) => ({
-            id: hostel.hostelName + Math.random().toString(),
+            id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
             name: hostel.hostelName || "Unknown Hostel",
             type: hostel.hostelType || "Unknown",
             location: hostel.fullAddress || "Unknown Location",
-            price: hostel.pricing?.price?.toString() || "0",
+            price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
             amenities: hostel.facilities || [],
             rating: hostel.rating || 0,
             image: imageMapping["hostel1"],
-            planType: hostel.pricing?.planType || undefined,
-            roomType: hostel.roomType || undefined,
-            acNonAc: hostel.acNonAc || undefined,
+            planType: undefined, // Adjust if needed
+            roomType: undefined, // Adjust if needed
+            acNonAc: undefined, // Adjust if needed
           }));
           setSearchedHostels(mappedHostels);
         } else {
@@ -600,7 +600,7 @@ export default function DashboardScreen() {
     }
     if (maxRent && maxRent !== "All") {
       const max = parseInt(maxRent);
-      filtered = filtered.filter((h) => parseInt(h.price) <= max);
+      filtered = filtered.filter((h) => parseInt(h.price.replace(/[^0-9]/g, "")) <= max);
     }
 
     if (appliedFilters.hostelType) {
@@ -609,8 +609,8 @@ export default function DashboardScreen() {
     if (appliedFilters.priceRange) {
       filtered = filtered.filter(
         (h) =>
-          parseInt(h.price) >= appliedFilters.priceRange[0] &&
-          parseInt(h.price) <= appliedFilters.priceRange[1]
+          parseInt(h.price.replace(/[^0-9]/g, "")) >= appliedFilters.priceRange[0] &&
+          parseInt(h.price.replace(/[^0-9]/g, "")) <= appliedFilters.priceRange[1]
       );
     }
     if (appliedFilters.amenities?.length) {
@@ -678,23 +678,26 @@ export default function DashboardScreen() {
   };
 
   const handleTiffinPress = (service: TiffinService) => router.navigate(`/tiffin-details/${service.id}`);
-  const handleHostelPress = (hostel: Hostel) => {
-    router.navigate({
-      pathname: `/hostel-details/${hostel.id}`,
-      params: { type: "hostel" },
-    });
-  };
 
-  const handleBookPress = (item: Hostel | TiffinService) => {
-    if ("amenities" in item) {
-      router.navigate({
-        pathname: `/hostel-details/${item.id}`,
-        params: { type: "hostel" },
-      });
-    } else {
-      console.log("Book pressed for tiffin", item);
-    }
-  };
+
+// Navigate to hostel details
+const handleHostelPress = (hostel: Hostel) => {
+  router.push({
+    pathname: "/hostel-details/[id]", // match folder + dynamic file
+    params: { id: hostel.id, type: "hostel" },
+  });
+};
+
+const handleBookPress = (item: Hostel | TiffinService) => {
+  if ("amenities" in item) {
+    router.push({
+      pathname: "/hostel-details/[id]",
+      params: { id: item.id, type: "hostel" },
+    });
+  } else {
+    console.log("Book pressed for tiffin", item);
+  }
+};
 
   const handleClearSearch = () => setSearchQuery("");
 
@@ -741,7 +744,7 @@ export default function DashboardScreen() {
     <HostelCard hostel={item} onPress={() => handleHostelPress(item)} onBookPress={() => handleBookPress(item)} />
   );
 
-  const keyExtractor = (item: Hostel | TiffinService) => item.id.toString();
+  const keyExtractor = (item: Hostel | TiffinService) => (item.id || Math.random().toString()).toString();
 
   // --- Search Focused View ---
   if (isSearchFocused) {

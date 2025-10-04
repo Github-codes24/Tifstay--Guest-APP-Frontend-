@@ -38,37 +38,23 @@ const handleDelete = async () => {
       return;
     }
 
-const handleDelete = async () => {
-  if (!accepted) {
-    Alert.alert("Error", "Please accept the terms & conditions first");
-    return;
-  }
-
-  try {
-    setLoading(true);
-    const token = await AsyncStorage.getItem("token");
-
-    if (!token) {
-      Alert.alert("Error", "No token found. Please login again.");
-      router.replace("/(auth)/login");
-      return;
-    }
-
     const response = await axios.delete(
       "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
-      { headers: { Authorization: `Bearer ${token}` } }
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
     );
 
     if (response.data.success || response.data.data?.guest?.isDeleted) {
-      // ✅ Token clear
+      // ✅ Clear stored token
       await AsyncStorage.removeItem("token");
 
-      // ✅ Success flow
+      // ✅ Show success and redirect
       Alert.alert("Success", "Your account has been deleted.", [
         {
           text: "OK",
           onPress: () => {
-            router.replace("/(auth)/login"); // ⚡ force reset to login
+            router.replace("/(auth)/login");
           },
         },
       ]);
@@ -78,13 +64,14 @@ const handleDelete = async () => {
   } catch (error: any) {
     console.log("Delete error:", error.response?.data || error.message);
 
-    // ⚡ Even if server fails → force logout
+    // ⚡ Force logout even on failure
     await AsyncStorage.removeItem("token");
     router.replace("/(auth)/login");
   } finally {
     setLoading(false);
   }
 };
+
 
 
 
