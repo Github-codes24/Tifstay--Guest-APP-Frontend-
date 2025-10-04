@@ -9,9 +9,11 @@ import {
   FlatList,
   Dimensions,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
@@ -34,9 +36,77 @@ export default function ProductDetails({ data: rawData, type }: ProductDetailsPr
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviews, setReviews] = useState([]);
 
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
+
+  // Auth token helper (reused from DashboardScreen logic)
+  const getAuthToken = async (): Promise<string | null> => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.warn("No auth token found in AsyncStorage");
+      }
+      console.log("Auth token retrieved:", token ? "Valid token" : "No token");
+      return token;
+    } catch (error) {
+      console.error("Error fetching auth token:", error);
+      return null;
+    }
+  };
+
+useEffect(() => {
+  if (type !== "hostel" || !mappedData?.id || activeTab !== "Reviews") {
+    console.log("Skipping fetch: ", { type, id: mappedData?.id, activeTab });
+    return;
+  }
+
+  const fetchReviews = async () => {
+    setIsLoadingReviews(true);
+
+    const token = await getAuthToken();
+    console.log("Token:", token);
+
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/hostelReview/${mappedData.id}`;
+      console.log("Fetching reviews from:", url);
+
+      const response = await fetch(url, { headers });
+      console.log("Fetch status:", response.status);
+
+      const result = await response.json();
+      console.log("hostelReview response:", result);
+
+      if (result.success && result.data && Array.isArray(result.data)) {
+        const mappedReviews = result.data.map((review: any) => ({
+          id: review._id,
+          name: review.guest?.name || "Anonymous",
+          avatar: review.guest?.profileImage || null,
+          rating: review.rating,
+          comment: review.review,
+          date: new Date(review.reviewDate).toLocaleDateString(),
+        }));
+        console.log("Mapped reviews:", mappedReviews);
+        setReviews(mappedReviews);
+        setMappedData((prev: any) => ({ ...prev, userReviews: mappedReviews }));
+      } else {
+        setReviews([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch reviews:", error);
+      setReviews([]);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  fetchReviews();
+}, [type, mappedData?.id, activeTab]);
 
   // Map raw API data to component-expected structure
   useEffect(() => {
@@ -532,54 +602,61 @@ export default function ProductDetails({ data: rawData, type }: ProductDetailsPr
   // ==================== REVIEWS SECTION ====================
   const renderReviews = () => (
     <View style={styles.reviewsContainer}>
-      <FlatList
-        data={mappedData.userReviews || []}
-        scrollEnabled={false}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No reviews available yet.</Text>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.reviewItem}>
-            <View style={styles.reviewHeader}>
-              <View style={styles.reviewerInfo}>
-                {/* Avatar with initials */}
-                <View style={styles.avatar}>
-                  {item.avatar ? (
-                    <Image
-                      source={{ uri: item.avatar }}
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    <Text style={styles.avatarText}>
-                      {item.name
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.reviewerDetails}>
-                  <Text style={styles.reviewerName}>{item.name}</Text>
-                  <View style={styles.reviewRatingRow}>
-                    {[...Array(5)].map((_, i) => (
-                      <Ionicons
-                        key={i}
-                        name="star"
-                        size={14}
-                        color={i < item.rating ? "#FFA500" : "#E0E0E0"}
+      {isLoadingReviews ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6B7280" />
+          <Text style={styles.loadingText}>Loading reviews...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={type === "hostel" ? reviews : (mappedData.userReviews || [])}
+          scrollEnabled={false}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No reviews available yet.</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.reviewItem}>
+              <View style={styles.reviewHeader}>
+                <View style={styles.reviewerInfo}>
+                  {/* Avatar with initials */}
+                  <View style={styles.avatar}>
+                    {item.avatar ? (
+                      <Image
+                        source={{ uri: item.avatar }}
+                        style={styles.avatarImage}
                       />
-                    ))}
+                    ) : (
+                      <Text style={styles.avatarText}>
+                        {item.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.reviewerDetails}>
+                    <Text style={styles.reviewerName}>{item.name}</Text>
+                    <View style={styles.reviewRatingRow}>
+                      {[...Array(5)].map((_, i) => (
+                        <Ionicons
+                          key={i}
+                          name="star"
+                          size={14}
+                          color={i < item.rating ? "#FFA500" : "#E0E0E0"}
+                        />
+                      ))}
+                    </View>
                   </View>
                 </View>
+                <Text style={styles.reviewDate}>{item.date}</Text>
               </View>
-              <Text style={styles.reviewDate}>{item.date}</Text>
+              <Text style={styles.reviewComment}>{item.comment}</Text>
             </View>
-            <Text style={styles.reviewComment}>{item.comment}</Text>
-          </View>
-        )}
-        keyExtractor={(item) => item.id.toString()}
-        ItemSeparatorComponent={() => <View style={styles.reviewSeparator} />}
-      />
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          ItemSeparatorComponent={() => <View style={styles.reviewSeparator} />}
+        />
+      )}
     </View>
   );
 
@@ -1094,6 +1171,16 @@ const styles = StyleSheet.create({
   reviewsContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
   },
   reviewItem: {
     paddingVertical: 16,
