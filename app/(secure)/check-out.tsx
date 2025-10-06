@@ -18,14 +18,47 @@ import CheckoutItemCard, {
 import Header from "@/components/Header";
 
 const Checkout: React.FC = () => {
-  const { serviceType } = useLocalSearchParams();
+  const {
+    serviceType,
+    bookingId,
+    hostelData: hostelDataStr,
+    roomData: roomDataStr,
+    selectedBeds: selectedBedsStr,
+    plan: planStr,
+    checkInDate,
+    checkOutDate,
+    userData: userDataStr,
+    bookingType,
+  } = useLocalSearchParams();
+
   const isTiffin = serviceType === "tiffin";
   const isHostel = serviceType === "hostel";
-  console.log("Service Type:", serviceType);
+
+  // Parse JSON strings if they exist (fallback to empty objects/arrays)
+  const parsedHostelData = hostelDataStr ? JSON.parse(hostelDataStr as string) : {};
+  const parsedRoomData = roomDataStr ? JSON.parse(roomDataStr as string) : {};
+  const parsedSelectedBeds = selectedBedsStr ? JSON.parse(selectedBedsStr as string) : [];
+  const parsedPlan = planStr ? JSON.parse(planStr as string) : {};
+  const parsedUserData = userDataStr ? JSON.parse(userDataStr as string) : {};
+
+  // Log dynamic params for debugging
+  console.log("Dynamic Checkout Params:", {
+    serviceType,
+    bookingId,
+    parsedHostelData,
+    parsedRoomData,
+    parsedSelectedBeds,
+    parsedPlan,
+    checkInDate,
+    checkOutDate,
+    parsedUserData,
+    bookingType,
+  });
+  console.log("Received bookingId in Checkout:", bookingId);
 
   const tiffinData: TiffinCheckoutData = {
-    id: "1",
-    title: "Maharashtrian Ghar Ka Khana",
+    id: bookingId || "1",  // Use dynamic if available, fallback
+    title: "Maharashtrian Ghar Ka Khana",  // TODO: Make dynamic for tiffin if params provided
     imageUrl:
       "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
     mealType: "Lunch",
@@ -37,15 +70,15 @@ const Checkout: React.FC = () => {
   };
 
   const hostelData: HostelCheckoutData = {
-    id: "2",
-    title: "Scholars Den Boys Hostel",
-    imageUrl: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
-    guestName: "Onil Karmokar",
-    contact: "0190825000",
-    checkInDate: "01/08/25",
-    checkOutDate: "01/09/25",
-    rent: "₹8000/month",
-    deposit: "₹15000",
+    id: bookingId || "2",  // Use real bookingId
+    title: parsedHostelData.name || "Fallback Hostel Name",  // e.g., "Testing is it working"
+    imageUrl: parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",  // First room photo
+    guestName: parsedUserData.name || "Fallback Name",  // e.g., "F"
+    contact: parsedUserData.phoneNumber || "Fallback Phone",  // e.g., "8080805522"
+    checkInDate: checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "Fallback Date",  // e.g., "06/10/2025"
+    checkOutDate: checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "Fallback Date",  // e.g., "13/10/2025"
+    rent: `₹${parsedPlan.price || 0}/month`,  // e.g., "₹0/month"
+    deposit: `₹${parsedPlan.depositAmount || 0}`,  // e.g., "₹15000"
   };
 
   const checkoutData = isTiffin ? tiffinData : hostelData;
@@ -61,17 +94,24 @@ const Checkout: React.FC = () => {
         net: 100.5,
       };
     } else {
+      const rent = parsedPlan.price || 0;
+      const deposit = parsedPlan.depositAmount || 0;
+      const tps = deposit;  // As per original logic (TPS for deposit)
+      const tvq = 200;  // TODO: Make dynamic if needed
+      const total = rent + deposit + tps + tvq;
       return {
-        rent: 8000,
-        tps: 15000, // Using TPS for deposit display
-        tvq: 200,
-        total: 23200,
-        net: 23200,
+        rent,
+        tps,
+        tvq,
+        total,
+        net: total,  // No discount for hostel
       };
     }
   };
 
   const transaction = getTransactionDetails();
+
+  console.log("Transaction Details:", transaction);  // Log transaction for debugging
 
   return (
     <SafeAreaView style={styles.container}>
@@ -214,13 +254,14 @@ const Checkout: React.FC = () => {
           <TouchableOpacity
             style={styles.payButton}
             onPress={() => {
+              console.log("Navigating to Payment with bookingId:", bookingId);  // Use real bookingId
               router.push({
                 pathname: "/payment",
                 params: {
                   serviceType: isTiffin ? "tiffin" : "hostel",
                   amount: `₹${transaction.net || transaction.total}`,
-                  serviceId: checkoutData.id,
-                  serviceName: checkoutData.title,
+                  bookingId: bookingId as string,  // Real booking ID
+                  serviceName: checkoutData.title,  // Dynamic title
                 },
               });
             }}

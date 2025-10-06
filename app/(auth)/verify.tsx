@@ -49,44 +49,49 @@ export default function VerifyScreen() {
     if (!value && index > 0) inputRefs.current[index - 1]?.focus();
   };
 
-  const handleVerifyOTP = async () => {
-    const otpCode = otp.join("");
-    if (otpCode.length !== 4) {
-      Alert.alert("Invalid OTP", "Please enter a 4-digit OTP");
-      return;
-    }
-    try {
-      const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
-        { phoneNumber, otp: otpCode }
-      );
+const handleVerifyOTP = async () => {
+  const otpCode = otp.join("");
+  if (otpCode.length !== 4) {
+    Alert.alert("Invalid OTP", "Please enter a 4-digit OTP");
+    return;
+  }
+  try {
+    const response = await axios.post(
+      "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
+      { phoneNumber, otp: otpCode }
+    );
 
-      if (response.data.success) {
-        const token = response.data.token; // JWT token
-        const guestId = response.data.data.guest._id; // guest ID from response
-          
-        console.log("User Token:", token);
-        // Save both in AsyncStorage
-        await AsyncStorage.setItem("token", token);
-        await AsyncStorage.setItem("guestId", guestId);
+    if (response.data.success) {
+      const token = response.data.token; // JWT token
+      const guest = response.data.data.guest; // guest object
+      const guestId = guest._id;
 
-        // Save in Zustand store as well
-        login(response.data.data, token);
+      console.log("User Token:", token);
+      console.log("Guest Info:", { name: guest.name, phoneNumber: guest.phoneNumber });
 
-        router.replace("/(secure)/(tabs)");
-      } else {
-        Alert.alert(
-          "Failed",
-          response.data.message || "OTP verification failed"
-        );
-      }
-    } catch (error: any) {
+      // Save in AsyncStorage
+      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("guestId", guestId);
+      await AsyncStorage.setItem("userProfile", JSON.stringify({ guest }));
+
+      // Save in Zustand store
+      login(response.data.data, token);
+
+      router.replace("/(secure)/(tabs)");
+    } else {
       Alert.alert(
-        "Error",
-        error?.response?.data?.message || "Something went wrong"
+        "Failed",
+        response.data.message || "OTP verification failed"
       );
     }
-  };
+  } catch (error: any) {
+    Alert.alert(
+      "Error",
+      error?.response?.data?.message || "Something went wrong"
+    );
+  }
+};
+
 
   const handleResend = () => {
     if (isResendDisabled) return;
