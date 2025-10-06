@@ -10,7 +10,6 @@ import {
   Alert,
   Linking,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -35,110 +34,102 @@ interface PaymentMethod {
 const Payment: React.FC = () => {
   const params = useLocalSearchParams();
   const { serviceType, amount, bookingId, serviceName } = params;
-  const isTiffin = serviceType === "tiffin";
 
-  // Log received params for debugging
-  console.log("Payment Screen - Received Params:", { serviceType, amount, bookingId, serviceName });
-  if (!bookingId || bookingId === "2") {
-    console.warn("⚠️ Invalid bookingId in Payment – fallback to error state");
+  if (!bookingId || !amount) {
+    Alert.alert(
+      "Missing Data",
+      "Booking ID or Amount is missing. Please go back and try again.",
+      [{ text: "OK", onPress: () => router.back() }]
+    );
   }
+
+  const isTiffin = serviceType === "tiffin";
+  const numericAmount = Number(String(amount).replace(/[^0-9.-]+/g, ""));
 
   const [selectedMethod, setSelectedMethod] = useState<string>("mastercard");
   const [isLoading, setIsLoading] = useState(false);
 
   const paymentMethods: PaymentMethod[] = [
     { id: "paypal", name: "PayPal", icon: paypal, type: "payment_service" },
-    { id: "mastercard", name: "Mastercard", type: "card", cardNumber: "**76  3054", isCard: true },
+    { id: "mastercard", name: "Mastercard", type: "card", cardNumber: "**76 3054", isCard: true },
     { id: "visa", name: "Visa", icon: visa, type: "card" },
     { id: "stripe", name: "Stripe", icon: stripe, type: "payment_service" },
     { id: "wallet", name: "TifStay Wallet", icon: wallet, type: "wallet", balance: "₹25,000.00" },
   ];
+  
 
   const handleContinue = async () => {
     if (isLoading) return;
 
-    console.log("=== Payment Debug Start ===");
-    console.log("Selected payment method:", selectedMethod);
-    console.log("Service type:", serviceType);
-    console.log("Amount:", amount);
-    console.log("Booking ID:", bookingId);
-    console.log("Service Name:", serviceName);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      Alert.alert("Invalid Amount", "The payment amount is invalid.");
+      return;
+    }
 
     setIsLoading(true);
 
     try {
-      let apiData = null;
-
-      if (serviceType === "hostel") {
-        const token = await AsyncStorage.getItem("token");
-        if (!token) throw new Error("Authentication token not found. Please log in again.");
-
-        const apiUrl = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createPaymentLink/${bookingId}`;
-
-        // Parse amount to numeric if needed (remove ₹ symbol)
-        const numericAmount = parseFloat((amount as string).replace('₹', '')) || 0;
-
-        const payload = {
-          bookingId: bookingId,
-          amount: amount,  // Keep as string with ₹ if backend expects it; change to numericAmount if number
-          currency: "INR",
-          paymentMethod: selectedMethod,
-        };
-        console.log("Payload sent to API:", payload);
-
-        const response = await axios.post(apiUrl, payload, {
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        });
-
-        const { data } = response;
-        if (!data.success) throw new Error(data.message || "Failed to create payment link");
-
-        apiData = data;
-        console.log("Parsed API data:", apiData);
-        console.log("API Success - Payment Link for Booking:", bookingId);
-
-        const { paymentLinkUrl } = data.data;
-        const canOpen = await Linking.canOpenURL(paymentLinkUrl);
-        if (!canOpen) throw new Error("Cannot open payment link");
-        await Linking.openURL(paymentLinkUrl);
-      } else {
-        // TODO: Implement tiffin payment logic
+      if (serviceType !== "hostel") {
         throw new Error("Tiffin payment not implemented yet");
       }
 
-      const confirmationParams = {
-        serviceType,
-        amount,
-        bookingId,
-        serviceName,
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("Authentication token missing. Please log in again.");
+
+      const apiUrl = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createPaymentLink/${bookingId}`;
+      const payload = {
+        totalAmount: numericAmount,
+        currency: "INR",
         paymentMethod: selectedMethod,
-        ...(serviceType === "hostel" && apiData && {
-          paymentLinkId: apiData.data.paymentLinkId,
-          totalAmount: apiData.data.totalAmount,
-          currency: apiData.data.currency,
-          hostelBookingId: apiData.data.hostelBookingId,
-        }),
       };
 
-      console.log("Navigating to confirmation with params:", confirmationParams);
+      console.log("🧾 Payload:", payload);
 
-      router.push({ pathname: "/confirmation", params: confirmationParams });
-    } catch (error: any) {
-      console.error("=== Payment Error Details ===", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        bookingIdUsed: bookingId,
+      const response = await axios.post(apiUrl, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
+
+      console.log("✅ Payment Link Response:", response.data);
+
+      if (!response.data.success) throw new Error(response.data.message);
+
+      const { paymentLinkUrl, paymentLinkId, totalAmount: backendTotal, currency, hostelBookingId } = response.data.data;
+
+      const canOpen = await Linking.canOpenURL(paymentLinkUrl);
+      if (!canOpen) throw new Error("Cannot open payment link");
+
+      await Linking.openURL(paymentLinkUrl);
+
+      router.push({
+        pathname: "/confirmation",
+        params: {
+          serviceType,
+          amount,
+          bookingId,
+          serviceName,
+          paymentMethod: selectedMethod,
+          paymentLinkId,
+          totalAmount: backendTotal,
+          currency,
+          hostelBookingId,
+        },
+      });
+    } catch (error: any) {
+      console.error("❌ Payment Error:", error.message);
       if (error.response?.status === 401) {
-        await AsyncStorage.removeItem("authToken");
-        Alert.alert("Session Expired", "Please log in again.", [{ text: "OK", onPress: () => router.replace("/login") }]);
+        await AsyncStorage.removeItem("token");
+        Alert.alert("Session Expired", "Please log in again.", [
+          { text: "OK", onPress: () => router.replace("/login") },
+        ]);
         return;
       }
+
       Alert.alert("Payment Failed", error.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
-      console.log("=== Payment Debug End ===");
     }
   };
 
@@ -148,7 +139,7 @@ const Payment: React.FC = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>Payment</Text>
-          <Text style={styles.subtitle}>Select the Payment Method you Want to Use</Text>
+          <Text style={styles.subtitle}>Select the Payment Method you want to use</Text>
         </View>
 
         <View style={styles.paymentInfoBox}>
@@ -182,7 +173,11 @@ const Payment: React.FC = () => {
                 </View>
               ) : (
                 <View style={styles.methodLeft}>
-                  {method.icon && <View style={styles.iconContainer}><Image source={method.icon} style={styles.methodIcon} /></View>}
+                  {method.icon && (
+                    <View style={styles.iconContainer}>
+                      <Image source={method.icon} style={styles.methodIcon} />
+                    </View>
+                  )}
                   <View style={styles.methodInfo}>
                     <Text style={styles.methodName}>{method.name}</Text>
                     {method.balance && <Text style={styles.methodBalance}>Available Balance: {method.balance}</Text>}
@@ -198,9 +193,9 @@ const Payment: React.FC = () => {
         <Button
           title={isLoading ? "Processing..." : `Pay ${amount}`}
           onPress={handleContinue}
+          disabled={isLoading}
           width={undefined}
           style={styles.continueButton}
-          disabled={isLoading}
         />
       </View>
     </SafeAreaView>
@@ -213,7 +208,17 @@ const styles = StyleSheet.create({
   titleSection: { marginBottom: 24 },
   mainTitle: { fontSize: 24, fontWeight: "700", color: "#000", marginBottom: 8 },
   subtitle: { fontSize: 14, color: "#666" },
-  paymentInfoBox: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
+  paymentInfoBox: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
   paymentInfoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   paymentInfoLabel: { fontSize: 14, color: "#666" },
   paymentInfoValue: { fontSize: 14, fontWeight: "500", color: "#333" },

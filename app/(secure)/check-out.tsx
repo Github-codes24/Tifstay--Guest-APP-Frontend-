@@ -254,22 +254,34 @@ const Checkout: React.FC = () => {
           <TouchableOpacity
             style={styles.payButton}
             onPress={() => {
-              console.log("Navigating to Payment with bookingId:", bookingId);  // Use real bookingId
+              const paymentAmount = transaction.net ?? transaction.total ?? 0;
+
+              if (!paymentAmount || paymentAmount <= 0) {
+                Alert.alert(
+                  "Invalid Amount",
+                  "Cannot proceed to payment because the amount is missing or zero."
+                );
+                return;
+              }
+
+              console.log("Navigating to Payment with bookingId:", bookingId, "Amount:", paymentAmount);
+
               router.push({
                 pathname: "/payment",
                 params: {
                   serviceType: isTiffin ? "tiffin" : "hostel",
-                  amount: `₹${transaction.net || transaction.total}`,
-                  bookingId: bookingId as string,  // Real booking ID
-                  serviceName: checkoutData.title,  // Dynamic title
+                  amount: `₹${paymentAmount}`,             // Always a valid string like ₹200
+                  bookingId: bookingId as string,          // Real booking ID
+                  serviceName: checkoutData.title || "Fallback Hostel Name", // Fallback
                 },
               });
             }}
           >
             <Text style={styles.payButtonText}>
-              Pay ₹{transaction.net || transaction.total}
+              Pay ₹{transaction.net ?? transaction.total ?? 0}
             </Text>
           </TouchableOpacity>
+
         </View>
       </View>
     </SafeAreaView>
