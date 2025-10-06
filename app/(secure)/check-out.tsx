@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Modal,
+  Alert,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import mastercard from "@/assets/images/icons/mastercard.png";
 import CheckoutItemCard, {
   TiffinCheckoutData,
@@ -18,6 +23,11 @@ import CheckoutItemCard, {
 import Header from "@/components/Header";
 
 const Checkout: React.FC = () => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loadingWallet, setLoadingWallet] = useState(true);
+  const [selectedMethod, setSelectedMethod] = useState<'online' | 'wallet' | null>(null);
+
   const {
     serviceType,
     bookingId,
@@ -112,6 +122,162 @@ const Checkout: React.FC = () => {
   const transaction = getTransactionDetails();
 
   console.log("Transaction Details:", transaction);  // Log transaction for debugging
+
+  // Fetch wallet balance
+  useEffect(() => {
+    const fetchWalletAmount = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get(
+          "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (response.data?.success) {
+          setWalletBalance(response.data.data?.walletAmount || 0);
+        }
+      } catch (error: any) {
+        console.error("Error fetching wallet amount:", error);
+      } finally {
+        setLoadingWallet(false);
+      }
+    };
+
+    fetchWalletAmount();
+  }, []);
+
+  const paymentAmount = transaction.net ?? transaction.total ?? 0;
+
+  const createPaymentLink = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token || !bookingId) {
+        Alert.alert("Error", "Token or booking ID missing");
+        return null;
+      }
+
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createPaymentLink/${bookingId}`,
+        {}, // Assuming no body needed, adjust if required
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data?.success) {
+        return response.data.data;
+      } else {
+        Alert.alert("Error", response.data?.message || "Failed to create payment link");
+        return null;
+      }
+    } catch (error: any) {
+      console.error("Error creating payment link:", error);
+      Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+      return null;
+    }
+  };
+
+  const handlePayOnline = async () => {
+    setModalVisible(false);
+    if (!paymentAmount || paymentAmount <= 0) {
+      Alert.alert(
+        "Invalid Amount",
+        "Cannot proceed to payment because the amount is missing or zero."
+      );
+      return;
+    }
+
+    // Only for hostel, as per API endpoint; adjust for tiffin if needed
+    if (!isHostel) {
+      // Fallback for tiffin - navigate to payment
+      console.log("Navigating to Payment with bookingId:", bookingId, "Amount:", paymentAmount);
+      router.push({
+        pathname: "/payment",
+        params: {
+          serviceType: isTiffin ? "tiffin" : "hostel",
+          amount: `₹${paymentAmount}`,
+          bookingId: bookingId as string,
+          serviceName: checkoutData.title || "Fallback Hostel Name",
+        },
+      });
+      return;
+    }
+
+    const paymentData = await createPaymentLink();
+    if (paymentData && paymentData.paymentLinkUrl) {
+      const supported = await Linking.canOpenURL(paymentData.paymentLinkUrl);
+      if (supported) {
+        await Linking.openURL(paymentData.paymentLinkUrl);
+      } else {
+        Alert.alert("Error", "Cannot open payment link");
+      }
+    }
+  };
+
+  const handlePayWallet = () => {
+    if (!paymentAmount || paymentAmount <= 0) {
+      Alert.alert(
+        "Invalid Amount",
+        "Cannot proceed to payment because the amount is missing or zero."
+      );
+      setModalVisible(false);
+      return;
+    }
+
+    if (walletBalance < paymentAmount) {
+      Alert.alert(
+        "Insufficient Balance",
+        `Your wallet balance is ₹${walletBalance}. Please add more funds to proceed.`
+      );
+      setModalVisible(false);
+      return;
+    }
+
+    setModalVisible(false);
+    // TODO: Navigate to wallet payment confirmation or handle wallet deduction
+    console.log("Proceeding with wallet payment for bookingId:", bookingId, "Amount:", paymentAmount);
+    // For now, you can navigate to a wallet confirmation screen or directly process
+    // router.push({ pathname: "/wallet-payment", params: { ... } });
+  };
+
+  const openPaymentModal = () => {
+    if (!paymentAmount || paymentAmount <= 0) {
+      Alert.alert(
+        "Invalid Amount",
+        "Cannot proceed to payment because the amount is missing or zero."
+      );
+      return;
+    }
+    setSelectedMethod(null); // Reset selection when opening modal
+    setModalVisible(true);
+  };
+
+  const handleContinue = () => {
+    if (selectedMethod === 'online') {
+      handlePayOnline();
+    } else if (selectedMethod === 'wallet') {
+      handlePayWallet();
+    }
+  };
+
+  if (loadingWallet) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header
+          title="Checkout"
+          onBack={() => router.back()}
+          showBackButton={true}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -253,37 +419,102 @@ const Checkout: React.FC = () => {
 
           <TouchableOpacity
             style={styles.payButton}
-            onPress={() => {
-              const paymentAmount = transaction.net ?? transaction.total ?? 0;
-
-              if (!paymentAmount || paymentAmount <= 0) {
-                Alert.alert(
-                  "Invalid Amount",
-                  "Cannot proceed to payment because the amount is missing or zero."
-                );
-                return;
-              }
-
-              console.log("Navigating to Payment with bookingId:", bookingId, "Amount:", paymentAmount);
-
-              router.push({
-                pathname: "/payment",
-                params: {
-                  serviceType: isTiffin ? "tiffin" : "hostel",
-                  amount: `₹${paymentAmount}`,             // Always a valid string like ₹200
-                  bookingId: bookingId as string,          // Real booking ID
-                  serviceName: checkoutData.title || "Fallback Hostel Name", // Fallback
-                },
-              });
-            }}
+            onPress={openPaymentModal}
           >
             <Text style={styles.payButtonText}>
-              Pay ₹{transaction.net ?? transaction.total ?? 0}
+              Pay ₹{paymentAmount}
             </Text>
           </TouchableOpacity>
 
         </View>
       </View>
+
+      {/* Payment Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choose Payment Method</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalOptions}>
+              {/* Online Payment Option */}
+              <TouchableOpacity 
+                style={[
+                  styles.optionButton, 
+                  selectedMethod === 'online' && styles.selectedOption
+                ]} 
+                onPress={() => setSelectedMethod('online')}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name="card-outline" size={24} color="#2854C5" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>Pay Online through Razorpay</Text>
+                  <Text style={styles.optionSubtitle}>Secure payment gateway</Text>
+                </View>
+                {selectedMethod === 'online' ? (
+                  <Ionicons name="checkmark" size={20} color="#2854C5" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                )}
+              </TouchableOpacity>
+
+              {/* Wallet Payment Option */}
+              <TouchableOpacity 
+                style={[
+                  styles.optionButton, 
+                  selectedMethod === 'wallet' && styles.selectedOption
+                ]} 
+                onPress={() => setSelectedMethod('wallet')}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name="wallet-outline" size={24} color="#2854C5" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>Pay through Wallet</Text>
+                  <View style={styles.walletBalanceContainer}>
+                    <Text style={styles.walletBalanceLabel}>Wallet Balance:</Text>
+                    <Text style={styles.walletBalance}>₹{walletBalance}</Text>
+                  </View>
+                </View>
+                {selectedMethod === 'wallet' ? (
+                  <Ionicons name="checkmark" size={20} color="#2854C5" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                )}
+              </TouchableOpacity>
+
+              {/* Continue Button */}
+              <View style={styles.continueButtonContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.continueButton,
+                    !selectedMethod && styles.continueButtonDisabled
+                  ]}
+                  disabled={!selectedMethod}
+                  onPress={handleContinue}
+                >
+                  <Text style={[
+                    styles.continueButtonText,
+                    !selectedMethod && styles.continueButtonTextDisabled
+                  ]}>
+                    Continue
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -513,6 +744,105 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 120,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  modalOptions: {
+    paddingHorizontal: 20,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedOption: {
+    backgroundColor: '#f0f8ff',
+  },
+  optionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F2EFFD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  optionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  walletBalanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  walletBalanceLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginRight: 8,
+  },
+  walletBalance: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2854C5',
+  },
+  continueButtonContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  continueButton: {
+    backgroundColor: '#2854C5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  continueButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  continueButtonTextDisabled: {
+    color: '#999',
   },
 });
 

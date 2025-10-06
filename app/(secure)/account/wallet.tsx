@@ -1,10 +1,20 @@
 // WalletScreen.tsx
 import * as React from "react";
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    Pressable,
+    Image,
+    Alert,
+    ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "@/constants/colors";
@@ -15,6 +25,7 @@ type Txn = {
     subtitle: string;
     date: string;
     amount: number;
+    status: "Approved" | "Pending" | "Rejected";
     icon?: any;
 };
 
@@ -26,43 +37,8 @@ const COLORS = {
     card: "#F3F4F6",
     blue: "#0B5ED7",
     green: "#13A10E",
+    red: "#E11D48",
 };
-
-// Dummy transactions (can be replaced with API later)
-const TXNS: Txn[] = [
-    {
-        id: "1",
-        title: "Scholars Den Boys Hostel",
-        subtitle: "Hostel Booking",
-        date: "17 Aug, 2025",
-        amount: -23000,
-        icon: require('../../../assets/images/frame.png'),
-    },
-    {
-        id: "2",
-        title: "Scholars Den Boys Hostel",
-        subtitle: "Money Refund",
-        date: "16 Aug, 2025",
-        amount: 23000,
-        icon: require('../../../assets/images/frame.png'),
-    },
-    {
-        id: "3",
-        title: "Scholars Den Boys Hostel",
-        subtitle: "Hostel Booking",
-        date: "15 Aug, 2025",
-        amount: -23000,
-        icon: require('../../../assets/images/frame.png'),
-    },
-    {
-        id: "4",
-        title: "Visa Card XXXX54",
-        subtitle: "Wallet Balance Add",
-        date: "14 Aug, 2025",
-        amount: 23000,
-        icon: require('../../../assets/images/visa1.png'),
-    },
-];
 
 const formatINR = (value: number, fractionDigits = 0) =>
     new Intl.NumberFormat("en-IN", {
@@ -74,48 +50,123 @@ const formatINR = (value: number, fractionDigits = 0) =>
 
 export default function WalletScreen() {
     const [balance, setBalance] = useState<number>(0);
+    const [transactions, setTransactions] = useState<Txn[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
 
-    // Fetch deposit balance from API
-// Fetch wallet balance from API
-const fetchWalletAmount = async () => {
-    try {
-        const token = await AsyncStorage.getItem("token");
-        if (!token) return Alert.alert("Error", "User not authenticated");
+    const fetchWalletAmount = async () => {
+        try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) return Alert.alert("Error", "User not authenticated");
 
-        const response = await axios.get(
-            "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
-            {
-                headers: { Authorization: `Bearer ${token}` },
+            const response = await axios.get(
+                "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data?.success) {
+                setBalance(response.data.data?.walletAmount || 0);
+            } else {
+                Alert.alert("Error", response.data?.message || "Cannot fetch wallet amount");
             }
-        );
-
-        if (response.data?.success) {
-            // Assuming your API returns amount in response.data.data.walletAmount
-            setBalance(response.data.data?.walletAmount || 0);
-        } else {
-            Alert.alert("Error", response.data?.message || "Cannot fetch wallet amount");
+        } catch (error: any) {
+            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
         }
-    } catch (error: any) {
-        Alert.alert("Error", error.response?.data?.message || "Something went wrong");
-    }
-};
+    };
 
-useEffect(() => {
-    fetchWalletAmount();
-}, []);
+    const fetchTransactions = async () => {
+        try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) return Alert.alert("Error", "User not authenticated");
 
+            const response = await axios.get(
+                "https://tifstay-project-be.onrender.com/api/guest/wallet/transactions",
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: { page: 1, limit: 10 },
+                }
+            );
+
+            if (response.data?.success) {
+                const txnData = response.data.data?.transactions || [];
+
+                const mappedTransactions: Txn[] = txnData.map((txn: any) => {
+                    const raw = txn.raw?.payload;
+                    const paymentLinkDesc = raw?.payment_link?.entity?.description || "";
+                    const isTopUp = paymentLinkDesc.includes("Wallet top-up");
+                    const source = txn.source || "Payment";
+
+                    let statusLabel: "Approved" | "Pending" | "Rejected";
+                    if (txn.status === "paid") statusLabel = "Approved";
+                    else if (txn.status === "failed") statusLabel = "Rejected";
+                    else statusLabel = "Pending";
+
+                    return {
+                        id: txn._id || "",
+                        title: isTopUp ? "Wallet Top-up" : txn.title || txn.description || "Transaction",
+                        subtitle: source,
+                        date: txn.createdAt
+                            ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                            })
+                            : "",
+                        amount: txn.amount || 0,
+                        status: statusLabel,
+                        icon: isTopUp
+                            ? require("../../../assets/images/visa1.png")
+                            : require("../../../assets/images/frame.png"),
+                    };
+                });
+                setTransactions(mappedTransactions);
+            } else {
+                Alert.alert("Error", response.data?.message || "Cannot fetch transactions");
+            }
+        } catch (error: any) {
+            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchWalletAmount();
+        fetchTransactions();
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchWalletAmount();
+            fetchTransactions();
+        }, [])
+    );
 
     const onAddMoney = () => {
         router.push("/(secure)/account/addmoney");
     };
 
     const onSeeAll = () => {
-        // navigate to full history
+        router.push("/account/WalletTransactionsScreen");
     };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.safe}>
+                <View style={styles.header}>
+                    <Pressable style={styles.backBtn} onPress={() => router.back()}>
+                        <Ionicons name="chevron-back" size={16} color="#000" />
+                    </Pressable>
+                    <Text style={styles.headerTitle}>Wallet</Text>
+                </View>
+                <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safe}>
-            {/* Header */}
             <View style={styles.header}>
                 <Pressable style={styles.backBtn} onPress={() => router.back()}>
                     <Ionicons name="chevron-back" size={16} color="#000" />
@@ -132,7 +183,7 @@ useEffect(() => {
                     <View style={styles.balanceRow}>
                         <View style={styles.walletIcon}>
                             <Image
-                                source={require('../../../assets/images/wallet1.png')}
+                                source={require("../../../assets/images/wallet1.png")}
                                 style={{ height: 24, width: 24 }}
                             />
                         </View>
@@ -157,34 +208,62 @@ useEffect(() => {
 
                 {/* Transactions */}
                 <View style={{ gap: 24 }}>
-                    {TXNS.map((t) => {
-                        const isCredit = t.amount > 0;
-                        return (
-                            <View key={t.id} style={styles.itemRow}>
-                                <Image source={t.icon} style={{ height: 32, width: 32 }} />
+                    {transactions.length > 0 ? (
+                        transactions.map((t) => {
+                            const amountColor = t.status === "Approved" ? COLORS.green : COLORS.red;
+                            const amountPrefix = t.status === "Approved" ? "+" : "-";
 
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.itemTitle} numberOfLines={1}>
-                                        {t.title}
-                                    </Text>
-                                    <View style={{ flexDirection: "row", gap: 8, marginTop: 2 }}>
-                                        <Text style={styles.itemSub}>{t.subtitle}</Text>
-                                        <Text style={{}}></Text>
-                                        <Text style={styles.itemSub}>{t.date}</Text>
-                                    </View>
-                                </View>
-
-                                <Text
-                                    style={[
-                                        styles.amount,
-                                        isCredit && { color: colors.green },
-                                    ]}
+                            return (
+                                <Pressable
+                                    key={t.id}
+                                    style={styles.itemRow}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(secure)/account/TransactionDetailsScreen",
+                                            params: { transaction: JSON.stringify(t) },
+                                        })
+                                    }
                                 >
-                                    {isCredit ? `+ ${formatINR(t.amount, 0)}` : formatINR(t.amount, 0)}
-                                </Text>
-                            </View>
-                        );
-                    })}
+                                    <Image source={t.icon} style={{ height: 32, width: 32 }} />
+
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.itemTitle} numberOfLines={1}>
+                                            {t.title}
+                                        </Text>
+                                        <View style={{ flexDirection: "row", gap: 8, marginTop: 2 }}>
+                                            <Text style={styles.itemSub}>{t.subtitle}</Text>
+                                            <Text style={styles.itemSub}>{t.date}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={{ alignItems: "flex-end" }}>
+                                        <Text style={[styles.amount, { color: amountColor }]}>
+                                            {`${amountPrefix} ${formatINR(t.amount, 0)}`}
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                color:
+                                                    t.status === "Approved"
+                                                        ? COLORS.green
+                                                        : t.status === "Rejected"
+                                                            ? COLORS.red
+                                                            : COLORS.blue,
+                                                fontSize: 10,
+                                                fontWeight: "500",
+                                                marginTop: 2,
+                                            }}
+                                        >
+                                            {t.status}
+                                        </Text>
+                                    </View>
+                                </Pressable>
+                            );
+                        })
+                    ) : (
+                        <Text style={{ textAlign: "center", color: colors.grey }}>
+                            No transactions found
+                        </Text>
+                    )}
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -218,17 +297,47 @@ const styles = StyleSheet.create({
         borderColor: "#EEF2F6",
     },
     balanceRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    walletIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: "#EEE7FF", alignItems: "center", justifyContent: "center" },
+    walletIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        backgroundColor: "#EEE7FF",
+        alignItems: "center",
+        justifyContent: "center",
+    },
     balanceLabel: { fontSize: 16, color: colors.grey, fontWeight: "600" },
-    balanceValue: { paddingVertical: 25, fontSize: 30, fontWeight: "700", color: colors.title, letterSpacing: 0.5 },
-    addBtn: { height: 48, borderRadius: 14, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+    balanceValue: {
+        paddingVertical: 25,
+        fontSize: 30,
+        fontWeight: "700",
+        color: colors.title,
+        letterSpacing: 0.5,
+    },
+    addBtn: {
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: colors.primary,
+        alignItems: "center",
+        justifyContent: "center",
+    },
     addBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-    histHeader: { marginTop: 20, marginBottom: 24, flexDirection: "row", alignItems: "center" },
+    histHeader: {
+        marginTop: 20,
+        marginBottom: 24,
+        flexDirection: "row",
+        alignItems: "center",
+    },
     histTitle: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.title },
     seeAll: { flexDirection: "row", alignItems: "center", gap: 6 },
     seeAllText: { color: colors.primary, fontWeight: "400", fontSize: 12 },
     itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     itemTitle: { fontSize: 14, color: colors.grey, fontWeight: "500" },
     itemSub: { fontSize: 10, color: colors.gray, fontWeight: "400" },
-    amount: { fontSize: 14, fontWeight: "500", color: colors.grey, minWidth: 110, textAlign: "right" },
+    amount: {
+        fontSize: 14,
+        fontWeight: "500",
+        color: colors.grey,
+        minWidth: 110,
+        textAlign: "right",
+    },
 });

@@ -37,10 +37,8 @@ const AllTransactionsScreen = () => {
       try {
         setLoading(true);
 
-        // 🔑 token lo AsyncStorage se
         const token = await AsyncStorage.getItem("token");
         if (!token) {
-          console.warn("⚠️ No token found in AsyncStorage");
           Alert.alert("Auth Error", "No token found in AsyncStorage.");
           return;
         }
@@ -48,20 +46,40 @@ const AllTransactionsScreen = () => {
         const res = await fetch(
           "https://tifstay-project-be.onrender.com/api/guest/deposit/transactions?page=1&limit=10",
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
 
         const json = await res.json();
         console.log("API Response:", json);
 
-        // ✅ maan lo backend { data: [] } return karta hai
-        setTransactions(json?.data || []);
+        // Map backend data to frontend Transaction type
+        const mappedTransactions: Transaction[] = (json?.data || []).map((txn: any) => {
+          const statusMap =
+            txn.status === "paid"
+              ? "Approved"
+              : txn.status === "failed"
+              ? "Rejected"
+              : "Pending";
 
-        // 👇 Alert to confirm integration
-        // Alert.alert("API Connected ✅", `Fetched ${json?.data?.length || 0} transactions`);
+          return {
+            _id: txn._id,
+            title: "Deposit from guest", // Fixed title, no guest ID
+            subtitle: txn.source || "Payment",
+            date: txn.createdAt
+              ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "",
+            amount: txn.amount?.toString() || "0",
+            status: statusMap as "Approved" | "Pending" | "Rejected" | "None",
+            logo: require("../../../assets/images/visa1.png"), // Always show the deposit logo
+          };
+        });
+
+        setTransactions(mappedTransactions);
       } catch (err) {
         console.error("Error fetching transactions:", err);
         Alert.alert("Error", "Failed to fetch transactions.");
@@ -99,12 +117,10 @@ const AllTransactionsScreen = () => {
         }
       >
         <View style={styles.iconWrapper}>
-          {item.title?.includes("SBI") ? (
-            <Ionicons
-              name="card-outline"
-              size={22}
-              color={colors.primary || "#1A73E8"}
-            />
+          {item.logo ? (
+            <Image source={item.logo} style={styles.avatar} />
+          ) : item.title?.includes("SBI") ? (
+            <Ionicons name="card-outline" size={22} color={colors.primary || "#1A73E8"} />
           ) : (
             <Image
               source={{
@@ -125,9 +141,7 @@ const AllTransactionsScreen = () => {
         <View style={{ alignItems: "flex-end" }}>
           <Text style={styles.amount}>{item.amount}</Text>
           {item.status !== "None" && (
-            <Text style={[styles.status, { color: statusColor }]}>
-              {item.status}
-            </Text>
+            <Text style={[styles.status, { color: statusColor }]}>{item.status}</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -149,20 +163,10 @@ const AllTransactionsScreen = () => {
         {["All", "Approved", "Pending", "Rejected"].map((tab) => (
           <TouchableOpacity
             key={tab}
-            style={[
-              styles.filterButton,
-              filter === tab && styles.filterButtonActive,
-            ]}
+            style={[styles.filterButton, filter === tab && styles.filterButtonActive]}
             onPress={() => setFilter(tab as any)}
           >
-            <Text
-              style={[
-                styles.filterText,
-                filter === tab && styles.filterTextActive,
-              ]}
-            >
-              {tab}
-            </Text>
+            <Text style={[styles.filterText, filter === tab && styles.filterTextActive]}>{tab}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -190,26 +194,10 @@ const AllTransactionsScreen = () => {
 export default AllTransactionsScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 16,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 12,
-  },
-  filterRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    marginBottom: 10,
-  },
+  container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 16 },
+  header: { flexDirection: "row", alignItems: "center", marginVertical: 12 },
+  headerTitle: { fontSize: 16, fontWeight: "600", marginLeft: 12 },
+  filterRow: { flexDirection: "row", justifyContent: "flex-start", marginBottom: 10 },
   filterButton: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -218,18 +206,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
   },
-  filterButtonActive: {
-    backgroundColor: "#1A73E8",
-    borderColor: "#1A73E8",
-  },
-  filterText: {
-    fontSize: 14,
-    color: "#004AAD",
-  },
-  filterTextActive: {
-    color: "#fff",
-    fontWeight: "600",
-  },
+  filterButtonActive: { backgroundColor: "#1A73E8", borderColor: "#1A73E8" },
+  filterText: { fontSize: 14, color: "#004AAD" },
+  filterTextActive: { color: "#fff", fontWeight: "600" },
   transactionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -237,36 +216,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.6,
     borderColor: "#eee",
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  iconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#000",
-  },
-  subtitle: {
-    fontSize: 12,
-    color: "#888",
-    marginTop: 2,
-  },
-  amount: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#000",
-  },
-  status: {
-    fontSize: 12,
-    marginTop: 2,
-  },
+  avatar: { width: 36, height: 36, borderRadius: 18 },
+  iconWrapper: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center" },
+  title: { fontSize: 14, fontWeight: "600", color: "#000" },
+  subtitle: { fontSize: 12, color: "#888", marginTop: 2 },
+  amount: { fontSize: 14, fontWeight: "600", color: "#000" },
+  status: { fontSize: 12, marginTop: 2 },
 });

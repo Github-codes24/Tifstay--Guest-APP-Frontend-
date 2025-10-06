@@ -350,7 +350,7 @@ const handleHostelSubmit = async () => {
 
     if (response.data.success) {
       console.log("Booking successful:", response.data.data);
-      alert("Hostel booking created successfully!");
+      // alert("Hostel booking created successfully!");
 
       const bookingId = response.data.data._id;
 

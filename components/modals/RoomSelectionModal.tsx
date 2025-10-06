@@ -347,10 +347,10 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
                       <Text style={styles.selectionText}>
                         You've selected {selectedBeds.length} bed(s)
                       </Text>
-                      <Text style={styles.priceInfo}>
+                      {/* <Text style={styles.priceInfo}>
                         ₹{plan.price} per month per bed
                         {selectedBeds.length > 1 && ` (Total: ₹${plan.price * selectedBeds.length})`}
-                      </Text>
+                      </Text> */}
                     </View>
                   )}
                 </>
