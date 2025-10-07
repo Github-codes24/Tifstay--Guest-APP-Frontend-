@@ -10,6 +10,8 @@ import {
   Modal,
   Alert,
   Linking,
+  TextInput,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -24,9 +26,13 @@ import Header from "@/components/Header";
 
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [couponModalVisible, setCouponModalVisible] = useState(false);
+  const [coupons, setCoupons] = useState([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<'online' | 'wallet' | null>(null);
+  const [couponCode, setCouponCode] = useState('');
 
   const {
     serviceType,
@@ -74,7 +80,7 @@ const Checkout: React.FC = () => {
     mealType: "Lunch",
     foodType: "Veg",
     startDate: "21/07/25",
-    plan: "Daily",
+    plan: "Per meal",
     orderType: "Delivery",
     price: "₹120/meal",
   };
@@ -152,6 +158,76 @@ const Checkout: React.FC = () => {
 
   const paymentAmount = transaction.net ?? transaction.total ?? 0;
 
+  // Fetch all coupons
+  const fetchCoupons = async () => {
+    setLoadingCoupons(true);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getApprovedCoupons", // Assuming this endpoint; adjust if different
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data?.success) {
+        const fetchedCoupons = response.data.data || [];
+        setCoupons(fetchedCoupons);
+        console.log("Fetched coupons:", fetchedCoupons); // Debug log
+      }
+    } catch (error: any) {
+      console.error("Error fetching coupons:", error);
+      Alert.alert("Error", "Failed to fetch coupons");
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      Alert.alert('Please enter a coupon code');
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token || !bookingId) {
+        Alert.alert("Error", "Token or booking ID missing");
+        return;
+      }
+
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/coupons/apply", // Assuming this endpoint; adjust if different
+        {
+          code: couponCode,
+          bookingId: bookingId,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data?.success) {
+        Alert.alert('Coupon Applied!', `Coupon ${couponCode} applied successfully.`);
+        setCouponCode('');
+        // TODO: Refetch transaction details to update discount/net amount
+        // e.g., refetch booking or update local state
+      } else {
+        Alert.alert("Error", response.data?.message || "Failed to apply coupon");
+      }
+    } catch (error: any) {
+      console.error("Error applying coupon:", error);
+      Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
+    }
+  };
+
+  const handleViewCoupons = async () => {
+    await fetchCoupons();
+    setCouponModalVisible(true);
+  };
+
   const createPaymentLink = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -199,7 +275,7 @@ const Checkout: React.FC = () => {
         pathname: "/payment",
         params: {
           serviceType: isTiffin ? "tiffin" : "hostel",
-          amount: `₹${paymentAmount}`,
+          amount: `₹${paymentAmount.toFixed(2)}`,
           bookingId: bookingId as string,
           serviceName: checkoutData.title || "Fallback Hostel Name",
         },
@@ -218,7 +294,7 @@ const Checkout: React.FC = () => {
     }
   };
 
-  const handlePayWallet = () => {
+  const handlePayWallet = async () => {
     if (!paymentAmount || paymentAmount <= 0) {
       Alert.alert(
         "Invalid Amount",
@@ -238,10 +314,61 @@ const Checkout: React.FC = () => {
     }
 
     setModalVisible(false);
-    // TODO: Navigate to wallet payment confirmation or handle wallet deduction
-    console.log("Proceeding with wallet payment for bookingId:", bookingId, "Amount:", paymentAmount);
-    // For now, you can navigate to a wallet confirmation screen or directly process
-    // router.push({ pathname: "/wallet-payment", params: { ... } });
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token || !bookingId) {
+        Alert.alert("Error", "Token or booking ID missing");
+        return;
+      }
+
+      // TODO: Backend needs a deduct endpoint (e.g., POST /api/guest/wallet/deductAmount).
+      // For now, simulate deduction locally and assume backend will handle actual deduction
+      // and record the transaction during booking confirmation.
+      // In a real implementation, call the deduct API here:
+      // const deductResponse = await axios.post(
+      //   "https://tifstay-project-be.onrender.com/api/guest/wallet/deductAmount",
+      //   {
+      //     amount: paymentAmount,
+      //     bookingId: bookingId,
+      //     description: `Payment for ${isTiffin ? 'Tiffin' : 'Hostel'} booking`,
+      //   },
+      //   {
+      //     headers: { Authorization: `Bearer ${token}` },
+      //   }
+      // );
+
+      // Simulate successful deduction
+      const newBalance = walletBalance - paymentAmount;
+      setWalletBalance(newBalance);
+
+      console.log("Wallet deduction simulated. New balance:", newBalance);
+
+      // TODO: Proceed with booking confirmation (e.g., call a booking API that handles wallet payment)
+      // After confirmation, the backend should record the transaction as a debit.
+
+      Alert.alert(
+        "Success!",
+        `₹${paymentAmount.toFixed(2)} deducted from wallet. New balance: ₹${newBalance.toFixed(2)}.`,
+        [
+          {
+            text: "View Transactions",
+            onPress: () => {
+              // Navigate directly to WalletTransactionsScreen
+              router.push("/(secure)/account/WalletTransactionsScreen");
+            },
+          },
+          { text: "OK" },
+        ]
+      );
+
+
+      // TODO: Navigate to booking success screen
+      // router.push('/booking-success');
+    } catch (error: any) {
+      console.error("Error in wallet payment:", error);
+      Alert.alert("Error", "Wallet payment failed. Please try again.");
+    }
   };
 
   const openPaymentModal = () => {
@@ -263,6 +390,23 @@ const Checkout: React.FC = () => {
       handlePayWallet();
     }
   };
+
+  // Render coupon item in modal
+  const renderCouponItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.couponItem}
+      onPress={() => {
+        setCouponCode(item.couponCode || '');
+        setCouponModalVisible(false);
+      }}
+    >
+      <Text style={styles.couponTitle}>{item.couponCode || 'N/A'}</Text>
+      <Text style={styles.couponDescription}>
+        {item.offerType === 'Discount' ? `Discount: ${item.discountPercentage ? `${item.discountPercentage}%` : `₹${item.discountAmount}`}` : `Cashback: ₹${item.cashbackAmount}`}
+        {' '} | Expires: {new Date(item.endDate).toLocaleDateString('en-IN')}
+      </Text>
+    </TouchableOpacity>
+  );
 
   if (loadingWallet) {
     return (
@@ -305,6 +449,29 @@ const Checkout: React.FC = () => {
           />
         </View>
 
+        <View style={styles.couponSection}>
+          {/* Header Row */}
+          <View style={styles.couponHeader}>
+            <Text style={styles.sectionTitle}>Apply Coupon</Text>
+            <TouchableOpacity onPress={handleViewCoupons}>
+              <Text style={styles.viewCouponsText}>View Coupons</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Input Row */}
+          <View style={styles.couponInputContainer}>
+            <TextInput
+              style={styles.couponInput}
+              placeholder="Enter Coupon Code"
+              value={couponCode}
+              onChangeText={setCouponCode}
+            />
+            <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
+              <Text style={styles.applyButtonText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.transactionSection}>
           <Text style={styles.paymentSectionTitle}>Transaction Details</Text>
 
@@ -336,7 +503,7 @@ const Checkout: React.FC = () => {
 
                 <View style={[styles.totalRow]}>
                   <Text>Total</Text>
-                  <Text style={styles.totalValue}>₹{transaction.total}</Text>
+                  <Text style={styles.totalValue}>₹{transaction.total.toFixed(2)}</Text>
                 </View>
 
                 <View style={styles.lessOffRow}>
@@ -348,7 +515,7 @@ const Checkout: React.FC = () => {
 
                 <View style={[styles.netRow]}>
                   <Text style={styles.netLabel}>Net</Text>
-                  <Text style={styles.netValue}>₹{transaction.net}</Text>
+                  <Text style={styles.netValue}>₹{transaction.net.toFixed(2)}</Text>
                 </View>
               </>
             ) : (
@@ -377,7 +544,7 @@ const Checkout: React.FC = () => {
 
                 <View style={[styles.totalRow]}>
                   <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>₹{transaction.total}</Text>
+                  <Text style={styles.totalValue}>₹{transaction.total.toFixed(2)}</Text>
                 </View>
               </>
             )}
@@ -422,10 +589,9 @@ const Checkout: React.FC = () => {
             onPress={openPaymentModal}
           >
             <Text style={styles.payButtonText}>
-              Pay ₹{paymentAmount}
+              Pay ₹{paymentAmount.toFixed(2)}
             </Text>
           </TouchableOpacity>
-
         </View>
       </View>
 
@@ -447,11 +613,11 @@ const Checkout: React.FC = () => {
 
             <View style={styles.modalOptions}>
               {/* Online Payment Option */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.optionButton, 
+                  styles.optionButton,
                   selectedMethod === 'online' && styles.selectedOption
-                ]} 
+                ]}
                 onPress={() => setSelectedMethod('online')}
               >
                 <View style={styles.optionIcon}>
@@ -469,11 +635,11 @@ const Checkout: React.FC = () => {
               </TouchableOpacity>
 
               {/* Wallet Payment Option */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.optionButton, 
+                  styles.optionButton,
                   selectedMethod === 'wallet' && styles.selectedOption
-                ]} 
+                ]}
                 onPress={() => setSelectedMethod('wallet')}
               >
                 <View style={styles.optionIcon}>
@@ -511,6 +677,41 @@ const Checkout: React.FC = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Coupons Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={couponModalVisible}
+        onRequestClose={() => setCouponModalVisible(false)}
+      >
+        <View style={styles.couponModalOverlay}>
+          <View style={styles.couponModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Available Coupons</Text>
+              <TouchableOpacity onPress={() => setCouponModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalOptions}>
+              {loadingCoupons ? (
+                <Text style={styles.loadingText}>Loading coupons...</Text>
+              ) : coupons.length > 0 ? (
+                <FlatList
+                  data={coupons}
+                  keyExtractor={(item, index) => item._id || index.toString()}
+                  renderItem={renderCouponItem}
+                  style={styles.couponsList}
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                />
+              ) : (
+                <Text style={styles.noCouponsText}>No coupons available</Text>
+              )}
             </View>
           </View>
         </View>
@@ -577,6 +778,59 @@ const styles = StyleSheet.create({
     color: "#4A90E2",
     fontSize: 14,
   },
+  couponSection: {
+    backgroundColor: "#fff",
+    padding: 16,
+    marginBottom: 8,
+  },
+  couponInputContainer: {
+    flexDirection: 'row',
+    marginTop: 12,
+  },
+  couponInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#f9f9f9',
+    marginRight: 8,
+  },
+  applyButton: {
+    backgroundColor: '#2854C5',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  viewCouponsButton: {
+    marginTop: 12,
+  },
+  viewCouponsText: {
+    color: '#4A90E2',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  couponHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
   transactionSection: {
     backgroundColor: "#fff",
     paddingHorizontal: 20,
@@ -756,7 +1010,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
-    maxHeight: '80%',
+    maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -843,6 +1097,48 @@ const styles = StyleSheet.create({
   },
   continueButtonTextDisabled: {
     color: '#999',
+  },
+  // Coupon Modal Styles
+  couponModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  couponModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '90%',
+    height: '80%',
+    paddingBottom: 20,
+  },
+  couponsList: {
+    flex: 1,
+  },
+  couponItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  couponTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  couponDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  loadingText: {
+    textAlign: 'center',
+    padding: 20,
+    color: '#666',
+  },
+  noCouponsText: {
+    textAlign: 'center',
+    padding: 20,
+    color: '#666',
   },
 });
 

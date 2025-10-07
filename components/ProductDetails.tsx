@@ -131,6 +131,11 @@ useEffect(() => {
         return acc + room.totalBeds.filter((bed: any) => bed.status === "Unoccupied").length;
       }, 0);
 
+      // Calculate daily if not provided (monthly / 30)
+      const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
+      const dailyPrice = typeof apiData.pricing?.daily === 'number' ? apiData.pricing.daily : Math.floor(monthlyPrice / 30);
+      const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
+
       processedData = {
         id: apiData._id,
         name: apiData.hostelName || "Unknown Hostel",
@@ -150,7 +155,9 @@ useEffect(() => {
         reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
         rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
         reviews: 0, // Fallback
-        price: `₹${typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0}/MONTH`,
+        price: `₹${monthlyPrice}/MONTH`,
+        daily: dailyPrice,
+        weekly: weeklyPrice,
         location: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Unknown",
         rooms: rooms, // Keep for potential use
       };
@@ -382,10 +389,10 @@ useEffect(() => {
       return (
         <View style={styles.pricingBox}>
           <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>₹300/day</Text>
+            <Text style={styles.oldPrice}>₹{mappedData.daily}/day</Text>
           </View>
           <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>₹2000/week</Text>
+            <Text style={styles.oldPrice}>₹{mappedData.weekly}/week</Text>
           </View>
           <View style={styles.priceMainRow}>
             <Text style={styles.currentPrice}>{mappedData.price}</Text>

@@ -58,6 +58,17 @@ export default function BookingScreen() {
     userPhoto: params.userPhoto,
   });
 
+  // New states for dynamic pricing
+  const [pricingData, setPricingData] = useState({
+    weekly: 0,
+    monthly: 0,
+  });
+  const [securityDeposit, setSecurityDeposit] = useState(0);
+  const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
+  const [currentDeposit, setCurrentDeposit] = useState(0);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [pickerItems, setPickerItems] = useState([]);
+
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
@@ -83,8 +94,8 @@ export default function BookingScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [hostelPlan, setHostelPlan] = useState("monthly");
-  const [checkInDate, setCheckInDate] = useState(new Date());
-  const [checkOutDate, setCheckOutDate] = useState(new Date());
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [message, setMessage] = useState("");
@@ -133,14 +144,13 @@ useEffect(() => {
       console.log("Extracted Hostel ID:", parsedHostelData.id);
       console.log("Extracted Room ID:", parsedRoomData._id);
 
-      // Autofill other fields (unchanged)
+      // Autofill other fields (except check-in and check-out dates)
       setFullName(parsedUserData.name || '');
       setPhoneNumber(parsedUserData.phoneNumber || '');
       setHostelPlan(parsedPlan.name || "monthly");
       setAadhaarPhoto(parsedUserData.adharCardPhoto || "");
       setUserPhoto(parsedUserData.userPhoto || "");
-      setCheckInDate(new Date(checkInDateStr || Date.now()));
-      setCheckOutDate(new Date(checkOutDateStr || Date.now()));
+      // Do not auto-fill checkInDate or checkOutDate - let user select
       const workType = parsedUserData.workType || "Student";
       setPurposeType(workType === "Student" ? "leisure" : "work");
 
@@ -149,8 +159,90 @@ useEffect(() => {
       console.error("Error parsing params for autofill:", error);
     }
   }
-}, [bookingType, hostelDataStr, roomDataStr, userDataStr, planStr, selectedBedsStr, checkInDateStr, checkOutDateStr]);
+}, [bookingType, hostelDataStr, roomDataStr, userDataStr, planStr, selectedBedsStr]);
 
+// Fetch pricing data
+useEffect(() => {
+  const fetchPricing = async () => {
+    const isHostelBooking = bookingType === "hostel" || bookingType === "reserve";
+    if (isHostelBooking && serviceData.hostelId) {
+      setIsLoadingPricing(true);
+      try {
+        const response = await axios.get(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelPricing/${serviceData.hostelId}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (response.data.success) {
+          const data = response.data.data;
+          setPricingData({
+            weekly: data.pricing?.weekly || 0,
+            monthly: data.pricing?.monthly || 0,
+          });
+          setSecurityDeposit(data.securityDeposit || 0);
+
+          // Dynamically create picker items based on available plans
+          const items = [];
+          if (data.pricing?.weekly > 0) {
+            items.push({ label: "Weekly", value: "weekly" });
+          }
+          if (data.pricing?.monthly > 0) {
+            items.push({ label: "Monthly", value: "monthly" });
+          }
+          setPickerItems(items);
+
+          // Set initial price for monthly if available
+          if (data.pricing?.monthly > 0) {
+            setCurrentPlanPrice(data.pricing.monthly);
+            setCurrentDeposit(data.securityDeposit || 0);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching pricing:", error);
+      } finally {
+        setIsLoadingPricing(false);
+      }
+    }
+  };
+
+  fetchPricing();
+}, [serviceData.hostelId, bookingType]);
+
+// Update price and deposit based on selected plan
+useEffect(() => {
+  let newPrice = 0;
+  let newDeposit = 0;
+
+  if (hostelPlan === "weekly") {
+    newPrice = pricingData.weekly;
+    newDeposit = securityDeposit;
+  } else if (hostelPlan === "monthly") {
+    newPrice = pricingData.monthly;
+    newDeposit = securityDeposit;
+  }
+
+  setCurrentPlanPrice(newPrice);
+  setCurrentDeposit(newDeposit);
+}, [hostelPlan, pricingData, securityDeposit]);
+
+// Auto-fill check-out date based on check-in and plan
+useEffect(() => {
+  if (checkInDate && hostelPlan) {
+    let daysToAdd = 0;
+    if (hostelPlan === 'weekly') {
+      daysToAdd = 7;
+    } else if (hostelPlan === 'monthly') {
+      daysToAdd = 30; // Approximate for a month
+    }
+
+    const newCheckOut = new Date(checkInDate);
+    newCheckOut.setDate(newCheckOut.getDate() + daysToAdd);
+    setCheckOutDate(newCheckOut);
+  }
+}, [checkInDate, hostelPlan]);
 
   // Helper functions
   const toggleMealPreference = (meal: MealType) => {
@@ -168,7 +260,10 @@ useEffect(() => {
 
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
     setShowCheckInPicker(Platform.OS === "ios");
-    if (selectedDate) setCheckInDate(selectedDate);
+    if (selectedDate) {
+      setCheckInDate(selectedDate);
+      // Auto-fill check-out will happen via useEffect
+    }
   };
 
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
@@ -274,6 +369,11 @@ const handleHostelSubmit = async () => {
       alert("Phone Number is required!");
       return;
     }
+    if (!checkInDate || !checkOutDate) {
+      console.error("Error: Check-in and Check-out dates are required!");
+      alert("Check-in and Check-out dates are required!");
+      return;
+    }
     if (checkInDate >= checkOutDate) {
       console.error("Error: Invalid dates - Check-out must be after Check-in!");
       alert("Check-out date must be after Check-in date!");
@@ -301,8 +401,8 @@ const handleHostelSubmit = async () => {
     const selectPlan = [
       {
         name: hostelPlan,
-        price: Number(serviceData.monthlyPrice) || 0,
-        depositAmount: Number(serviceData.deposit) || 0,
+        price: currentPlanPrice,
+        depositAmount: currentDeposit,
       },
     ];
 
@@ -317,7 +417,7 @@ const handleHostelSubmit = async () => {
       fullName,
       phoneNumber,
       email: serviceData.email || "example@example.com",
-      workType: "10", // Matches success response (Student); map to "1" if purposeType === "work"
+      workType: purposeType === "work" ? "1" : "10",
       checkInDate: checkInDate.toISOString(),
       checkOutDate: checkOutDate.toISOString(),
       selectPlan,
@@ -420,12 +520,7 @@ const handleHostelSubmit = async () => {
         <View style={styles.pickerWrapper}>
           <RNPickerSelect
             onValueChange={setHostelPlan}
-            items={[
-              { label: "Monthly", value: "monthly" },
-              { label: "Quarterly", value: "quarterly" },
-              { label: "Half Yearly", value: "halfyearly" },
-              { label: "Yearly", value: "yearly" },
-            ]}
+            items={pickerItems}
             placeholder={{ label: "Select Plan", value: null }}
             style={{
               inputIOS: styles.pickerInput,
@@ -436,10 +531,10 @@ const handleHostelSubmit = async () => {
         </View>
         <View style={styles.priceContainer}>
           <Text style={styles.priceText}>
-            {serviceData.defaultPrice || serviceData.monthlyPrice || "₹8000/month"}
+            ₹{currentPlanPrice} / {hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)}
           </Text>
           <Text style={styles.depositText}>
-            Deposit: {serviceData.defaultDeposit || serviceData.deposit || "₹15000"}
+            Deposit: ₹{currentDeposit}
           </Text>
         </View>
       </View>
@@ -505,7 +600,7 @@ const handleHostelSubmit = async () => {
           onPress={() => setShowCheckInPicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {checkInDate.toLocaleDateString()}
+            {checkInDate ? checkInDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
@@ -516,14 +611,14 @@ const handleHostelSubmit = async () => {
           onPress={() => setShowCheckOutPicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {checkOutDate.toLocaleDateString()}
+            {checkOutDate ? checkOutDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
 
         {showCheckInPicker && (
           <DateTimePicker
-            value={checkInDate}
+            value={checkInDate || new Date()}
             mode="date"
             display="default"
             onChange={onChangeCheckInDate}
@@ -533,11 +628,11 @@ const handleHostelSubmit = async () => {
 
         {showCheckOutPicker && (
           <DateTimePicker
-            value={checkOutDate}
+            value={checkOutDate || new Date(checkInDate || new Date())}
             mode="date"
             display="default"
             onChange={onChangeCheckOutDate}
-            minimumDate={checkInDate}
+            minimumDate={checkInDate || new Date()}
           />
         )}
 
