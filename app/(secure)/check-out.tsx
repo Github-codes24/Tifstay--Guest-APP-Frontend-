@@ -288,6 +288,19 @@ const Checkout: React.FC = () => {
       const supported = await Linking.canOpenURL(paymentData.paymentLinkUrl);
       if (supported) {
         await Linking.openURL(paymentData.paymentLinkUrl);
+        // TODO: For proper Razorpay integration, use Razorpay SDK with callbacks.
+        // After opening the link, navigate to confirmation assuming success (or implement deep link handling for redirect back).
+        // For now, simulate navigation after opening (in real app, handle via deep links or polling).
+        setTimeout(() => {
+          router.push({
+            pathname: "/(secure)/confirmation",
+            params: {
+              bookingId: bookingId as string,
+              serviceType: serviceType as string,
+              // Add other params as needed for confirmation screen
+            },
+          });
+        }, 2000); // Delay to simulate processing
       } else {
         Alert.alert("Error", "Cannot open payment link");
       }
@@ -358,13 +371,22 @@ const Checkout: React.FC = () => {
               router.push("/(secure)/account/WalletTransactionsScreen");
             },
           },
-          { text: "OK" },
+          {
+            text: "OK",
+            onPress: () => {
+              // Navigate to confirmation screen on OK
+              router.push({
+                pathname: "/(secure)/confirmation",
+                params: {
+                  bookingId: bookingId as string,
+                  serviceType: serviceType as string,
+                  // Add other params as needed for confirmation screen
+                },
+              });
+            },
+          },
         ]
       );
-
-
-      // TODO: Navigate to booking success screen
-      // router.push('/booking-success');
     } catch (error: any) {
       console.error("Error in wallet payment:", error);
       Alert.alert("Error", "Wallet payment failed. Please try again.");
@@ -698,7 +720,7 @@ const Checkout: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalOptions}>
+            <View style={styles.couponModalOptions}>
               {loadingCoupons ? (
                 <Text style={styles.loadingText}>Loading coupons...</Text>
               ) : coupons.length > 0 ? (
@@ -1111,6 +1133,11 @@ const styles = StyleSheet.create({
     width: '90%',
     height: '80%',
     paddingBottom: 20,
+    flexDirection: 'column',
+  },
+  couponModalOptions: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   couponsList: {
     flex: 1,

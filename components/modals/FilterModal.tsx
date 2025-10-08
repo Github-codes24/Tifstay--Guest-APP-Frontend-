@@ -390,9 +390,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
                 {/* User Reviews */}
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>User Reviews*</Text>
+                  <Text style={styles.filterTitle}>User Ratings*</Text>
                   <View style={styles.ratingContainer}>
-                    {[3.5, 3.8, 4.2, 4.5, 4.8, 5.0].map((value) => (
+                    {[3, 4].map((value) => (
                       <TouchableOpacity
                         key={value}
                         style={[
@@ -404,7 +404,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                         <Ionicons
                           name="star"
                           size={12}
-                          color={userReviews === value ? "#fff" : "#FFB800"}
+                          color={userReviews === value ? "#fff" : "#666060"}
                         />
                         <Text
                           style={[
@@ -412,7 +412,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                             userReviews === value && styles.ratingTextSelected,
                           ]}
                         >
-                          {value}
+                          {value} & above
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -425,7 +425,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>User Ratings*</Text>
                   <View style={styles.ratingContainer}>
-                    {[3.5, 3.8, 4.2, 4.5, 4.8, 5.0].map((value) => (
+                    {[3, 4].map((value) => (
                       <TouchableOpacity
                         key={value}
                         style={[
@@ -436,8 +436,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       >
                         <Ionicons
                           name="star"
-                          size={12}
-                          color={rating === value ? "#fff" : "#FFB800"}
+                          size={17}
+                          color={rating === value ? "#fff" : "#666060"}
                         />
                         <Text
                           style={[
@@ -445,7 +445,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                             rating === value && styles.ratingTextSelected,
                           ]}
                         >
-                          {value}
+                          {value} & above
                         </Text>
 
                       </TouchableOpacity>

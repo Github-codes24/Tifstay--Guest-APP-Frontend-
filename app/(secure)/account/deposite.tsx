@@ -8,6 +8,7 @@ import {
     ScrollView,
     Image,
     Alert,
+    ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import CommonDropdown from "@/components/CommonDropDown";
@@ -25,18 +26,16 @@ const DepositScreen = () => {
     const [accountNumber, setAccountNumber] = useState("");
     const [ifsc, setIfsc] = useState("");
     const [accountHolder, setAccountHolder] = useState("");
-    const [area, setArea] = useState("");
+    const [accountType, setAccountType] = useState("");
     const [depositAmount, setDepositAmount] = useState<number>(0);
+    const [loading, setLoading] = useState(false);
 
-    const ROLES = [
-        { label: "With one meal", value: "With one meal" },
-        { label: "With two meal", value: "With two meal" },
-        { label: "One meal with breakfast", value: "One meal with breakfast" },
-        { label: "With Lunch & dinner & breakfast", value: "With Lunch & dinner & breakfast" },
-        { label: "With breakfast", value: "With breakfast" },
+    const ACCOUNT_TYPES = [
+        { label: "Savings", value: "Savings" },
+        { label: "Current", value: "Current" },
     ];
 
-    // Fetch deposit amount from API
+    // Fetch deposit amount
     const fetchDepositAmount = async () => {
         try {
             const token = await AsyncStorage.getItem("token");
@@ -62,13 +61,94 @@ const DepositScreen = () => {
         fetchDepositAmount();
     }, []);
 
-    const handleSend = () => {
-        console.log({ accountNumber, ifsc, accountHolder, area });
+    // 📌 Withdraw by Wallet
+    const handleWalletWithdraw = async () => {
+        try {
+            setLoading(true);
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+                Alert.alert("Error", "User not authenticated");
+                return;
+            }
+
+            const response = await axios.post(
+                "https://tifstay-project-be.onrender.com/api/guest/withdrawal/withdraw-by-wallet",
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data?.success) {
+                Alert.alert("Success", "Amount withdrawn to wallet successfully");
+                fetchDepositAmount(); // refresh balance
+            } else {
+                Alert.alert("Error", response.data?.message || "Something went wrong");
+            }
+        } catch (error: any) {
+            console.log("Wallet withdraw error:", error.response?.data || error);
+            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 📌 Withdraw by Bank
+    const handleBankWithdraw = async () => {
+        if (!accountNumber || !ifsc || !accountHolder || !accountType) {
+            Alert.alert("Validation Error", "Please fill all required fields.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+                Alert.alert("Error", "User not authenticated");
+                return;
+            }
+
+            const body = {
+                accountNumber,
+                ifscCode: ifsc,
+                accountType,
+                accountHolderName: accountHolder,
+            };
+
+            const response = await axios.post(
+                "https://tifstay-project-be.onrender.com/api/guest/withdrawal/withdraw-by-bank",
+                body,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data?.success) {
+                Alert.alert("Success", "Bank withdrawal request submitted successfully");
+                setAccountNumber("");
+                setIfsc("");
+                setAccountHolder("");
+                setAccountType("");
+                fetchDepositAmount(); // refresh balance
+            } else {
+                Alert.alert("Error", response.data?.message || "Something went wrong");
+            }
+        } catch (error: any) {
+            console.log("Bank withdraw error:", error.response?.data || error);
+            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 📌 Handle Withdraw button
+    const handleWithdraw = () => {
+        if (withdrawOption === "wallet") {
+            handleWalletWithdraw();
+        } else {
+            handleBankWithdraw();
+        }
     };
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Updated Header */}
+            {/* Header */}
             <View style={styles.header}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -76,7 +156,6 @@ const DepositScreen = () => {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Deposit</Text>
                 </View>
-
                 <TouchableOpacity onPress={() => router.push("/(secure)/account/AllTransactionsScreen")}>
                     <Text style={styles.allTransactionsText}>All Transactions</Text>
                 </TouchableOpacity>
@@ -111,7 +190,7 @@ const DepositScreen = () => {
                                 onPress={() => setWithdrawOption("wallet")}
                             >
                                 {withdrawOption === "wallet" && (
-                                    <View style={{ height: 12, width: 12, borderRadius: 25, backgroundColor: colors.primary }} />
+                                    <View style={styles.radioSelected} />
                                 )}
                             </TouchableOpacity>
                         </View>
@@ -123,12 +202,13 @@ const DepositScreen = () => {
                                 onPress={() => setWithdrawOption("bank")}
                             >
                                 {withdrawOption === "bank" && (
-                                    <View style={{ height: 12, width: 12, borderRadius: 25, backgroundColor: colors.primary }} />
+                                    <View style={styles.radioSelected} />
                                 )}
                             </TouchableOpacity>
                         </View>
                     </View>
 
+                    {/* Bank Form */}
                     {withdrawOption === "bank" && (
                         <View style={styles.bankForm}>
                             <LabeledInput
@@ -136,7 +216,6 @@ const DepositScreen = () => {
                                 placeholder="Enter Account Number"
                                 value={accountNumber}
                                 onChangeText={setAccountNumber}
-                                autoCapitalize="words"
                                 containerStyle={styles.inputMargin}
                                 inputContainerStyle={styles.inputTall}
                                 labelStyle={styles.label}
@@ -146,17 +225,16 @@ const DepositScreen = () => {
                                 placeholder="Enter IFSC Code"
                                 value={ifsc}
                                 onChangeText={setIfsc}
-                                autoCapitalize="words"
                                 containerStyle={styles.inputMargin}
                                 inputContainerStyle={styles.inputTall}
                                 labelStyle={styles.label}
                             />
                             <CommonDropdown
-                                items={ROLES}
-                                label="Area/Locality *"
-                                placeholder="Account Type"
-                                value={area}
-                                setValue={(val: any) => setArea(val)}
+                                items={ACCOUNT_TYPES}
+                                label="Account Type"
+                                placeholder="Select Account Type"
+                                value={accountType}
+                                setValue={setAccountType}
                                 containerStyle={{ marginBottom: 0, marginTop: 20 }}
                                 labelStyle={{ fontSize: 14, fontWeight: '400', color: colors.title, marginBottom: 8 }}
                             />
@@ -165,7 +243,6 @@ const DepositScreen = () => {
                                 placeholder="Enter Account Holder Name"
                                 value={accountHolder}
                                 onChangeText={setAccountHolder}
-                                autoCapitalize="words"
                                 containerStyle={styles.inputMargin}
                                 inputContainerStyle={styles.inputTall}
                                 labelStyle={styles.label}
@@ -173,15 +250,16 @@ const DepositScreen = () => {
                         </View>
                     )}
 
-                    <Text style={styles.note}>Note: in bank it may take 1-3 days</Text>
+                    <Text style={styles.note}>Note: Bank withdrawal may take 1-3 business days.</Text>
 
                     <CustomButton
-                        title={withdrawOption === "wallet" ? "WITHDRAW" : "Send for Approval to Admin"}
-                        onPress={() => {
-                            if (withdrawOption !== "wallet") router.push('/(secure)/account/withdraw');
-                        }}
+                        title={loading ? "Please wait..." : withdrawOption === "wallet" ? "WITHDRAW TO WALLET" : "SEND REQUEST"}
+                        disabled={loading}
+                        onPress={handleWithdraw}
                         style={{ width: '95%', alignSelf: 'center', marginVertical: 0 }}
                     />
+
+                    {loading && <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 10 }} />}
                 </ScrollView>
             </KeyboardAwareScrollView>
         </SafeAreaView>
@@ -202,20 +280,21 @@ const styles = StyleSheet.create({
     optionRow: { flexDirection: "column", marginBottom: 16, marginHorizontal: 16, gap: 18 },
     radioRow: { flexDirection: "row", alignItems: "center", justifyContent: 'space-between' },
     radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#666", justifyContent: 'center', alignItems: 'center' },
+    radioSelected: { height: 12, width: 12, borderRadius: 25, backgroundColor: colors.primary },
     radioLabel: { fontSize: 14, flex: 1, color: colors.grey, fontWeight: '500' },
     bankForm: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 12, marginBottom: 16, marginHorizontal: 16 },
     note: { fontSize: 12, color: "#000", marginBottom: 14, fontWeight: '400', textAlign: 'center' },
     inputMargin: { marginTop: 20, paddingHorizontal: 0 },
     inputTall: { minHeight: 56 },
     label: { fontSize: 14, fontWeight: "400", color: colors.title },
-    header: { 
-        flexDirection: "row", 
-        alignItems: "center", 
-        justifyContent: "space-between", // 👈 ensures left-right alignment
-        paddingHorizontal: 16, 
-        paddingVertical: 12 
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 12
     },
     backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
     headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
-    allTransactionsText: { fontSize: 14, fontWeight: "500", color: "#004AAD" } // 👈 Added style
+    allTransactionsText: { fontSize: 14, fontWeight: "500", color: "#004AAD" }
 });
