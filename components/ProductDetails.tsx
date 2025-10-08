@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
@@ -24,12 +24,11 @@ import { useFavorites } from "@/context/FavoritesContext"; // Fixed path
 
 const { width } = Dimensions.get("window");
 
-interface ProductDetailsProps {
-  data: any;
-  type: "tiffin" | "hostel";
-}
+export default function ProductDetails() {
+  const params = useLocalSearchParams<{ id?: string; type?: string }>();
+  const paramId = params.id as string;
+  const paramType = params.type as "tiffin" | "hostel";
 
-export default function ProductDetails({ data: rawData, type }: ProductDetailsProps) {
   const [mappedData, setMappedData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Details");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -38,6 +37,7 @@ export default function ProductDetails({ data: rawData, type }: ProductDetailsPr
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [reviews, setReviews] = useState([]);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
@@ -57,146 +57,275 @@ export default function ProductDetails({ data: rawData, type }: ProductDetailsPr
     }
   };
 
-useEffect(() => {
-  if (type !== "hostel" || !mappedData?.id || activeTab !== "Reviews") {
-    console.log("Skipping fetch: ", { type, id: mappedData?.id, activeTab });
-    return;
-  }
-
-  const fetchReviews = async () => {
-    setIsLoadingReviews(true);
-
+  // --- Fetch full tiffin details by ID ---
+  const fetchTiffinById = async (id: string): Promise<any | null> => {
     const token = await getAuthToken();
-    console.log("Token:", token);
-
-    const headers: HeadersInit = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
+    if (!token) {
+      return null;
+    }
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     try {
-      const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/hostelReview/${mappedData.id}`;
-      console.log("Fetching reviews from:", url);
-
-      const response = await fetch(url, { headers });
-      console.log("Fetch status:", response.status);
-
+      const response = await fetch(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${id}`,
+        { headers }
+      );
       const result = await response.json();
-      console.log("hostelReview response:", result);
-
-      if (result.success && result.data && Array.isArray(result.data)) {
-        const mappedReviews = result.data.map((review: any) => ({
-          id: review._id,
-          name: review.guest?.name || "Anonymous",
-          avatar: review.guest?.profileImage || null,
-          rating: review.rating,
-          comment: review.review,
-          date: new Date(review.reviewDate).toLocaleDateString(),
-        }));
-        console.log("Mapped reviews:", mappedReviews);
-        setReviews(mappedReviews);
-        setMappedData((prev: any) => ({ ...prev, userReviews: mappedReviews }));
+      console.log("getTiffinServiceById response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data) {
+        return result.data;
       } else {
-        setReviews([]);
+        console.warn("getTiffinServiceById failed:", result.message);
+        return null;
       }
     } catch (error) {
-      console.error("Failed to fetch reviews:", error);
-      setReviews([]);
-    } finally {
-      setIsLoadingReviews(false);
+      console.error("Failed to fetch tiffin details:", error);
+      return null;
     }
   };
 
-  fetchReviews();
-}, [type, mappedData?.id, activeTab]);
+  // --- Fetch full hostel details by ID ---
+  const fetchHostelById = async (id: string): Promise<any | null> => {
+    const token = await getAuthToken();
+    if (!token) {
+      return null;
+    }
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+    try {
+      const response = await fetch(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelServicesById/${id}`,
+        { headers }
+      );
+      const result = await response.json();
+      console.log("getHostelServiceById response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        console.warn("getHostelServiceById failed:", result.message);
+        return null;
+      }
+    } catch (error) {
+      console.error("Failed to fetch hostel details:", error);
+      return null;
+    }
+  };
 
-  // Map raw API data to component-expected structure
   useEffect(() => {
-    console.log("🟢 ProductDetails received rawData:", rawData); // ✅ Moved outside nested useEffect
-
-    if (!rawData || !rawData.success || !rawData.data) {
-      console.error("Invalid API data provided");
+    if (!mappedData?.id || activeTab !== "Reviews") {
+      console.log("Skipping fetch: ", { paramType, id: mappedData?.id, activeTab });
       return;
     }
 
-    const apiData = rawData.data;
+    const fetchReviews = async () => {
+      setIsLoadingReviews(true);
 
-    let processedData: any = {};
+      const token = await getAuthToken();
+      console.log("Token:", token);
 
-    if (type === "hostel") {
-      const rooms = Array.isArray(apiData.rooms) ? apiData.rooms : [];
-      const totalBeds = rooms.reduce((acc: number, room: any) => {
-        return acc + (Array.isArray(room.totalBeds) ? room.totalBeds.length : 0);
-      }, 0);
-      const availableBeds = rooms.reduce((acc: number, room: any) => {
-        if (!Array.isArray(room.totalBeds)) return acc;
-        return acc + room.totalBeds.filter((bed: any) => bed.status === "Unoccupied").length;
-      }, 0);
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // Calculate daily if not provided (monthly / 30)
-      const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
-      const dailyPrice = typeof apiData.pricing?.daily === 'number' ? apiData.pricing.daily : Math.floor(monthlyPrice / 30);
-      const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
+      try {
+        const url = paramType === "hostel"
+          ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/hostelReview/${mappedData.id}`
+          : `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinReview/${mappedData.id}`;
+        console.log("Fetching reviews from:", url);
 
-      processedData = {
-        id: apiData._id,
-        name: apiData.hostelName || "Unknown Hostel",
-        type: apiData.hostelType || "Boys Hostel",
-        description: apiData.description || "No description available.",
-        images: Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos : [],
-        totalRooms: typeof apiData.totalRooms === 'number' ? apiData.totalRooms : rooms.length,
-        totalBeds,
-        availableBeds,
-        deposit: typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0,
-        offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
-        amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
-        fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "",
-        sublocation: typeof apiData.location?.area === 'string' ? apiData.location.area : "",
-        rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Default rules: No smoking, visitors till 8 PM.",
-        userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
-        reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
-        rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
-        reviews: 0, // Fallback
-        price: `₹${monthlyPrice}/MONTH`,
-        daily: dailyPrice,
-        weekly: weeklyPrice,
-        location: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Unknown",
-        rooms: rooms, // Keep for potential use
-      };
-    } else if (type === "tiffin") {
-      // Stub mapping for tiffin - update with real schema if provided
-      processedData = {
-        ...apiData,
-        images: Array.isArray(apiData.images) ? apiData.images : [],
-        tags: Array.isArray(apiData.tags) ? apiData.tags : [],
-        mealPreferences: Array.isArray(apiData.mealPreferences) ? apiData.mealPreferences : [],
-        whatsIncluded: Array.isArray(apiData.whatsIncluded) ? apiData.whatsIncluded : [],
-        orderTypes: Array.isArray(apiData.orderTypes) ? apiData.orderTypes : [],
-        whyChooseUs: Array.isArray(apiData.whyChooseUs) ? apiData.whyChooseUs : [],
-        fullAddress: typeof apiData.fullAddress === 'string' ? apiData.fullAddress : "",
-        servingRadius: typeof apiData.servingRadius === 'string' ? apiData.servingRadius : "5 km",
-        rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
-        reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
-        price: `₹${typeof apiData.price === 'number' ? apiData.price : 0}/Month`,
-        offer: apiData.offer ? parseInt(String(apiData.offer)) : null,
-        timing: typeof apiData.timing === 'string' ? apiData.timing : "7 AM - 9 PM",
-        userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
-        reviews: 0,
-      };
-    }
+        const response = await fetch(url, { headers });
+        console.log("Fetch status:", response.status);
 
-    setMappedData(processedData);
-  }, [rawData, type]);
+        const result = await response.json();
+        console.log(`${paramType}Review response:`, result);
+
+        if (result.success && result.data && Array.isArray(result.data)) {
+          const mappedReviews = result.data.map((review: any) => ({
+            id: review._id,
+            name: review.guest?.name || review.user?.name || "Anonymous",
+            avatar: review.guest?.profileImage || review.user?.profileImage || null,
+            rating: review.rating,
+            comment: review.review,
+            date: new Date(review.reviewDate).toLocaleDateString(),
+          }));
+          console.log("Mapped reviews:", mappedReviews);
+          setReviews(mappedReviews);
+          setMappedData((prev: any) => ({ ...prev, userReviews: mappedReviews }));
+        } else {
+          setReviews([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch reviews:", error);
+        setReviews([]);
+      } finally {
+        setIsLoadingReviews(false);
+      }
+    };
+
+    fetchReviews();
+  }, [paramType, mappedData?.id, activeTab]);
+
+  // Map full API data to component-expected structure
+  useEffect(() => {
+    console.log("🟢 ProductDetails processing:", { paramId, paramType });
+
+    const processData = async () => {
+      if (!paramId || !paramType) {
+        console.error("No ID or type provided");
+        return;
+      }
+
+      setIsLoadingDetails(true);
+      try {
+        let fullApiData = null;
+
+        if (paramType === "tiffin") {
+          fullApiData = await fetchTiffinById(paramId);
+        } else if (paramType === "hostel") {
+          fullApiData = await fetchHostelById(paramId);
+        }
+
+        if (!fullApiData) {
+          console.error(`Failed to fetch ${paramType} details`);
+          return;
+        }
+
+        console.log(`Full ${paramType} API Data:`, JSON.stringify(fullApiData, null, 2));
+
+        let processedData: any = {};
+
+        if (paramType === "hostel") {
+          const apiData = fullApiData;
+
+          const rooms = Array.isArray(apiData.rooms) ? apiData.rooms : [];
+          const totalBeds = rooms.reduce((acc: number, room: any) => {
+            return acc + (Array.isArray(room.totalBeds) ? room.totalBeds.length : 0);
+          }, 0);
+          const availableBeds = rooms.reduce((acc: number, room: any) => {
+            if (!Array.isArray(room.totalBeds)) return acc;
+            return acc + room.totalBeds.filter((bed: any) => bed.status === "Unoccupied").length;
+          }, 0);
+
+          // Calculate daily if not provided (monthly / 30)
+          const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
+          const dailyPrice = typeof apiData.pricing?.daily === 'number' ? apiData.pricing.daily : Math.floor(monthlyPrice / 30);
+          const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
+
+          // Images
+          const images = Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos.map((p: string) => ({ uri: p })) : [];
+
+          processedData = {
+            id: apiData._id,
+            name: apiData.hostelName || "Unknown Hostel",
+            type: apiData.hostelType || "Boys Hostel",
+            description: apiData.description || "No description available.",
+            images,
+            totalRooms: typeof apiData.totalRooms === 'number' ? apiData.totalRooms : rooms.length,
+            totalBeds,
+            availableBeds,
+            deposit: typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0,
+            offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
+            amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
+            fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "",
+            sublocation: typeof apiData.location?.area === 'string' ? apiData.location.area : "",
+            rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Default rules: No smoking, visitors till 8 PM.",
+            userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
+            reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
+            rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
+            reviews: 0, // Fallback
+            price: `₹${monthlyPrice}/MONTH`,
+            daily: dailyPrice,
+            weekly: weeklyPrice,
+            location: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Unknown",
+            rooms: rooms, // Keep for potential use
+          };
+        } else if (paramType === "tiffin") {
+          const photos = fullApiData.photos || [];
+          const images = photos.length > 0 ? photos.map((p: string) => ({ uri: p })) : [];
+          const mealPreferences = fullApiData.mealTimings?.map((m: any) => ({
+            type: m.mealType,
+            time: `${m.startTime} - ${m.endTime}`,
+          })) || [];
+          const whatsIncluded = fullApiData.includedItems || fullApiData.whatsIncluded || [];
+          const whyChooseUs = fullApiData.whyChooseUs || fullApiData.highlights || [];
+          const orderTypes = fullApiData.orderTypes || ['Dining', 'Delivery'];
+          const pricing = fullApiData.pricing || [];
+          const offersText = pricing.map((p: any) => p.offers).join(" ");
+          const fullDesc = `${fullApiData.description} ${offersText}`;
+
+          // Derive tags from pricing
+          const foodTags: string[] = [];
+          pricing.forEach((p: any) => {
+            const ft = p.foodType?.toLowerCase();
+            if (ft?.includes("veg")) foodTags.push("Veg");
+            if (ft?.includes("non-veg")) foodTags.push("Non-Veg");
+          });
+          const tags = [...new Set(foodTags)];
+
+          const firstPlan = pricing[0];
+          const price = firstPlan ? `₹${firstPlan.monthlyDelivery || firstPlan.monthlyDining || 0}/Month` : "₹0/Month";
+          const offer = firstPlan?.offers ? firstPlan.offers : null;
+          const rating = fullApiData.averageRating || 0;
+          const reviewCount = fullApiData.totalReviews || 0;
+          const fullAddress = fullApiData.location?.fullAddress || "";
+          const servingRadius = `${fullApiData.location?.serviceRadius || 5} km`;
+          const location = fullApiData.location?.nearbyLandmarks || fullAddress || "Unknown";
+          const timing = fullApiData.mealTimings ? fullApiData.mealTimings.map((m: any) => `${m.startTime} - ${m.endTime}`).join(', ') : "7 AM - 9 PM";
+          const isOffline = fullApiData.isOffline || false;
+          const offlineReason = fullApiData.offlineReason || "";
+          const comeBackAt = fullApiData.comeBackAt || "";
+
+          processedData = {
+            id: fullApiData._id,
+            name: fullApiData.tiffinName,
+            description: fullDesc,
+            images,
+            tags,
+            mealPreferences,
+            whatsIncluded,
+            orderTypes,
+            whyChooseUs,
+            fullAddress,
+            servingRadius,
+            rating,
+            reviewCount,
+            price,
+            offer,
+            timing,
+            userReviews: [], // Will be fetched separately if needed
+            foodType: fullApiData.foodType,
+            pricing,
+            isOffline,
+            offlineReason,
+            comeBackAt,
+            location,
+            contactInfo: {
+              phone: fullApiData.ownerId?.phoneNumber || '',
+              whatsapp: fullApiData.ownerId?.phoneNumber ? `+91${fullApiData.ownerId.phoneNumber}` : '',
+            },
+            owner: fullApiData.ownerId,
+          };
+        }
+
+        setMappedData(processedData);
+      } catch (error) {
+        console.error("Error processing data:", error);
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    };
+
+    processData();
+  }, [paramId, paramType]);
 
   // Fixed: Now isFavorite is available, use mappedData
-  const isFav = mappedData ? isFavorite(mappedData.id, type) : false;
+  const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
 
   const handleFavoritePress = () => {
     if (!mappedData) return;
     if (isFav) {
-      removeFromFavorites(mappedData.id, type);
+      removeFromFavorites(mappedData.id, paramType);
     } else {
       addToFavorites({
         id: mappedData.id,
-        type,
+        type: paramType,
         data: mappedData,
       });
     }
@@ -206,7 +335,7 @@ useEffect(() => {
     setShowShareModal(false);
 
     const message =
-      type === "tiffin"
+      paramType === "tiffin"
         ? `Check out this amazing tiffin service: ${mappedData.name} - ${mappedData.description}`
         : `Check out this great hostel: ${mappedData.name} - ${mappedData.description}`;
 
@@ -232,11 +361,11 @@ useEffect(() => {
   };
 
   // Early return if data not ready
-  if (!mappedData) {
+  if (!mappedData && !isLoadingDetails) {
     return (
       <SafeAreaView style={styles.container}>
         <Header
-          title={type === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+          title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
           backIconName="chevron-back"
           onBack={() => router.back()}
         />
@@ -247,10 +376,26 @@ useEffect(() => {
     );
   }
 
+  if (isLoadingDetails) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header
+          title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+          backIconName="chevron-back"
+          onBack={() => router.back()}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 10 }}>Loading details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
     <Header
-      title={type === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+      title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
       backIconName="chevron-back"
       onBack={() => router.back()}
     />
@@ -276,7 +421,7 @@ useEffect(() => {
             setCurrentImageIndex(index);
           }}
           renderItem={({ item }) => (
-            <Image source={{ uri: item }} style={styles.image} />
+            <Image source={item} style={styles.image} />
           )}
           keyExtractor={(item, index) => index.toString()}
         />
@@ -326,7 +471,7 @@ useEffect(() => {
       {/* Rating */}
 
       {/* Tags for Hostel */}
-      {type === "hostel" && (
+      {paramType === "hostel" && (
         <View style={styles.tagsContainer}>
           <View style={styles.tag}>
             <Text style={styles.tagText}>{mappedData.type}</Text>
@@ -339,12 +484,12 @@ useEffect(() => {
       )}
 
       {/* Hostel-specific location info */}
-      {type === "hostel" && mappedData.sublocation && (
+      {paramType === "hostel" && mappedData.sublocation && (
         <Text style={styles.sublocation}>{mappedData.sublocation}</Text>
       )}
 
       {/* Hostel room availability */}
-      {type === "hostel" && (
+      {paramType === "hostel" && (
         <View style={styles.roomAvailability}>
           <Text style={styles.roomText}>Total Rooms: {mappedData.totalRooms}</Text>
           <View style={styles.bedInfo}>
@@ -360,7 +505,7 @@ useEffect(() => {
       <Text style={styles.description}>{mappedData.description}</Text>
 
       {/* Tags and timing for Tiffin */}
-      {type === "tiffin" && (
+      {paramType === "tiffin" && (
         <View style={styles.tiffinTags}>
           {mappedData.tags?.map((tag: string, index: number) => (
             <View key={index} style={styles.greenTag}>
@@ -385,7 +530,7 @@ useEffect(() => {
 
   // ==================== PRICING SECTION ====================
   const renderPricingSection = () => {
-    if (type === "hostel") {
+    if (paramType === "hostel") {
       return (
         <View style={styles.pricingBox}>
           <View style={styles.priceRow}>
@@ -409,31 +554,39 @@ useEffect(() => {
         </View>
       );
     } else {
-      // For tiffin
+      // For tiffin - dynamic pricing
       return (
         <View style={styles.tiffinPricing}>
-          <View style={styles.pricingHeader}>
-            <Text style={styles.pricingSectionTitle}>With One Meal (Veg)</Text>
-            {mappedData.offer && (
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
+          {mappedData.pricing?.map((plan: any, index: number) => (
+            <View key={index} style={styles.pricingPlan}>
+              <View style={styles.pricingHeader}>
+                <Text style={styles.pricingSectionTitle}>{plan.planType} ({plan.foodType})</Text>
+                {plan.offers && (
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountText}>{plan.offers}</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          <View style={styles.pricingColumns}>
-            {/* Dining prices column */}
-            <View style={styles.pricingColumn}>
-              <Text style={styles.priceItem}>Dining ₹120/day</Text>
-              <Text style={styles.priceItem}>Dining ₹800/week</Text>
-              <Text style={styles.priceItem}>Dining ₹3200/Month</Text>
+              <View style={styles.pricingColumns}>
+                {/* Dining prices column */}
+                <View style={styles.pricingColumn}>
+                  <Text style={styles.priceItem}>Dining ₹{plan.perMealDining}/day</Text>
+                  <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/week</Text>
+                  <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
+                </View>
+                {/* Delivery prices column */}
+                <View style={styles.pricingColumn}>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.perMealDelivery}/day</Text>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/week</Text>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/month</Text>
+                </View>
+              </View>
             </View>
-            {/* Delivery prices column */}
-            <View style={styles.pricingColumn}>
-              <Text style={styles.priceItem}>Delivery ₹130/day</Text>
-              <Text style={styles.priceItem}>Delivery ₹870/week</Text>
-              <Text style={styles.priceItem}>Delivery ₹3500/month</Text>
+          )) || (
+            <View style={styles.pricingPlan}>
+              <Text style={styles.priceItem}>{mappedData.price}</Text>
             </View>
-          </View>
+          )}
         </View>
       );
     }
@@ -474,6 +627,16 @@ useEffect(() => {
   // ==================== TIFFIN DETAILS SECTION ====================
   const renderTiffinDetails = () => (
     <View style={styles.detailsContainer}>
+      {/* Offline warning if applicable */}
+      {mappedData.isOffline && (
+        <View style={styles.offlineWarning}>
+          <Ionicons name="alert-circle-outline" size={20} color="#FF9800" />
+          <Text style={styles.offlineText}>
+            Currently offline: {mappedData.offlineReason}. Back on {mappedData.comeBackAt}.
+          </Text>
+        </View>
+      )}
+
       {/* Meal Preference */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Meal Preference</Text>
@@ -511,7 +674,6 @@ useEffect(() => {
 
       {/* Why Choose Us */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle} />
         <Text style={styles.sectionTitle}>Why Choose Us</Text>
         {mappedData.whyChooseUs?.map((item: string, index: number) => (
           <View key={index} style={styles.whyItem}>
@@ -525,11 +687,17 @@ useEffect(() => {
       <View style={[styles.section, styles.locationSection]}>
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
-          <Text style={styles.locationTitle}>Near Medical College</Text>
+          <Text style={styles.locationTitle}>{mappedData.location}</Text>
           <Text style={styles.locationAddress}>{mappedData.fullAddress}</Text>
           <Text style={styles.serviceRadius}>
             Service Radius: {mappedData.servingRadius}
           </Text>
+          {mappedData.contactInfo && (
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactText}>Phone: {mappedData.contactInfo.phone}</Text>
+              <Text style={styles.contactText}>WhatsApp: {mappedData.contactInfo.whatsapp}</Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -616,7 +784,7 @@ useEffect(() => {
         </View>
       ) : (
         <FlatList
-          data={type === "hostel" ? reviews : (mappedData.userReviews || [])}
+          data={reviews} // Use the fetched reviews for both types now
           scrollEnabled={false}
           ListEmptyComponent={
             <Text style={styles.emptyText}>No reviews available yet.</Text>
@@ -670,7 +838,7 @@ useEffect(() => {
   // ==================== BOTTOM BUTTONS SECTION ====================
   const renderBottomButtons = () => (
     <View style={styles.bottomContainer}>
-      {type === "tiffin" ? (
+      {paramType === "tiffin" ? (
         <>
           <Button
             title="Order Now"
@@ -724,7 +892,7 @@ useEffect(() => {
         {renderBasicInfo()}
         {renderTabs()}
         {activeTab === "Details"
-          ? type === "tiffin"
+          ? paramType === "tiffin"
             ? renderTiffinDetails()
             : renderHostelDetails()
           : renderReviews()}
@@ -734,10 +902,10 @@ useEffect(() => {
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
         title={mappedData.name}
-        type={type}
+        type={paramType}
       />
       {/* Add Room Selection Modal for Hostels */}
-      {type === "hostel" && (
+      {paramType === "hostel" && (
         <RoomSelectionModal
           visible={showRoomSelectionModal}
           onClose={() => setShowRoomSelectionModal(false)}
@@ -969,6 +1137,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
   },
+  pricingPlan: {
+    marginBottom: 20,
+  },
   pricingHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1105,6 +1276,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     marginTop: 4,
+  },
+  contactInfo: {
+    marginTop: 8,
+  },
+  contactText: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 4,
   },
 
   // Hostel details specific styles
@@ -1288,5 +1467,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Offline warning
+  offlineWarning: {
+    backgroundColor: "#FFF3CD",
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  offlineText: {
+    fontSize: 14,
+    color: "#856404",
+    marginLeft: 8,
+    flex: 1,
   },
 });
