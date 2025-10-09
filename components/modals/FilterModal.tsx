@@ -55,10 +55,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
   const [rating, setRating] = useState(currentFilters.rating || null);
   const [cost, setCost] = useState(currentFilters.cost || "");
-  const [offers, setOffers] = useState(currentFilters.offers || "");
-  const [cashback, setCashback] = useState(currentFilters.cashback || "");
   const [vegNonVeg, setVegNonVeg] = useState(currentFilters.vegNonVeg || "");
-  const [cuisine, setCuisine] = useState(currentFilters.cuisine || "");
   const [location, setLocation] = useState(currentFilters.location || "");
   const [distance, setDistance] = useState(currentFilters.distance || 0);
   const [priceRange, setPriceRange] = useState(currentFilters.priceRange || [0, 20000]);
@@ -69,20 +66,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [selectedAmenities, setSelectedAmenities] = useState(currentFilters.amenities || []);
   const [userReviews, setUserReviews] = useState(currentFilters.userReviews || null);
 
+  const [ratingOptions, setRatingOptions] = useState<number[]>([]);
+  const [costOptions, setCostOptions] = useState<string[]>([]);
+  const [foodTypeOptions, setFoodTypeOptions] = useState<string[]>([]);
+  const [isLoadingTiffinFilters, setIsLoadingTiffinFilters] = useState(false);
+
   const amenities = ["Wi-Fi", "Study Hall", "Security", "Mess", "Common TV", "Laundry"];
-  const costOptions = ["Low to High", "High to Low"];
-  const offerOptions = [
-    "Get 10% OFF on your first tiffin order",
-    "Get 20% OFF on monthly subscription",
-    "Buy 1 Get 1 Free",
-  ];
-  const cashbackOptions = [
-    "Get ₹50 cashback on UPI payment",
-    "Get ₹100 cashback on first order",
-    "Get 5% cashback on all orders",
-  ];
-  const vegNonVegOptions = ["Veg", "Non-Veg", "Both"];
-  const cuisineOptions = ["Roti", "Rice", "South Indian", "North Indian", "Chinese"];
   const acNonAcOptions = ["AC", "Non-AC", "Both"];
   const locationOptions = useMemo(() => ["All", ...(Array.isArray(cities) ? cities : [])], [cities]);
   const hostelTypeOptions = useMemo(() => ["All", ...(Array.isArray(hostelTypes) ? hostelTypes : [])], [hostelTypes]);
@@ -111,6 +100,40 @@ const FilterModal: React.FC<FilterModalProps> = ({
     });
   }, [isLoadingRoomTypes, roomTypes, roomTypeOptions, visible, isHostel]);
 
+  // Fetch tiffin filter options
+  useEffect(() => {
+    if (!isHostel && visible && ratingOptions.length === 0) {
+      setIsLoadingTiffinFilters(true);
+      Promise.all([
+        fetch("https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAverageRatingDropdown").then((res) =>
+          res.json()
+        ),
+        fetch("https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getSortOrderDropdown").then((res) =>
+          res.json()
+        ),
+        fetch("https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getFoodTypeDropdown").then((res) =>
+          res.json()
+        ),
+      ])
+        .then(([ratingRes, costRes, foodRes]) => {
+          if (ratingRes.success) {
+            setRatingOptions(ratingRes.data);
+          }
+          if (costRes.success) {
+            setCostOptions(costRes.data);
+          }
+          if (foodRes.success) {
+            setFoodTypeOptions(foodRes.data);
+          }
+          setIsLoadingTiffinFilters(false);
+        })
+        .catch((err) => {
+          console.error("Error fetching tiffin filters:", err);
+          setIsLoadingTiffinFilters(false);
+        });
+    }
+  }, [isHostel, visible, ratingOptions.length]);
+
   const handleApplyFilters = () => {
     let filters: any = {};
 
@@ -127,10 +150,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     } else {
       if (rating) filters.rating = rating;
       if (cost) filters.cost = cost;
-      if (offers) filters.offers = offers;
-      if (cashback) filters.cashback = cashback;
       if (vegNonVeg) filters.vegNonVeg = vegNonVeg;
-      if (cuisine) filters.cuisine = cuisine;
     }
 
     onApplyFilters(filters);
@@ -151,10 +171,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     } else {
       setRating(null);
       setCost("");
-      setOffers("");
-      setCashback("");
       setVegNonVeg("");
-      setCuisine("");
     }
   };
 
@@ -424,85 +441,78 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 {/* Non-Hostel filters */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>User Ratings*</Text>
-                  <View style={styles.ratingContainer}>
-                    {[3, 4].map((value) => (
-                      <TouchableOpacity
-                        key={value}
-                        style={[
-                          styles.ratingButton,
-                          rating === value && styles.ratingButtonSelected,
-                        ]}
-                        onPress={() => setRating(value)}
-                      >
-                        <Ionicons
-                          name="star"
-                          size={17}
-                          color={rating === value ? "#fff" : "#666060"}
-                        />
-                        <Text
-                          style={[
-                            styles.ratingText,
-                            rating === value && styles.ratingTextSelected,
-                          ]}
-                        >
-                          {value} & above
-                        </Text>
-
-                      </TouchableOpacity>
-                    ))}
+                  <View style={{ position: "relative" }}>
+                    {isLoadingTiffinFilters ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : ratingOptions.length === 0 ? (
+                      <Text style={styles.noDataText}>No ratings available</Text>
+                    ) : (
+                      <View style={styles.ratingContainer}>
+                        {ratingOptions.map((value) => (
+                          <TouchableOpacity
+                            key={value}
+                            style={[
+                              styles.ratingButton,
+                              rating === value && styles.ratingButtonSelected,
+                            ]}
+                            onPress={() => setRating(value)}
+                          >
+                            <Ionicons
+                              name="star"
+                              size={17}
+                              color={rating === value ? "#fff" : "#666060"}
+                            />
+                            <Text
+                              style={[
+                                styles.ratingText,
+                                rating === value && styles.ratingTextSelected,
+                              ]}
+                            >
+                              {value} & above
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 </View>
 
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Cost</Text>
-                  <Dropdown
-                    options={costOptions}
-                    value={cost}
-                    onSelect={setCost}
-                    placeholder="Select Cost"
-                  />
+                  <View style={{ position: "relative" }}>
+                    {isLoadingTiffinFilters ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : costOptions.length === 0 ? (
+                      <Text style={styles.noDataText}>No cost options available</Text>
+                    ) : (
+                      <Dropdown
+                        options={costOptions}
+                        value={cost}
+                        onSelect={setCost}
+                        placeholder="Select Cost"
+                        disabled={isLoadingTiffinFilters || costOptions.length === 0}
+                      />
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>Offers</Text>
-                  <Dropdown
-                    options={offerOptions}
-                    value={offers}
-                    onSelect={setOffers}
-                    placeholder="Select Offer"
-                    numberOfLines={1}
-                  />
-                </View>
-
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>Cashback</Text>
-                  <Dropdown
-                    options={cashbackOptions}
-                    value={cashback}
-                    onSelect={setCashback}
-                    placeholder="Select Cashback"
-                    numberOfLines={1}
-                  />
-                </View>
-
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>Veg/Non-veg</Text>
-                  <Dropdown
-                    options={vegNonVegOptions}
-                    value={vegNonVeg}
-                    onSelect={setVegNonVeg}
-                    placeholder="Select Veg/Non-veg"
-                  />
-                </View>
-
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>Cuisine</Text>
-                  <Dropdown
-                    options={cuisineOptions}
-                    value={cuisine}
-                    onSelect={setCuisine}
-                    placeholder="Select Cuisine"
-                  />
+                  <Text style={styles.filterTitle}>Food Type</Text>
+                  <View style={{ position: "relative" }}>
+                    {isLoadingTiffinFilters ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : foodTypeOptions.length === 0 ? (
+                      <Text style={styles.noDataText}>No food types available</Text>
+                    ) : (
+                      <Dropdown
+                        options={foodTypeOptions}
+                        value={vegNonVeg}
+                        onSelect={setVegNonVeg}
+                        placeholder="Select Veg/Non-veg"
+                        disabled={isLoadingTiffinFilters || foodTypeOptions.length === 0}
+                      />
+                    )}
+                  </View>
                 </View>
               </>
             )}

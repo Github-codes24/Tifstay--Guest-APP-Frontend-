@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFavorites } from "@/context/FavoritesContext";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
@@ -10,9 +11,10 @@ import colors from "@/constants/colors";
 export default function FavoritesScreen() {
   const { favorites } = useFavorites();
   const router = useRouter();
+  const [hostelFavorites, setHostelFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const tiffinFavorites = favorites.filter((item) => item.type === "tiffin");
-  const hostelFavorites = favorites.filter((item) => item.type === "hostel");
 
   const handleTiffinPress = (service: any) => {
     router.navigate(`/tiffin-details/${service.id}`);
@@ -22,9 +24,51 @@ export default function FavoritesScreen() {
     router.navigate(`/hostel-details/${hostel.id}`);
   };
 
-  const handleBookPress = (item: any) => {
-    console.log("Book pressed:", item);
-  };
+  const handleBookPress = (item: any) => {};
+
+  useEffect(() => {
+    const fetchFavoriteHostels = async () => {
+      try {
+        setLoading(true);
+        const token = await AsyncStorage.getItem("authToken");
+        const response = await fetch('https://tifstay-project-be.onrender.com/api/guest/hostelServices/getFavouriteHostelServices', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setHostelFavorites(data.map((hostel: any) => ({ id: hostel.id, type: 'hostel', data: hostel })));
+        } else {
+        }
+      } catch (error) {
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFavoriteHostels();
+  }, []);
+
+  const allFavorites = [...tiffinFavorites, ...hostelFavorites];
+
+  if (loading && hostelFavorites.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Favorites</Text>
+          <Text style={styles.headerSubtitle}>
+            Your saved tiffin services and hostels
+          </Text>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -39,7 +83,7 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {favorites.length === 0 ? (
+        {allFavorites.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="heart-outline" size={80} color="#E0E0E0" />
             <Text style={styles.emptyTitle}>No favorites yet</Text>

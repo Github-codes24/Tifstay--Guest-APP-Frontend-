@@ -8,6 +8,7 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -38,7 +39,8 @@ interface Order {
 
 const Booking: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"pending" | "confirmed">("pending");
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [hostelOrders, setHostelOrders] = useState<Order[]>([]);
+  const [tiffinOrders, setTiffinOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -47,46 +49,78 @@ const Booking: React.FC = () => {
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(activeTab);
   }, [activeTab]);
 
-const fetchOrders = async () => {
-  setLoading(true);
-  try {
-    const url =
-      activeTab === "pending"
-        ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings"
-        : "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
+  const fetchOrders = async (tab: "pending" | "confirmed") => {
+    setLoading(true);
+    try {
+      // Fetch hostel orders
+      const hostelUrl =
+        tab === "pending"
+          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings"
+          : "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
 
-    const response = await axios.get(url);
-    console.log("API Response:", response.data);
+      const hostelResponse = await axios.get(hostelUrl);
+      console.log("Hostel API Response:", hostelResponse.data);
 
-    if (response.data.success) {
-      const apiOrders: Order[] = response.data.data.map((item: any) => ({
-        id: item._id, // booking ID
-        bookingId: item._id,
-        serviceType: "hostel",
-        serviceName: item.hostelId?.hostelName || "Unknown Hostel",
-        customer: item.fullName,
-        checkInDate: item.checkInDate ? new Date(item.checkInDate).toLocaleDateString() : "",
-        checkOutDate: item.checkOutDate ? new Date(item.checkOutDate).toLocaleDateString() : "",
-        status: item.status.toLowerCase() as Order["status"],
-        image: item.userPhoto,
-      }));
-      setOrders(apiOrders);
-    } else {
-      setOrders([]);
+      let fetchedHostelOrders: Order[] = [];
+      if (hostelResponse.data.success) {
+        fetchedHostelOrders = hostelResponse.data.data.map((item: any) => ({
+          id: item._id,
+          bookingId: item._id,
+          serviceType: "hostel" as const,
+          serviceName: item.hostelId?.hostelName || "Unknown Hostel",
+          customer: item.fullName || "Unknown User",
+          checkInDate: item.checkInDate ? new Date(item.checkInDate).toLocaleDateString() : "",
+          checkOutDate: item.checkOutDate ? new Date(item.checkOutDate).toLocaleDateString() : "",
+          status: item.status.toLowerCase() as Order["status"],
+          image: item.userPhoto,
+          price: item.price, // Assuming price is available; adjust if needed
+        }));
+      }
+      setHostelOrders(fetchedHostelOrders);
+
+      // Fetch tiffin orders
+      const tiffinUrl =
+        tab === "pending"
+          ? "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPendingTiffinOrder"
+          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
+
+      const tiffinResponse = await axios.get(tiffinUrl);
+      console.log("Tiffin API Response:", tiffinResponse.data);
+
+      let fetchedTiffinOrders: Order[] = [];
+      if (tiffinResponse.data.success) {
+        fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
+          const choosePlanType = Array.isArray(item.choosePlanType) ? item.choosePlanType[0] : item.choosePlanType;
+          return {
+            id: item._id,
+            bookingId: item._id,
+            serviceType: "tiffin" as const,
+            serviceName: `${choosePlanType?.planName || "Unknown"} Tiffin Plan`,
+            customer: "You",
+            startDate: item.date ? new Date(item.date).toLocaleDateString() : "",
+            plan: choosePlanType?.planName,
+            orderType: item.chooseOrderType,
+            status: item.status.toLowerCase() as Order["status"],
+            price: `₹${choosePlanType?.price || 0}`,
+            image: undefined,
+            checkInDate: undefined,
+            checkOutDate: undefined,
+          };
+        });
+      }
+      setTiffinOrders(fetchedTiffinOrders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      Alert.alert("Error", "Failed to fetch orders");
+      setHostelOrders([]);
+      setTiffinOrders([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    Alert.alert("Error", "Failed to fetch orders");
-    setOrders([]);
-  }
-  setLoading(false);
-};
-
-
-  const filteredOrders = orders;
+  };
 
   const handleTrackOrder = (order: Order) => {
     console.log("Track order:", order.bookingId);
@@ -110,8 +144,9 @@ const fetchOrders = async () => {
 
   const handleSeeDetails = (order: Order) => {
     console.log("See details:", order.bookingId);
+    const pathname = order.serviceType === "hostel" ? "/hostel-details/[id]" : "/tiffin-details/[id]";
     router.push({
-      pathname: "/hostel-details/[id]",
+      pathname,
       params: { id: order.id },
     });
   };
@@ -124,8 +159,9 @@ const fetchOrders = async () => {
 
   const handleRepeatOrder = (order: Order) => {
     console.log("Repeat order:", order.bookingId);
+    const pathname = order.serviceType === "hostel" ? "/hostel-details/[id]" : "/tiffin-details/[id]";
     router.push({
-      pathname: `/hostel-details/[id]`,
+      pathname,
       params: { id: order.id, repeatOrder: "true" },
     });
   };
@@ -171,6 +207,106 @@ const fetchOrders = async () => {
 
   const handleProfilePress = () => router.push("/account/profile");
 
+  const renderOrderCard = (order: Order) => (
+    <View key={order.id} style={styles.orderCard}>
+      <View style={styles.orderHeader}>
+        <Text style={styles.bookingId}>Booking #{order.bookingId}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
+          <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
+            {getStatusText(order.status)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.orderDetails}>
+        {order.serviceType === "hostel" ? (
+          <>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Hostel Booking:</Text>
+              <Text style={styles.detailValue} numberOfLines={1}>
+                {order.serviceName}
+              </Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Customer:</Text>
+              <Text style={styles.detailValue}>{order.customer}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Check-in date:</Text>
+              <Text style={styles.detailValue}>{order.checkInDate}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Check-out date:</Text>
+              <Text style={styles.detailValue}>{order.checkOutDate}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Tiffin Order:</Text>
+              <Text style={styles.detailValue} numberOfLines={1}>
+                {order.serviceName}
+              </Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Order Date:</Text>
+              <Text style={styles.detailValue}>{order.startDate}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Plan:</Text>
+              <Text style={styles.detailValue}>{order.plan}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Order Type:</Text>
+              <Text style={styles.detailValue}>{order.orderType}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Price:</Text>
+              <Text style={styles.detailValue}>{order.price}</Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      {activeTab === "pending" ? (
+        <Button title="Track Order" onPress={() => handleTrackOrder(order)} style={styles.primaryButtonStyle} height={48} />
+      ) : (
+        <>
+          {order.status === "confirmed" && !isHistoryOrder(order.status) && (
+            <>
+              <Button title="Continue Subscription" onPress={() => handleContinueSubscription(order)} style={styles.primaryButtonStyle} height={48} />
+              <Button title="See Details" onPress={() => handleSeeDetails(order)} style={styles.secondaryButtonStyle} textStyle={styles.secondaryButtonTextStyle} height={48} />
+            </>
+          )}
+          {isHistoryOrder(order.status) && (
+            <View style={styles.buttonRow}>
+              <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.rateButtonStyle} textStyle={styles.secondaryButtonTextStyle} width={160} height={48} />
+              <Button title="Repeat Order" onPress={() => handleRepeatOrder(order)} style={styles.repeatButtonStyle} width={160} height={48} />
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color="#6B7280" />
+          <Text style={styles.emptyStateSubtext}>Loading orders...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const hasHostelOrders = hostelOrders.length > 0;
+  const hasTiffinOrders = tiffinOrders.length > 0;
+  const hasAnyOrders = hasHostelOrders || hasTiffinOrders;
+
+  // Debug log for tab data
+  console.log(`Rendering ${activeTab} tab - Hostels: ${hostelOrders.length}, Tiffins: ${tiffinOrders.length}`);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
@@ -203,7 +339,7 @@ const fetchOrders = async () => {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {filteredOrders.length === 0 ? (
+        {!hasAnyOrders ? (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={60} color="#9CA3AF" />
             <Text style={styles.emptyStateText}>No orders found</Text>
@@ -214,58 +350,26 @@ const fetchOrders = async () => {
             </Text>
           </View>
         ) : (
-          filteredOrders.map((order) => (
-            <View key={order.id} style={styles.orderCard}>
-              <View style={styles.orderHeader}>
-                <Text style={styles.bookingId}>Booking #{order.bookingId}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
-                  <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                    {getStatusText(order.status)}
-                  </Text>
+          <>
+            {hasHostelOrders && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="home" size={20} color={colors.primary} />
+                  <Text style={styles.sectionTitle}>Hostel Bookings ({hostelOrders.length})</Text>
                 </View>
+                {hostelOrders.map((order) => renderOrderCard(order))}
               </View>
-
-              <View style={styles.orderDetails}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Hostel Booking:</Text>
-                  <Text style={styles.detailValue} numberOfLines={1}>
-                    {order.serviceName}
-                  </Text>
+            )}
+            {hasTiffinOrders && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="restaurant" size={20} color={colors.primary} />
+                  <Text style={styles.sectionTitle}>Tiffin Orders ({tiffinOrders.length})</Text>
                 </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Customer:</Text>
-                  <Text style={styles.detailValue}>{order.customer}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Check-in date:</Text>
-                  <Text style={styles.detailValue}>{order.checkInDate}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Check-out date:</Text>
-                  <Text style={styles.detailValue}>{order.checkOutDate}</Text>
-                </View>
+                {tiffinOrders.map((order) => renderOrderCard(order))}
               </View>
-
-              {activeTab === "pending" ? (
-                <Button title="Track Order" onPress={() => handleTrackOrder(order)} style={styles.primaryButtonStyle} height={48} />
-              ) : (
-                <>
-                  {order.status === "confirmed" && !isHistoryOrder(order.status) && (
-                    <>
-                      <Button title="Continue Subscription" onPress={() => handleContinueSubscription(order)} style={styles.primaryButtonStyle} height={48} />
-                      <Button title="See Details" onPress={() => handleSeeDetails(order)} style={styles.secondaryButtonStyle} textStyle={styles.secondaryButtonTextStyle} height={48} />
-                    </>
-                  )}
-                  {isHistoryOrder(order.status) && (
-                    <View style={styles.buttonRow}>
-                      <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.rateButtonStyle} textStyle={styles.secondaryButtonTextStyle} width={160} height={48} />
-                      <Button title="Repeat Order" onPress={() => handleRepeatOrder(order)} style={styles.repeatButtonStyle} width={160} height={48} />
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          ))
+            )}
+          </>
         )}
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -338,7 +442,6 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: "row",
     paddingHorizontal: 16,
-
     marginBottom: 8,
   },
   tab: {
@@ -381,6 +484,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000",
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
   orderCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -400,15 +520,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#000",
   },
-  bookingSummaryLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 12,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -423,38 +534,21 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: "row",
-    textAlign: "right",
     paddingVertical: 10,
     alignItems: "center",
+    justifyContent: "space-between",
   },
   detailLabel: {
     fontSize: 15,
     color: "#64748B",
     fontWeight: "400",
+    flex: 1,
   },
   detailValue: {
     fontSize: 15,
     color: "#0F172A",
     fontWeight: "600",
     textAlign: "right",
-    flex: 1,
-    marginLeft: 16,
-  },
-  subscriptionNote: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 12,
-    lineHeight: 18,
-    fontStyle: "italic",
-  },
-  imageSection: {
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  hostelImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
   },
   primaryButtonStyle: {
     backgroundColor: colors.primary,

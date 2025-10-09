@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as Linking from 'expo-linking';
+import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
@@ -330,25 +332,42 @@ export default function ProductDetails() {
       });
     }
   };
+
   const handleShare = async (platform: string) => {
     if (!mappedData) return;
     setShowShareModal(false);
 
+    // Generate deep link using expo-linking
+    const deepLink = Linking.createURL('/product-details', {
+      queryParams: { id: paramId, type: paramType }
+    });
+
     const message =
       paramType === "tiffin"
-        ? `Check out this amazing tiffin service: ${mappedData.name} - ${mappedData.description}`
-        : `Check out this great hostel: ${mappedData.name} - ${mappedData.description}`;
+        ? `Check out this amazing tiffin service: ${mappedData.name} - ${mappedData.description}\n\nOpen in app: ${deepLink}`
+        : `Check out this great hostel: ${mappedData.name} - ${mappedData.description}\n\nOpen in app: ${deepLink}`;
 
     try {
       if (platform === "whatsapp") {
-        // You can implement WhatsApp sharing here
-        // For demo, we'll just show confirmation
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        await Linking.openURL(whatsappUrl);
       } else if (platform === "messenger") {
-        // You can implement Messenger sharing here
-        // For demo, we'll just show confirmation
+        // For Messenger, use native share sheet as fallback (or implement fb-messenger:// if needed)
+        // Note: fb-messenger://share is limited; native share works better for links
+        const messengerUrl = `fb-messenger://share?link=${encodeURIComponent(deepLink)}&text=${encodeURIComponent(message)}`;
+        const canOpen = await Linking.canOpenURL(messengerUrl);
+        if (canOpen) {
+          await Linking.openURL(messengerUrl);
+        } else {
+          // Fallback to native share
+          await Sharing.shareAsync({
+            message,
+            url: deepLink,
+          });
+        }
       } else if (platform === "copylink") {
-        // You can implement copy to clipboard here
-        // For demo, we'll just show confirmation
+        await Clipboard.setStringAsync(deepLink);
+        // Optionally, copy the full message too, but link is key
       }
 
       // Show confirmation modal after a brief delay
@@ -357,6 +376,11 @@ export default function ProductDetails() {
       }, 500);
     } catch (error) {
       console.error("Share error:", error);
+      // Fallback to native share sheet
+      await Sharing.shareAsync({
+        message,
+        url: deepLink,
+      });
     }
   };
 
