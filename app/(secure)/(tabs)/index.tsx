@@ -53,6 +53,7 @@ interface TiffinService {
   tags: string[];
   rating: number;
   image: any;
+  pricing: any[];
 }
 
 interface Filters {
@@ -103,6 +104,7 @@ export default function DashboardScreen() {
   const [allHostels, setAllHostels] = useState<Hostel[]>([]);
   const [allTiffinServices, setAllTiffinServices] = useState<TiffinService[]>([]);
   const [searchedHostels, setSearchedHostels] = useState<Hostel[]>([]);
+  const [searchedTiffins, setSearchedTiffins] = useState<TiffinService[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingHostels, setIsLoadingHostels] = useState(false);
@@ -169,7 +171,7 @@ export default function DashboardScreen() {
       const result = await response.json();
       console.log("getAllHostelServices response:", JSON.stringify(result, null, 2));
       if (result.success && result.data) {
-        
+
         const mappedHostels = result.data.map((hostel: any) => ({
           id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
           name: hostel.hostelName || "Unknown Hostel",
@@ -222,8 +224,10 @@ export default function DashboardScreen() {
       search,
       foodType,
       priceSort,
-      minRating: minRating.toString(),
     });
+    if (minRating > 0) {
+      params.append("rating", `${minRating} & above`);
+    }
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     try {
       const response = await fetch(url, { headers });
@@ -239,6 +243,7 @@ export default function DashboardScreen() {
               foodTags.push("veg");
               foodTags.push("non-veg");
             }
+            if (ft === "non-veg") foodTags.push("non-veg");
           });
           const uniqueTags = [...new Set(foodTags)];
           const offersText = tiffin.pricing.map((p: any) => p.offers).join(" ");
@@ -246,6 +251,10 @@ export default function DashboardScreen() {
           const image = tiffin.photos?.[0] ? { uri: tiffin.photos[0] } : food1;
           const firstPrice = tiffin.pricing[0];
           const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
+          const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
+            type: m.mealType,
+            time: `${m.startTime} - ${m.endTime}`,
+          })) || [];
           return {
             id: tiffin._id,
             name: tiffin.tiffinName,
@@ -255,6 +264,8 @@ export default function DashboardScreen() {
             tags: uniqueTags,
             rating: tiffin.averageRating,
             image,
+            pricing: tiffin.pricing,
+            mealPreferences,
           };
         });
         setAllTiffinServices(mapped);
@@ -277,6 +288,64 @@ export default function DashboardScreen() {
       }
     } finally {
       setIsLoadingTiffins(false);
+    }
+  };
+
+  // --- Fetch tiffin recent search ---
+  const fetchTiffinRecentSearch = async (query: string) => {
+    const token = await getAuthToken();
+    if (!token) return;
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+    try {
+      const response = await fetch(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinByRecentSearch?query=${encodeURIComponent(query)}`,
+        { headers }
+      );
+      const result = await response.json();
+      console.log("getTiffinByRecentSearch response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data) {
+        const mapped = result.data.map((tiffin: any) => {
+          const foodTags: string[] = [];
+          tiffin.pricing.forEach((p: any) => {
+            const ft = p.foodType.toLowerCase();
+            if (ft === "veg") foodTags.push("veg");
+            if (ft === "both veg & non-veg") {
+              foodTags.push("veg");
+              foodTags.push("non-veg");
+            }
+            if (ft === "non-veg") foodTags.push("non-veg");
+          });
+          const uniqueTags = [...new Set(foodTags)];
+          const offersText = tiffin.pricing.map((p: any) => p.offers).join(" ");
+          const fullDesc = `${tiffin.description} ${offersText}`;
+          const image = tiffin.photos?.[0] ? { uri: tiffin.photos[0] } : food1;
+          const firstPrice = tiffin.pricing[0];
+          const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
+          const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
+            type: m.mealType,
+            time: `${m.startTime} - ${m.endTime}`,
+          })) || [];
+          return {
+            id: tiffin._id,
+            name: tiffin.tiffinName,
+            description: fullDesc,
+            location: tiffin.location.fullAddress,
+            price,
+            tags: uniqueTags,
+            rating: tiffin.averageRating,
+            image,
+            pricing: tiffin.pricing,
+            mealPreferences,
+          };
+        });
+        setSearchedTiffins(mapped);
+      } else {
+        setSearchedTiffins([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch tiffin recent search:", error);
+      setSearchedTiffins([]);
+      Alert.alert("Error", "Failed to search tiffins. Please check your connection and try again.");
     }
   };
 
@@ -470,9 +539,11 @@ export default function DashboardScreen() {
       }
       const priceSort = appliedFilters.cost || "";
       const minRating = appliedFilters.rating || 0;
-      fetchTiffinServices("", foodType, priceSort, minRating);
+      if (!isSearchFocused || !searchQuery) {
+        fetchTiffinServices("", foodType, priceSort, minRating);
+      }
     }
-  }, [isHostel, vegFilter, appliedFilters.vegNonVeg, appliedFilters.cost, appliedFilters.rating]);
+  }, [isHostel, vegFilter, appliedFilters.vegNonVeg, appliedFilters.cost, appliedFilters.rating, isSearchFocused, searchQuery]);
 
   // --- Fetch hostel by recent search (with debounce) ---
   useEffect(() => {
@@ -539,48 +610,59 @@ export default function DashboardScreen() {
   // --- Fetch search for tiffin ---
   useEffect(() => {
     if (!isHostel && isSearchFocused && searchQuery) {
-      let foodType = "";
-      if (appliedFilters.vegNonVeg) {
-        foodType = appliedFilters.vegNonVeg === "Both" ? "Both Veg & Non-Veg" : appliedFilters.vegNonVeg;
-      } else if (vegFilter !== "off") {
-        foodType = vegFilter === "veg" ? "Veg" : "Both Veg & Non-Veg";
+      const fetchRecentSearch = async () => {
+        setIsSearching(true);
+        await fetchTiffinRecentSearch(searchQuery);
+        setIsSearching(false);
+      };
+
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
       }
-      const priceSort = appliedFilters.cost || "";
-      const minRating = appliedFilters.rating || 0;
-      setIsSearching(true);
-      fetchTiffinServices(searchQuery, foodType, priceSort, minRating);
+      searchDebounceRef.current = setTimeout(() => {
+        fetchRecentSearch();
+      }, 500);
+
+      return () => {
+        if (searchDebounceRef.current) {
+          clearTimeout(searchDebounceRef.current);
+        }
+      };
+    } else if (!isHostel) {
+      setSearchedTiffins([]);
       setIsSearching(false);
     }
-  }, [isHostel, isSearchFocused, searchQuery, vegFilter, appliedFilters]);
+  }, [isHostel, isSearchFocused, searchQuery]);
 
-  // --- Fetch hostel suggestions ---
+  // --- Fetch suggestions ---
   useEffect(() => {
-    if (!isHostel || !isSearchFocused || searchQuery.length > 0) return;
+    if (!isSearchFocused || searchQuery.length > 0) return;
 
-    const fetchSuggestions = async () => {
+    const fetchSugg = async () => {
       const token = await getAuthToken();
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (!token) return;
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       try {
-        const response = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelSuggestions",
-          { headers }
-        );
+        const url = isHostel
+          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelSuggestions"
+          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinSuggestions";
+        const response = await fetch(url, { headers });
         const result = await response.json();
-        console.log("getHostelSuggestions response:", JSON.stringify(result, null, 2));
+        console.log(`${isHostel ? "getHostel" : "getTiffin"}Suggestions response:`, JSON.stringify(result, null, 2));
         if (result.success && result.data && Array.isArray(result.data)) {
-          setSuggestions(result.data);
+          const suggs = isHostel ? result.data : result.data.map((item: any) => item.tiffinName);
+          setSuggestions(suggs);
         } else {
           setSuggestions([]);
         }
       } catch (error) {
-        console.error("Failed to fetch suggestions:", error);
+        console.error(`Failed to fetch ${isHostel ? "hostel" : "tiffin"} suggestions:`, error);
         setSuggestions([]);
       }
     };
 
-    fetchSuggestions();
+    fetchSugg();
   }, [isHostel, isSearchFocused, searchQuery]);
 
   // --- Location Modal ---
@@ -602,10 +684,11 @@ export default function DashboardScreen() {
 
   // --- Filtering logic (Tiffin & Hostels) ---
   const filteredTiffinServices = useMemo(() => {
-    let filtered = [...tiffinServices];
+    const baseTiffins = isSearchFocused && searchQuery ? searchedTiffins : tiffinServices;
+    let filtered = [...baseTiffins];
     const query = searchQuery.toLowerCase().trim();
 
-    if (query) {
+    if (query && !(isSearchFocused && searchQuery)) {
       filtered = filtered.filter(
         (service) =>
           service.name.toLowerCase().includes(query) ||
@@ -613,6 +696,46 @@ export default function DashboardScreen() {
           service.location.toLowerCase().includes(query) ||
           service.tags.some((tag) => tag.toLowerCase().includes(query))
       );
+    }
+
+    // Veg/Non-Veg filter
+    const effectiveVegNonVeg = appliedFilters.vegNonVeg || (vegFilter !== "off" ? (vegFilter === "veg" ? "Veg" : "Both Veg & Non-Veg") : undefined);
+    if (effectiveVegNonVeg && effectiveVegNonVeg !== "Both Veg & Non-Veg") {
+      filtered = filtered.filter((service) => {
+        const hasVeg = service.tags.includes("veg");
+        const hasNonVeg = service.tags.includes("non-veg");
+        if (effectiveVegNonVeg === "Veg") {
+          return hasVeg;
+        } else if (effectiveVegNonVeg === "Non-Veg") {
+          return hasNonVeg;
+        }
+        return true;
+      });
+    }
+
+    // Rating filter
+    const minRatingFilter = appliedFilters.rating || 0;
+    if (minRatingFilter > 0) {
+      filtered = filtered.filter((service) => service.rating >= minRatingFilter);
+    }
+
+    // Price sort
+    const priceSort = appliedFilters.cost || "";
+    if (priceSort) {
+      const getPriceNum = (service: TiffinService) => {
+        const num = service.price.replace(/[^0-9]/g, "");
+        return parseInt(num, 10) || 0;
+      };
+      filtered.sort((a, b) => {
+        const pa = getPriceNum(a);
+        const pb = getPriceNum(b);
+        if (priceSort.toLowerCase().includes("low")) {
+          return pa - pb;
+        } else if (priceSort.toLowerCase().includes("high")) {
+          return pb - pa;
+        }
+        return 0;
+      });
     }
 
     if (appliedFilters.offers) {
@@ -634,7 +757,7 @@ export default function DashboardScreen() {
     }
 
     return filtered;
-  }, [tiffinServices, searchQuery, appliedFilters]);
+  }, [tiffinServices, searchedTiffins, searchQuery, isSearchFocused, appliedFilters, vegFilter]);
 
   const filteredHostels = useMemo(() => {
     const baseHostels = isSearchFocused && searchQuery ? searchedHostels : allHostels;
@@ -740,12 +863,13 @@ export default function DashboardScreen() {
   };
 
   // Navigate to tiffin details with ID via params
-const handleTiffinPress = (service: TiffinService) => {
-  router.push({
-    pathname: "/tiffin-details/[id]",
-    params: { id: service.id, type: "tiffin" },
-  });
-};
+  const handleTiffinPress = (service: TiffinService) => {
+    router.push({
+      pathname: "/tiffin-details/[id]",
+      params: { id: service.id, type: "tiffin", fullServiceData: JSON.stringify(service) },
+
+    });
+  };
 
   // Navigate to hostel details
   const handleHostelPress = (hostel: Hostel) => {
@@ -782,8 +906,6 @@ const handleTiffinPress = (service: TiffinService) => {
     Keyboard.dismiss();
     if (isHostel) {
       fetchAllHostels();
-    } else {
-      fetchTiffinServices();
     }
   };
 
@@ -939,23 +1061,35 @@ const handleTiffinPress = (service: TiffinService) => {
                     </>
                   )
                 ) : (
-                  <>
-                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Veg")}>
-                      <Text style={styles.suggestionTagText}>Veg</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Maharashtrian")}>
-                      <Text style={styles.suggestionTagText}>Maharashtrian</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Healthy")}>
-                      <Text style={styles.suggestionTagText}>Healthy</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Home Style")}>
-                      <Text style={styles.suggestionTagText}>Home Style</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Budget")}>
-                      <Text style={styles.suggestionTagText}>Budget</Text>
-                    </TouchableOpacity>
-                  </>
+                  suggestions.length > 0 ? (
+                    suggestions.map((suggestion, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.suggestionTag}
+                        onPress={() => setSearchQuery(suggestion)}
+                      >
+                        <Text style={styles.suggestionTagText}>{suggestion}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Veg")}>
+                        <Text style={styles.suggestionTagText}>Veg</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Maharashtrian")}>
+                        <Text style={styles.suggestionTagText}>Maharashtrian</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Healthy")}>
+                        <Text style={styles.suggestionTagText}>Healthy</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Home Style")}>
+                        <Text style={styles.suggestionTagText}>Home Style</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Budget")}>
+                        <Text style={styles.suggestionTagText}>Budget</Text>
+                      </TouchableOpacity>
+                    </>
+                  )
                 )}
               </View>
             </View>

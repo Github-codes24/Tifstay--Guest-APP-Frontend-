@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Linking,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Button from "@/components/Buttons";
@@ -22,15 +23,17 @@ const CARD_MARGIN = 10;
 
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
-  const { serviceType, serviceName } = params;
+  const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount } = params;
   const isTiffin = serviceType === "tiffin";
 
-  const orderId = `${isTiffin ? "mk" : "hkl"}${Math.floor(
-    Math.random() * 10000000
-  )}`;
+  const [bookingDetails, setBookingDetails] = useState(null);
+  const [randomTiffin, setRandomTiffin] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const tiffinBookingDetails = {
-    id: orderId,
+    id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
+      Math.random() * 10000000
+    )}`,
     tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
     customer: "Onil Karmokar",
     startDate: "21/07/25",
@@ -40,14 +43,67 @@ const Confirmation: React.FC = () => {
     plan: "Daily",
   };
 
-  const hostelBookingDetails = {
-    id: orderId,
-    hostelBooking: serviceName || "Scholars Den Boys Hostel",
-    customer: "Onil Karmokar",
-    checkInDate: "01/08/25",
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}/${month}/${year}`;
   };
 
-  const bookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+  useEffect(() => {
+    if (!isTiffin && id) {
+      setLoading(true);
+      fetch(`https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setBookingDetails(data.data);
+          }
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching booking:", error);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [id, isTiffin]);
+
+  useEffect(() => {
+    if (!isTiffin) {
+      fetch(`https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRandomTiffinService`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setRandomTiffin(data.data);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching random tiffin:", error);
+        });
+    }
+  }, [isTiffin]);
+
+  const hostelBookingDetails = bookingDetails ? {
+    id: id,
+    hostelBooking: bookingDetails.hostelName,
+    customer: bookingDetails.guestName,
+    checkInDate: formatDate(bookingDetails.checkInDate),
+    amount: bookingDetails.amount,
+  } : {
+    id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
+      Math.random() * 10000000
+    )}`,
+    hostelBooking: serviceName || "Scholars Den Boys Hostel",
+    customer: paramGuestName || "Onil Karmokar",
+    checkInDate: "01/08/25",
+    amount: paramAmount || 'N/A',
+  };
+
+  const currentBookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
 
   const getRecommendations = () => {
     if (isTiffin) {
@@ -66,11 +122,11 @@ const Confirmation: React.FC = () => {
   const recommendations = getRecommendations();
 
   const handleCallAdmin = () => {
-    console.log("Calling admin...");
+    Linking.openURL("tel:5146014598");
   };
 
   const handleChatAdmin = () => {
-    console.log("Opening chat...");
+    router.push('/account/chatScreen');
   };
 
   const handleBookNow = (item: any) => {
@@ -93,6 +149,16 @@ const Confirmation: React.FC = () => {
   const handleBackToHome = () => {
     router.push("/");
   };
+
+  if (loading && !isTiffin) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading booking details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -187,6 +253,16 @@ const Confirmation: React.FC = () => {
                   {hostelBookingDetails.checkInDate}
                 </Text>
               </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Amount :</Text>
+                <Text style={styles.detailValue}>
+                  ₹{hostelBookingDetails.amount || 'N/A'}
+                </Text>
+              </View>
+              <View style={[styles.detailRow]}>
+                <Text style={styles.detailLabel}>Order ID:</Text>
+                <Text style={styles.orderId}>#{hostelBookingDetails.id}</Text>
+              </View>
             </>
           )}
         </View>
@@ -250,7 +326,7 @@ const Confirmation: React.FC = () => {
 
         <View style={styles.recommendationsSection}>
           <Text style={styles.recommendationTitle}>
-            {isTiffin ? "Healthy Bites Tiffin" : "Green Valley Boys Hostel"}
+            {isTiffin ? "Healthy Bites Tiffin" : randomTiffin?.tiffinName || "Green Valley Boys Hostel"}
           </Text>
 
           <ScrollView
@@ -314,6 +390,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoContainer: {
     alignItems: "center",

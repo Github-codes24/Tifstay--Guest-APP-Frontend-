@@ -9,6 +9,7 @@ import {
   Platform,
   Image,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
@@ -25,11 +26,12 @@ type BookingType = "tiffin" | "hostel";
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  console.log("BookingScreen params:", params);
+  // console.log("BookingScreen params:", params);
   const bookingType = (params.bookingType as BookingType) || "tiffin";
   console.log("bookingType:", bookingType);
 
   // Extract primitive strings for stable dependencies
+  const serviceDataStr = params.serviceData || '{}'; // For tiffin
   const hostelDataStr = params.hostelData || '{}';
   const roomDataStr = params.roomData || '{}';
   const userDataStr = params.userData || '{}';
@@ -37,11 +39,19 @@ export default function BookingScreen() {
   const selectedBedsStr = params.selectedBeds || '[]';
   const checkInDateStr = params.checkInDate || '';
   const checkOutDateStr = params.checkOutDate || '';
+  const defaultDateStr = params.date || ''; // For tiffin default date
+  const defaultPlanStr = params.defaultPlan || 'perMeal'; // e.g., 'monthly', 'weekly', 'perMeal'
 
   const [serviceData, setServiceData] = useState({
     serviceId: params.serviceId,
     serviceName: params.serviceName,
     price: params.price,
+    foodType: params.foodType,
+    mealPreferences: params.mealPreferences,
+    orderTypes: params.orderTypes,
+    pricing: params.pricing,
+    location: params.location,
+    contactInfo: params.contactInfo,
     hostelId: params.hostelId,
     hostelName: params.hostelName,
     monthlyPrice: params.monthlyPrice,
@@ -60,6 +70,7 @@ export default function BookingScreen() {
 
   // New states for dynamic pricing
   const [pricingData, setPricingData] = useState({
+    daily: 0,
     weekly: 0,
     monthly: 0,
   });
@@ -67,22 +78,26 @@ export default function BookingScreen() {
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
   const [currentDeposit, setCurrentDeposit] = useState(0);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-  const [pickerItems, setPickerItems] = useState([]);
+  const [pickerItems, setPickerItems] = useState([]); // For plan types (tiffin) or plans (hostel)
+  // Tiffin-specific states
+  const [selectedPlanType, setSelectedPlanType] = useState("perMeal"); // Default to perMeal
+  const [mealLabels, setMealLabels] = useState<Record<MealType, string>>({});
+  // New state for fetched plan details
+  const [plansDetails, setPlansDetails] = useState<Record<string, any>>({});
 
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const [address, setAddress] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [numberOfTiffin, setNumberOfTiffin] = useState("4");
-  const [selectTiffinNumber, setSelectTiffinNumber] = useState("4");
-  const [selectedPlan, setSelectedPlan] = useState("daily");
-  const [selectedfood, setSelectedfood] = useState("veg");
+  const [numberOfTiffin, setNumberOfTiffin] = useState("1"); // Changed default to 1
+  const [selectTiffinNumber, setSelectTiffinNumber] = useState("1");
+  const [selectedfood, setSelectedfood] = useState("both");
   const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
   const [mealPreferences, setMealPreferences] = useState({
     breakfast: true,
     lunch: true,
-    dinner: false,
+    dinner: true,
   });
   const [sameAsSelections, setSameAsSelections] = useState({
     sameForAll: false,
@@ -90,7 +105,7 @@ export default function BookingScreen() {
     sameAs2: false,
     sameAs3: false,
   });
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [hostelPlan, setHostelPlan] = useState("monthly");
@@ -105,99 +120,246 @@ export default function BookingScreen() {
 
   const ranAutofill = useRef(false);
 
-useEffect(() => {
-  console.log("=== Autofill useEffect triggered ===");
-  console.log("bookingType:", bookingType);
+  useEffect(() => {
+    console.log("=== Autofill useEffect triggered ===");
+    console.log("bookingType:", bookingType);
 
-  const isHostelBooking = bookingType === "hostel" || bookingType === "reserve";
-  if (isHostelBooking && !ranAutofill.current) {
-    ranAutofill.current = true;
-    try {
-      const parsedHostelData = JSON.parse(hostelDataStr);
-      const parsedRoomData = JSON.parse(roomDataStr);
-      const parsedUserData = JSON.parse(userDataStr);
-      const parsedPlan = JSON.parse(planStr);
-      const parsedSelectedBeds = JSON.parse(selectedBedsStr);
-
-      console.log("Parsed Hostel Data:", parsedHostelData);
-      console.log("Parsed Room Data:", parsedRoomData);
-      console.log("Parsed User Data:", parsedUserData);
-      console.log("Parsed Plan:", parsedPlan);
-      console.log("Parsed Selected Beds:", parsedSelectedBeds);
-
-      // Update serviceData with minimal data (no bed enrichment needed)
-      setServiceData(prev => ({
-        ...prev,
-        hostelId: parsedHostelData.id,
-        hostelName: parsedHostelData.name || prev.hostelName, // For UI
-        roomId: parsedRoomData._id,
-        roomNumber: parsedRoomData.roomNumber,
-        beds: parsedSelectedBeds, // Minimal: [{bedId, bedNumber}]
-        monthlyPrice: parsedPlan.price,
-        deposit: parsedPlan.depositAmount,
-        email: parsedUserData.email || prev.email,
-        workType: parsedUserData.workType || prev.workType,
-        adharCardPhoto: parsedUserData.adharCardPhoto || prev.adharCardPhoto,
-        userPhoto: parsedUserData.userPhoto || prev.userPhoto,
-      }));
-
-      console.log("Extracted Hostel ID:", parsedHostelData.id);
-      console.log("Extracted Room ID:", parsedRoomData._id);
-
-      // Autofill other fields (except check-in and check-out dates)
-      setFullName(parsedUserData.name || '');
-      setPhoneNumber(parsedUserData.phoneNumber || '');
-      setHostelPlan(parsedPlan.name || "monthly");
-      setAadhaarPhoto(parsedUserData.adharCardPhoto || "");
-      setUserPhoto(parsedUserData.userPhoto || "");
-      // Do not auto-fill checkInDate or checkOutDate - let user select
-      const workType = parsedUserData.workType || "Student";
-      setPurposeType(workType === "Student" ? "leisure" : "work");
-
-      console.log("Autofill completed");
-    } catch (error) {
-      console.error("Error parsing params for autofill:", error);
-    }
-  }
-}, [bookingType, hostelDataStr, roomDataStr, userDataStr, planStr, selectedBedsStr]);
-
-// Fetch pricing data
-useEffect(() => {
-  const fetchPricing = async () => {
     const isHostelBooking = bookingType === "hostel" || bookingType === "reserve";
-    if (isHostelBooking && serviceData.hostelId) {
+    const isTiffinBooking = bookingType === "tiffin";
+
+    if ((isHostelBooking || isTiffinBooking) && !ranAutofill.current) {
+      ranAutofill.current = true;
+      try {
+        const parsedUserData = JSON.parse(userDataStr);
+        console.log("Parsed User Data:", parsedUserData);
+
+        // Common user autofill
+        setFullName(parsedUserData.name || '');
+        setPhoneNumber(parsedUserData.phoneNumber || '');
+
+        if (isHostelBooking) {
+          const parsedHostelData = JSON.parse(hostelDataStr);
+          const parsedRoomData = JSON.parse(roomDataStr);
+          const parsedPlan = JSON.parse(planStr);
+          const parsedSelectedBeds = JSON.parse(selectedBedsStr);
+
+          console.log("Parsed Hostel Data:", parsedHostelData);
+          console.log("Parsed Room Data:", parsedRoomData);
+          console.log("Parsed Plan:", parsedPlan);
+          console.log("Parsed Selected Beds:", parsedSelectedBeds);
+
+          // Update serviceData with minimal data (no bed enrichment needed)
+          setServiceData(prev => ({
+            ...prev,
+            hostelId: parsedHostelData.id,
+            hostelName: parsedHostelData.name || prev.hostelName, // For UI
+            roomId: parsedRoomData._id,
+            roomNumber: parsedRoomData.roomNumber,
+            beds: parsedSelectedBeds, // Minimal: [{bedId, bedNumber}]
+            monthlyPrice: parsedPlan.price,
+            deposit: parsedPlan.depositAmount,
+            email: parsedUserData.email || prev.email,
+            workType: parsedUserData.workType || prev.workType,
+            adharCardPhoto: parsedUserData.adharCardPhoto || prev.adharCardPhoto,
+            userPhoto: parsedUserData.userPhoto || prev.userPhoto,
+          }));
+
+          console.log("Extracted Hostel ID:", parsedHostelData.id);
+          console.log("Extracted Room ID:", parsedRoomData._id);
+
+          // Autofill other fields (except check-in and check-out dates)
+          setHostelPlan(parsedPlan.name || "monthly");
+          setAadhaarPhoto(parsedUserData.adharCardPhoto || "");
+          setUserPhoto(parsedUserData.userPhoto || "");
+          // Do not auto-fill checkInDate or checkOutDate - let user select
+          const workType = parsedUserData.workType || "Student";
+          setPurposeType(workType === "Student" ? "leisure" : "work");
+        }
+
+        if (isTiffinBooking) {
+          const parsedServiceData = JSON.parse(serviceDataStr);
+          console.log("Parsed Tiffin Service Data:", parsedServiceData);
+
+          // Update serviceData for tiffin
+          setServiceData(prev => ({
+            ...prev,
+            serviceId: parsedServiceData.serviceId || parsedServiceData.id,
+            serviceName: parsedServiceData.serviceName || parsedServiceData.name,
+            price: parsedServiceData.price,
+            foodType: parsedServiceData.foodType,
+            mealPreferences: parsedServiceData.mealPreferences,
+            orderTypes: parsedServiceData.orderTypes,
+            pricing: parsedServiceData.pricing, // This is now used directly
+            location: parsedServiceData.location || parsedServiceData.fullAddress,
+            contactInfo: parsedServiceData.contactInfo,
+          }));
+
+          // Autofill tiffin-specific fields
+          // NEW: Use first available plan's foodType (handles mismatches)
+          const firstPlan = parsedServiceData.pricing?.[0];
+          const planFoodType = firstPlan?.foodType?.toLowerCase() || "veg";
+          setSelectedfood(planFoodType.includes("both") ? "both" : planFoodType.includes("non") ? "nonveg" : "veg");
+          // Set meal preferences from data (assume types like "Breakfast" -> "breakfast")
+          const defaultMealPrefs = { breakfast: false, lunch: false, dinner: false };
+          parsedServiceData.mealPreferences?.forEach((meal: any) => {
+            const key = meal.type.toLowerCase() as MealType;
+            if (key in defaultMealPrefs) {
+              defaultMealPrefs[key] = true;
+            }
+          });
+          console.log("mealPreferences set to:", defaultMealPrefs);
+          setMealPreferences(defaultMealPrefs);
+
+          // Set meal labels with timings
+          const mealLabelMap: Record<MealType, string> = { breakfast: '', lunch: '', dinner: '' };
+          parsedServiceData.mealPreferences?.forEach((meal: any) => {
+            const key = meal.type.toLowerCase() as MealType;
+            if (key in mealLabelMap) {
+              mealLabelMap[key] = `${meal.type} ${meal.time}`;
+            }
+          });
+          setMealLabels(mealLabelMap);
+
+          setOrderType(parsedServiceData.orderTypes?.includes("Delivery") ? "delivery" : "dining");
+          // Default date from params - but set to null for user selection
+          setDate(null);
+        }
+
+        console.log("Autofill completed");
+      } catch (error) {
+        console.error("Error parsing params for autofill:", error);
+      }
+    }
+  }, [bookingType, serviceDataStr, hostelDataStr, roomDataStr, userDataStr, planStr, selectedBedsStr, defaultDateStr]);
+
+
+useEffect(() => {
+  const fetchSelectedPlanDetails = async () => {
+    if (bookingType !== "tiffin" || !serviceData.pricing || serviceData.pricing.length === 0) {
+      console.log("⚠️ No pricing data available for fetch");
+      return;
+    }
+
+    // Compute selected meals from state
+    const selectedMeals: string[] = [];
+    if (mealPreferences?.breakfast) selectedMeals.push('breakfast');
+    if (mealPreferences?.lunch) selectedMeals.push('lunch');
+    if (mealPreferences?.dinner) selectedMeals.push('dinner');
+    const mealPrefStr = selectedMeals.join(',');
+    const numMeals = selectedMeals.length;
+
+    // Guard: Skip if no meals or no plan
+    if (!selectedPlanType || numMeals === 0) {
+      console.log("⏭️ Skipping plan details fetch: No selected plan or meals (using local pricing)");
+      setPlansDetails({});
+      return;
+    }
+
+    console.log(`🔍 Fetching details for selected plan: ${selectedPlanType} | Meals: ${mealPrefStr} (${numMeals} meals) | FoodType: ${serviceData.foodType}`);
+
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      console.warn("No token available – skipping");
+      return;
+    }
+
+    if (!serviceData.serviceId) {
+      console.warn("⚠️ No serviceId – skipping");
+      return;
+    }
+
+    const selectedPlan = serviceData.pricing.find((p: any) => p.planType === selectedPlanType);
+    if (!selectedPlan || !selectedPlan._id) {
+      console.warn(`⚠️ Selected plan not found: ${selectedPlanType}`);
+      return;
+    }
+
+    // NEW: Guard for foodType mismatch (esp. for third plan)
+    if (selectedPlan.foodType !== serviceData.foodType && selectedPlan.foodType !== "Both Veg & Non-Veg") {
+      console.warn(`⚠️ FoodType mismatch: Plan ${selectedPlan.foodType} vs Service ${serviceData.foodType} – skipping fetch`);
+      return;
+    }
+
+    try {
+      const queryParams = new URLSearchParams({
+        planType: selectedPlan.planType,
+        foodType: selectedPlan.foodType,  // Use plan's foodType
+        orderType: orderType.toLowerCase(),
+        mealPreference: mealPrefStr,
+      });
+
+      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${selectedPlan._id}?${queryParams.toString()}`;
+      console.log("🔗 Full API URL:", url);
+
+      const response = await axios.get(url, {
+        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
+      });
+
+      console.log(`📥 Response for ${selectedPlan.planType}:`, JSON.stringify(response, null, 2));
+
+      if (response.data.success) {
+        const details = { [selectedPlan.planType]: response.data.data };
+        setPlansDetails(details);
+        console.log(`✅ Fetched details for ${selectedPlan._id}:`, response.data.data);
+      } else {
+        console.log(`❌ API false for ${selectedPlan.planType}:`, response.data.message);
+        setPlansDetails({});
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(`❌ Error for ${selectedPlan._id}: Status ${error.response?.status}, Data:`, error.response?.data);
+      } else {
+        console.error(`❌ Non-Axios error:`, error);
+      }
+      setPlansDetails({});
+    }
+  };
+
+  fetchSelectedPlanDetails();
+}, [serviceData.pricing, bookingType, orderType, selectedPlanType, mealPreferences]);  // Reactive deps
+
+  // Fetch pricing only for hostel (skip for tiffin to avoid 404)
+  useEffect(() => {
+    const fetchPricing = async () => {
+      if (bookingType !== "hostel" && bookingType !== "reserve") {
+        setIsLoadingPricing(false);
+        return;
+      }
       setIsLoadingPricing(true);
       try {
-        const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelPricing/${serviceData.hostelId}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (response.data.success) {
-          const data = response.data.data;
-          setPricingData({
-            weekly: data.pricing?.weekly || 0,
-            monthly: data.pricing?.monthly || 0,
-          });
-          setSecurityDeposit(data.securityDeposit || 0);
+        let response;
+        if ((bookingType === "hostel" || bookingType === "reserve") && serviceData.hostelId) {
+          response = await axios.get(
+            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelPricing/${serviceData.hostelId}`,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          if (response.data.success) {
+            const data = response.data.data;
+            setPricingData({
+              weekly: data.pricing?.weekly || 0,
+              monthly: data.pricing?.monthly || 0,
+            });
+            setSecurityDeposit(data.securityDeposit || 0);
 
-          // Dynamically create picker items based on available plans
-          const items = [];
-          if (data.pricing?.weekly > 0) {
-            items.push({ label: "Weekly", value: "weekly" });
-          }
-          if (data.pricing?.monthly > 0) {
-            items.push({ label: "Monthly", value: "monthly" });
-          }
-          setPickerItems(items);
+            // Dynamically create picker items based on available plans
+            const items = [];
+            if (data.pricing?.weekly > 0) {
+              items.push({ label: "Weekly", value: "weekly" });
+            }
+            if (data.pricing?.monthly > 0) {
+              items.push({ label: "Monthly", value: "monthly" });
+            }
+            setPickerItems(items);
 
-          // Set initial price for monthly if available
-          if (data.pricing?.monthly > 0) {
-            setCurrentPlanPrice(data.pricing.monthly);
-            setCurrentDeposit(data.securityDeposit || 0);
+            // Set initial price for monthly if available
+            if (data.pricing?.monthly > 0) {
+              setCurrentPlanPrice(data.pricing.monthly);
+              setCurrentDeposit(data.securityDeposit || 0);
+            }
           }
         }
       } catch (error) {
@@ -205,44 +367,94 @@ useEffect(() => {
       } finally {
         setIsLoadingPricing(false);
       }
+    };
+
+    fetchPricing();
+  }, [serviceData.hostelId, bookingType]);
+
+  // Update price and deposit based on selections
+  useEffect(() => {
+    let newPrice = 0;
+    let newDeposit = 0;
+
+    // NEW: Compute numMeals for logging
+    const numMeals = Object.values(mealPreferences).filter(Boolean).length;
+
+    console.log("Price useEffect: selectedPlanType", selectedPlanType, "orderType", orderType, "numberOfTiffin", numberOfTiffin);
+
+    if (bookingType === "tiffin") {
+      if (selectedPlanType) {
+        let basePrice = 0;
+        // Hardcoded prices based on plan type and order type (delivery/dining)
+        if (selectedPlanType === "perBreakfast") {
+          basePrice = orderType === "delivery" ? 120 : 100; // Assume dining cheaper
+        } else if (selectedPlanType === "perMeal") {
+          basePrice = orderType === "delivery" ? 120 : 100;
+        } else if (selectedPlanType === "weekly") {
+          basePrice = orderType === "delivery" ? 800 : 700; // Discounted price
+        } else if (selectedPlanType === "monthly") {
+          basePrice = orderType === "delivery" ? 3200 : 3000; // Discounted price
+        }
+        const numTiffins = parseInt(numberOfTiffin || "1");
+        newPrice = basePrice * numTiffins;
+        console.log("final newPrice:", newPrice);
+      }
+      newDeposit = 0; // No deposit for tiffin
+    } else {
+      if (hostelPlan === "weekly") {
+        newPrice = pricingData.weekly;
+        newDeposit = securityDeposit;
+      } else if (hostelPlan === "monthly") {
+        newPrice = pricingData.monthly;
+        newDeposit = securityDeposit;
+      }
     }
-  };
 
-  fetchPricing();
-}, [serviceData.hostelId, bookingType]);
+    console.log(`💰 Updated prices - Total: ₹${newPrice}, Deposit: ₹${newDeposit}`);
+    setCurrentPlanPrice(newPrice);
+    setCurrentDeposit(newDeposit);
+  }, [
+    selectedPlanType,
+    orderType,
+    numberOfTiffin,
+    bookingType,
+    hostelPlan,
+    pricingData,
+    securityDeposit,
+    mealPreferences,  // NEW: For numMeals calc in log
+  ]);
 
-// Update price and deposit based on selected plan
-useEffect(() => {
-  let newPrice = 0;
-  let newDeposit = 0;
-
-  if (hostelPlan === "weekly") {
-    newPrice = pricingData.weekly;
-    newDeposit = securityDeposit;
-  } else if (hostelPlan === "monthly") {
-    newPrice = pricingData.monthly;
-    newDeposit = securityDeposit;
-  }
-
-  setCurrentPlanPrice(newPrice);
-  setCurrentDeposit(newDeposit);
-}, [hostelPlan, pricingData, securityDeposit]);
-
-// Auto-fill check-out date based on check-in and plan
-useEffect(() => {
-  if (checkInDate && hostelPlan) {
-    let daysToAdd = 0;
-    if (hostelPlan === 'weekly') {
-      daysToAdd = 7;
-    } else if (hostelPlan === 'monthly') {
-      daysToAdd = 30; // Approximate for a month
+  // Auto-set meal preferences based on selected plan type
+  useEffect(() => {
+    if (selectedPlanType) {
+      let prefs = { breakfast: false, lunch: false, dinner: false };
+      if (selectedPlanType === "perBreakfast") {
+        prefs.breakfast = true;
+      } else if (selectedPlanType === "perMeal") {
+        prefs.lunch = true; // Assume lunch for per meal
+      } else if (selectedPlanType === "weekly" || selectedPlanType === "monthly") {
+        prefs = { breakfast: true, lunch: true, dinner: true }; // Full plan
+      }
+      setMealPreferences(prefs);
+      console.log(`💡 Auto-set meals for ${selectedPlanType}:`, prefs);
     }
+  }, [selectedPlanType]);
 
-    const newCheckOut = new Date(checkInDate);
-    newCheckOut.setDate(newCheckOut.getDate() + daysToAdd);
-    setCheckOutDate(newCheckOut);
-  }
-}, [checkInDate, hostelPlan]);
+  // Auto-fill check-out date based on check-in and plan
+  useEffect(() => {
+    if (checkInDate && hostelPlan) {
+      let daysToAdd = 0;
+      if (hostelPlan === 'weekly') {
+        daysToAdd = 7;
+      } else if (hostelPlan === 'monthly') {
+        daysToAdd = 30; // Approximate for a month
+      }
+
+      const newCheckOut = new Date(checkInDate);
+      newCheckOut.setDate(newCheckOut.getDate() + daysToAdd);
+      setCheckOutDate(newCheckOut);
+    }
+  }, [checkInDate, hostelPlan]);
 
   // Helper functions
   const toggleMealPreference = (meal: MealType) => {
@@ -275,204 +487,276 @@ useEffect(() => {
     router.back();
   };
 
-  const handleTiffinSubmit = () => {
-    // Check for missing fields
+  const handleTiffinSubmit = async () => {
     console.log("=== Tiffin Submit Debug ===");
     console.log("fullName:", fullName);
     console.log("phoneNumber:", phoneNumber);
     console.log("address:", address);
     console.log("numberOfTiffin:", numberOfTiffin);
-    console.log("selectedPlan:", selectedPlan);
+    console.log("selectedPlanType:", selectedPlanType);
     console.log("mealPreferences:", mealPreferences);
     console.log("orderType:", orderType);
+    console.log("selectedfood:", selectedfood);
+    console.log("specialInstructions:", specialInstructions);
+    console.log("date:", date);
     console.log("serviceData:", serviceData);
 
+    // Validation
     if (!fullName) {
-      console.error("Error: Full Name is missing!");
       alert("Full Name is required!");
       return;
     }
     if (!phoneNumber) {
-      console.error("Error: Phone Number is missing!");
       alert("Phone Number is required!");
       return;
     }
     if (orderType === "delivery" && !address) {
-      console.error("Error: Address is missing for delivery!");
       alert("Address is required for delivery!");
       return;
     }
     if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) {
-      console.error("Error: Number of Tiffin is invalid!");
       alert("Valid Number of Tiffin is required!");
       return;
     }
+    if (!date) {
+      alert("Date is required!");
+      return;
+    }
+    if (!selectedfood) {
+      alert("Food Type is required!");
+      return;
+    }
+    if (!selectedPlanType) {
+      alert("Plan type is required!");
+      return;
+    }
 
-    const bookingData = {
-      serviceType: "tiffin",
-      fullName,
-      phoneNumber,
-      address,
-      numberOfTiffin,
-      selectedPlan,
-      mealPreferences,
-      orderType,
-      serviceName: serviceData.serviceName || "Maharashtrian Ghar Ka Khana",
-      price: serviceData.price || "₹120",
-      serviceId: serviceData.serviceId,
-    };
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const guestId = await AsyncStorage.getItem("guestId");
 
-    console.log("Tiffin order submitted", bookingData);
-    console.log("Navigating to checkout with params:", {
-      serviceType: "tiffin",
-      bookingData: JSON.stringify(bookingData),
-    });
+      if (!token || !guestId) {
+        alert("Authentication token or guest ID is missing!");
+        return;
+      }
 
-    router.push({
-      pathname: "/check-out",
-      params: {
-        serviceType: "tiffin",
-        bookingData: JSON.stringify(bookingData),
-      },
-    });
+      if (!serviceData.serviceId) {
+        alert("Service ID is missing!");
+        return;
+      }
+
+      // Derive selectTiffinNumber
+      const numTiffins = parseInt(numberOfTiffin);
+      let selectTiffinNumber = [];
+      if (sameAsSelections.sameForAll) {
+        selectTiffinNumber = [{ tiffinNumber: 1, sameUs: "All" }];
+      } else {
+        for (let i = 1; i <= numTiffins; i++) {
+          selectTiffinNumber.push({ tiffinNumber: i, sameUs: `Same As ${i}` });
+        }
+      }
+
+      // Derive mealPreference
+      const selectedMeals = Object.entries(mealPreferences)
+        .filter(([_, checked]) => checked)
+        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1))
+        .join(", ");
+      const mealPreference = selectedMeals || "Lunch";
+
+      // Derive plan (price already includes numTiffins)
+      const choosePlanType = {
+        planName: selectedPlanType,
+        price: currentPlanPrice,
+      };
+
+      // API Payload
+      const bookingPayload = {
+        fullName,
+        phoneNumber,
+        address: orderType === "delivery" ? address : "",
+        specialInstructions,
+        numberOfTiffin: numTiffins,
+        selectTiffinNumber,
+        mealPreference,
+        foodType: selectedfood === "both" ? "Both Veg & Non-Veg" : selectedfood.charAt(0).toUpperCase() + selectedfood.slice(1),
+        chooseOrderType: orderType.charAt(0).toUpperCase() + orderType.slice(1),
+        choosePlanType,
+        date: date.toISOString().split("T")[0],
+        serviceId: serviceData.serviceId,
+        guestId,
+      };
+
+      console.log("Tiffin Booking Payload:", JSON.stringify(bookingPayload, null, 2));
+
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create",
+        bookingPayload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("API Response:", response.data);
+
+      if (response.data.success) {
+        const bookingId = response.data.data._id;
+        console.log("Tiffin booking successful, ID:", bookingId);
+
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "tiffin",
+            bookingId,
+          },
+        });
+      } else {
+        alert("Booking failed: " + (response.data.message || "Unknown error"));
+      }
+    } catch (error: any) {
+      console.error("Error creating tiffin booking:", error.response?.data || error.message);
+      alert("Something went wrong while booking. Please try again.");
+    }
   };
 
-const handleHostelSubmit = async () => {
-  console.log("=== Hostel Submit Debug ===");
-  console.log("serviceData:", serviceData);
-  console.log("hostelPlan:", hostelPlan);
-  console.log("fullName:", fullName);
-  console.log("phoneNumber:", phoneNumber);
-  console.log("checkInDate:", checkInDate);
-  console.log("checkOutDate:", checkOutDate);
-  console.log("purposeType:", purposeType);
-  console.log("aadhaarPhoto:", aadhaarPhoto);
-  console.log("userPhoto:", userPhoto);
-  console.log("beds:", serviceData.beds);
+  const handleHostelSubmit = async () => {
+    console.log("=== Hostel Submit Debug ===");
+    console.log("serviceData:", serviceData);
+    console.log("hostelPlan:", hostelPlan);
+    console.log("fullName:", fullName);
+    console.log("phoneNumber:", phoneNumber);
+    console.log("checkInDate:", checkInDate);
+    console.log("checkOutDate:", checkOutDate);
+    console.log("purposeType:", purposeType);
+    console.log("aadhaarPhoto:", aadhaarPhoto);
+    console.log("userPhoto:", userPhoto);
+    console.log("beds:", serviceData.beds);
 
-  try {
-    if (!serviceData.hostelId || !serviceData.roomId) {
-      console.error("Error: Hostel ID or Room ID is missing!");
-      console.log("hostelId:", serviceData.hostelId);
-      console.log("roomId:", serviceData.roomId);
-      alert("Hostel ID or Room ID is missing!");
-      return;
-    }
-
-    if (!fullName) {
-      console.error("Error: Full Name is missing!");
-      alert("Full Name is required!");
-      return;
-    }
-    if (!phoneNumber) {
-      console.error("Error: Phone Number is missing!");
-      alert("Phone Number is required!");
-      return;
-    }
-    if (!checkInDate || !checkOutDate) {
-      console.error("Error: Check-in and Check-out dates are required!");
-      alert("Check-in and Check-out dates are required!");
-      return;
-    }
-    if (checkInDate >= checkOutDate) {
-      console.error("Error: Invalid dates - Check-out must be after Check-in!");
-      alert("Check-out date must be after Check-in date!");
-      return;
-    }
-
-    if (!serviceData.beds || serviceData.beds.length === 0) {
-      console.error("Error: No beds selected!");
-      alert("Please select at least one bed!");
-      return;
-    }
-
-    const token = await AsyncStorage.getItem("token");
-    const guestId = await AsyncStorage.getItem("guestId");
-
-    console.log("token:", token ? "Present" : "Missing");
-    console.log("guestId:", guestId ? "Present" : "Missing");
-
-    if (!token || !guestId) {
-      console.error("Error: Authentication token or guest ID is missing!");
-      alert("Authentication token or guest ID is missing!");
-      return;
-    }
-
-    const selectPlan = [
-      {
-        name: hostelPlan,
-        price: currentPlanPrice,
-        depositAmount: currentDeposit,
-      },
-    ];
-
-    // Minimal bedNumber: only bedId and bedNumber
-    const bedNumber = serviceData.beds.map((bed: any) => ({
-      bedId: bed.bedId,
-      bedNumber: bed.bedNumber,
-    }));
-
-    // Minimal payload matching backend expectations
-    const bookingPayload = {
-      fullName,
-      phoneNumber,
-      email: serviceData.email || "example@example.com",
-      workType: purposeType === "work" ? "1" : "10",
-      checkInDate: checkInDate.toISOString(),
-      checkOutDate: checkOutDate.toISOString(),
-      selectPlan,
-      addharCardPhoto: aadhaarPhoto || null,
-      userPhoto: userPhoto || null,
-      guestId,
-      rooms: [
-        {
-          roomId: serviceData.roomId,
-          roomNumber: String(serviceData.roomNumber || ""), // e.g., "101"
-          bedNumber, // Minimal array
-        },
-      ],
-    };
-
-    console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
-
-    const response = await axios.post(
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}?roomId=${serviceData.roomId}`,
-      bookingPayload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+    try {
+      if (!serviceData.hostelId || !serviceData.roomId) {
+        console.error("Error: Hostel ID or Room ID is missing!");
+        console.log("hostelId:", serviceData.hostelId);
+        console.log("roomId:", serviceData.roomId);
+        alert("Hostel ID or Room ID is missing!");
+        return;
       }
-    );
 
-    console.log("API Response:", response.data);
+      if (!fullName) {
+        console.error("Error: Full Name is missing!");
+        alert("Full Name is required!");
+        return;
+      }
+      if (!phoneNumber) {
+        console.error("Error: Phone Number is missing!");
+        alert("Phone Number is required!");
+        return;
+      }
+      if (!checkInDate || !checkOutDate) {
+        console.error("Error: Check-in and Check-out dates are required!");
+        alert("Check-in and Check-out dates are required!");
+        return;
+      }
+      if (checkInDate >= checkOutDate) {
+        console.error("Error: Invalid dates - Check-out must be after Check-in!");
+        alert("Check-out date must be after Check-in date!");
+        return;
+      }
 
-    if (response.data.success) {
-      console.log("Booking successful:", response.data.data);
-      // alert("Hostel booking created successfully!");
+      if (!serviceData.beds || serviceData.beds.length === 0) {
+        console.error("Error: No beds selected!");
+        alert("Please select at least one bed!");
+        return;
+      }
 
-      const bookingId = response.data.data._id;
+      const token = await AsyncStorage.getItem("token");
+      const guestId = await AsyncStorage.getItem("guestId");
 
-      console.log("Navigating to checkout with booking ID:", bookingId);
+      console.log("token:", token ? "Present" : "Missing");
+      console.log("guestId:", guestId ? "Present" : "Missing");
 
-      router.push({
-        pathname: "/check-out",
-        params: {
-          serviceType: "hostel",
-          bookingId,
+      if (!token || !guestId) {
+        console.error("Error: Authentication token or guest ID is missing!");
+        alert("Authentication token or guest ID is missing!");
+        return;
+      }
+
+      const selectPlan = [
+        {
+          name: hostelPlan,
+          price: currentPlanPrice,
+          depositAmount: currentDeposit,
         },
-      });
-    } else {
-      console.error("Booking failed:", response.data.message || "Unknown error");
-      alert("Booking failed: " + (response.data.message || "Unknown error"));
+      ];
+
+      // Minimal bedNumber: only bedId and bedNumber
+      const bedNumber = serviceData.beds.map((bed: any) => ({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+      }));
+
+      // Minimal payload matching backend expectations
+      const bookingPayload = {
+        fullName,
+        phoneNumber,
+        email: serviceData.email || "example@example.com",
+        workType: purposeType === "work" ? "1" : "10",
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        selectPlan,
+        addharCardPhoto: aadhaarPhoto || null,
+        userPhoto: userPhoto || null,
+        guestId,
+        rooms: [
+          {
+            roomId: serviceData.roomId,
+            roomNumber: String(serviceData.roomNumber || ""), // e.g., "101"
+            bedNumber, // Minimal array
+          },
+        ],
+      };
+
+      console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
+
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}?roomId=${serviceData.roomId}`,
+        bookingPayload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("API Response:", response.data);
+
+      if (response.data.success) {
+        console.log("Booking successful:", response.data.data);
+        // alert("Hostel booking created successfully!");
+
+        const bookingId = response.data.data._id;
+
+        console.log("Navigating to checkout with booking ID:", bookingId);
+
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "hostel",
+            bookingId,
+          },
+        });
+      } else {
+        console.error("Booking failed:", response.data.message || "Unknown error");
+        alert("Booking failed: " + (response.data.message || "Unknown error"));
+      }
+    } catch (error: any) {
+      console.error("Error creating hostel booking:", error.response?.data || error.message);
+      console.error("Full error object:", error);
+      alert("Something went wrong while booking. Please try again.");
     }
-  } catch (error: any) {
-    console.error("Error creating hostel booking:", error.response?.data || error.message);
-    console.error("Full error object:", error);
-    alert("Something went wrong while booking. Please try again.");
-  }
-};
+  };
 
   const Checkbox = ({
     checked,
@@ -500,7 +784,7 @@ const handleHostelSubmit = async () => {
     selected: string;
     onPress: (value: string) => void;
   }) => (
-    <TouchableOpacity onPress={() => onPress(value)}>
+    <TouchableOpacity onPress={() => onPress(value)} style={styles.radioRow}>
       <View style={styles.radioOuter}>
         {selected === value && <View style={styles.radioInner} />}
       </View>
@@ -685,213 +969,226 @@ const handleHostelSubmit = async () => {
     </>
   );
 
-  const renderTiffinBooking = () => (
-    <>
-      <View style={styles.section}>
-        <View style={{ flexDirection: "row" }}>
-          <Image source={person} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Personal Information</Text>
-        </View>
-        <Text style={styles.label}>Full Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your full name"
-          value={fullName}
-          onChangeText={setFullName}
-        />
-        <Text style={styles.label}>Phone Number *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your phone number"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-        />
-      </View>
+  const renderTiffinBooking = () => {
+    // Hardcoded plan options
+    const planOptions = [
+      { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
+      { label: "Per Meal (₹120/meal)", value: "perMeal" },
+      { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
+      { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
+    ];
 
-      <View style={styles.section}>
-        <View style={{ flexDirection: "row" }}>
-          <Image source={location1} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Delivery Address</Text>
-        </View>
-        <Text style={styles.label}>Select Address</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setAddress}
-            items={[
-              { label: "Home Address", value: "home" },
-              { label: "Office Address", value: "office" },
-              { label: "Other", value: "other" },
-            ]}
-            placeholder={{ label: "Home Address", value: null }}
-            style={{
-              inputIOS: styles.pickerInput,
-              inputAndroid: styles.pickerInput,
-            }}
-            value={address}
-            disabled={orderType === "dining"}
-          />
-        </View>
-        <Text style={styles.label}>Special Instructions (Optional)</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { height: 80 },
-            orderType === "dining" && { backgroundColor: "#eee" },
-          ]}
-          placeholder="Any dietary preferences, spice level, or special requests"
-          multiline
-          value={specialInstructions}
-          onChangeText={setSpecialInstructions}
-          editable={orderType === "delivery"}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <View style={{ flexDirection: "row" }}>
-          <Image source={calender} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Booking Details</Text>
-        </View>
-        <Text style={styles.label}>Number Of Tiffin</Text>
-        <TextInput
-          style={styles.input}
-          value={numberOfTiffin}
-          keyboardType="numeric"
-          onChangeText={setNumberOfTiffin}
-        />
-        <Text style={styles.label}>Select Tiffin Number</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setSelectTiffinNumber}
-            items={[
-              { label: "1", value: "1" },
-              { label: "2", value: "2" },
-              { label: "3", value: "3" },
-              { label: "4", value: "4" },
-            ]}
-            placeholder={{ label: "Select Tiffin Number", value: null }}
-            style={{
-              inputIOS: styles.pickerInput,
-              inputAndroid: styles.pickerInput,
-            }}
-            value={selectTiffinNumber}
-          />
-        </View>
-
-        <Text style={[styles.sectionTitle]}>Apply Preferences</Text>
-        {Object.entries(sameAsSelections).map(([key, value]) => (
-          <View style={styles.checkboxRow} key={key}>
-            <Checkbox
-              checked={value}
-              onPress={() => toggleSameAs(key as keyof typeof sameAsSelections)}
-            />
-            <Text style={styles.checkboxLabel}>
-              {key === "sameForAll"
-                ? "Same For All"
-                : `Same As ${key.slice(-1)}`}
-            </Text>
+    return (
+      <>
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row" }}>
+            <Image source={person} style={styles.icon} />
+            <Text style={styles.sectionTitle}> Personal Information</Text>
           </View>
-        ))}
-
-        <Text style={[styles.sectionTitle]}>Meal Preference</Text>
-        {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
-          <View style={styles.checkboxRow} key={meal}>
-            <Checkbox
-              checked={mealPreferences[meal]}
-              onPress={() => toggleMealPreference(meal)}
-            />
-            <Text style={styles.checkboxLabel}>
-              {meal.charAt(0).toUpperCase() + meal.slice(1)}
-            </Text>
-          </View>
-        ))}
-
-        <Text style={[styles.sectionTitle]}>Food Type</Text>
-        <RadioButton
-          label="Veg"
-          value="veg"
-          selected={selectedfood}
-          onPress={setSelectedfood}
-        />
-        <RadioButton
-          label="Non-Veg"
-          value="nonveg"
-          selected={selectedfood}
-          onPress={setSelectedfood}
-        />
-        <RadioButton
-          label="Both"
-          value="both"
-          selected={selectedfood}
-          onPress={setSelectedfood}
-        />
-
-        <Text style={[styles.sectionTitle]}>Select Date</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.datePickerText}>{date.toLocaleDateString()}</Text>
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
-            minimumDate={new Date()}
+          <Text style={styles.label}>Full Name *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your full name"
+            value={fullName}
+            onChangeText={setFullName}
           />
-        )}
+          <Text style={styles.label}>Phone Number *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your phone number"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+          />
+        </View>
 
-        {/* Order Type */}
-        <Text style={[styles.sectionTitle]}>Choose Order Type</Text>
-        {["dining", "delivery"].map((type) => (
-          <View style={styles.checkboxRow} key={type}>
-            <TouchableOpacity
-              style={[
-                styles.checkboxBase,
-                orderType === type && styles.checkboxSelected,
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row" }}>
+            <Image source={location1} style={styles.icon} />
+            <Text style={styles.sectionTitle}> Delivery Address</Text>
+          </View>
+          <Text style={styles.label}>Select Address</Text>
+          <View style={styles.pickerWrapper}>
+            <RNPickerSelect
+              onValueChange={setAddress}
+              items={[
+                { label: "Home Address", value: "home" },
+                { label: "Office Address", value: "office" },
+                { label: "Other", value: "other" },
               ]}
-              onPress={() => setOrderType(type as any)}
-            >
-              {orderType === type && <Text style={styles.checkMark}>✓</Text>}
-            </TouchableOpacity>
-            <Text style={styles.checkboxLabel}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+              placeholder={{ label: "Home Address", value: null }}
+              style={{
+                inputIOS: styles.pickerInput,
+                inputAndroid: styles.pickerInput,
+              }}
+              value={address}
+              disabled={orderType === "dining"}
+            />
+          </View>
+          <Text style={styles.label}>Special Instructions (Optional)</Text>
+          <TextInput
+            style={[
+              styles.input,
+              { height: 80 },
+              orderType === "dining" && { backgroundColor: "#eee" },
+            ]}
+            placeholder="Any dietary preferences, spice level, or special requests"
+            multiline
+            value={specialInstructions}
+            onChangeText={setSpecialInstructions}
+            editable={orderType === "delivery"}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row" }}>
+            <Image source={calender} style={styles.icon} />
+            <Text style={styles.sectionTitle}> Booking Details</Text>
+          </View>
+          <Text style={styles.label}>Number Of Tiffin *</Text>
+          <TextInput
+            style={styles.input}
+            value={numberOfTiffin}
+            keyboardType="numeric"
+            onChangeText={setNumberOfTiffin}
+          />
+          <Text style={styles.label}>Select Tiffin Number</Text>
+          <View style={styles.pickerWrapper}>
+            <RNPickerSelect
+              onValueChange={setSelectTiffinNumber}
+              items={[
+                { label: "1", value: "1" },
+                { label: "2", value: "2" },
+                { label: "3", value: "3" },
+                { label: "4", value: "4" },
+              ]}
+              placeholder={{ label: "Select Tiffin Number", value: null }}
+              style={{
+                inputIOS: styles.pickerInput,
+                inputAndroid: styles.pickerInput,
+              }}
+              value={selectTiffinNumber}
+            />
+          </View>
+
+          <Text style={[styles.sectionTitle]}>Apply Preferences</Text>
+          {Object.entries(sameAsSelections).map(([key, value]) => (
+            <View style={styles.checkboxRow} key={key}>
+              <Checkbox
+                checked={value}
+                onPress={() => toggleSameAs(key as keyof typeof sameAsSelections)}
+              />
+              <Text style={styles.checkboxLabel}>
+                {key === "sameForAll"
+                  ? "Same For All"
+                  : `Same As ${key.slice(-1)}`}
+              </Text>
+            </View>
+          ))}
+
+          <Text style={[styles.sectionTitle]}>Meal Preference</Text>
+          {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
+            <View style={styles.checkboxRow} key={meal}>
+              <Checkbox
+                checked={mealPreferences[meal]}
+                onPress={() => toggleMealPreference(meal)}
+              />
+              <Text style={styles.checkboxLabel}>
+                {mealLabels[meal] || (meal.charAt(0).toUpperCase() + meal.slice(1))}
+              </Text>
+            </View>
+          ))}
+
+          <Text style={[styles.sectionTitle]}>Food Type</Text>
+          <RadioButton
+            label="Veg"
+            value="veg"
+            selected={selectedfood}
+            onPress={setSelectedfood}
+          />
+          <RadioButton
+            label="Non-Veg"
+            value="nonveg"
+            selected={selectedfood}
+            onPress={setSelectedfood}
+          />
+          <RadioButton
+            label="Both Veg & Non-Veg"
+            value="both"
+            selected={selectedfood}
+            onPress={setSelectedfood}
+          />
+
+          {/* Order Type */}
+          <Text style={[styles.sectionTitle]}>Choose Order Type</Text>
+          {["dining", "delivery"].map((type) => (
+            <View style={styles.checkboxRow} key={type}>
+              <TouchableOpacity
+                style={[
+                  styles.checkboxBase,
+                  orderType === type && styles.checkboxSelected,
+                ]}
+                onPress={() => setOrderType(type as any)}
+              >
+                {orderType === type && <Text style={styles.checkMark}>✓</Text>}
+              </TouchableOpacity>
+              <Text style={styles.checkboxLabel}>
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </Text>
+            </View>
+          ))}
+
+          <Text style={[styles.sectionTitle]}>Choose Plan Type</Text>
+          {planOptions.map((option) => (
+            <RadioButton
+              key={option.value}
+              label={option.label}
+              value={option.value}
+              selected={selectedPlanType}
+              onPress={setSelectedPlanType}
+            />
+          ))}
+
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceText}>
+              ₹{currentPlanPrice}
+            </Text>
+            <Text style={styles.depositText}>
+              No Deposit
             </Text>
           </View>
-        ))}
 
-        <Text style={[styles.sectionTitle]}>Choose Plan Type</Text>
-        {["daily", "weekly", "monthly"].map((plan) => (
-          <RadioButton
-            key={plan}
-            label={plan.charAt(0).toUpperCase() + plan.slice(1)}
-            value={plan}
-            selected={selectedPlan}
-            onPress={setSelectedPlan}
-          />
-        ))}
-      </View>
-
-      <View style={styles.summaryBox}>
-        <Text style={styles.summaryTitle}>
-          {serviceData.serviceName || "Maharashtrian Ghar Ka Khana"}
+          <Text style={[styles.sectionTitle]}>Select Date</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {date ? date.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+            </Text>
+            <Image source={calender} style={styles.calendarIcon} />
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date || new Date()}
+              mode="date"
+              display="default"
+              onChange={onChangeDate}
+              minimumDate={new Date()}
+            />
+          )}
+        </View>
+        <Buttons
+          style={styles.submitButton}
+          title="Submit Order Request"
+          onPress={handleTiffinSubmit}
+        />
+        <Text style={styles.confirmationText}>
+          Provider will reach out within 1 hour to confirm.
         </Text>
-        <Text style={styles.summaryPrice}>
-          Total Price: {serviceData.price || "₹120"}
-        </Text>
-      </View>
-      <Buttons
-        style={styles.submitButton}
-        title="Submit Order Request"
-        onPress={handleTiffinSubmit}
-      />
-      <Text style={styles.confirmationText}>
-        Provider will reach out within 1 hour to confirm.
-      </Text>
-    </>
-  );
+      </>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -991,6 +1288,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
+  radioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   radioOuter: {
     height: 20,
     width: 20,
@@ -1026,24 +1328,6 @@ const styles = StyleSheet.create({
   datePickerText: {
     fontSize: 14,
     color: "black",
-  },
-  summaryBox: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 20,
-    backgroundColor: "#fff",
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  summaryPrice: {
-    fontSize: 14,
-    color: "#004AAD",
-    marginBottom: 15,
   },
   submitButton: {
     backgroundColor: "#004AAD",
@@ -1106,8 +1390,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   calendarIcon: {
-    width: 20,
-    height: 20,
+    width: 17,
+    height: 17,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 8,
   },
   purposeContainer: {
     flexDirection: "row",

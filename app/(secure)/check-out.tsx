@@ -33,6 +33,8 @@ const Checkout: React.FC = () => {
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<'online' | 'wallet' | null>(null);
   const [couponCode, setCouponCode] = useState('');
+  const [bookingDetails, setBookingDetails] = useState(null);
+  const [loadingBooking, setLoadingBooking] = useState(false);
 
   const {
     serviceType,
@@ -87,14 +89,14 @@ const Checkout: React.FC = () => {
 
   const hostelData: HostelCheckoutData = {
     id: bookingId || "2",  // Use real bookingId
-    title: parsedHostelData.name || "Fallback Hostel Name",  // e.g., "Testing is it working"
+    title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",  // e.g., "Testing is it working"
     imageUrl: parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",  // First room photo
-    guestName: parsedUserData.name || "Fallback Name",  // e.g., "F"
-    contact: parsedUserData.phoneNumber || "Fallback Phone",  // e.g., "8080805522"
-    checkInDate: checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "Fallback Date",  // e.g., "06/10/2025"
-    checkOutDate: checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "Fallback Date",  // e.g., "13/10/2025"
-    rent: `₹${parsedPlan.price || 0}/month`,  // e.g., "₹0/month"
-    deposit: `₹${parsedPlan.depositAmount || 0}`,  // e.g., "₹15000"
+    guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",  // e.g., "F"
+    contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone",  // e.g., "8080805522"
+    checkInDate: bookingDetails?.checkInDate ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "Fallback Date"),  // e.g., "06/10/2025"
+    checkOutDate: bookingDetails?.checkOutDate ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "Fallback Date"),  // e.g., "13/10/2025"
+    rent: `₹${bookingDetails?.rent || parsedPlan.price || 0}/month`,  // e.g., "₹0/month"
+    deposit: `₹${bookingDetails?.deposit || parsedPlan.depositAmount || 0}`,  // e.g., "₹15000"
   };
 
   const checkoutData = isTiffin ? tiffinData : hostelData;
@@ -110,8 +112,8 @@ const Checkout: React.FC = () => {
         net: 100.5,
       };
     } else {
-      const rent = parsedPlan.price || 0;
-      const deposit = parsedPlan.depositAmount || 0;
+      const rent = bookingDetails?.rent || parsedPlan.price || 0;
+      const deposit = bookingDetails?.deposit || parsedPlan.depositAmount || 0;
       const tps = deposit;  // As per original logic (TPS for deposit)
       const tvq = 200;  // TODO: Make dynamic if needed
       const total = rent + deposit + tps + tvq;
@@ -128,6 +130,37 @@ const Checkout: React.FC = () => {
   const transaction = getTransactionDetails();
 
   console.log("Transaction Details:", transaction);  // Log transaction for debugging
+
+  // Fetch booking details for hostel
+  useEffect(() => {
+    const fetchBookingDetails = async () => {
+      if (!isHostel || !bookingId) return;
+      setLoadingBooking(true);
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${bookingId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (response.data?.success) {
+          setBookingDetails(response.data.data);
+          console.log("Fetched booking details:", response.data.data);
+        }
+      } catch (error: any) {
+        console.error("Error fetching booking details:", error);
+        Alert.alert("Error", "Failed to fetch booking details");
+      } finally {
+        setLoadingBooking(false);
+      }
+    };
+
+    fetchBookingDetails();
+  }, [isHostel, bookingId]);
 
   // Fetch wallet balance
   useEffect(() => {
@@ -267,22 +300,24 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    // Only for hostel, as per API endpoint; adjust for tiffin if needed
-    if (!isHostel) {
-      // Fallback for tiffin - navigate to payment
-      console.log("Navigating to Payment with bookingId:", bookingId, "Amount:", paymentAmount);
+    const finalBookingId = bookingId as string;
+
+    // For tiffin, navigate to payment screen
+    if (isTiffin) {
+      console.log("Navigating to Payment with bookingId:", finalBookingId, "Amount:", paymentAmount);
       router.push({
         pathname: "/payment",
         params: {
-          serviceType: isTiffin ? "tiffin" : "hostel",
+          serviceType: "tiffin",
           amount: `₹${paymentAmount.toFixed(2)}`,
-          bookingId: bookingId as string,
-          serviceName: checkoutData.title || "Fallback Hostel Name",
+          bookingId: finalBookingId,
+          serviceName: checkoutData.title || "Fallback Service Name",
         },
       });
       return;
     }
 
+    // For hostel, create payment link and open
     const paymentData = await createPaymentLink();
     if (paymentData && paymentData.paymentLinkUrl) {
       const supported = await Linking.canOpenURL(paymentData.paymentLinkUrl);
@@ -291,13 +326,16 @@ const Checkout: React.FC = () => {
         // TODO: For proper Razorpay integration, use Razorpay SDK with callbacks.
         // After opening the link, navigate to confirmation assuming success (or implement deep link handling for redirect back).
         // For now, simulate navigation after opening (in real app, handle via deep links or polling).
+        // Assuming the bookingId remains the same after payment confirmation on backend.
         setTimeout(() => {
           router.push({
             pathname: "/(secure)/confirmation",
             params: {
-              bookingId: bookingId as string,
+              id: finalBookingId,
               serviceType: serviceType as string,
-              // Add other params as needed for confirmation screen
+              serviceName: checkoutData.title || "Fallback Hostel Name",
+              guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
+              amount: paymentAmount,
             },
           });
         }, 2000); // Delay to simulate processing
@@ -335,40 +373,46 @@ const Checkout: React.FC = () => {
         return;
       }
 
-      // TODO: Backend needs a deduct endpoint (e.g., POST /api/guest/wallet/deductAmount).
-      // For now, simulate deduction locally and assume backend will handle actual deduction
-      // and record the transaction during booking confirmation.
-      // In a real implementation, call the deduct API here:
-      // const deductResponse = await axios.post(
-      //   "https://tifstay-project-be.onrender.com/api/guest/wallet/deductAmount",
-      //   {
-      //     amount: paymentAmount,
-      //     bookingId: bookingId,
-      //     description: `Payment for ${isTiffin ? 'Tiffin' : 'Hostel'} booking`,
-      //   },
-      //   {
-      //     headers: { Authorization: `Bearer ${token}` },
-      //   }
-      // );
+      let finalBookingId = bookingId as string;
+      let newBalance = walletBalance;
 
-      // Simulate successful deduction
-      const newBalance = walletBalance - paymentAmount;
+      if (isHostel) {
+        // Call the wallet booking API for hostel
+        const response = await axios.post(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createBookingBywallet/${bookingId}`,
+          {}, // No body needed
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (response.data?.success) {
+          const { data } = response.data;
+          newBalance = data.remainingWallet;
+          finalBookingId = data.hostelBookingId || bookingId; // Use returned ID or fallback to original
+          console.log("Wallet booking created successfully:", data);
+        } else {
+          Alert.alert("Error", response.data?.message || "Failed to create booking with wallet");
+          return;
+        }
+      } else {
+        // For tiffin, simulate deduction (or implement tiffin-specific API if available)
+        newBalance = walletBalance - paymentAmount;
+        console.log("Wallet deduction simulated for tiffin. New balance:", newBalance);
+      }
+
+      // Update local wallet balance
       setWalletBalance(newBalance);
-
-      console.log("Wallet deduction simulated. New balance:", newBalance);
-
-      // TODO: Proceed with booking confirmation (e.g., call a booking API that handles wallet payment)
-      // After confirmation, the backend should record the transaction as a debit.
 
       Alert.alert(
         "Success!",
-        `₹${paymentAmount.toFixed(2)} deducted from wallet. New balance: ₹${newBalance.toFixed(2)}.`,
+        "Booking submitted successfully!",
         [
           {
-            text: "View Transactions",
+            text: "Cancel",
+            style: "cancel", // iOS me thoda alag dikhai dega
             onPress: () => {
-              // Navigate directly to WalletTransactionsScreen
-              router.push("/(secure)/account/WalletTransactionsScreen");
+              // Alert close only (kuch navigate nahi hoga)
             },
           },
           {
@@ -378,18 +422,21 @@ const Checkout: React.FC = () => {
               router.push({
                 pathname: "/(secure)/confirmation",
                 params: {
-                  bookingId: bookingId as string,
+                  id: finalBookingId,
                   serviceType: serviceType as string,
-                  // Add other params as needed for confirmation screen
+                  serviceName: checkoutData.title || "Fallback Service Name",
+                  guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
+                  amount: paymentAmount,
                 },
               });
             },
           },
         ]
       );
+
     } catch (error: any) {
       console.error("Error in wallet payment:", error);
-      Alert.alert("Error", "Wallet payment failed. Please try again.");
+      Alert.alert("Error", error.response?.data?.message || "Wallet payment failed. Please try again.");
     }
   };
 
@@ -430,7 +477,7 @@ const Checkout: React.FC = () => {
     </TouchableOpacity>
   );
 
-  if (loadingWallet) {
+  if (loadingWallet || (isHostel && loadingBooking)) {
     return (
       <SafeAreaView style={styles.container}>
         <Header

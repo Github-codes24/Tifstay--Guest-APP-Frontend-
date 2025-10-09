@@ -179,7 +179,23 @@ export default function ProductDetails() {
         let fullApiData = null;
 
         if (paramType === "tiffin") {
-          fullApiData = await fetchTiffinById(paramId);
+          // Check if full data was passed from Dashboard
+          const passedDataStr = params.fullServiceData as string;
+          if (passedDataStr) {
+            try {
+              const passedData = JSON.parse(passedDataStr);
+              if (passedData && passedData.pricing && passedData.id === paramId) {
+                fullApiData = passedData;
+                console.log("Using passed full service data from Dashboard (includes pricing with plan IDs)");
+              }
+            } catch (parseError) {
+              console.warn("Failed to parse passed data, falling back to API fetch:", parseError);
+            }
+          }
+          // Fallback to fetch if not passed or invalid
+          if (!fullApiData) {
+            fullApiData = await fetchTiffinById(paramId);
+          }
         } else if (paramType === "hostel") {
           fullApiData = await fetchHostelById(paramId);
         }
@@ -275,7 +291,7 @@ export default function ProductDetails() {
           const comeBackAt = fullApiData.comeBackAt || "";
 
           processedData = {
-            id: fullApiData._id,
+            id: fullApiData.id || fullApiData._id,
             name: fullApiData.tiffinName,
             description: fullDesc,
             images,
@@ -607,10 +623,10 @@ export default function ProductDetails() {
               </View>
             </View>
           )) || (
-            <View style={styles.pricingPlan}>
-              <Text style={styles.priceItem}>{mappedData.price}</Text>
-            </View>
-          )}
+              <View style={styles.pricingPlan}>
+                <Text style={styles.priceItem}>{mappedData.price}</Text>
+              </View>
+            )}
         </View>
       );
     }
@@ -866,12 +882,44 @@ export default function ProductDetails() {
         <>
           <Button
             title="Order Now"
-            onPress={() =>
-              router.push({
-                pathname: "/bookingScreen",
-                params: { bookingType: "tiffin" },
-              })
-            }
+            // Inside your Button onPress (full handler)
+            onPress={async () => {
+              try {
+                // Fetch real user data from storage
+                const storedUser = await AsyncStorage.getItem('userProfile');
+                const userDataObj = storedUser
+                  ? JSON.parse(storedUser)
+                  : { name: "", phoneNumber: "", email: "" };
+
+                router.push({
+                  pathname: "/bookingScreen",  // Adjust if using full path like "/(secure)/bookingScreen"
+                  params: {
+                    bookingType: "tiffin",
+                    serviceData: JSON.stringify({
+                      serviceId: mappedData.id,  // ✅ Now enables API fetches
+                      serviceName: mappedData.name,
+                      price: mappedData.price,
+                      foodType: mappedData.foodType || (mappedData.tags ? mappedData.tags[0] || "Veg" : "Veg"),
+                      mealPreferences: mappedData.mealPreferences || [
+                        { type: "Breakfast", time: "7-9 AM" },
+                        { type: "Lunch", time: "12-2 PM" },
+                        { type: "Dinner", time: "7-9 PM" }
+                      ],
+                      orderTypes: mappedData.orderTypes || ["Dining", "Delivery"],
+                      pricing: mappedData.pricing || [],
+                      location: mappedData.fullAddress || "",
+                      contactInfo: mappedData.contactInfo || { phone: "", whatsapp: "" },
+                    }),
+                    userData: JSON.stringify(userDataObj),  // ✅ Now autofills real name/phone if stored
+                    defaultPlan: "monthly",
+                    date: new Date().toISOString().split('T')[0],  // 2025-10-09 (today)
+                  },
+                });
+              } catch (error) {
+                console.error("Navigation error:", error);
+                alert("Failed to prepare booking. Please try again.");
+              }
+            }}
             width={width - 48}
             height={56}
             style={styles.primaryButton}
