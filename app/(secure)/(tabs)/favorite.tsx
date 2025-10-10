@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFavorites } from "@/context/FavoritesContext";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
-import { useRouter } from "expo-router";
-import colors from "@/constants/colors";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useFavorites } from "@/context/FavoritesContext"; // Context for favorites updates
 
 export default function FavoritesScreen() {
-  const { favorites } = useFavorites();
   const router = useRouter();
-  const [hostelFavorites, setHostelFavorites] = useState([]);
+  const { favoritesUpdated } = useFavorites(); // toggled when favorites change
+  const [hostelFavorites, setHostelFavorites] = useState<any[]>([]);
+  const [tiffinFavorites, setTiffinFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const tiffinFavorites = favorites.filter((item) => item.type === "tiffin");
 
   const handleTiffinPress = (service: any) => {
     router.navigate(`/tiffin-details/${service.id}`);
@@ -26,35 +24,93 @@ export default function FavoritesScreen() {
 
   const handleBookPress = (item: any) => {};
 
-  useEffect(() => {
-    const fetchFavoriteHostels = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("authToken");
-        const response = await fetch('https://tifstay-project-be.onrender.com/api/guest/hostelServices/getFavouriteHostelServices', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setHostelFavorites(data.map((hostel: any) => ({ id: hostel.id, type: 'hostel', data: hostel })));
-        } else {
-        }
-      } catch (error) {
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Map API tiffin object to TiffinCard props
+  const mapTiffinService = (item: any) => ({
+    id: item._id || item.id,
+    name: item.tiffinName || "No Name",
+    description: item.description || "No description available",
+    photos: item.photos || [],
+    rating: item.averageRating || 0,
+    reviews: item.totalReviews || 0,
+    foodType: item.foodType || "Both",
+    mealTimings: item.mealTimings || [],
+    location: item.location || {},
+    pricing: item.pricing || [],
+    tags: item.foodType ? [item.foodType] : ["Both"],
+    image:
+      item.photos && item.photos.length > 0 ? { uri: item.photos[0] } : undefined,
+    price: item.pricing?.[0]?.perMealDelivery
+      ? `${item.pricing[0].perMealDelivery}/meal`
+      : "-",
+    oldPrice: item.pricing?.[0]?.perMealDining
+      ? `${item.pricing[0].perMealDining}/meal`
+      : "-",
+    timing: item.mealTimings?.[0]
+      ? `${item.mealTimings[0].startTime} - ${item.mealTimings[0].endTime}`
+      : "-",
+  });
 
-    fetchFavoriteHostels();
-  }, []);
+  const mapHostelService = (item: any) => ({
+    id: item._id || item.id,
+    name: item.hostelName,
+    description: item.description,
+    image:
+      item.photos && item.photos.length > 0 ? { uri: item.photos[0] } : undefined,
+    price: item.pricing?.[0]?.monthlyRent || "-",
+    oldPrice: "-",
+    rating: item.averageRating || 0,
+    reviews: item.totalReviews || 0,
+    location: item.location || {},
+  });
 
-  const allFavorites = [...tiffinFavorites, ...hostelFavorites];
+ // FavoritesScreen.tsx
+const fetchFavorites = async () => {
+  setLoading(true);
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) return;
 
-  if (loading && hostelFavorites.length === 0) {
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+    // Fetch favorite IDs
+    const tiffinFavRes = await fetch(
+      "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getFavouriteTiffinServices",
+      { method: "GET", headers }
+    );
+    const tiffinFavJson = await tiffinFavRes.json();
+    const favoriteIds = tiffinFavJson.data?.map((f: any) => f._id) || [];
+
+    // Fetch all tiffin services (so we get full description)
+    const allTiffinRes = await fetch(
+      "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices",
+      { method: "GET", headers }
+    );
+    const allTiffinJson = await allTiffinRes.json();
+
+    // Filter only favorite tiffins
+    const favoriteTiffinsFull = allTiffinJson.data
+      .filter((t: any) => favoriteIds.includes(t._id))
+      .map(mapTiffinService);
+
+    setTiffinFavorites(favoriteTiffinsFull);
+  } catch (err) {
+    console.log("❌ Error fetching favorites:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // Auto-refresh whenever screen is focused or favorites are updated
+  useFocusEffect(
+    useCallback(() => {
+      fetchFavorites();
+    }, [favoritesUpdated])
+  );
+
+  const hasFavorites = tiffinFavorites.length > 0 || hostelFavorites.length > 0;
+
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -83,7 +139,7 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {allFavorites.length === 0 ? (
+        {!hasFavorites ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="heart-outline" size={80} color="#E0E0E0" />
             <Text style={styles.emptyTitle}>No favorites yet</Text>
@@ -98,10 +154,10 @@ export default function FavoritesScreen() {
                 <Text style={styles.sectionTitle}>Tiffin Services</Text>
                 {tiffinFavorites.map((item) => (
                   <TiffinCard
-                    key={`tiffin-${item.id}`}
-                    service={item.data}
-                    onPress={() => handleTiffinPress(item.data)}
-                    onBookPress={() => handleBookPress(item.data)}
+                    key={item.id}
+                    service={item}
+                    onPress={() => handleTiffinPress(item)}
+                    onBookPress={() => handleBookPress(item)}
                   />
                 ))}
               </View>
@@ -112,10 +168,10 @@ export default function FavoritesScreen() {
                 <Text style={styles.sectionTitle}>Hostels & PGs</Text>
                 {hostelFavorites.map((item) => (
                   <HostelCard
-                    key={`hostel-${item.id}`}
-                    hostel={item.data}
-                    onPress={() => handleHostelPress(item.data)}
-                    onBookPress={() => handleBookPress(item.data)}
+                    key={item.id}
+                    hostel={item}
+                    onPress={() => handleHostelPress(item)}
+                    onBookPress={() => handleBookPress(item)}
                   />
                 ))}
               </View>
@@ -128,56 +184,19 @@ export default function FavoritesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingTop: 20,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1A1A1A",
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
+  container: { flex: 1, backgroundColor: "#fff", paddingTop: 20 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+  headerTitle: { fontSize: 24, fontWeight: "700", color: "#1A1A1A", marginBottom: 4 },
+  headerSubtitle: { fontSize: 14, color: "#6B7280" },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
   emptyContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingTop: 100,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#374151",
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    paddingHorizontal: 40,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1A1A1A",
-    marginBottom: 16,
-  },
+  emptyTitle: { fontSize: 20, fontWeight: "600", color: "#374151", marginTop: 24, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: "#6B7280", textAlign: "center", paddingHorizontal: 40 },
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: "600", color: "#1A1A1A", marginBottom: 16 },
 });

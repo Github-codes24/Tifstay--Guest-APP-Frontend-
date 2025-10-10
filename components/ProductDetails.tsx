@@ -336,18 +336,74 @@ export default function ProductDetails() {
   // Fixed: Now isFavorite is available, use mappedData
   const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
 
-  const handleFavoritePress = () => {
-    if (!mappedData) return;
-    if (isFav) {
-      removeFromFavorites(mappedData.id, paramType);
-    } else {
-      addToFavorites({
-        id: mappedData.id,
-        type: paramType,
-        data: mappedData,
-      });
-    }
+// Inside ProductDetails component
+
+// Add this helper for API calls
+const addFavoriteToBackend = async (serviceId: string, serviceType: "tiffin" | "hostel") => {
+  const token = await getAuthToken();
+  if (!token) {
+    console.warn("No token, skipping backend favorite add");
+    return false;
+  }
+
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
   };
+
+  let url: string;
+  let body: { [key: string]: string } = {};
+
+  if (serviceType === "hostel") {
+    url = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService";
+    body = { hostelServiceId: serviceId };
+  } else {
+    url = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
+    body = { tiffinServiceId: serviceId };
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    console.log(`Add favorite ${serviceType} response:`, result);
+    return result.success || false;
+  } catch (error) {
+    console.error(`Failed to add favorite ${serviceType}:`, error);
+    return false;
+  }
+};
+
+// Update handleFavoritePress
+const handleFavoritePress = async () => {
+  if (!mappedData) return;
+
+  const serviceId = mappedData.id;
+  const serviceType = paramType;
+
+  if (isFav) {
+    // Remove logic (local context only; add remove API if backend supports it)
+    removeFromFavorites(serviceId, serviceType);
+  } else {
+    // Add to local context first (for instant UI feedback)
+    addToFavorites({
+      id: serviceId,
+      type: serviceType,
+      data: mappedData,
+    });
+
+    // Then call backend API
+    const success = await addFavoriteToBackend(serviceId, serviceType);
+    if (!success) {
+      // Optional: Revert local if backend fails
+      removeFromFavorites(serviceId, serviceType);
+      // Show toast/error: "Failed to save favorite. Try again."
+    }
+  }
+};
 
   const handleShare = async (platform: string) => {
     if (!mappedData) return;
