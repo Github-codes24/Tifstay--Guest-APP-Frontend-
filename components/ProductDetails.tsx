@@ -128,7 +128,7 @@ export default function ProductDetails() {
 
       try {
         const url = paramType === "hostel"
-          ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/hostelReview/${mappedData.id}`
+          ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${mappedData.id}`
           : `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinReview/${mappedData.id}`;
         console.log("Fetching reviews from:", url);
 

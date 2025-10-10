@@ -15,7 +15,6 @@ import { router } from "expo-router";
 import axios from "axios";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
-import RatingModal from "@/components/modals/RatingModal";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
 
 interface Order {
@@ -35,6 +34,7 @@ interface Order {
   checkOutDate?: string;
   price?: string;
   image?: string;
+  entityId?: string;  // New field: Actual hostelId or serviceId for reviews
 }
 
 const Booking: React.FC = () => {
@@ -43,8 +43,6 @@ const Booking: React.FC = () => {
   const [tiffinOrders, setTiffinOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
 
@@ -77,6 +75,7 @@ const Booking: React.FC = () => {
           status: item.status.toLowerCase() as Order["status"],
           image: item.userPhoto,
           price: item.price, // Assuming price is available; adjust if needed
+          entityId: item.hostelId?._id || item.hostelId,  // Use the actual hostel ID for reviews
         }));
       }
       setHostelOrders(fetchedHostelOrders);
@@ -94,6 +93,9 @@ const Booking: React.FC = () => {
       if (tiffinResponse.data.success) {
         fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
           const choosePlanType = Array.isArray(item.choosePlanType) ? item.choosePlanType[0] : item.choosePlanType;
+          // TODO: Confirm the exact field for serviceId from console.log (e.g., item.serviceId, item.tiffinServiceId, or choosePlanType._id)
+          // Adjust below if needed based on API structure
+          const serviceId = choosePlanType?._id || item.serviceId || item.tiffinServiceId;
           return {
             id: item._id,
             bookingId: item._id,
@@ -108,6 +110,7 @@ const Booking: React.FC = () => {
             image: undefined,
             checkInDate: undefined,
             checkOutDate: undefined,
+            entityId: serviceId,  // Use the actual service ID for reviews
           };
         });
       }
@@ -142,19 +145,19 @@ const Booking: React.FC = () => {
     });
   };
 
-  const handleSeeDetails = (order: Order) => {
-    console.log("See details:", order.bookingId);
-    const pathname = order.serviceType === "hostel" ? "/hostel-details/[id]" : "/tiffin-details/[id]";
-    router.push({
-      pathname,
-      params: { id: order.id },
-    });
-  };
-
   const handleRateNow = (order: Order) => {
     console.log("Rate now:", order.bookingId);
-    setSelectedOrder(order);
-    setShowRatingModal(true);
+    const type = order.serviceType === "tiffin" ? "service" : "hostel";
+    const params = {
+      serviceId: order.entityId,  // Now passing the correct entity ID (hostelId or serviceId)
+      guestId: order.id,  // Booking ID (backend likely uses token for guest)
+      type: type,
+    };
+    console.log("Passing params to RateNowScreen:", params);
+    router.push({
+      pathname: "/account/RateNowScreen",
+      params,
+    });
   };
 
   const handleRepeatOrder = (order: Order) => {
@@ -164,10 +167,6 @@ const Booking: React.FC = () => {
       pathname,
       params: { id: order.id, repeatOrder: "true" },
     });
-  };
-
-  const handleRatingSubmitSuccess = () => {
-    console.log("Rating submitted successfully!");
   };
 
   const getStatusColor = (status: string) => {
@@ -275,7 +274,7 @@ const Booking: React.FC = () => {
           {order.status === "confirmed" && !isHistoryOrder(order.status) && (
             <>
               <Button title="Continue Subscription" onPress={() => handleContinueSubscription(order)} style={styles.primaryButtonStyle} height={48} />
-              <Button title="See Details" onPress={() => handleSeeDetails(order)} style={styles.secondaryButtonStyle} textStyle={styles.secondaryButtonTextStyle} height={48} />
+              <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.secondaryButtonStyle} textStyle={styles.secondaryButtonTextStyle} height={48} />
             </>
           )}
           {isHistoryOrder(order.status) && (
@@ -374,19 +373,6 @@ const Booking: React.FC = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {selectedOrder && (
-        <RatingModal
-          visible={showRatingModal}
-          onClose={() => {
-            setShowRatingModal(false);
-            setSelectedOrder(null);
-          }}
-          serviceType={selectedOrder.serviceType}
-          serviceName={selectedOrder.serviceName}
-          bookingId={selectedOrder.bookingId}
-          onSubmitSuccess={handleRatingSubmitSuccess}
-        />
-      )}
       {trackingOrder && (
         <TrackOrderModal
           visible={showTrackOrderModal}

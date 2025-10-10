@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -52,15 +52,19 @@ export default function FavoritesScreen() {
 
   const mapHostelService = (item: any) => ({
     id: item._id || item.id,
-    name: item.hostelName,
-    description: item.description,
+    name: item.hostelName || 'Unknown Hostel',
+    type: item.type || 'Hostel',
+    description: item.description || 'No description available',
     image:
       item.photos && item.photos.length > 0 ? { uri: item.photos[0] } : undefined,
-    price: item.pricing?.[0]?.monthlyRent || "-",
+    price: item.pricing?.[0]?.monthlyRent ? `₹${item.pricing[0].monthlyRent}/month` : "-",
     oldPrice: "-",
     rating: item.averageRating || 0,
     reviews: item.totalReviews || 0,
-    location: item.location || {},
+    amenities: item.amenities || [],
+    location: item.location?.address || 'Unknown Location',
+    availableBeds: item.availableBeds || 0,
+    deposit: item.deposit || '₹15000',
   });
 
  // FavoritesScreen.tsx
@@ -68,31 +72,59 @@ const fetchFavorites = async () => {
   setLoading(true);
   try {
     const token = await AsyncStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-    // Fetch favorite IDs
+    // Fetch favorite tiffin IDs
     const tiffinFavRes = await fetch(
       "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getFavouriteTiffinServices",
       { method: "GET", headers }
     );
-    const tiffinFavJson = await tiffinFavRes.json();
-    const favoriteIds = tiffinFavJson.data?.map((f: any) => f._id) || [];
+    if (!tiffinFavRes.ok) {
+      console.error(`Failed to fetch tiffin favorites: ${tiffinFavRes.status} ${tiffinFavRes.statusText}`);
+    } else {
+      const tiffinFavJson = await tiffinFavRes.json();
+      const tiffinFavoriteIds = tiffinFavJson.data?.map((f: any) => f._id) || [];
 
-    // Fetch all tiffin services (so we get full description)
-    const allTiffinRes = await fetch(
-      "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices",
+      // Fetch all tiffin services (so we get full description)
+      const allTiffinRes = await fetch(
+        "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices",
+        { method: "GET", headers }
+      );
+      if (!allTiffinRes.ok) {
+        console.error(`Failed to fetch all tiffin services: ${allTiffinRes.status} ${allTiffinRes.statusText}`);
+      } else {
+        const allTiffinJson = await allTiffinRes.json();
+
+        // Filter only favorite tiffins
+        const favoriteTiffinsFull = allTiffinJson.data
+          .filter((t: any) => tiffinFavoriteIds.includes(t._id))
+          .map(mapTiffinService);
+
+        setTiffinFavorites(favoriteTiffinsFull);
+        console.log(`Tiffin favorites loaded: ${favoriteTiffinsFull.length}`);
+      }
+    }
+
+    // Fetch favorite hostels directly (assuming it returns full data)
+    const hostelFavRes = await fetch(
+      "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getFavouriteHostelServices",
       { method: "GET", headers }
     );
-    const allTiffinJson = await allTiffinRes.json();
-
-    // Filter only favorite tiffins
-    const favoriteTiffinsFull = allTiffinJson.data
-      .filter((t: any) => favoriteIds.includes(t._id))
-      .map(mapTiffinService);
-
-    setTiffinFavorites(favoriteTiffinsFull);
+    if (!hostelFavRes.ok) {
+      console.error(`Failed to fetch hostel favorites: ${hostelFavRes.status} ${hostelFavRes.statusText}`);
+      setHostelFavorites([]);
+      console.log("Hostel favorites: 0 (endpoint error)");
+    } else {
+      const hostelFavJson = await hostelFavRes.json();
+      const favoriteHostelsFull = hostelFavJson.data?.map(mapHostelService) || [];
+      setHostelFavorites(favoriteHostelsFull);
+      console.log(`Hostel favorites loaded: ${favoriteHostelsFull.length}`);
+    }
   } catch (err) {
     console.log("❌ Error fetching favorites:", err);
   } finally {
@@ -101,12 +133,10 @@ const fetchFavorites = async () => {
 };
 
 
-  // Auto-refresh whenever screen is focused or favorites are updated
-  useFocusEffect(
-    useCallback(() => {
-      fetchFavorites();
-    }, [favoritesUpdated])
-  );
+  // Refetch favorites whenever they are updated
+  useEffect(() => {
+    fetchFavorites();
+  }, [favoritesUpdated]);
 
   const hasFavorites = tiffinFavorites.length > 0 || hostelFavorites.length > 0;
 
