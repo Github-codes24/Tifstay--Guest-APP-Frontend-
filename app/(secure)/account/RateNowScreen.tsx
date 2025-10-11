@@ -20,14 +20,8 @@ export default function RateNowScreen() {
   const [review, setReview] = useState<string>("");
 
   const router = useRouter();
-  const { serviceId, guestId, type } = useLocalSearchParams(); 
-  /**
-   * 📝 `type` me "hostel" ya "service" milega
-   * 📝 `serviceId` me hostelId ya serviceId
-   * 📝 `guestId` me guest ID (backend se handle hoga)
-   */
+  const { serviceId, guestId, type } = useLocalSearchParams();
 
-  // Log received params
   console.log("Received params in RateNowScreen:", { serviceId, guestId, type });
 
   const handleRating = (value: number) => {
@@ -52,14 +46,13 @@ export default function RateNowScreen() {
         return;
       }
 
-      // Common base URL
       const baseUrl = "https://tifstay-project-be.onrender.com/api/guest";
-      
+
       let endpoint = "";
       if (type === "hostel") {
-        endpoint = `/hostelServices/review/${serviceId}`; // Matches docs for hostel (:id = hostelId)
+        endpoint = `/hostelServices/review/${serviceId}`;
       } else if (type === "service") {
-        endpoint = `/hostelServices/review/${serviceId}`; // Matches docs for service (:serviceId)
+        endpoint = `/hostelServices/review/${serviceId}`;
       } else {
         Alert.alert("Error", "Invalid service type.");
         return;
@@ -67,22 +60,16 @@ export default function RateNowScreen() {
 
       const url = `${baseUrl}${endpoint}`;
 
-      // Debug log for serviceId
-      console.log("Using serviceId:", serviceId);
-
-      // Updated payload: Include 'type' to help backend distinguish and query correct model (hostel vs service)
-      // This assumes backend updates to use req.body.type for finding the record
       const payload = {
         title: title.trim(),
         review: review.trim(),
         rating,
-        type: type, 
+        type: type,
         date: new Date().toISOString(),
       };
 
       console.log("Posting review with payload:", payload);
       console.log("To URL:", url);
-      console.log("Review type:", type); // Extra log for debugging
 
       const response = await axios.post(url, payload, {
         headers: {
@@ -92,9 +79,8 @@ export default function RateNowScreen() {
       });
 
       if (response.data.success) {
-        Alert.alert("Success", "Review submitted successfully!", [
-          { text: "OK", onPress: () => router.back() },
-        ]);
+        // ✅ Go to Thanks screen after successful post
+        router.push("/account/ThanksScreen");
       } else {
         Alert.alert("Error", response.data.message || "Failed to submit review.");
       }
