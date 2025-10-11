@@ -10,11 +10,13 @@ import {
   Dimensions,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Linking from 'expo-linking';
 import * as Clipboard from 'expo-clipboard';
+// import * as Sharing from 'expo-sharing'; // Commented out due to missing module
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
@@ -127,18 +129,23 @@ export default function ProductDetails() {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       try {
+        // Use the same endpoint structure as hostel for tiffin reviews
         const url = paramType === "hostel"
           ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${mappedData.id}`
-          : `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinReview/${mappedData.id}`;
+          : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${mappedData.id}`;
         console.log("Fetching reviews from:", url);
 
         const response = await fetch(url, { headers });
         console.log("Fetch status:", response.status);
 
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const result = await response.json();
         console.log(`${paramType}Review response:`, result);
 
-        if (result.success && result.data && Array.isArray(result.data)) {
+        if (result.success) {
           const mappedReviews = result.data.map((review: any) => ({
             id: review._id,
             name: review.guest?.name || review.user?.name || "Anonymous",
@@ -149,7 +156,12 @@ export default function ProductDetails() {
           }));
           console.log("Mapped reviews:", mappedReviews);
           setReviews(mappedReviews);
-          setMappedData((prev: any) => ({ ...prev, userReviews: mappedReviews }));
+          setMappedData((prev: any) => ({ 
+            ...prev, 
+            userReviews: mappedReviews,
+            rating: parseFloat(result.averageRating) || 0,
+            reviewCount: result.totalReviews || 0
+          }));
         } else {
           setReviews([]);
         }
@@ -280,7 +292,7 @@ export default function ProductDetails() {
           const firstPlan = pricing[0];
           const price = firstPlan ? `₹${firstPlan.monthlyDelivery || firstPlan.monthlyDining || 0}/Month` : "₹0/Month";
           const offer = firstPlan?.offers ? firstPlan.offers : null;
-          const rating = fullApiData.averageRating || 0;
+          const rating = parseFloat(fullApiData.averageRating) || 0;
           const reviewCount = fullApiData.totalReviews || 0;
           const fullAddress = fullApiData.location?.fullAddress || "";
           const servingRadius = `${fullApiData.location?.serviceRadius || 5} km`;
@@ -431,11 +443,8 @@ const handleFavoritePress = async () => {
         if (canOpen) {
           await Linking.openURL(messengerUrl);
         } else {
-          // Fallback to native share
-          await Sharing.shareAsync({
-            message,
-            url: deepLink,
-          });
+          // Fallback to alert since expo-sharing not available
+          Alert.alert("Share", message);
         }
       } else if (platform === "copylink") {
         await Clipboard.setStringAsync(deepLink);
@@ -448,11 +457,8 @@ const handleFavoritePress = async () => {
       }, 500);
     } catch (error) {
       console.error("Share error:", error);
-      // Fallback to native share sheet
-      await Sharing.shareAsync({
-        message,
-        url: deepLink,
-      });
+      // Fallback to alert since expo-sharing not available
+      Alert.alert("Share", message);
     }
   };
 

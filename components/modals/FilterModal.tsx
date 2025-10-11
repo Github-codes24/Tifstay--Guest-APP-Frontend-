@@ -335,19 +335,23 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 {/* Room Type */}
                 <View style={styles.filterSection}>
                   <Text style={styles.filterTitle}>Room Type</Text>
-                  <View style={styles.relativeContainer}>
-                    <Dropdown
-                      options={roomTypes && roomTypes.length > 0 ? roomTypes : ["No Room types available"]}
-                      value={roomTypes && roomTypes.length > 0 ? roomType : "All"}
-                      onSelect={setRoomType}
-                      placeholder="Select Room Type"
-                      disabled={!roomTypes || roomTypes.length === 0} 
-                    />
+                  <View style={{ position: "relative" }}>
+                    {isLoadingRoomTypes && (!roomTypes || roomTypes.length === 0) ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
+                    ) : (
+                      <Dropdown
+                        options={roomTypeOptions}
+                        value={roomType || "All"}
+                        onSelect={setRoomType}
+                        placeholder="Select Room Type"
+                        disabled={isLoadingRoomTypes || roomTypeOptions.length === 1}
+                      />
+                    )}
+                    {!isLoadingRoomTypes && roomTypeOptions.length === 1 && (
+                      <Text style={styles.noDataText}>No room types available</Text>
+                    )}
                   </View>
                 </View>
-
-
-
 
                 {/* AC / Non-AC */}
                 <View style={styles.filterSection}>

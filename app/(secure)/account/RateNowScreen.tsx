@@ -76,7 +76,8 @@ export default function RateNowScreen() {
         title: title.trim(),
         review: review.trim(),
         rating,
-        type: type, // 'hostel' or 'service' – send this to backend for proper query branching
+        type: type, 
+        date: new Date().toISOString(),
       };
 
       console.log("Posting review with payload:", payload);

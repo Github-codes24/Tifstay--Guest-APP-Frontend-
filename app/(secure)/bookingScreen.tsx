@@ -487,139 +487,64 @@ useEffect(() => {
     router.back();
   };
 
-  const handleTiffinSubmit = async () => {
-    console.log("=== Tiffin Submit Debug ===");
-    console.log("fullName:", fullName);
-    console.log("phoneNumber:", phoneNumber);
-    console.log("address:", address);
-    console.log("numberOfTiffin:", numberOfTiffin);
-    console.log("selectedPlanType:", selectedPlanType);
-    console.log("mealPreferences:", mealPreferences);
-    console.log("orderType:", orderType);
-    console.log("selectedfood:", selectedfood);
-    console.log("specialInstructions:", specialInstructions);
-    console.log("date:", date);
-    console.log("serviceData:", serviceData);
+const handleTiffinSubmit = async () => {
+  console.log("=== Tiffin Submit Debug ===");
+  console.log("fullName:", fullName);
+  console.log("phoneNumber:", phoneNumber);
+  console.log("address:", address);
+  console.log("numberOfTiffin:", numberOfTiffin);
+  console.log("selectedPlanType:", selectedPlanType);
+  console.log("mealPreferences:", mealPreferences);
+  console.log("orderType:", orderType);
+  console.log("selectedfood:", selectedfood);
+  console.log("specialInstructions:", specialInstructions);
+  console.log("date:", date);
+  console.log("serviceData:", serviceData);
 
-    // Validation
-    if (!fullName) {
-      alert("Full Name is required!");
-      return;
-    }
-    if (!phoneNumber) {
-      alert("Phone Number is required!");
-      return;
-    }
-    if (orderType === "delivery" && !address) {
-      alert("Address is required for delivery!");
-      return;
-    }
-    if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) {
-      alert("Valid Number of Tiffin is required!");
-      return;
-    }
-    if (!date) {
-      alert("Date is required!");
-      return;
-    }
-    if (!selectedfood) {
-      alert("Food Type is required!");
-      return;
-    }
-    if (!selectedPlanType) {
-      alert("Plan type is required!");
-      return;
-    }
+  // Validation
+  if (!fullName) {
+    alert("Full Name is required!");
+    return;
+  }
+  if (!phoneNumber) {
+    alert("Phone Number is required!");
+    return;
+  }
+  if (orderType === "delivery" && !address) {
+    alert("Address is required for delivery!");
+    return;
+  }
+  if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) {
+    alert("Valid Number of Tiffin is required!");
+    return;
+  }
+  if (!date) {
+    alert("Date is required!");
+    return;
+  }
+  if (!selectedfood) {
+    alert("Food Type is required!");
+    return;
+  }
+  if (!selectedPlanType) {
+    alert("Plan type is required!");
+    return;
+  }
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      const guestId = await AsyncStorage.getItem("guestId");
+  // Skip API call for now - directly navigate
+  console.log("Skipping API call and navigating to checkout...");
 
-      if (!token || !guestId) {
-        alert("Authentication token or guest ID is missing!");
-        return;
-      }
+  // Derive a dummy bookingId for navigation (replace with real one later)
+  const dummyBookingId = "dummy-tiffin-booking-123";
 
-      if (!serviceData.serviceId) {
-        alert("Service ID is missing!");
-        return;
-      }
-
-      // Derive selectTiffinNumber
-      const numTiffins = parseInt(numberOfTiffin);
-      let selectTiffinNumber = [];
-      if (sameAsSelections.sameForAll) {
-        selectTiffinNumber = [{ tiffinNumber: 1, sameUs: "All" }];
-      } else {
-        for (let i = 1; i <= numTiffins; i++) {
-          selectTiffinNumber.push({ tiffinNumber: i, sameUs: `Same As ${i}` });
-        }
-      }
-
-      // Derive mealPreference
-      const selectedMeals = Object.entries(mealPreferences)
-        .filter(([_, checked]) => checked)
-        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1))
-        .join(", ");
-      const mealPreference = selectedMeals || "Lunch";
-
-      // Derive plan (price already includes numTiffins)
-      const choosePlanType = {
-        planName: selectedPlanType,
-        price: currentPlanPrice,
-      };
-
-      // API Payload
-      const bookingPayload = {
-        fullName,
-        phoneNumber,
-        address: orderType === "delivery" ? address : "",
-        specialInstructions,
-        numberOfTiffin: numTiffins,
-        selectTiffinNumber,
-        mealPreference,
-        foodType: selectedfood === "both" ? "Both Veg & Non-Veg" : selectedfood.charAt(0).toUpperCase() + selectedfood.slice(1),
-        chooseOrderType: orderType.charAt(0).toUpperCase() + orderType.slice(1),
-        choosePlanType,
-        date: date.toISOString().split("T")[0],
-        serviceId: serviceData.serviceId,
-        guestId,
-      };
-
-      console.log("Tiffin Booking Payload:", JSON.stringify(bookingPayload, null, 2));
-
-      const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create",
-        bookingPayload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      console.log("API Response:", response.data);
-
-      if (response.data.success) {
-        const bookingId = response.data.data._id;
-        console.log("Tiffin booking successful, ID:", bookingId);
-
-        router.push({
-          pathname: "/check-out",
-          params: {
-            serviceType: "tiffin",
-            bookingId,
-          },
-        });
-      } else {
-        alert("Booking failed: " + (response.data.message || "Unknown error"));
-      }
-    } catch (error: any) {
-      console.error("Error creating tiffin booking:", error.response?.data || error.message);
-      alert("Something went wrong while booking. Please try again.");
-    }
-  };
+  router.push({
+    pathname: "/check-out",
+    params: {
+      serviceType: "tiffin",
+      bookingId: dummyBookingId,
+    },
+  });
+};
 
   const handleHostelSubmit = async () => {
     console.log("=== Hostel Submit Debug ===");

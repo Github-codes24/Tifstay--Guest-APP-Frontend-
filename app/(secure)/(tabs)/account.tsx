@@ -121,13 +121,13 @@ const AccountScreen = () => {
           image={require("../../../assets/images/icon/wallet.png")}
           onpress={() => router.push("/(secure)/account/wallet")}
         />
-        <MenuItem
+        {/* <MenuItem
           label="Payment Method"
           image={require("../../../assets/images/payment.png")}
           onpress={() => router.push("/(secure)/account/method")}
-        />
+        /> */}
         <MenuItem
-          label="Deposite"
+          label="Deposit"
           image={deposit}
           onpress={() => router.push("/(secure)/account/deposite")}
         />

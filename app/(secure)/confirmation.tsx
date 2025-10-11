@@ -10,6 +10,8 @@ import {
   Linking,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Button from "@/components/Buttons";
 import Logo from "@/components/Logo";
 import TiffinCard from "@/components/TiffinCard";
@@ -28,6 +30,8 @@ const Confirmation: React.FC = () => {
 
   const [bookingDetails, setBookingDetails] = useState(null);
   const [randomTiffin, setRandomTiffin] = useState(null);
+  const [randomTiffins, setRandomTiffins] = useState([]);
+  const [randomHostels, setRandomHostels] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const tiffinBookingDetails = {
@@ -53,38 +57,112 @@ const Confirmation: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!isTiffin && id) {
-      setLoading(true);
-      fetch(`https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            setBookingDetails(data.data);
+    const fetchBookingDetails = async () => {
+      if (!isTiffin && id) {
+        setLoading(true);
+        try {
+          const token = await AsyncStorage.getItem("token");
+          if (!token) {
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-        })
-        .catch((error) => {
+
+          const response = await axios.get(
+            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (response.data.success) {
+            setBookingDetails(response.data.data);
+          }
+        } catch (error) {
           console.error("Error fetching booking:", error);
+        } finally {
           setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    fetchBookingDetails();
   }, [id, isTiffin]);
 
   useEffect(() => {
-    if (!isTiffin) {
-      fetch(`https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRandomTiffinService`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            setRandomTiffin(data.data);
+    const fetchRandomTiffins = async () => {
+      if (!isTiffin) {
+        try {
+          const token = await AsyncStorage.getItem("token");
+          if (!token) return;
+
+          const tiffins = [];
+          for (let i = 0; i < 3; i++) {
+            const response = await axios.get(
+              "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRandomTiffinService",
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (response.data.success) {
+              const service = response.data.data;
+              tiffins.push({
+                id: service._id,
+                tiffinServiceName: service.tiffinName || service.tiffinServiceName,
+                imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+                ...service,
+              });
+            }
           }
-        })
-        .catch((error) => {
-          console.error("Error fetching random tiffin:", error);
-        });
-    }
+          setRandomTiffins(tiffins);
+          if (tiffins.length > 0) {
+            setRandomTiffin(tiffins[0]);
+          }
+        } catch (error) {
+          console.error("Error fetching random tiffins:", error);
+        }
+      }
+    };
+
+    fetchRandomTiffins();
+  }, [isTiffin]);
+
+  useEffect(() => {
+    const fetchRandomHostels = async () => {
+      if (isTiffin) {
+        try {
+          const token = await AsyncStorage.getItem("token");
+          if (!token) return;
+
+          const hostels = [];
+          for (let i = 0; i < 3; i++) {
+            const response = await axios.get(
+              "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getRandomHostelServices",
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (response.data.success) {
+              const hostel = response.data.data;
+              hostels.push({
+                id: hostel._id,
+                name: hostel.hostelName,
+                imageUrl: hostel.hostelPhotos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
+                ...hostel,
+              });
+            }
+          }
+          setRandomHostels(hostels);
+        } catch (error) {
+          console.error("Error fetching random hostels:", error);
+        }
+      }
+    };
+
+    fetchRandomHostels();
   }, [isTiffin]);
 
   const hostelBookingDetails = bookingDetails ? {
@@ -107,14 +185,14 @@ const Confirmation: React.FC = () => {
 
   const getRecommendations = () => {
     if (isTiffin) {
-      return demoData.hostels.slice(0, 3).map((hostel) => ({
+      return randomHostels.length > 0 ? randomHostels : demoData.hostels.slice(0, 3).map((hostel) => ({
         ...hostel,
-        image: require("../../assets/images/hostel1.png"),
+        imageUrl: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
       }));
     } else {
-      return demoData.tiffinServices.slice(0, 3).map((service) => ({
+      return randomTiffins.length > 0 ? randomTiffins : demoData.tiffinServices.slice(0, 3).map((service) => ({
         ...service,
-        image: require("../../assets/images/food1.png"),
+        imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
       }));
     }
   };
@@ -326,7 +404,7 @@ const Confirmation: React.FC = () => {
 
         <View style={styles.recommendationsSection}>
           <Text style={styles.recommendationTitle}>
-            {isTiffin ? "Healthy Bites Tiffin" : randomTiffin?.tiffinName || "Green Valley Boys Hostel"}
+            {isTiffin ? (randomHostels[0]?.hostelName || "Healthy Bites Tiffin") : (randomTiffin?.tiffinName || "Green Valley Boys Hostel")}
           </Text>
 
           <ScrollView

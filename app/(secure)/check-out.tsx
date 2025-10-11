@@ -35,6 +35,8 @@ const Checkout: React.FC = () => {
   const [couponCode, setCouponCode] = useState('');
   const [bookingDetails, setBookingDetails] = useState(null);
   const [loadingBooking, setLoadingBooking] = useState(false);
+  const [tiffinOrderDetails, setTiffinOrderDetails] = useState(null);
+  const [loadingTiffin, setLoadingTiffin] = useState(false);
 
   const {
     serviceType,
@@ -74,7 +76,17 @@ const Checkout: React.FC = () => {
   });
   console.log("Received bookingId in Checkout:", bookingId);
 
-  const tiffinData: TiffinCheckoutData = {
+  const tiffinData: TiffinCheckoutData = tiffinOrderDetails ? {
+    id: bookingId || "1",
+    title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+    imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+    mealType: tiffinOrderDetails.mealType,
+    foodType: tiffinOrderDetails.foodType,
+    startDate: new Date(tiffinOrderDetails.startDate).toLocaleDateString('en-IN'),
+    plan: tiffinOrderDetails.plan,
+    orderType: tiffinOrderDetails.orderType,
+    price: `₹${tiffinOrderDetails.price}`,
+  } : {
     id: bookingId || "1",  // Use dynamic if available, fallback
     title: "Maharashtrian Ghar Ka Khana",  // TODO: Make dynamic for tiffin if params provided
     imageUrl:
@@ -102,7 +114,17 @@ const Checkout: React.FC = () => {
   const checkoutData = isTiffin ? tiffinData : hostelData;
 
   const getTransactionDetails = () => {
-    if (isTiffin) {
+    if (isTiffin && tiffinOrderDetails) {
+      const trans = tiffinOrderDetails.TransactionDetails;
+      return {
+        subtotal: trans.subtotalItem,
+        tps: trans.TPS,
+        tvq: trans.TVQ,
+        total: trans.NetPrice,
+        discount: 0,
+        net: trans.NetPrice,
+      };
+    } else if (isTiffin) {
       return {
         subtotal: 120,
         tps: 20,
@@ -161,6 +183,37 @@ const Checkout: React.FC = () => {
 
     fetchBookingDetails();
   }, [isHostel, bookingId]);
+
+  // Fetch tiffin order details
+  useEffect(() => {
+    const fetchTiffinOrderDetails = async () => {
+      if (!isTiffin || !bookingId) return;
+      setLoadingTiffin(true);
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get(
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getOrderDetails/${bookingId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (response.data?.success) {
+          setTiffinOrderDetails(response.data.data);
+          console.log("Fetched tiffin order details:", response.data.data);
+        }
+      } catch (error: any) {
+        console.error("Error fetching tiffin order details:", error);
+        Alert.alert("Error", "Failed to fetch order details");
+      } finally {
+        setLoadingTiffin(false);
+      }
+    };
+
+    fetchTiffinOrderDetails();
+  }, [isTiffin, bookingId]);
 
   // Fetch wallet balance
   useEffect(() => {
@@ -290,6 +343,35 @@ const Checkout: React.FC = () => {
     }
   };
 
+  const createTiffinPaymentLink = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token || !bookingId) {
+        Alert.alert("Error", "Token or booking ID missing");
+        return null;
+      }
+
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/paymentByBank/${bookingId}`,
+        {}, // No body needed
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data?.success) {
+        return response.data.data;
+      } else {
+        Alert.alert("Error", response.data?.message || "Failed to create payment link");
+        return null;
+      }
+    } catch (error: any) {
+      console.error("Error creating tiffin payment link:", error);
+      Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+      return null;
+    }
+  };
+
   const handlePayOnline = async () => {
     setModalVisible(false);
     if (!paymentAmount || paymentAmount <= 0) {
@@ -302,23 +384,7 @@ const Checkout: React.FC = () => {
 
     const finalBookingId = bookingId as string;
 
-    // For tiffin, navigate to payment screen
-    if (isTiffin) {
-      console.log("Navigating to Payment with bookingId:", finalBookingId, "Amount:", paymentAmount);
-      router.push({
-        pathname: "/payment",
-        params: {
-          serviceType: "tiffin",
-          amount: `₹${paymentAmount.toFixed(2)}`,
-          bookingId: finalBookingId,
-          serviceName: checkoutData.title || "Fallback Service Name",
-        },
-      });
-      return;
-    }
-
-    // For hostel, create payment link and open
-    const paymentData = await createPaymentLink();
+    const paymentData = isTiffin ? await createTiffinPaymentLink() : await createPaymentLink();
     if (paymentData && paymentData.paymentLinkUrl) {
       const supported = await Linking.canOpenURL(paymentData.paymentLinkUrl);
       if (supported) {
@@ -331,10 +397,10 @@ const Checkout: React.FC = () => {
           router.push({
             pathname: "/(secure)/confirmation",
             params: {
-              id: finalBookingId,
+              id: (isTiffin ? (paymentData.tiffinOrderId || finalBookingId) : finalBookingId),
               serviceType: serviceType as string,
-              serviceName: checkoutData.title || "Fallback Hostel Name",
-              guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
+              serviceName: checkoutData.title || "Fallback Service Name",
+              guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (parsedUserData.name || "Fallback Name")),
               amount: paymentAmount,
             },
           });
@@ -396,9 +462,24 @@ const Checkout: React.FC = () => {
           return;
         }
       } else {
-        // For tiffin, simulate deduction (or implement tiffin-specific API if available)
-        newBalance = walletBalance - paymentAmount;
-        console.log("Wallet deduction simulated for tiffin. New balance:", newBalance);
+        // For tiffin, call the wallet payment API
+        const response = await axios.post(
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/payByWallet/${bookingId}`,
+          {}, // No body needed
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (response.data?.success) {
+          const { data } = response.data;
+          newBalance = data.remainingWallet;
+          finalBookingId = data.tiffinOrderId || bookingId; // Use returned ID or fallback to original
+          console.log("Wallet payment for tiffin successful:", data);
+        } else {
+          Alert.alert("Error", response.data?.message || "Failed to pay with wallet for tiffin");
+          return;
+        }
       }
 
       // Update local wallet balance
@@ -477,7 +558,7 @@ const Checkout: React.FC = () => {
     </TouchableOpacity>
   );
 
-  if (loadingWallet || (isHostel && loadingBooking)) {
+  if (loadingWallet || (isHostel && loadingBooking) || (isTiffin && loadingTiffin)) {
     return (
       <SafeAreaView style={styles.container}>
         <Header
