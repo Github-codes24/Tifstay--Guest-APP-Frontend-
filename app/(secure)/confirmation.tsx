@@ -29,23 +29,11 @@ const Confirmation: React.FC = () => {
   const isTiffin = serviceType === "tiffin";
 
   const [bookingDetails, setBookingDetails] = useState(null);
+  const [tiffinDetails, setTiffinDetails] = useState(null);
   const [randomTiffin, setRandomTiffin] = useState(null);
   const [randomTiffins, setRandomTiffins] = useState([]);
   const [randomHostels, setRandomHostels] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const tiffinBookingDetails = {
-    id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
-      Math.random() * 10000000
-    )}`,
-    tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
-    customer: "Onil Karmokar",
-    startDate: "21/07/25",
-    mealType: "Lunch",
-    foodType: "Veg",
-    orderType: "Delivery",
-    plan: "Daily",
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -58,7 +46,7 @@ const Confirmation: React.FC = () => {
 
   useEffect(() => {
     const fetchBookingDetails = async () => {
-      if (!isTiffin && id) {
+      if (id) {
         setLoading(true);
         try {
           const token = await AsyncStorage.getItem("token");
@@ -67,15 +55,29 @@ const Confirmation: React.FC = () => {
             return;
           }
 
-          const response = await axios.get(
-            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
+          let response;
+          if (isTiffin) {
+            response = await axios.get(
+              `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdafterPayment/${id}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
 
-          if (response.data.success) {
-            setBookingDetails(response.data.data);
+            if (response.data.success) {
+              setTiffinDetails(response.data.data);
+            }
+          } else {
+            response = await axios.get(
+              `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (response.data.success) {
+              setBookingDetails(response.data.data);
+            }
           }
         } catch (error) {
           console.error("Error fetching booking:", error);
@@ -108,11 +110,15 @@ const Confirmation: React.FC = () => {
 
             if (response.data.success) {
               const service = response.data.data;
+              const locationString = service.location 
+                ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+                : 'Location not available';
               tiffins.push({
                 id: service._id,
                 tiffinServiceName: service.tiffinName || service.tiffinServiceName,
-                imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+                imageUrl: service.vegPhotos?.[0] || service.nonVegPhotos?.[0] || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
                 ...service,
+                location: locationString,
               });
             }
           }
@@ -147,11 +153,15 @@ const Confirmation: React.FC = () => {
 
             if (response.data.success) {
               const hostel = response.data.data;
+              const locationString = hostel.location 
+                ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+                : 'Location not available';
               hostels.push({
                 id: hostel._id,
                 name: hostel.hostelName,
                 imageUrl: hostel.hostelPhotos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
                 ...hostel,
+                location: locationString,
               });
             }
           }
@@ -164,6 +174,31 @@ const Confirmation: React.FC = () => {
 
     fetchRandomHostels();
   }, [isTiffin]);
+
+  const tiffinBookingDetails = tiffinDetails ? {
+    id: id,
+    tiffinService: tiffinDetails.tiffinServiceName,
+    customer: tiffinDetails.guestName,
+    amount: tiffinDetails.amount,
+    startDate: formatDate(tiffinDetails.startDate),
+    mealType: tiffinDetails.mealType || "Lunch",
+    foodType: tiffinDetails.foodType || "Veg",
+    orderType: tiffinDetails.orderType || "Delivery",
+    plan: tiffinDetails.plan || "Daily",
+    numberOfTiffin: tiffinDetails.numberOfTiffin,
+  } : {
+    id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
+      Math.random() * 10000000
+    )}`,
+    tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
+    customer: paramGuestName || "Onil Karmokar",
+    amount: paramAmount || 'N/A',
+    startDate: "21/07/25",
+    mealType: "Lunch",
+    foodType: "Veg",
+    orderType: "Delivery",
+    plan: "Daily",
+  };
 
   const hostelBookingDetails = bookingDetails ? {
     id: id,
@@ -185,15 +220,29 @@ const Confirmation: React.FC = () => {
 
   const getRecommendations = () => {
     if (isTiffin) {
-      return randomHostels.length > 0 ? randomHostels : demoData.hostels.slice(0, 3).map((hostel) => ({
-        ...hostel,
-        imageUrl: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
-      }));
+      return randomHostels.length > 0 
+        ? randomHostels 
+        : (demoData.hostels?.slice(0, 3) || []).map((hostel) => {
+            const locationString = hostel.location 
+              ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+              : 'Location not available';
+            return {
+              ...hostel,
+              imageUrl: hostel.hostelPhotos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
+              location: locationString,
+            };
+          });
     } else {
-      return randomTiffins.length > 0 ? randomTiffins : demoData.tiffinServices.slice(0, 3).map((service) => ({
-        ...service,
-        imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-      }));
+      return randomTiffins.length > 0 ? randomTiffins : (demoData.tiffinServices?.slice(0, 3) || []).map((service) => {
+        const locationString = service.location 
+          ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+          : 'Location not available';
+        return {
+          ...service,
+          imageUrl: service.vegPhotos?.[0] || service.nonVegPhotos?.[0] || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+          location: locationString,
+        };
+      });
     }
   };
 
@@ -228,7 +277,7 @@ const Confirmation: React.FC = () => {
     router.push("/");
   };
 
-  if (loading && !isTiffin) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -303,6 +352,18 @@ const Confirmation: React.FC = () => {
                 <Text style={styles.detailLabel}>Plan:</Text>
                 <Text style={styles.detailValue}>
                   {tiffinBookingDetails.plan}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Number of Tiffins:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.numberOfTiffin || 'N/A'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Amount:</Text>
+                <Text style={styles.detailValue}>
+                  ₹{tiffinBookingDetails.amount || 'N/A'}
                 </Text>
               </View>
               <View style={[styles.detailRow]}>
@@ -404,7 +465,7 @@ const Confirmation: React.FC = () => {
 
         <View style={styles.recommendationsSection}>
           <Text style={styles.recommendationTitle}>
-            {isTiffin ? (randomHostels[0]?.hostelName || "Healthy Bites Tiffin") : (randomTiffin?.tiffinName || "Green Valley Boys Hostel")}
+            {isTiffin ? "Recommended Hostels" : "Recommended Tiffin Services"}
           </Text>
 
           <ScrollView

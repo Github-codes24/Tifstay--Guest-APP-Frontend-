@@ -402,6 +402,7 @@ export default function ProductDetails() {
     if (isFav) {
       // Remove logic (local context only; add remove API if backend supports it)
       removeFromFavorites(serviceId, serviceType);
+      Alert.alert("Success", "Removed successfully from favourites");
     } else {
       // Add to local context first (for instant UI feedback)
       addToFavorites({
@@ -415,7 +416,9 @@ export default function ProductDetails() {
       if (!success) {
         // Optional: Revert local if backend fails
         removeFromFavorites(serviceId, serviceType);
-        // Show toast/error: "Failed to save favorite. Try again."
+        Alert.alert("Error", "Failed to add to favorites. Please try again.");
+      } else {
+        Alert.alert("Success", "Added successfully");
       }
     }
   };

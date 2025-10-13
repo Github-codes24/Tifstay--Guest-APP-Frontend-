@@ -68,6 +68,10 @@ export default function BookingScreen() {
     userPhoto: params.userPhoto,
   });
 
+  // Error states for better UX
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [planError, setPlanError] = useState<string>('');
+
   // New states for dynamic pricing
   const [pricingData, setPricingData] = useState({
     daily: 0,
@@ -83,7 +87,15 @@ export default function BookingScreen() {
   const [selectedPlanType, setSelectedPlanType] = useState("perMeal"); // Default to perMeal
   const [mealLabels, setMealLabels] = useState<Record<MealType, string>>({});
   // New state for fetched plan details
-  const [plansDetails, setPlansDetails] = useState<Record<string, any>>({});
+  const [fetchedPlanType, setFetchedPlanType] = useState('');
+  const [fetchedPricing, setFetchedPricing] = useState({
+    perBreakfast: 0,
+    perMeal: 0,
+    weekly: 0,
+    monthly: 0,
+    offers: '',
+  });
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -92,7 +104,7 @@ export default function BookingScreen() {
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [numberOfTiffin, setNumberOfTiffin] = useState("1"); // Changed default to 1
   const [selectTiffinNumber, setSelectTiffinNumber] = useState("1");
-  const [selectedfood, setSelectedfood] = useState("both");
+  const [selectedfood, setSelectedfood] = useState("Both");
   const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
   const [mealPreferences, setMealPreferences] = useState({
     breakfast: true,
@@ -106,7 +118,9 @@ export default function BookingScreen() {
     sameAs3: false,
   });
   const [date, setDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   const [hostelPlan, setHostelPlan] = useState("monthly");
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
@@ -119,6 +133,46 @@ export default function BookingScreen() {
   const [userPhoto, setUserPhoto] = useState<string>("");
 
   const ranAutofill = useRef(false);
+
+  // Helper to clear errors for a field
+  const clearError = (field: string) => {
+    setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  // Helper to validate and set errors
+  const validateTiffinForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
+    if (!phoneNumber.trim()) newErrors.phoneNumber = "Phone Number is required!";
+    if (orderType === "delivery" && !address.trim()) newErrors.address = "Address is required for delivery!";
+    if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) newErrors.numberOfTiffin = "Valid Number of Tiffin is required!";
+    if (!date) newErrors.date = "Date is required!";
+    if (['weekly', 'monthly'].includes(selectedPlanType) && (!endDate || endDate <= date)) newErrors.endDate = "End date is required and must be after start date!";
+    if (!selectedfood) newErrors.selectedfood = "Food Type is required!";
+    if (!selectedPlanType) newErrors.selectedPlanType = "Plan type is required!";
+    if (!fetchedPlanType) newErrors.fetchedPlanType = "Please get plan details first!";
+    // NEW: Validate at least one meal selected
+    const numMealsSelected = Object.values(mealPreferences).filter(Boolean).length;
+    if (numMealsSelected === 0) newErrors.mealPreferences = "At least one meal preference is required!";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Validate hostel form
+  const validateHostelForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
+    if (!phoneNumber.trim()) newErrors.phoneNumber = "Phone Number is required!";
+    if (!checkInDate) newErrors.checkInDate = "Check-in date is required!";
+    if (!checkOutDate) newErrors.checkOutDate = "Check-out date is required!";
+    if (checkInDate && checkOutDate && checkInDate >= checkOutDate) newErrors.checkOutDate = "Check-out date must be after Check-in date!";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   useEffect(() => {
     console.log("=== Autofill useEffect triggered ===");
@@ -133,9 +187,17 @@ export default function BookingScreen() {
         const parsedUserData = JSON.parse(userDataStr);
         console.log("Parsed User Data:", parsedUserData);
 
-        // Common user autofill
-        setFullName(parsedUserData.name || '');
-        setPhoneNumber(parsedUserData.phoneNumber || '');
+        // Handle user data structure: direct or nested under 'guest'
+        const userName = parsedUserData.name || parsedUserData.guest?.name || '';
+        const userPhone = parsedUserData.phoneNumber || parsedUserData.guest?.phoneNumber || '';
+        const userEmail = parsedUserData.email || parsedUserData.guest?.email || '';
+        const userWorkType = parsedUserData.workType || parsedUserData.guest?.workType || '';
+        const userAdharPhoto = parsedUserData.adharCardPhoto || parsedUserData.guest?.adharCardPhoto || '';
+        const userPhotoUrl = parsedUserData.userPhoto || parsedUserData.guest?.userPhoto || '';
+
+        // Common user autofill for both
+        setFullName(userName);
+        setPhoneNumber(userPhone);
 
         if (isHostelBooking) {
           const parsedHostelData = JSON.parse(hostelDataStr);
@@ -158,10 +220,10 @@ export default function BookingScreen() {
             beds: parsedSelectedBeds, // Minimal: [{bedId, bedNumber}]
             monthlyPrice: parsedPlan.price,
             deposit: parsedPlan.depositAmount,
-            email: parsedUserData.email || prev.email,
-            workType: parsedUserData.workType || prev.workType,
-            adharCardPhoto: parsedUserData.adharCardPhoto || prev.adharCardPhoto,
-            userPhoto: parsedUserData.userPhoto || prev.userPhoto,
+            email: userEmail || prev.email,
+            workType: userWorkType || prev.workType,
+            adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
+            userPhoto: userPhotoUrl || prev.userPhoto,
           }));
 
           console.log("Extracted Hostel ID:", parsedHostelData.id);
@@ -169,10 +231,10 @@ export default function BookingScreen() {
 
           // Autofill other fields (except check-in and check-out dates)
           setHostelPlan(parsedPlan.name || "monthly");
-          setAadhaarPhoto(parsedUserData.adharCardPhoto || "");
-          setUserPhoto(parsedUserData.userPhoto || "");
+          setAadhaarPhoto(userAdharPhoto || "");
+          setUserPhoto(userPhotoUrl || "");
           // Do not auto-fill checkInDate or checkOutDate - let user select
-          const workType = parsedUserData.workType || "Student";
+          const workType = userWorkType || "Student";
           setPurposeType(workType === "Student" ? "leisure" : "work");
         }
 
@@ -197,8 +259,8 @@ export default function BookingScreen() {
           // Autofill tiffin-specific fields
           // NEW: Use first available plan's foodType (handles mismatches)
           const firstPlan = parsedServiceData.pricing?.[0];
-          const planFoodType = firstPlan?.foodType?.toLowerCase() || "veg";
-          setSelectedfood(planFoodType.includes("both") ? "both" : planFoodType.includes("non") ? "nonveg" : "veg");
+          const planFoodType = firstPlan?.foodType?.toLowerCase() || "Veg";
+          setSelectedfood(planFoodType.includes("Both") ? "Both" : planFoodType.includes("Non") ? "Non-Veg" : "Veg");
           // Set meal preferences from data (assume types like "Breakfast" -> "breakfast")
           const defaultMealPrefs = { breakfast: false, lunch: false, dinner: false };
           parsedServiceData.mealPreferences?.forEach((meal: any) => {
@@ -232,91 +294,6 @@ export default function BookingScreen() {
     }
   }, [bookingType, serviceDataStr, hostelDataStr, roomDataStr, userDataStr, planStr, selectedBedsStr, defaultDateStr]);
 
-
-useEffect(() => {
-  const fetchSelectedPlanDetails = async () => {
-    if (bookingType !== "tiffin" || !serviceData.pricing || serviceData.pricing.length === 0) {
-      console.log("⚠️ No pricing data available for fetch");
-      return;
-    }
-
-    // Compute selected meals from state
-    const selectedMeals: string[] = [];
-    if (mealPreferences?.breakfast) selectedMeals.push('breakfast');
-    if (mealPreferences?.lunch) selectedMeals.push('lunch');
-    if (mealPreferences?.dinner) selectedMeals.push('dinner');
-    const mealPrefStr = selectedMeals.join(',');
-    const numMeals = selectedMeals.length;
-
-    // Guard: Skip if no meals or no plan
-    if (!selectedPlanType || numMeals === 0) {
-      console.log("⏭️ Skipping plan details fetch: No selected plan or meals (using local pricing)");
-      setPlansDetails({});
-      return;
-    }
-
-    console.log(`🔍 Fetching details for selected plan: ${selectedPlanType} | Meals: ${mealPrefStr} (${numMeals} meals) | FoodType: ${serviceData.foodType}`);
-
-    const token = await AsyncStorage.getItem("token");
-    if (!token) {
-      console.warn("No token available – skipping");
-      return;
-    }
-
-    if (!serviceData.serviceId) {
-      console.warn("⚠️ No serviceId – skipping");
-      return;
-    }
-
-    const selectedPlan = serviceData.pricing.find((p: any) => p.planType === selectedPlanType);
-    if (!selectedPlan || !selectedPlan._id) {
-      console.warn(`⚠️ Selected plan not found: ${selectedPlanType}`);
-      return;
-    }
-
-    // NEW: Guard for foodType mismatch (esp. for third plan)
-    if (selectedPlan.foodType !== serviceData.foodType && selectedPlan.foodType !== "Both Veg & Non-Veg") {
-      console.warn(`⚠️ FoodType mismatch: Plan ${selectedPlan.foodType} vs Service ${serviceData.foodType} – skipping fetch`);
-      return;
-    }
-
-    try {
-      const queryParams = new URLSearchParams({
-        planType: selectedPlan.planType,
-        foodType: selectedPlan.foodType,  // Use plan's foodType
-        orderType: orderType.toLowerCase(),
-        mealPreference: mealPrefStr,
-      });
-
-      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${selectedPlan._id}?${queryParams.toString()}`;
-      console.log("🔗 Full API URL:", url);
-
-      const response = await axios.get(url, {
-        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
-      });
-
-      console.log(`📥 Response for ${selectedPlan.planType}:`, JSON.stringify(response, null, 2));
-
-      if (response.data.success) {
-        const details = { [selectedPlan.planType]: response.data.data };
-        setPlansDetails(details);
-        console.log(`✅ Fetched details for ${selectedPlan._id}:`, response.data.data);
-      } else {
-        console.log(`❌ API false for ${selectedPlan.planType}:`, response.data.message);
-        setPlansDetails({});
-      }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error(`❌ Error for ${selectedPlan._id}: Status ${error.response?.status}, Data:`, error.response?.data);
-      } else {
-        console.error(`❌ Non-Axios error:`, error);
-      }
-      setPlansDetails({});
-    }
-  };
-
-  fetchSelectedPlanDetails();
-}, [serviceData.pricing, bookingType, orderType, selectedPlanType, mealPreferences]);  // Reactive deps
 
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
   useEffect(() => {
@@ -385,15 +362,21 @@ useEffect(() => {
     if (bookingType === "tiffin") {
       if (selectedPlanType) {
         let basePrice = 0;
-        // Hardcoded prices based on plan type and order type (delivery/dining)
-        if (selectedPlanType === "perBreakfast") {
-          basePrice = orderType === "delivery" ? 120 : 100; // Assume dining cheaper
-        } else if (selectedPlanType === "perMeal") {
-          basePrice = orderType === "delivery" ? 120 : 100;
-        } else if (selectedPlanType === "weekly") {
-          basePrice = orderType === "delivery" ? 800 : 700; // Discounted price
-        } else if (selectedPlanType === "monthly") {
-          basePrice = orderType === "delivery" ? 3200 : 3000; // Discounted price
+        // Use fetched pricing if available, else fallback to hardcoded
+        const pricingKey = selectedPlanType as keyof typeof fetchedPricing;
+        if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
+          basePrice = fetchedPricing[pricingKey];
+        } else {
+          // Hardcoded fallback
+          if (selectedPlanType === "perBreakfast") {
+            basePrice = 120; // Assume delivery
+          } else if (selectedPlanType === "perMeal") {
+            basePrice = 120;
+          } else if (selectedPlanType === "weekly") {
+            basePrice = 800; // Discounted price
+          } else if (selectedPlanType === "monthly") {
+            basePrice = 3200; // Discounted price
+          }
         }
         const numTiffins = parseInt(numberOfTiffin || "1");
         newPrice = basePrice * numTiffins;
@@ -422,6 +405,7 @@ useEffect(() => {
     pricingData,
     securityDeposit,
     mealPreferences,  // NEW: For numMeals calc in log
+    fetchedPricing,
   ]);
 
   // Auto-set meal preferences based on selected plan type
@@ -440,7 +424,7 @@ useEffect(() => {
     }
   }, [selectedPlanType]);
 
-  // Auto-fill check-out date based on check-in and plan
+  // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
     if (checkInDate && hostelPlan) {
       let daysToAdd = 0;
@@ -456,6 +440,24 @@ useEffect(() => {
     }
   }, [checkInDate, hostelPlan]);
 
+  // Auto-fill end date based on start date and plan type (for tiffin weekly/monthly)
+  useEffect(() => {
+    if (date && ['weekly', 'monthly'].includes(selectedPlanType)) {
+      let daysToAdd = 0;
+      if (selectedPlanType === 'weekly') {
+        daysToAdd = 7;
+      } else if (selectedPlanType === 'monthly') {
+        daysToAdd = 30; // Approximate for a month
+      }
+
+      const newEndDate = new Date(date);
+      newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+      setEndDate(newEndDate);
+    } else if (!['weekly', 'monthly'].includes(selectedPlanType)) {
+      setEndDate(null); // Clear end date for per meal plans
+    }
+  }, [date, selectedPlanType]);
+
   // Helper functions
   const toggleMealPreference = (meal: MealType) => {
     setMealPreferences((prev) => ({ ...prev, [meal]: !prev[meal] }));
@@ -470,6 +472,11 @@ useEffect(() => {
     if (selectedDate) setDate(selectedDate);
   };
 
+  const onChangeEndDate = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(Platform.OS === "ios");
+    if (selectedDate) setEndDate(selectedDate);
+  };
+
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
     setShowCheckInPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -481,6 +488,88 @@ useEffect(() => {
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
     setShowCheckOutPicker(Platform.OS === "ios");
     if (selectedDate) setCheckOutDate(selectedDate);
+  };
+
+  const handleGetPlanDetails = async () => {
+    const selectedMeals: string[] = [];
+    if (mealPreferences.breakfast) selectedMeals.push('Breakfast');
+    if (mealPreferences.lunch) selectedMeals.push('Lunch');
+    if (mealPreferences.dinner) selectedMeals.push('Dinner');
+    const mealPrefStr = selectedMeals.join(',');
+    if (mealPrefStr === '') {
+      setPlanError('Please select at least one meal preference.');
+      return;
+    }
+
+    let foodTypeStr = '';
+    if (selectedfood === 'Veg') foodTypeStr = 'Veg';
+    else if (selectedfood === 'Non-Veg') foodTypeStr = 'Non-Veg';
+    else if (selectedfood === 'Both') foodTypeStr = 'Both Veg & Non-Veg';
+
+    const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      setPlanError('Authentication required.');
+      return;
+    }
+
+    if (!serviceData.serviceId) {
+      setPlanError('Service ID not available.');
+      return;
+    }
+
+    setIsFetchingDetails(true);
+    setPlanError('');
+    try {
+      const queryParams = new URLSearchParams({
+        mealPreference: mealPrefStr,
+        foodType: foodTypeStr,
+        orderType: orderTypeStr,
+      });
+
+      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceData.serviceId}?${queryParams.toString()}`;
+      console.log("🔗 Full API URL:", url);
+
+      const response = await axios.get(url, {
+        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
+      });
+
+      console.log(`📥 Response:`, JSON.stringify(response, null, 2));
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setFetchedPlanType(data.planType);
+        setFetchedPricing({
+          perBreakfast: data.pricing.perBreakfast || 0,
+          perMeal: data.pricing.perMeal || 0,
+          weekly: data.pricing.weekly || 0,
+          monthly: data.pricing.monthly || 0,
+          offers: data.offers || '',
+        });
+        // Check if no plans found
+        const totalPricing = (data.pricing.perBreakfast || 0) + (data.pricing.perMeal || 0) + (data.pricing.weekly || 0) + (data.pricing.monthly || 0);
+        if (totalPricing === 0) {
+          setPlanError('No plans available for your selected preferences. Please try different options.');
+        } else {
+          setPlanError('');
+        }
+        console.log(`✅ Fetched details:`, data);
+      } else {
+        console.log(`❌ API false:`, response.data.message);
+        setPlanError('Failed to fetch plan details: ' + response.data.message);
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(`❌ Error: Status ${error.response?.status}, Data:`, error.response?.data);
+        setPlanError('Failed to fetch plan details: ' + (error.response?.data?.message || 'Network error'));
+      } else {
+        console.error(`❌ Non-Axios error:`, error);
+        setPlanError('Failed to fetch plan details.');
+      }
+    } finally {
+      setIsFetchingDetails(false);
+    }
   };
 
   const handleBack = () => {
@@ -499,51 +588,117 @@ const handleTiffinSubmit = async () => {
   console.log("selectedfood:", selectedfood);
   console.log("specialInstructions:", specialInstructions);
   console.log("date:", date);
+  console.log("endDate:", endDate);
   console.log("serviceData:", serviceData);
+  console.log("fetchedPlanType:", fetchedPlanType);
 
-  // Validation
-  if (!fullName) {
-    alert("Full Name is required!");
-    return;
-  }
-  if (!phoneNumber) {
-    alert("Phone Number is required!");
-    return;
-  }
-  if (orderType === "delivery" && !address) {
-    alert("Address is required for delivery!");
-    return;
-  }
-  if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) {
-    alert("Valid Number of Tiffin is required!");
-    return;
-  }
-  if (!date) {
-    alert("Date is required!");
-    return;
-  }
-  if (!selectedfood) {
-    alert("Food Type is required!");
-    return;
-  }
-  if (!selectedPlanType) {
-    alert("Plan type is required!");
-    return;
-  }
+  if (validateTiffinForm()) {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setErrors(prev => ({ ...prev, general: "Authentication token is missing!" }));
+        return;
+      }
 
-  // Skip API call for now - directly navigate
-  console.log("Skipping API call and navigating to checkout...");
+      if (!serviceData.serviceId) {
+        setErrors(prev => ({ ...prev, general: "Service ID is missing!" }));
+        return;
+      }
 
-  // Derive a dummy bookingId for navigation (replace with real one later)
-  const dummyBookingId = "dummy-tiffin-booking-123";
+      // FIXED: For API, use single meal (first selected or fallback to "Lunch") instead of joined string
+      const selectedMeals = Object.entries(mealPreferences)
+        .filter(([_, checked]) => checked)
+        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+      // NEW: Default to first selected meal for backend compatibility
+      const mealPreference = selectedMeals.length > 0 ? selectedMeals[0] : "Lunch";  // Fallback to "Lunch" as per example
 
-  router.push({
-    pathname: "/check-out",
-    params: {
-      serviceType: "tiffin",
-      bookingId: dummyBookingId,
-    },
-  });
+      // FIXED: Use short form for payload body (matches backend validation)
+      const foodTypeMap = {
+        Veg: "Veg",
+        "Non-Veg": "Non-Veg",
+        Both: "Both"  // Shortened for create payload
+      };
+      const foodType = foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
+
+      const chooseOrderType = orderType === "delivery" ? "Delivery" : "Dining";
+
+      // FIXED: Use short, capitalized selectedPlanType for planName (e.g., "Monthly") to match backend expectations
+      const planNameMap: Record<string, string> = {
+        perBreakfast: "Per Breakfast",
+        perMeal: "Per Meal",
+        weekly: "Weekly",
+        monthly: "Monthly"
+      };
+      const planName = planNameMap[selectedPlanType] || selectedPlanType.charAt(0).toUpperCase() + selectedPlanType.slice(1);
+      const choosePlanType = {
+        planName,  // Now short, e.g., "Monthly"
+        price: currentPlanPrice
+      };
+
+      // FIXED: Conditionally add sameUs only if sameForAll is checked (omit empty to avoid enum validation)
+      const tiffinNumberObj: { tiffinNumber: number; sameUs?: string } = {
+        tiffinNumber: parseInt(selectTiffinNumber),
+      };
+      if (sameAsSelections.sameForAll) {
+        tiffinNumberObj.sameUs = "All";
+      }
+      // For multiple tiffins, you'd ideally generate multiple objects, but match example: single object with "All" applies to all
+
+      const selectTiffinNumberArray = [tiffinNumberObj];
+
+      const payload = {
+        fullName,
+        phoneNumber,
+        address,
+        specialInstructions,
+        numberOfTiffin: parseInt(numberOfTiffin),
+        selectTiffinNumber: selectTiffinNumberArray,
+        mealPreference,  // Now a single meal string, e.g., "Breakfast"
+        foodType,
+        chooseOrderType,
+        choosePlanType,
+        date: date?.toISOString().split('T')[0] || '',
+        serviceId: serviceData.serviceId,
+      };
+
+      console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
+
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("API Response:", response.data);
+
+      if (response.data.success) {
+        console.log("Tiffin booking successful:", response.data.data);
+        const bookingId = response.data.data._id;
+
+        console.log("Navigating to checkout with booking ID:", bookingId);
+
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "tiffin",
+            bookingId,
+          },
+        });
+      } else {
+        console.error("Booking failed:", response.data.message || "Unknown error");
+        setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+      }
+    } catch (error: any) {
+      console.error("Error creating tiffin booking:", error.response?.data || error.message);
+      console.error("Full error object:", error);
+      setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+    }
+  }
 };
 
   const handleHostelSubmit = async () => {
@@ -559,127 +714,108 @@ const handleTiffinSubmit = async () => {
     console.log("userPhoto:", userPhoto);
     console.log("beds:", serviceData.beds);
 
-    try {
-      if (!serviceData.hostelId || !serviceData.roomId) {
-        console.error("Error: Hostel ID or Room ID is missing!");
-        console.log("hostelId:", serviceData.hostelId);
-        console.log("roomId:", serviceData.roomId);
-        alert("Hostel ID or Room ID is missing!");
-        return;
-      }
-
-      if (!fullName) {
-        console.error("Error: Full Name is missing!");
-        alert("Full Name is required!");
-        return;
-      }
-      if (!phoneNumber) {
-        console.error("Error: Phone Number is missing!");
-        alert("Phone Number is required!");
-        return;
-      }
-      if (!checkInDate || !checkOutDate) {
-        console.error("Error: Check-in and Check-out dates are required!");
-        alert("Check-in and Check-out dates are required!");
-        return;
-      }
-      if (checkInDate >= checkOutDate) {
-        console.error("Error: Invalid dates - Check-out must be after Check-in!");
-        alert("Check-out date must be after Check-in date!");
-        return;
-      }
-
-      if (!serviceData.beds || serviceData.beds.length === 0) {
-        console.error("Error: No beds selected!");
-        alert("Please select at least one bed!");
-        return;
-      }
-
-      const token = await AsyncStorage.getItem("token");
-      const guestId = await AsyncStorage.getItem("guestId");
-
-      console.log("token:", token ? "Present" : "Missing");
-      console.log("guestId:", guestId ? "Present" : "Missing");
-
-      if (!token || !guestId) {
-        console.error("Error: Authentication token or guest ID is missing!");
-        alert("Authentication token or guest ID is missing!");
-        return;
-      }
-
-      const selectPlan = [
-        {
-          name: hostelPlan,
-          price: currentPlanPrice,
-          depositAmount: currentDeposit,
-        },
-      ];
-
-      // Minimal bedNumber: only bedId and bedNumber
-      const bedNumber = serviceData.beds.map((bed: any) => ({
-        bedId: bed.bedId,
-        bedNumber: bed.bedNumber,
-      }));
-
-      // Minimal payload matching backend expectations
-      const bookingPayload = {
-        fullName,
-        phoneNumber,
-        email: serviceData.email || "example@example.com",
-        workType: purposeType === "work" ? "1" : "10",
-        checkInDate: checkInDate.toISOString(),
-        checkOutDate: checkOutDate.toISOString(),
-        selectPlan,
-        addharCardPhoto: aadhaarPhoto || null,
-        userPhoto: userPhoto || null,
-        guestId,
-        rooms: [
-          {
-            roomId: serviceData.roomId,
-            roomNumber: String(serviceData.roomNumber || ""), // e.g., "101"
-            bedNumber, // Minimal array
-          },
-        ],
-      };
-
-      console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
-
-      const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}?roomId=${serviceData.roomId}`,
-        bookingPayload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+    if (validateHostelForm()) {
+      try {
+        if (!serviceData.hostelId || !serviceData.roomId) {
+          console.error("Error: Hostel ID or Room ID is missing!");
+          console.log("hostelId:", serviceData.hostelId);
+          console.log("roomId:", serviceData.roomId);
+          setErrors(prev => ({ ...prev, general: "Hostel ID or Room ID is missing!" }));
+          return;
         }
-      );
 
-      console.log("API Response:", response.data);
+        if (!serviceData.beds || serviceData.beds.length === 0) {
+          console.error("Error: No beds selected!");
+          setErrors(prev => ({ ...prev, general: "Please select at least one bed!" }));
+          return;
+        }
 
-      if (response.data.success) {
-        console.log("Booking successful:", response.data.data);
-        // alert("Hostel booking created successfully!");
+        const token = await AsyncStorage.getItem("token");
+        const guestId = await AsyncStorage.getItem("guestId");
 
-        const bookingId = response.data.data._id;
+        console.log("token:", token ? "Present" : "Missing");
+        console.log("guestId:", guestId ? "Present" : "Missing");
 
-        console.log("Navigating to checkout with booking ID:", bookingId);
+        if (!token || !guestId) {
+          console.error("Error: Authentication token or guest ID is missing!");
+          setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+          return;
+        }
 
-        router.push({
-          pathname: "/check-out",
-          params: {
-            serviceType: "hostel",
-            bookingId,
+        const selectPlan = [
+          {
+            name: hostelPlan,
+            price: currentPlanPrice,
+            depositAmount: currentDeposit,
           },
-        });
-      } else {
-        console.error("Booking failed:", response.data.message || "Unknown error");
-        alert("Booking failed: " + (response.data.message || "Unknown error"));
+        ];
+
+        // Minimal bedNumber: only bedId and bedNumber
+        const bedNumber = serviceData.beds.map((bed: any) => ({
+          bedId: bed.bedId,
+          bedNumber: bed.bedNumber,
+        }));
+
+        // Minimal payload matching backend expectations
+        const bookingPayload = {
+          fullName,
+          phoneNumber,
+          email: serviceData.email || "example@example.com",
+          workType: purposeType === "work" ? "1" : "10",
+          checkInDate: checkInDate.toISOString(),
+          checkOutDate: checkOutDate.toISOString(),
+          selectPlan,
+          addharCardPhoto: aadhaarPhoto || null,
+          userPhoto: userPhoto || null,
+          guestId,
+          rooms: [
+            {
+              roomId: serviceData.roomId,
+              roomNumber: String(serviceData.roomNumber || ""), // e.g., "101"
+              bedNumber, // Minimal array
+            },
+          ],
+        };
+
+        console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
+
+        const response = await axios.post(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}?roomId=${serviceData.roomId}`,
+          bookingPayload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        console.log("API Response:", response.data);
+
+        if (response.data.success) {
+          console.log("Booking successful:", response.data.data);
+          // alert("Hostel booking created successfully!");
+
+          const bookingId = response.data.data._id;
+
+          console.log("Navigating to checkout with booking ID:", bookingId);
+
+          router.push({
+            pathname: "/check-out",
+            params: {
+              serviceType: "hostel",
+              bookingId,
+            },
+          });
+        } else {
+          console.error("Booking failed:", response.data.message || "Unknown error");
+          setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+        }
+      } catch (error: any) {
+        console.error("Error creating hostel booking:", error.response?.data || error.message);
+        console.error("Full error object:", error);
+        setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
       }
-    } catch (error: any) {
-      console.error("Error creating hostel booking:", error.response?.data || error.message);
-      console.error("Full error object:", error);
-      alert("Something went wrong while booking. Please try again.");
     }
   };
 
@@ -757,19 +893,33 @@ const handleTiffinSubmit = async () => {
         </View>
         <Text style={styles.label}>Full Name *</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.fullName && styles.inputError]}
           placeholder="Enter your full name"
           value={fullName}
-          onChangeText={setFullName}
+          onChangeText={(text) => {
+            setFullName(text);
+            clearError('fullName');
+          }}
+          onBlur={() => {
+            if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: "Full Name is required!" }));
+          }}
         />
+        {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
         <Text style={styles.label}>Phone Number *</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.phoneNumber && styles.inputError]}
           placeholder="Enter your phone number"
           keyboardType="phone-pad"
           value={phoneNumber}
-          onChangeText={setPhoneNumber}
+          onChangeText={(text) => {
+            setPhoneNumber(text);
+            clearError('phoneNumber');
+          }}
+          onBlur={() => {
+            if (!phoneNumber.trim()) setErrors(prev => ({ ...prev, phoneNumber: "Phone Number is required!" }));
+          }}
         />
+        {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
       </View>
 
       <View style={styles.section}>
@@ -805,7 +955,7 @@ const handleTiffinSubmit = async () => {
 
         <Text style={styles.label}>Check-in date *</Text>
         <TouchableOpacity
-          style={styles.datePickerButton}
+          style={[styles.datePickerButton, errors.checkInDate && styles.inputError]}
           onPress={() => setShowCheckInPicker(true)}
         >
           <Text style={styles.datePickerText}>
@@ -813,10 +963,11 @@ const handleTiffinSubmit = async () => {
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
+        {errors.checkInDate && <Text style={styles.errorText}>{errors.checkInDate}</Text>}
 
         <Text style={styles.label}>Check-out date *</Text>
         <TouchableOpacity
-          style={styles.datePickerButton}
+          style={[styles.datePickerButton, errors.checkOutDate && styles.inputError]}
           onPress={() => setShowCheckOutPicker(true)}
         >
           <Text style={styles.datePickerText}>
@@ -824,6 +975,7 @@ const handleTiffinSubmit = async () => {
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
+        {errors.checkOutDate && <Text style={styles.errorText}>{errors.checkOutDate}</Text>}
 
         {showCheckInPicker && (
           <DateTimePicker
@@ -885,6 +1037,8 @@ const handleTiffinSubmit = async () => {
 
       </View>
 
+      {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
+
       <TouchableOpacity
         style={styles.submitButton}
         onPress={handleHostelSubmit}
@@ -894,15 +1048,44 @@ const handleTiffinSubmit = async () => {
     </>
   );
 
-  const renderTiffinBooking = () => {
-    // Hardcoded plan options
-    const planOptions = [
-      { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
-      { label: "Per Meal (₹120/meal)", value: "perMeal" },
-      { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
-      { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
-    ];
+  // Hardcoded plan options for fallback
+  const hardcodedPlanOptions = [
+    { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
+    { label: "Per Meal (₹120/meal)", value: "perMeal" },
+    { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
+    { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
+  ];
 
+  const getPlanOptions = () => {
+    const options: { label: string; value: string }[] = [];
+    if (fetchedPricing.perBreakfast > 0) {
+      options.push({ label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`, value: "perBreakfast" });
+    }
+    if (fetchedPricing.perMeal > 0) {
+      options.push({ label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`, value: "perMeal" });
+    }
+    if (fetchedPricing.weekly > 0) {
+      options.push({ label: `Weekly (₹${fetchedPricing.weekly}/weekly)`, value: "weekly" });
+    }
+    if (fetchedPricing.monthly > 0) {
+      options.push({ label: `Monthly (₹${fetchedPricing.monthly}/monthly)`, value: "monthly" });
+    }
+    // If no dynamic options, fallback to hardcoded
+    if (options.length === 0) {
+      return hardcodedPlanOptions;
+    }
+    return options;
+  };
+
+  // NEW: Helper for selected meals summary in UI
+  const selectedMealsSummary = React.useMemo(() => {
+    const selectedMeals = Object.entries(mealPreferences)
+      .filter(([_, checked]) => checked)
+      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+    return selectedMeals.join(", ");
+  }, [mealPreferences]);
+
+  const renderTiffinBooking = () => {
     return (
       <>
         <View style={styles.section}>
@@ -912,19 +1095,33 @@ const handleTiffinSubmit = async () => {
           </View>
           <Text style={styles.label}>Full Name *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.fullName && styles.inputError]}
             placeholder="Enter your full name"
             value={fullName}
-            onChangeText={setFullName}
+            onChangeText={(text) => {
+              setFullName(text);
+              clearError('fullName');
+            }}
+            onBlur={() => {
+              if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: "Full Name is required!" }));
+            }}
           />
+          {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
           <Text style={styles.label}>Phone Number *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.phoneNumber && styles.inputError]}
             placeholder="Enter your phone number"
             keyboardType="phone-pad"
             value={phoneNumber}
-            onChangeText={setPhoneNumber}
+            onChangeText={(text) => {
+              setPhoneNumber(text);
+              clearError('phoneNumber');
+            }}
+            onBlur={() => {
+              if (!phoneNumber.trim()) setErrors(prev => ({ ...prev, phoneNumber: "Phone Number is required!" }));
+            }}
           />
+          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
         </View>
 
         <View style={styles.section}>
@@ -932,24 +1129,25 @@ const handleTiffinSubmit = async () => {
             <Image source={location1} style={styles.icon} />
             <Text style={styles.sectionTitle}> Delivery Address</Text>
           </View>
-          <Text style={styles.label}>Select Address</Text>
-          <View style={styles.pickerWrapper}>
-            <RNPickerSelect
-              onValueChange={setAddress}
-              items={[
-                { label: "Home Address", value: "home" },
-                { label: "Office Address", value: "office" },
-                { label: "Other", value: "other" },
-              ]}
-              placeholder={{ label: "Home Address", value: null }}
-              style={{
-                inputIOS: styles.pickerInput,
-                inputAndroid: styles.pickerInput,
-              }}
-              value={address}
-              disabled={orderType === "dining"}
-            />
-          </View>
+          <Text style={styles.label}>Address {orderType === "delivery" && "*"}</Text>
+          <TextInput
+            style={[
+              styles.input,
+              errors.address && styles.inputError,
+              orderType === "dining" && { backgroundColor: "#eee" }
+            ]}
+            placeholder="Enter your full address"
+            value={address}
+            onChangeText={(text) => {
+              setAddress(text);
+              clearError('address');
+            }}
+            onBlur={() => {
+              if (orderType === "delivery" && !address.trim()) setErrors(prev => ({ ...prev, address: "Address is required for delivery!" }));
+            }}
+            editable={orderType === "delivery"}
+          />
+          {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
           <Text style={styles.label}>Special Instructions (Optional)</Text>
           <TextInput
             style={[
@@ -972,11 +1170,18 @@ const handleTiffinSubmit = async () => {
           </View>
           <Text style={styles.label}>Number Of Tiffin *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.numberOfTiffin && styles.inputError]}
             value={numberOfTiffin}
             keyboardType="numeric"
-            onChangeText={setNumberOfTiffin}
+            onChangeText={(text) => {
+              setNumberOfTiffin(text);
+              clearError('numberOfTiffin');
+            }}
+            onBlur={() => {
+              if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) setErrors(prev => ({ ...prev, numberOfTiffin: "Valid Number of Tiffin is required!" }));
+            }}
           />
+          {errors.numberOfTiffin && <Text style={styles.errorText}>{errors.numberOfTiffin}</Text>}
           <Text style={styles.label}>Select Tiffin Number</Text>
           <View style={styles.pickerWrapper}>
             <RNPickerSelect
@@ -1023,26 +1228,43 @@ const handleTiffinSubmit = async () => {
               </Text>
             </View>
           ))}
+          {/* NEW: Display selected meals summary */}
+          {selectedMealsSummary && (
+            <Text style={[styles.label, { fontSize: 12, color: "#666", marginTop: 5 }]}>
+              Selected: {selectedMealsSummary}
+            </Text>
+          )}
+          {errors.mealPreferences && <Text style={styles.errorText}>{errors.mealPreferences}</Text>}
 
           <Text style={[styles.sectionTitle]}>Food Type</Text>
           <RadioButton
             label="Veg"
-            value="veg"
+            value="Veg"
             selected={selectedfood}
-            onPress={setSelectedfood}
+            onPress={(value) => {
+              setSelectedfood(value);
+              clearError('selectedfood');
+            }}
           />
           <RadioButton
             label="Non-Veg"
-            value="nonveg"
+            value="Non-Veg"
             selected={selectedfood}
-            onPress={setSelectedfood}
+            onPress={(value) => {
+              setSelectedfood(value);
+              clearError('selectedfood');
+            }}
           />
           <RadioButton
             label="Both Veg & Non-Veg"
-            value="both"
+            value="Both"
             selected={selectedfood}
-            onPress={setSelectedfood}
+            onPress={(value) => {
+              setSelectedfood(value);
+              clearError('selectedfood');
+            }}
           />
+          {errors.selectedfood && <Text style={styles.errorText}>{errors.selectedfood}</Text>}
 
           {/* Order Type */}
           <Text style={[styles.sectionTitle]}>Choose Order Type</Text>
@@ -1063,16 +1285,43 @@ const handleTiffinSubmit = async () => {
             </View>
           ))}
 
-          <Text style={[styles.sectionTitle]}>Choose Plan Type</Text>
-          {planOptions.map((option) => (
+          {/* Get Plan Details Button */}
+          <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Get Plan Details</Text>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              (Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
+            ]}
+            onPress={handleGetPlanDetails}
+            disabled={Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails}
+          >
+            {isFetchingDetails ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Get Plan Details</Text>
+            )}
+          </TouchableOpacity>
+          {planError ? (
+            <Text style={styles.errorText}>{planError}</Text>
+          ) : fetchedPricing.offers ? (
+            <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
+          ) : null}
+
+          <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
+          {getPlanOptions().map((option) => (
             <RadioButton
               key={option.value}
               label={option.label}
               value={option.value}
               selected={selectedPlanType}
-              onPress={setSelectedPlanType}
+              onPress={(value) => {
+                setSelectedPlanType(value);
+                clearError('selectedPlanType');
+              }}
             />
           ))}
+          {errors.selectedPlanType && <Text style={styles.errorText}>{errors.selectedPlanType}</Text>}
+          {errors.fetchedPlanType && <Text style={styles.errorText}>{errors.fetchedPlanType}</Text>}
 
           <View style={styles.priceContainer}>
             <Text style={styles.priceText}>
@@ -1083,9 +1332,9 @@ const handleTiffinSubmit = async () => {
             </Text>
           </View>
 
-          <Text style={[styles.sectionTitle]}>Select Date</Text>
+          <Text style={styles.label}>Select Start Date *</Text>
           <TouchableOpacity
-            style={styles.datePickerButton}
+            style={[styles.datePickerButton, errors.date && styles.inputError]}
             onPress={() => setShowDatePicker(true)}
           >
             <Text style={styles.datePickerText}>
@@ -1093,6 +1342,7 @@ const handleTiffinSubmit = async () => {
             </Text>
             <Image source={calender} style={styles.calendarIcon} />
           </TouchableOpacity>
+          {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
           {showDatePicker && (
             <DateTimePicker
               value={date || new Date()}
@@ -1102,7 +1352,33 @@ const handleTiffinSubmit = async () => {
               minimumDate={new Date()}
             />
           )}
+
+          {['weekly', 'monthly'].includes(selectedPlanType) && (
+            <>
+              <Text style={styles.label}>Select End Date *</Text>
+              <TouchableOpacity
+                style={[styles.datePickerButton, errors.endDate && styles.inputError]}
+                onPress={() => setShowEndDatePicker(true)}
+              >
+                <Text style={styles.datePickerText}>
+                  {endDate ? endDate.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+                </Text>
+                <Image source={calender} style={styles.calendarIcon} />
+              </TouchableOpacity>
+              {errors.endDate && <Text style={styles.errorText}>{errors.endDate}</Text>}
+              {showEndDatePicker && (
+                <DateTimePicker
+                  value={endDate || new Date(date || new Date())}
+                  mode="date"
+                  display="default"
+                  onChange={onChangeEndDate}
+                  minimumDate={date || new Date()}
+                />
+              )}
+            </>
+          )}
         </View>
+        {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
         <Buttons
           style={styles.submitButton}
           title="Submit Order Request"
@@ -1165,8 +1441,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    marginBottom: 15,
+    marginBottom: 5,
     fontSize: 14,
+  },
+  inputError: {
+    borderColor: "#ff0000",
+  },
+  errorText: {
+    color: "#ff0000",
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: "left",
   },
   pickerWrapper: {
     borderWidth: 1,
@@ -1248,7 +1533,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 5,
   },
   datePickerText: {
     fontSize: 14,
@@ -1263,6 +1548,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 30,
     marginBottom: 10,
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
   },
   submitButtonText: {
     color: "#fff",
@@ -1354,5 +1642,12 @@ const styles = StyleSheet.create({
   purposeTextActive: {
     color: "#fff",
     fontWeight: "500",
+  },
+  offersText: {
+    fontSize: 14,
+    color: "#FF6600",
+    textAlign: "center",
+    marginTop: 5,
+    fontWeight: "bold",
   },
 });

@@ -98,16 +98,17 @@ export default function HostelCard({
           </View>
 
           <View style={styles.amenitiesRow}>
-            {hostel.amenities.slice(0, 4).map((amenity) => (
+            {(hostel.amenities ?? []).slice(0, 4).map((amenity) => (
               <View key={amenity} style={styles.amenityItem}>
                 <Ionicons
-                  name={(amenityIcons[amenity] as any) || "checkmark-circle"}
+                  name={amenityIcons[amenity] || "checkmark-circle"}
                   size={16}
                   color="#6B7280"
                 />
                 <Text style={styles.amenityText}>{amenity}</Text>
               </View>
             ))}
+
           </View>
 
           <View style={styles.bottomRow}>

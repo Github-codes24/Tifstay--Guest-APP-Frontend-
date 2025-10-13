@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import Dropdown from "@/components/Dropdown";
 import colors from "@/constants/colors";
 import { useAppState } from "@/context/AppStateProvider";
 import { useAuthStore } from "@/store/authStore";
+import { useFavorites } from "@/context/FavoritesContext";
 import { hostellogo, tiffinlogo } from "@/assets/images";
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
@@ -92,6 +93,7 @@ export default function DashboardScreen() {
     hasSelectedLocation,
     setHasSelectedLocation,
   } = useAuthStore();
+  const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
 
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -157,10 +159,10 @@ export default function DashboardScreen() {
     }
   };
 
-  // --- Add Favorite Tiffin Service ---
-  const handleAddTiffinFavorite = async (tiffinId: string) => {
+  // --- Add Favorite Tiffin Service API (returns success bool, no Alert) ---
+  const addTiffinFavoriteAPI = async (tiffinId: string): Promise<boolean> => {
     const token = await getAuthToken();
-    if (!token) return;
+    if (!token) return false;
 
     try {
       const response = await fetch(
@@ -175,23 +177,18 @@ export default function DashboardScreen() {
         }
       );
       const result = await response.json();
-      if (result.success) {
-        Alert.alert("Success", "Added to favorites!");
-        // Optionally refresh the list or update local state
-        if (!isHostel) fetchTiffinServices(searchQuery, appliedFilters.cost || "", appliedFilters.rating || 0);
-      } else {
-        Alert.alert("Error", result.message || "Failed to add favorite.");
-      }
+      console.log("Add Tiffin Favorite API Response:", result);
+      return result.success || false;
     } catch (error) {
       console.error("Failed to add tiffin favorite:", error);
-      Alert.alert("Error", "Failed to add favorite. Please try again.");
+      return false;
     }
   };
 
-  // --- Add Favorite Hostel Service ---
-  const handleAddHostelFavorite = async (hostelId: string) => {
+  // --- Add Favorite Hostel Service API (returns success bool, no Alert) ---
+  const addHostelFavoriteAPI = async (hostelId: string): Promise<boolean> => {
     const token = await getAuthToken();
-    if (!token) return;
+    if (!token) return false;
 
     try {
       const response = await fetch(
@@ -206,18 +203,37 @@ export default function DashboardScreen() {
         }
       );
       const result = await response.json();
-      if (result.success) {
-        Alert.alert("Success", "Added to favorites!");
-        // Optionally refresh the list or update local state
-        if (isHostel) fetchAllHostels();
-      } else {
-        Alert.alert("Error", result.message || "Failed to add favorite.");
-      }
+      console.log("Add Hostel Favorite API Response:", result);
+      return result.success || false;
     } catch (error) {
       console.error("Failed to add hostel favorite:", error);
-      Alert.alert("Error", "Failed to add favorite. Please try again.");
+      return false;
     }
   };
+
+  // --- Toggle Favorite Handler ---
+  const handleFavoriteToggle = useCallback(async (item: TiffinService | Hostel) => {
+    console.log("Favorite toggle called");
+    const type = "amenities" in item ? "hostel" : "tiffin";
+    const id = item.id;
+    console.log("Toggling favorite for ID:", id, "Type:", type, "Currently favorite:", isFavorite(id, type));
+
+    if (isFavorite(id, type)) {
+      // Remove from favorites (frontend only)
+      removeFromFavorites(id, type);
+      Alert.alert("Success", "Removed successfully from favourites");
+    } else {
+      // Add to favorites
+      addToFavorites({ id, type, data: item });
+      const success = await (type === "tiffin" ? addTiffinFavoriteAPI(id) : addHostelFavoriteAPI(id));
+      if (success) {
+        Alert.alert("Success", "Added successfully");
+      } else {
+        removeFromFavorites(id, type);
+        Alert.alert("Error", "Failed to add to favorites. Please try again.");
+      }
+    }
+  }, [isFavorite, addToFavorites, removeFromFavorites]);
 
   // --- Fetch all hostels ---
   const fetchAllHostels = async () => {
@@ -999,7 +1015,7 @@ export default function DashboardScreen() {
       service={item} 
       onPress={() => handleTiffinPress(item)} 
       onBookPress={() => handleBookPress(item)}
-      onFavoritePress={() => handleAddTiffinFavorite(item.id)}
+      onFavoritePress={() => handleFavoriteToggle(item)}
     />
   );
 
@@ -1008,7 +1024,7 @@ export default function DashboardScreen() {
       hostel={item} 
       onPress={() => handleHostelPress(item)} 
       onBookPress={() => handleBookPress(item)}
-      onFavoritePress={() => handleAddHostelFavorite(item.id)}
+      onFavoritePress={() => handleFavoriteToggle(item)}
     />
   );
 
