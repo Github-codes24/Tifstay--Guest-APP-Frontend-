@@ -20,10 +20,12 @@ export default function RegisterScreen() {
 
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [code, setCode] = useState("");
 
   const handleRegister = async () => {
     const trimmedName = name.trim();
     const trimmedPhone = phoneNumber.trim();
+    const trimmedCode = code.trim();
 
     if (!trimmedName || !trimmedPhone) {
       Alert.alert("Error", "Please enter both name and phone number");
@@ -41,12 +43,17 @@ export default function RegisterScreen() {
     }
 
     try {
+      const requestBody = {
+        name: trimmedName,
+        phoneNumber: trimmedPhone,
+      };
+      if (trimmedCode) {
+        requestBody.code = trimmedCode;
+      }
+
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/register",
-        {
-          name: trimmedName,
-          phoneNumber: trimmedPhone,
-        },
+        requestBody,
         { headers: { "Content-Type": "application/json" } }
       );
 
@@ -108,6 +115,12 @@ export default function RegisterScreen() {
           keyboardType="phone-pad"
           value={phoneNumber}
           onChangeText={setPhoneNumber}
+        />
+        <InputField
+          placeholder="Referral Code (optional)"
+          icon="code"
+          value={code}
+          onChangeText={setCode}
         />
 
         <CustomButton title="Continue" onPress={handleRegister} />
