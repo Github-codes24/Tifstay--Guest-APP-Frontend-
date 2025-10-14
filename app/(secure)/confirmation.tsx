@@ -80,7 +80,7 @@ const Confirmation: React.FC = () => {
             }
           }
         } catch (error) {
-          console.error("Error fetching booking:", error);
+          console.error("Error fetching booking details:", error);
         } finally {
           setLoading(false);
         }
