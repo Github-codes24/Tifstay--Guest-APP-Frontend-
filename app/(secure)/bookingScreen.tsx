@@ -129,7 +129,7 @@ export default function BookingScreen() {
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [message, setMessage] = useState("");
-  const [purposeType, setPurposeType] = useState<"work" | "leisure">("work");
+  const [purposeType, setPurposeType] = useState<"work" | "leisure" | "student">("work");
   const [aadhaarPhoto, setAadhaarPhoto] = useState<string>("");
   const [userPhoto, setUserPhoto] = useState<string>("");
 
@@ -238,7 +238,7 @@ export default function BookingScreen() {
           setUserPhoto(userPhotoUrl || "");
           // Do not auto-fill checkInDate or checkOutDate - let user select
           const workType = userWorkType || "Student";
-          setPurposeType(workType === "Student" ? "leisure" : "work");
+          setPurposeType(workType === "Student" ? "student" : "work");
         }
 
         if (isTiffinBooking) {
@@ -815,12 +815,10 @@ const handleTiffinSubmit = async () => {
           bedNumber: bed.bedNumber,
         }));
 
-       
         const bookingPayload = {
           fullName,
           phoneNumber,
           email: serviceData.email || "example@example.com",
-          workType: purposeType === "work" ? "1" : "10",
           checkInDate: checkInDate.toISOString(),
           checkOutDate: checkOutDate.toISOString(),
           selectPlan,
@@ -835,6 +833,11 @@ const handleTiffinSubmit = async () => {
             },
           ],
         };
+
+        // Conditionally add workType if available from serviceData (backend/params)
+        if (serviceData.workType) {
+          bookingPayload.workType = purposeType === "work" ? "1" : "10";
+        }
 
         console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
 
@@ -1071,7 +1074,7 @@ const handleTiffinSubmit = async () => {
         />
 
         <View style={styles.section}>
-          <Text style={styles.label}>Purpose of Stay</Text>
+          <Text style={styles.label}>User Stay Type</Text>
           <View style={{ flexDirection: "row", marginTop: 10 }}>
             {/* Work */}
             <TouchableOpacity
@@ -1086,13 +1089,24 @@ const handleTiffinSubmit = async () => {
 
             {/* Leisure */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center" }}
+              style={{ flexDirection: "row", alignItems: "center", marginRight: 20 }}
               onPress={() => setPurposeType("leisure")}
             >
               <View style={styles.radioOuter}>
                 {purposeType === "leisure" && <View style={styles.radioInner} />}
               </View>
               <Text style={styles.radioLabel}>Leisure</Text>
+            </TouchableOpacity>
+
+            {/* Student */}
+            <TouchableOpacity
+              style={{ flexDirection: "row", alignItems: "center" }}
+              onPress={() => setPurposeType("student")}
+            >
+              <View style={styles.radioOuter}>
+                {purposeType === "student" && <View style={styles.radioInner} />}
+              </View>
+              <Text style={styles.radioLabel}>Student</Text>
             </TouchableOpacity>
           </View>
         </View>
