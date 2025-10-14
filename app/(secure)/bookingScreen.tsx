@@ -236,9 +236,13 @@ export default function BookingScreen() {
           setHostelPlan(parsedPlan.name || "monthly");
           setAadhaarPhoto(userAdharPhoto || "");
           setUserPhoto(userPhotoUrl || "");
-          // Do not auto-fill checkInDate or checkOutDate - let user select
-          const workType = userWorkType || "Student";
-          setPurposeType(workType === "Student" ? "student" : "work");
+          // FIXED: Better mapping for purposeType from userWorkType (handles casing and "leisure")
+          const workTypeNormalized = userWorkType.toLowerCase();  // Normalize for matching
+          let purpose = "work";  // default
+          if (workTypeNormalized.includes("student")) purpose = "student";
+          else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
+          else if (workTypeNormalized.includes("work")) purpose = "work";
+          setPurposeType(purpose);
         }
 
         if (isTiffinBooking) {
@@ -834,10 +838,8 @@ const handleTiffinSubmit = async () => {
           ],
         };
 
-        // Conditionally add workType if available from serviceData (backend/params)
-        if (serviceData.workType) {
-          bookingPayload.workType = purposeType === "work" ? "1" : "10";
-        }
+        // FIXED: Add workType as the selected purposeType string (shows "work", "leisure", or "student" in response)
+        bookingPayload.workType = purposeType;
 
         console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
 

@@ -161,8 +161,12 @@ export default function DashboardScreen() {
 
   // --- Add Favorite Tiffin Service API (returns success bool, no Alert) ---
   const addTiffinFavoriteAPI = async (tiffinId: string): Promise<boolean> => {
+    console.log("Adding tiffin favorite API called for ID:", tiffinId);
     const token = await getAuthToken();
-    if (!token) return false;
+    if (!token) {
+      console.log("No token for add tiffin favorite");
+      return false;
+    }
 
     try {
       const response = await fetch(
@@ -187,8 +191,12 @@ export default function DashboardScreen() {
 
   // --- Add Favorite Hostel Service API (returns success bool, no Alert) ---
   const addHostelFavoriteAPI = async (hostelId: string): Promise<boolean> => {
+    console.log("Adding hostel favorite API called for ID:", hostelId);
     const token = await getAuthToken();
-    if (!token) return false;
+    if (!token) {
+      console.log("No token for add hostel favorite");
+      return false;
+    }
 
     try {
       const response = await fetch(
@@ -213,22 +221,27 @@ export default function DashboardScreen() {
 
   // --- Toggle Favorite Handler ---
   const handleFavoriteToggle = useCallback(async (item: TiffinService | Hostel) => {
-    console.log("Favorite toggle called");
+    console.log("Favorite toggle called for item:", item.id);
     const type = "amenities" in item ? "hostel" : "tiffin";
     const id = item.id;
     console.log("Toggling favorite for ID:", id, "Type:", type, "Currently favorite:", isFavorite(id, type));
 
     if (isFavorite(id, type)) {
-      // Remove from favorites (frontend only)
+      // Remove from favorites (frontend only, no API)
+      console.log("Removing from favorites (frontend only)");
       removeFromFavorites(id, type);
       Alert.alert("Success", "Removed successfully from favourites");
     } else {
       // Add to favorites
+      console.log("Adding to favorites");
       addToFavorites({ id, type, data: item });
       const success = await (type === "tiffin" ? addTiffinFavoriteAPI(id) : addHostelFavoriteAPI(id));
       if (success) {
+        console.log("Favorite added successfully via API");
         Alert.alert("Success", "Added successfully");
       } else {
+        // Remove from frontend if backend failed
+        console.log("API add failed, removing from frontend");
         removeFromFavorites(id, type);
         Alert.alert("Error", "Failed to add to favorites. Please try again.");
       }
@@ -921,7 +934,6 @@ export default function DashboardScreen() {
     router.push({
       pathname: "/tiffin-details/[id]",
       params: { id: service.id, type: "tiffin", fullServiceData: JSON.stringify(service) },
-
     });
   };
 
@@ -929,7 +941,7 @@ export default function DashboardScreen() {
   const handleHostelPress = (hostel: Hostel) => {
     router.push({
       pathname: "/hostel-details/[id]", // match folder + dynamic file
-      params: { id: hostel.id, type: "hostel" },
+      params: { id: hostel.id, type: "hostel", fullServiceData: JSON.stringify(hostel) },
     });
   };
 
@@ -1015,7 +1027,10 @@ export default function DashboardScreen() {
       service={item} 
       onPress={() => handleTiffinPress(item)} 
       onBookPress={() => handleBookPress(item)}
-      onFavoritePress={() => handleFavoriteToggle(item)}
+      onFavoritePress={() => {
+        console.log("Tiffin heart icon clicked in dashboard for ID:", item.id);
+        handleFavoriteToggle(item);
+      }}
     />
   );
 
@@ -1024,7 +1039,10 @@ export default function DashboardScreen() {
       hostel={item} 
       onPress={() => handleHostelPress(item)} 
       onBookPress={() => handleBookPress(item)}
-      onFavoritePress={() => handleFavoriteToggle(item)}
+      onFavoritePress={() => {
+        console.log("Hostel heart icon clicked in dashboard for ID:", item.id);
+        handleFavoriteToggle(item);
+      }}
     />
   );
 
