@@ -642,7 +642,7 @@ const handleTiffinSubmit = async () => {
       if (sameAsSelections.sameForAll) {
         tiffinNumberObj.sameUs = "All";
       }
-      // For multiple tiffins, you'd ideally generate multiple objects, but match example: single object with "All" applies to all
+      
 
       const selectTiffinNumberArray = [tiffinNumberObj];
 
@@ -653,18 +653,22 @@ const handleTiffinSubmit = async () => {
         specialInstructions,
         numberOfTiffin: parseInt(numberOfTiffin),
         selectTiffinNumber: selectTiffinNumberArray,
-        mealPreference,  // Now a single meal string, e.g., "Breakfast"
+        mealPreference, 
         foodType,
         chooseOrderType,
         choosePlanType,
         date: date?.toISOString().split('T')[0] || '',
-        serviceId: serviceData.serviceId,
       };
+
+      
+      if (['weekly', 'monthly'].includes(selectedPlanType)) {
+        payload.endDate = endDate?.toISOString().split('T')[0] || '';
+      }
 
       console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create",
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServiceId=${serviceData.serviceId}`,
         payload,
         {
           headers: {
@@ -680,13 +684,24 @@ const handleTiffinSubmit = async () => {
         console.log("Tiffin booking successful:", response.data.data);
         const bookingId = response.data.data._id;
 
-        console.log("Navigating to checkout with booking ID:", bookingId);
+        console.log("Navigating to checkout with booking ID:", bookingId,serviceData);
 
         router.push({
           pathname: "/check-out",
           params: {
             serviceType: "tiffin",
             bookingId,
+            serviceId: serviceData.serviceId,
+            // NEW: Pass key booking data as fallback (strings for params)
+            totalPrice: currentPlanPrice.toString(),
+            planType: selectedPlanType,
+            startDate: date?.toISOString().split('T')[0] || '',
+            endDate: endDate?.toISOString().split('T')[0] || '',
+            mealPreference: mealPreference,
+            foodType: selectedfood,
+            orderType: orderType,
+            numberOfTiffin: numberOfTiffin,
+            fullName: fullName,  // If needed for display
           },
         });
       } else {
@@ -756,7 +771,7 @@ const handleTiffinSubmit = async () => {
           bedNumber: bed.bedNumber,
         }));
 
-        // Minimal payload matching backend expectations
+       
         const bookingPayload = {
           fullName,
           phoneNumber,
@@ -805,6 +820,7 @@ const handleTiffinSubmit = async () => {
             params: {
               serviceType: "hostel",
               bookingId,
+              serviceId: serviceData.hostelId,
             },
           });
         } else {

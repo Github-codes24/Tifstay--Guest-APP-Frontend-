@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -36,11 +36,14 @@ const Checkout: React.FC = () => {
   const [bookingDetails, setBookingDetails] = useState(null);
   const [loadingBooking, setLoadingBooking] = useState(false);
   const [tiffinOrderDetails, setTiffinOrderDetails] = useState(null);
+  const [tiffinService, setTiffinService] = useState(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
 
+  const params = useLocalSearchParams();
   const {
     serviceType,
     bookingId,
+    serviceId,
     hostelData: hostelDataStr,
     roomData: roomDataStr,
     selectedBeds: selectedBedsStr,
@@ -49,7 +52,17 @@ const Checkout: React.FC = () => {
     checkOutDate,
     userData: userDataStr,
     bookingType,
-  } = useLocalSearchParams();
+    // NEW: Fallback params from booking screen
+    totalPrice,
+    planType,
+    startDate,
+    endDate,
+    mealPreference,
+    foodType,
+    orderType,
+    numberOfTiffin,
+    fullName,
+  } = params;
 
   const isTiffin = serviceType === "tiffin";
   const isHostel = serviceType === "hostel";
@@ -61,10 +74,31 @@ const Checkout: React.FC = () => {
   const parsedPlan = planStr ? JSON.parse(planStr as string) : {};
   const parsedUserData = userDataStr ? JSON.parse(userDataStr as string) : {};
 
+  // Log received params explicitly
+  console.log("=== Received Params in Checkout ===");
+  console.log("serviceType:", serviceType);
+  console.log("bookingId:", bookingId);
+  console.log("serviceId:", serviceId);
+  console.log("bookingType:", bookingType);
+  console.log("checkInDate:", checkInDate);
+  console.log("checkOutDate:", checkOutDate);
+  console.log("hostelDataStr (raw):", hostelDataStr);
+  console.log("roomDataStr (raw):", roomDataStr);
+  console.log("selectedBedsStr (raw):", selectedBedsStr);
+  console.log("planStr (raw):", planStr);
+  console.log("userDataStr (raw):", userDataStr);
+  console.log("=== Parsed Data ===");
+  console.log("parsedHostelData:", parsedHostelData);
+  console.log("parsedRoomData:", parsedRoomData);
+  console.log("parsedSelectedBeds:", parsedSelectedBeds);
+  console.log("parsedPlan:", parsedPlan);
+  console.log("parsedUserData:", parsedUserData);
+
   // Log dynamic params for debugging
   console.log("Dynamic Checkout Params:", {
     serviceType,
     bookingId,
+    serviceId,
     parsedHostelData,
     parsedRoomData,
     parsedSelectedBeds,
@@ -73,31 +107,64 @@ const Checkout: React.FC = () => {
     checkOutDate,
     parsedUserData,
     bookingType,
+    // NEW: Fallback params
+    totalPrice,
+    planType,
+    startDate,
+    endDate,
+    mealPreference,
+    foodType,
+    orderType,
+    numberOfTiffin,
+    fullName,
   });
   console.log("Received bookingId in Checkout:", bookingId);
 
-  const tiffinData: TiffinCheckoutData = tiffinOrderDetails ? {
-    id: bookingId || "1",
-    title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
-    imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-    mealType: tiffinOrderDetails.mealType,
-    foodType: tiffinOrderDetails.foodType,
-    startDate: new Date(tiffinOrderDetails.startDate).toLocaleDateString('en-IN'),
-    plan: tiffinOrderDetails.plan,
-    orderType: tiffinOrderDetails.orderType,
-    price: `₹${tiffinOrderDetails.price}`,
-  } : {
-    id: bookingId || "1",  // Use dynamic if available, fallback
-    title: "Maharashtrian Ghar Ka Khana",  // TODO: Make dynamic for tiffin if params provided
-    imageUrl:
-      "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-    mealType: "Lunch",
-    foodType: "Veg",
-    startDate: "21/07/25",
-    plan: "Per meal",
-    orderType: "Delivery",
-    price: "₹120/meal",
-  };
+  // NEW: Memoized tiffinData with priority: fetched > params > service > hardcoded
+  const tiffinData: TiffinCheckoutData = useMemo(() => {
+    // Prioritize fetched order details
+    if (tiffinOrderDetails) {
+      return {
+        id: bookingId || serviceId || "1",
+        title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+        imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+        mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? tiffinOrderDetails.mealPreference[0] || "Lunch" : (tiffinOrderDetails.mealPreference || "Lunch"),
+        foodType: tiffinOrderDetails.foodType || "Veg",
+        startDate: tiffinOrderDetails.date ? new Date(tiffinOrderDetails.date).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+        plan: tiffinOrderDetails.choosePlanType?.planName || planType || "Per meal",
+        orderType: tiffinOrderDetails.chooseOrderType || orderType || "Delivery",
+        price: `₹${(tiffinOrderDetails.choosePlanType?.price || parseInt(totalPrice || '120') || 120).toFixed(0)}/meal`,
+      };
+    }
+    // Fallback to service details + params
+    if (tiffinService) {
+      return {
+        id: serviceId || "1",
+        title: tiffinService.tiffinName || tiffinService.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+        imageUrl: tiffinService.image || tiffinService.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+        mealType: mealPreference || "Lunch",
+        foodType: foodType || tiffinService.foodType || "Veg",
+        startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+        plan: planType || "Per meal",
+        orderType: orderType || "Delivery",
+        price: `₹${parseInt(totalPrice || (tiffinService.price || '120').toString()) || 120}/meal`,
+      };
+    }
+    // Ultimate fallback with params
+    return {
+      id: bookingId || serviceId || "1",
+      title: "Maharashtrian Ghar Ka Khana",
+      imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+      mealType: mealPreference || "Lunch",
+      foodType: foodType || "Veg",
+      startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+      plan: planType || "Per meal",
+      orderType: orderType || "Delivery",
+      price: `₹${parseInt(totalPrice || '120')}/meal`,
+    };
+  }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate]);
+
+  console.log("Constructed tiffinData:", tiffinData);
 
   const hostelData: HostelCheckoutData = {
     id: bookingId || "2",  // Use real bookingId
@@ -111,28 +178,66 @@ const Checkout: React.FC = () => {
     deposit: `₹${bookingDetails?.deposit || parsedPlan.depositAmount || 0}`,  // e.g., "₹15000"
   };
 
+  console.log("Constructed hostelData:", hostelData);
+
   const checkoutData = isTiffin ? tiffinData : hostelData;
 
-  const getTransactionDetails = () => {
-    if (isTiffin && tiffinOrderDetails) {
-      const trans = tiffinOrderDetails.TransactionDetails;
-      return {
-        subtotal: trans.subtotalItem,
-        tps: trans.TPS,
-        tvq: trans.TVQ,
-        total: trans.NetPrice,
-        discount: 0,
-        net: trans.NetPrice,
-      };
-    } else if (isTiffin) {
-      return {
-        subtotal: 120,
-        tps: 20,
-        tvq: 30,
-        total: 120.5,
-        discount: 20,
-        net: 100.5,
-      };
+console.log("Service ID from BookingScreen:", serviceId);  
+console.log("Full checkoutData ID :", checkoutData.id);  
+
+  // UPDATED: getTransactionDetails with priority: fetched > params > hardcoded
+  const getTransactionDetails = useMemo(() => {
+    if (isTiffin) {
+      if (tiffinOrderDetails?.TransactionDetails) {
+        const trans = tiffinOrderDetails.TransactionDetails;
+        return {
+          subtotal: trans.subtotalItem,
+          tps: trans.TPS,
+          tvq: trans.TVQ,
+          total: trans.NetPrice,
+          discount: 0,
+          net: trans.NetPrice,
+        };
+      } else if (tiffinOrderDetails) {
+        const numTiffin = tiffinOrderDetails.numberOfTiffin || parseInt(numberOfTiffin || '1');
+        const subtotal = numTiffin * (tiffinOrderDetails.choosePlanType?.price || parseInt(totalPrice || '120'));
+        const tps = Math.round(subtotal * 0.05 * 100) / 100;
+        const tvq = Math.round(subtotal * 0.09975 * 100) / 100;
+        const total = subtotal + tps + tvq;
+        const net = tiffinOrderDetails.totalAmount || total;
+        return {
+          subtotal,
+          tps,
+          tvq,
+          total,
+          discount: 0,
+          net,
+        };
+      } else if (tiffinService || totalPrice) {
+        const numTiffin = parseInt(numberOfTiffin || '1');
+        const basePrice = parseInt(totalPrice || (tiffinService?.price || '120').toString());
+        const subtotal = numTiffin * basePrice;
+        const tps = Math.round(subtotal * 0.05 * 100) / 100;
+        const tvq = Math.round(subtotal * 0.09975 * 100) / 100;
+        const total = subtotal + tps + tvq;
+        return {
+          subtotal,
+          tps,
+          tvq,
+          total,
+          discount: 0,
+          net: total,
+        };
+      } else {
+        return {
+          subtotal: 120,
+          tps: 20,
+          tvq: 30,
+          total: 120.5,
+          discount: 20,
+          net: 100.5,
+        };
+      }
     } else {
       const rent = bookingDetails?.rent || parsedPlan.price || 0;
       const deposit = bookingDetails?.deposit || parsedPlan.depositAmount || 0;
@@ -147,9 +252,9 @@ const Checkout: React.FC = () => {
         net: total,  // No discount for hostel
       };
     }
-  };
+  }, [isTiffin, tiffinOrderDetails, tiffinService, totalPrice, numberOfTiffin, bookingDetails, parsedPlan]);
 
-  const transaction = getTransactionDetails();
+  const transaction = getTransactionDetails;
 
   console.log("Transaction Details:", transaction);  // Log transaction for debugging
 
@@ -184,7 +289,7 @@ const Checkout: React.FC = () => {
     fetchBookingDetails();
   }, [isHostel, bookingId]);
 
-  // Fetch tiffin order details
+  // UPDATED: Fetch tiffin order details with fixed URL
   useEffect(() => {
     const fetchTiffinOrderDetails = async () => {
       if (!isTiffin || !bookingId) return;
@@ -193,8 +298,9 @@ const Checkout: React.FC = () => {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
 
+        // FIXED: Add / before 'beforePayment' for correct route
         const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getOrderDetails/${bookingId}`,
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingById/${bookingId}/beforePayment`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -202,11 +308,15 @@ const Checkout: React.FC = () => {
 
         if (response.data?.success) {
           setTiffinOrderDetails(response.data.data);
-          console.log("Fetched tiffin order details:", response.data.data);
+          console.log("Fetched tiffin booking details:", response.data.data);
         }
       } catch (error: any) {
-        console.error("Error fetching tiffin order details:", error);
-        Alert.alert("Error", "Failed to fetch order details");
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          console.warn("Booking details 404 - using fallback params/service data");
+        } else {
+          console.error("Error fetching tiffin booking details:", error);
+          Alert.alert("Error", "Failed to fetch tiffin booking details");
+        }
       } finally {
         setLoadingTiffin(false);
       }
@@ -214,6 +324,37 @@ const Checkout: React.FC = () => {
 
     fetchTiffinOrderDetails();
   }, [isTiffin, bookingId]);
+
+  // Fetch tiffin service details
+  useEffect(() => {
+    const fetchTiffinServiceDetails = async () => {
+      if (!isTiffin || !serviceId) return;
+      setLoadingTiffin(true);
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get(
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (response.data?.success) {
+          setTiffinService(response.data.data);
+          console.log("Fetched tiffin service details:", response.data.data);
+        }
+      } catch (error: any) {
+        console.error("Error fetching tiffin service details:", error);
+        Alert.alert("Error", "Failed to fetch tiffin service details");
+      } finally {
+        setLoadingTiffin(false);
+      }
+    };
+
+    fetchTiffinServiceDetails();
+  }, [isTiffin, serviceId]);
 
   // Fetch wallet balance
   useEffect(() => {
@@ -400,7 +541,7 @@ const Checkout: React.FC = () => {
               id: (isTiffin ? (paymentData.tiffinOrderId || finalBookingId) : finalBookingId),
               serviceType: serviceType as string,
               serviceName: checkoutData.title || "Fallback Service Name",
-              guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (parsedUserData.name || "Fallback Name")),
+              guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name")),
               amount: paymentAmount,
             },
           });
@@ -506,7 +647,7 @@ const Checkout: React.FC = () => {
                   id: finalBookingId,
                   serviceType: serviceType as string,
                   serviceName: checkoutData.title || "Fallback Service Name",
-                  guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
+                  guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name")),
                   amount: paymentAmount,
                 },
               });
@@ -630,7 +771,7 @@ const Checkout: React.FC = () => {
               <>
                 <View style={styles.transactionRow}>
                   <Text style={styles.transactionLabel}>
-                    Subtotal (1 items)
+                    Subtotal ({tiffinOrderDetails?.numberOfTiffin || numberOfTiffin || tiffinService ? 1 : 1} items)
                   </Text>
                   <Text style={styles.transactionValue}>
                     ₹{transaction.subtotal}
