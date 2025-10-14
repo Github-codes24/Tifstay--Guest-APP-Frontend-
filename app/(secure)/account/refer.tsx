@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, Alert, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const renderItem = ({ item }) => (
     <View style={styles.historyItem}>
@@ -19,19 +20,32 @@ const renderItem = ({ item }) => (
 );
 
 export default function ReferEarnScreen() {
-    const { id } = useLocalSearchParams();
-    const [data, setData] = useState(null);
+    const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [redeeming, setRedeeming] = useState(false); // redeem button loading
 
     useEffect(() => {
         const fetchReferralData = async () => {
-            if (!id) {
-                setLoading(false);
-                return;
-            }
             try {
+                const guestId = await AsyncStorage.getItem("guestId");
+                if (!guestId) {
+                    console.warn("Guest ID not found in AsyncStorage");
+                    setLoading(false);
+                    return;
+                }
+
+                const token = await AsyncStorage.getItem("token");
+                if (!token) {
+                    Alert.alert("Error", "Login required");
+                    setLoading(false);
+                    return;
+                }
+
                 const response = await fetch(
-                    `https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getGuestRefferCode/${id}`
+                    `https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
+                    {
+                        headers: { Authorization: "Bearer " + token }
+                    }
                 );
                 const json = await response.json();
                 if (json.success) {
@@ -45,7 +59,48 @@ export default function ReferEarnScreen() {
         };
 
         fetchReferralData();
-    }, [id]);
+    }, []);
+
+    const redeemPoints = async () => {
+        if (!data || data.totalPoints <= 0) {
+            Alert.alert("No Points", "You don't have any points to redeem.");
+            return;
+        }
+
+        setRedeeming(true);
+        try {
+            const token = await AsyncStorage.getItem("token");
+            if (!token) {
+                Alert.alert("Error", "Login required");
+                return;
+            }
+
+            const res = await fetch(
+                "https://tifstay-project-be.onrender.com/api/guest/referAndEarn/reedemCode",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: "Bearer " + token,
+                    },
+                }
+            );
+
+            const json = await res.json();
+            if (json.success) {
+                Alert.alert("Success", `Redeemed successfully! Wallet amount: ${json.walletAmount}`);
+                // update totalPoints to 0 after redeem
+                setData(prev => prev ? { ...prev, totalPoints: 0 } : prev);
+            } else {
+                Alert.alert("Error", json.message || "Failed to redeem points");
+            }
+        } catch (err) {
+            console.error("Redeem error:", err);
+            Alert.alert("Error", "Failed to redeem points");
+        } finally {
+            setRedeeming(false);
+        }
+    };
 
     const historyData = useMemo(() => {
         if (!data || !data.referredUser || data.referredUser.length === 0) {
@@ -74,7 +129,7 @@ export default function ReferEarnScreen() {
                     <Text style={styles.headerTitle}>Refer & Earn</Text>
                 </View>
                 <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                    <Text>Loading...</Text>
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             </View>
         );
@@ -82,15 +137,24 @@ export default function ReferEarnScreen() {
 
     const renderHeader = () => (
         <View>
-            {/* Total Points */}
             <View style={styles.pointsCard}>
                 <Text style={styles.pointsLabel}>Total Points</Text>
-                <Text style={styles.pointsValue}>
-                    {data ? data.totalPoints.toFixed(2) : "0.00"}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={styles.pointsValue}>
+                        {data ? data.totalPoints.toFixed(2) : "0.00"}
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.redeemButton, { opacity: redeeming ? 0.6 : 1 }]}
+                        onPress={redeemPoints}
+                        disabled={redeeming}
+                    >
+                        <Text style={styles.redeemButtonText}>
+                            {redeeming ? "Redeeming..." : "Redeem"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
-            {/* Earned History */}
             <View style={styles.historyHeader}>
                 <Text style={styles.historyTitle}>Point Earned History</Text>
                 <Text style={styles.historyLink}>See All</Text>
@@ -100,7 +164,6 @@ export default function ReferEarnScreen() {
 
     const renderFooter = () => (
         <View style={styles.footer}>
-            {/* Refer Section */}
             <View style={styles.referCard}>
                 <Text style={styles.referTitle}>Refer your friends</Text>
                 <Text style={styles.referDesc}>
@@ -132,119 +195,36 @@ export default function ReferEarnScreen() {
                 ListHeaderComponent={renderHeader}
                 ListFooterComponent={renderFooter}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }} // Extra padding for footer
+                contentContainerStyle={{ paddingBottom: 100 }}
             />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#fff",
-        padding: 16,
-    },
-    pointsCard: {
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 24,
-    },
-    pointsLabel: {
-        fontSize: 14,
-        color: colors.grey,
-        paddingVertical: 25,
-        fontWeight: "600"
-    },
-    pointsValue: {
-        fontSize: 30,
-        fontWeight: "700",
-        color: colors.title,
-        marginTop: 4,
-    },
-    historyHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 12,
-    },
-    historyTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.title,
-    },
-    historyLink: {
-        fontSize: 14,
-        color: colors.primary,
-    },
-    historyItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-    },
-    historyInfo: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    historyName: {
-        fontSize: 15,
-        fontWeight: "500",
-        color: colors.grey,
-    },
-    historyDate: {
-        fontSize: 13,
-        color: colors.gray,
-    },
-    historyPoints: {
-        fontSize: 15,
-        fontWeight: "600",
-        color: colors.grey,
-    },
-    footer: {
-        paddingTop: 24,
-    },
-    referCard: {
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
-        padding: 16,
-    },
-    referTitle: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.title,
-        marginBottom: 4,
-    },
-    referDesc: {
-        fontSize: 14,
-        color: colors.grey,
-        marginBottom: 12,
-        fontWeight: '600'
-    },
-    codeRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 16,
-    },
-    code: {
-        fontSize: 30,
-        fontWeight: "700",
-        color: colors.title,
-    },
-    copy: {
-        fontSize: 14,
-        color: colors.grey,
-        fontWeight: "600",
-    },
-    referButton: {
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        paddingVertical: 12,
-        alignItems: "center",
-    },
-    referButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-    },
+    container: { flex: 1, backgroundColor: "#fff", padding: 16 },
+    pointsCard: { backgroundColor: '#F5F5F5', borderRadius: 8, padding: 16, marginBottom: 24 },
+    pointsLabel: { fontSize: 14, color: colors.grey, paddingVertical: 5, fontWeight: "600" },
+    pointsValue: { fontSize: 30, fontWeight: "700", color: colors.title, marginTop: 4 },
+    redeemButton: { backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 },
+    redeemButtonText: { color: "#fff", fontWeight: "600" },
+    historyHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
+    historyTitle: { fontSize: 16, fontWeight: "600", color: colors.title },
+    historyLink: { fontSize: 14, color: colors.primary },
+    historyItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
+    historyInfo: { flex: 1, marginLeft: 12 },
+    historyName: { fontSize: 15, fontWeight: "500", color: colors.grey },
+    historyDate: { fontSize: 13, color: colors.gray },
+    historyPoints: { fontSize: 15, fontWeight: "600", color: colors.grey },
+    footer: { paddingTop: 24 },
+    referCard: { backgroundColor: '#F5F5F5', borderRadius: 8, padding: 16 },
+    referTitle: { fontSize: 16, fontWeight: "600", color: colors.title, marginBottom: 4 },
+    referDesc: { fontSize: 14, color: colors.grey, marginBottom: 12, fontWeight: '600' },
+    codeRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+    code: { fontSize: 30, fontWeight: "700", color: colors.title },
+    copy: { fontSize: 14, color: colors.grey, fontWeight: "600" },
+    referButton: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 12, alignItems: "center" },
+    referButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
     header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
     backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
     headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" }

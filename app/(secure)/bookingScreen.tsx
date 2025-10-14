@@ -14,6 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as ImagePicker from 'expo-image-picker';
 import { calender, location1, person } from "@/assets/images";
 import Header from "@/components/Header";
 import Buttons from "@/components/Buttons";
@@ -169,6 +170,8 @@ export default function BookingScreen() {
     if (!checkInDate) newErrors.checkInDate = "Check-in date is required!";
     if (!checkOutDate) newErrors.checkOutDate = "Check-out date is required!";
     if (checkInDate && checkOutDate && checkInDate >= checkOutDate) newErrors.checkOutDate = "Check-out date must be after Check-in date!";
+    if (!aadhaarPhoto) newErrors.aadhaarPhoto = "Aadhaar Card Photo is required!";
+    if (!userPhoto) newErrors.userPhoto = "User Photo is required!";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -488,6 +491,47 @@ export default function BookingScreen() {
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
     setShowCheckOutPicker(Platform.OS === "ios");
     if (selectedDate) setCheckOutDate(selectedDate);
+  };
+
+  // NEW: Image picker functions for hostel uploads
+  const pickAadhaarPhoto = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert('Permission to access media library is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setAadhaarPhoto(result.assets[0].uri);
+      clearError('aadhaarPhoto');
+    }
+  };
+
+  const pickUserPhoto = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert('Permission to access media library is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setUserPhoto(result.assets[0].uri);
+      clearError('userPhoto');
+    }
   };
 
   const handleGetPlanDetails = async () => {
@@ -939,31 +983,33 @@ const handleTiffinSubmit = async () => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo</Text>
+        <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo *</Text>
         {aadhaarPhoto ? (
           <Image source={{ uri: aadhaarPhoto }} style={{ width: 100, height: 100, marginTop: 10 }} />
         ) : (
-          <TouchableOpacity style={styles.uploadButton}>
+          <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
             <Text style={styles.uploadButtonText}>Upload photo</Text>
             <Text style={styles.uploadSubtext}>
               Upload clear photo of your Aadhaar card
             </Text>
           </TouchableOpacity>
         )}
+        {errors.aadhaarPhoto && <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📤 Upload Your Photo</Text>
+        <Text style={styles.sectionTitle}>📤 Upload Your Photo *</Text>
         {userPhoto ? (
           <Image source={{ uri: userPhoto }} style={{ width: 100, height: 100, marginTop: 10 }} />
         ) : (
-          <TouchableOpacity style={styles.uploadButton}>
+          <TouchableOpacity style={styles.uploadButton} onPress={pickUserPhoto}>
             <Text style={styles.uploadButtonText}>Upload photo</Text>
             <Text style={styles.uploadSubtext}>
               Upload clear photo of your selfie or photo from gallery
             </Text>
           </TouchableOpacity>
         )}
+        {errors.userPhoto && <Text style={styles.errorText}>{errors.userPhoto}</Text>}
       </View>
 
       <View style={styles.section}>
