@@ -6,7 +6,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 
 interface HostelCardProps {
   hostel: {
-    id: number;
+    id: string;
     name: string;
     type: string;
     location: string;
@@ -21,6 +21,8 @@ interface HostelCardProps {
   onPress?: () => void;
   horizontal?: boolean;
   onBookPress?: () => void;
+  onFavoritePress?: () => void;
+  isFavorited?: boolean;
 }
 
 const amenityIcons: { [key: string]: string } = {
@@ -37,15 +39,17 @@ export default function HostelCard({
   hostel,
   onPress,
   onBookPress,
+  onFavoritePress,
   horizontal = false,
+  isFavorited,
 }: HostelCardProps) {
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const isFav = isFavorite(hostel.id, "hostel");
+  const { isFavorite } = useFavorites();
+  const isFav = isFavorited !== undefined ? isFavorited : isFavorite(hostel.id, "hostel");
   const service = hostel;
 
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
-    toggleFavorite(service, "hostel");
+    onFavoritePress?.();
   };
 
   return (
@@ -64,7 +68,7 @@ export default function HostelCard({
             <View style={styles.ratingContainer}>
               <Ionicons name="star" size={14} color="#FFA500" />
               <Text style={styles.rating}>{hostel.rating}</Text>
-              <Text style={styles.ratingCount}>({55})</Text>
+              <Text style={styles.ratingCount}>({hostel.reviews || 0})</Text>
             </View>
             <View style={styles.favoriteButtonContainer}>
               <TouchableOpacity
@@ -74,7 +78,7 @@ export default function HostelCard({
                 <Ionicons
                   name={isFav ? "heart" : "heart-outline"}
                   size={20}
-                  color={isFav ? "#A5A5A5" : "#A5A5A5"}
+                  color={isFav ? "grey" : "#6B7280"}
                 />
               </TouchableOpacity>
             </View>
@@ -94,7 +98,7 @@ export default function HostelCard({
 
           <View style={styles.bedsRow}>
             <Ionicons name="bed-outline" size={16} color="#6B7280" />
-            <Text style={styles.bedsText}>8/30 available</Text>
+            <Text style={styles.bedsText}>{hostel.availableBeds} available</Text>
           </View>
 
           <View style={styles.amenitiesRow}>
@@ -114,7 +118,7 @@ export default function HostelCard({
           <View style={styles.bottomRow}>
             <View style={styles.priceContainer}>
               <Text style={styles.price}>{hostel.price}</Text>
-              <Text style={styles.deposit}>Deposit: ₹15000</Text>
+              <Text style={styles.deposit}>Deposit: {hostel.deposit}</Text>
             </View>
 
             <TouchableOpacity

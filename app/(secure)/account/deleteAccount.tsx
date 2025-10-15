@@ -22,6 +22,7 @@ const DeleteAccountScreen = () => {
     const [loading, setLoading] = useState(false);
     const [successModal, setSuccessModal] = useState(false);
 
+
 const handleDelete = async () => {
   if (!accepted) {
     Alert.alert("Error", "Please accept the terms & conditions first");
@@ -45,28 +46,40 @@ const handleDelete = async () => {
       }
     );
 
-    if (response.data.success || response.data.data?.guest?.isDeleted) {
-      // ✅ Clear stored token
-      await AsyncStorage.removeItem("token");
+    console.log("Delete success status:", response.status);
 
-      // ✅ Show success and redirect
+    const resData = response.data;
+
+    if (resData.success || resData.data?.guest?.isDeleted) {
+      await AsyncStorage.removeItem("token");
       Alert.alert("Success", "Your account has been deleted.", [
         {
           text: "OK",
-          onPress: () => {
-            router.replace("/(auth)/login");
-          },
+          onPress: () => router.replace("/(auth)/login"),
         },
       ]);
-    } else {
-      Alert.alert("Error", response.data.message || "Failed to delete account");
+      return;
     }
+
+    Alert.alert("Error", resData.message || "Failed to delete account.");
   } catch (error: any) {
+    const status = error.response?.status;
+    const msg = error.response?.data?.message || "Something went wrong.";
+
+    console.log("Delete error status:", status);
     console.log("Delete error:", error.response?.data || error.message);
 
-    // ⚡ Force logout even on failure
-    await AsyncStorage.removeItem("token");
-    router.replace("/(auth)/login");
+    // 🟡 Specific handling for active plan (400 error)
+    if (status === 400 && msg.toLowerCase().includes("active tiffin plan")) {
+      Alert.alert(
+        "*Active Plan Detected",
+        "You currently have an active tiffin plan. Please cancel it before deleting your account.",
+        [{ text: "OK", style: "cancel" }]
+      );
+      return;
+    }
+
+    Alert.alert("Error", msg);
   } finally {
     setLoading(false);
   }

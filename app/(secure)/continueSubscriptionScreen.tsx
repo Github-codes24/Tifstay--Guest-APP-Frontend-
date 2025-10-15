@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Platform,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +18,9 @@ import RNPickerSelect from "react-native-picker-select";
 import colors from "@/constants/colors";
 import Header from "@/components/Header";
 import Buttons from "@/components/Buttons";
+import { calender, location1, person } from "@/assets/images";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type ServiceType = "tiffin" | "hostel";
 type MealType = "breakfast" | "lunch" | "dinner";
@@ -26,27 +31,50 @@ export default function ContinueSubscriptionScreen() {
   const serviceType = (params.serviceType as ServiceType) || "tiffin";
   const serviceName = params.serviceName || "";
   const price = params.price || "";
+  const serviceId = params.serviceId || "";
 
-  const [numberOfTiffin, setNumberOfTiffin] = useState("4");
-  const [selectTiffinNumber, setSelectTiffinNumber] = useState("4");
+  // Tiffin-specific states
+  const [numberOfTiffin, setNumberOfTiffin] = useState("1");
+  const [selectTiffinNumber, setSelectTiffinNumber] = useState("1");
+  const [selectedfood, setSelectedfood] = useState("Both");
+  const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
   const [mealPreferences, setMealPreferences] = useState({
     breakfast: true,
     lunch: true,
     dinner: false,
   });
-  const [foodType, setFoodType] = useState("veg");
-  const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
-  const [planType, setPlanType] = useState("daily");
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [sameAsSelections, setSameAsSelections] = useState({
+    sameForAll: false,
+    sameAs1: false,
+    sameAs2: false,
+    sameAs3: false,
+  });
+  const [date, setDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [selectedPlanType, setSelectedPlanType] = useState("perMeal");
+  const [selectedMealsSummary, setSelectedMealsSummary] = useState("");
+  const [fetchedPlanType, setFetchedPlanType] = useState('');
+  const [fetchedPricing, setFetchedPricing] = useState({
+    perBreakfast: 0,
+    perMeal: 0,
+    weekly: 0,
+    monthly: 0,
+    offers: '',
+  });
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [planError, setPlanError] = useState('');
+  const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
 
+  // Hostel-specific states
   const [hostelPlan, setHostelPlan] = useState("monthly");
   const [checkInDate, setCheckInDate] = useState(new Date());
   const [checkOutDate, setCheckOutDate] = useState(new Date());
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [message, setMessage] = useState("");
-  const [purposeType, setPurposeType] = useState<"work" | "leisure">("work");
+  const [purposeType, setPurposeType] = useState<"work" | "leisure" | "student">("work");
 
   const Checkbox = ({
     checked,
@@ -92,10 +120,10 @@ export default function ContinueSubscriptionScreen() {
         numberOfTiffin,
         selectTiffinNumber,
         mealPreferences,
-        foodType,
+        selectedfood,
         orderType,
-        planType,
-        selectedDate,
+        selectedPlanType,
+        date,
       });
     } else {
       console.log("Hostel subscription renewed:", {
@@ -109,9 +137,75 @@ export default function ContinueSubscriptionScreen() {
     router.push("/check-out");
   };
 
-  const onChangeTiffinDate = (event: any, selectedDate?: Date) => {
+  // Auto-set meal preferences based on selected plan type
+  useEffect(() => {
+    if (selectedPlanType) {
+      let prefs = { breakfast: false, lunch: false, dinner: false };
+      if (selectedPlanType === "perBreakfast") {
+        prefs.breakfast = true;
+      } else if (selectedPlanType === "perMeal") {
+        prefs.lunch = true;
+      } else if (selectedPlanType === "weekly" || selectedPlanType === "monthly") {
+        prefs = { breakfast: true, lunch: true, dinner: true };
+      }
+      setMealPreferences(prefs);
+      const selectedMeals = Object.entries(prefs)
+        .filter(([_, checked]) => checked)
+        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+      setSelectedMealsSummary(selectedMeals.join(", "));
+    }
+  }, [selectedPlanType]);
+
+  // Auto-fill end date based on start date and plan type
+  useEffect(() => {
+    if (date && ['weekly', 'monthly'].includes(selectedPlanType)) {
+      let daysToAdd = 0;
+      if (selectedPlanType === 'weekly') {
+        daysToAdd = 7;
+      } else if (selectedPlanType === 'monthly') {
+        daysToAdd = 30;
+      }
+      const newEndDate = new Date(date);
+      newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+      setEndDate(newEndDate);
+    } else if (!['weekly', 'monthly'].includes(selectedPlanType)) {
+      setEndDate(null);
+    }
+  }, [date, selectedPlanType]);
+
+  // Update price based on selections
+  useEffect(() => {
+    let newPrice = 0;
+    if (selectedPlanType) {
+      let basePrice = 0;
+      const pricingKey = selectedPlanType as keyof typeof fetchedPricing;
+      if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
+        basePrice = fetchedPricing[pricingKey];
+      } else {
+        if (selectedPlanType === "perBreakfast") {
+          basePrice = 120;
+        } else if (selectedPlanType === "perMeal") {
+          basePrice = 120;
+        } else if (selectedPlanType === "weekly") {
+          basePrice = 800;
+        } else if (selectedPlanType === "monthly") {
+          basePrice = 3200;
+        }
+      }
+      const numTiffins = parseInt(numberOfTiffin || "1");
+      newPrice = basePrice * numTiffins;
+    }
+    setCurrentPlanPrice(newPrice);
+  }, [selectedPlanType, numberOfTiffin, fetchedPricing]);
+
+  const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
-    if (selectedDate) setSelectedDate(selectedDate);
+    if (selectedDate) setDate(selectedDate);
+  };
+
+  const onChangeEndDate = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(Platform.OS === "ios");
+    if (selectedDate) setEndDate(selectedDate);
   };
 
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
@@ -125,35 +219,136 @@ export default function ContinueSubscriptionScreen() {
   };
 
   const toggleMealPreference = (meal: MealType) => {
-    setMealPreferences((prev) => ({ ...prev, [meal]: !prev[meal] }));
+    setMealPreferences((prev) => {
+      const newPrefs = { ...prev, [meal]: !prev[meal] };
+      const selectedMeals = Object.entries(newPrefs)
+        .filter(([_, checked]) => checked)
+        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+      setSelectedMealsSummary(selectedMeals.join(", "));
+      return newPrefs;
+    });
+  };
+
+  const toggleSameAs = (key: keyof typeof sameAsSelections) => {
+    setSameAsSelections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleGetPlanDetails = async () => {
+    const selectedMeals: string[] = [];
+    if (mealPreferences.breakfast) selectedMeals.push('Breakfast');
+    if (mealPreferences.lunch) selectedMeals.push('Lunch');
+    if (mealPreferences.dinner) selectedMeals.push('Dinner');
+    const mealPrefStr = selectedMeals.join(',');
+    if (mealPrefStr === '') {
+      setPlanError('Please select at least one meal preference.');
+      return;
+    }
+
+    let foodTypeStr = '';
+    if (selectedfood === 'Veg') foodTypeStr = 'Veg';
+    else if (selectedfood === 'Non-Veg') foodTypeStr = 'Non-Veg';
+    else if (selectedfood === 'Both') foodTypeStr = 'Both Veg & Non-Veg';
+
+    const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      setPlanError('Authentication required.');
+      return;
+    }
+
+    if (!serviceId) {
+      setPlanError('Service ID not available.');
+      return;
+    }
+
+    setIsFetchingDetails(true);
+    setPlanError('');
+    try {
+      const queryParams = new URLSearchParams({
+        mealPreference: mealPrefStr,
+        foodType: foodTypeStr,
+        orderType: orderTypeStr,
+      });
+
+      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceId}?${queryParams.toString()}`;
+
+      const response = await axios.get(url, {
+        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setFetchedPlanType(data.planType);
+        setFetchedPricing({
+          perBreakfast: data.pricing.perBreakfast || 0,
+          perMeal: data.pricing.perMeal || 0,
+          weekly: data.pricing.weekly || 0,
+          monthly: data.pricing.monthly || 0,
+          offers: data.offers || '',
+        });
+        const totalPricing = (data.pricing.perBreakfast || 0) + (data.pricing.perMeal || 0) + (data.pricing.weekly || 0) + (data.pricing.monthly || 0);
+        if (totalPricing === 0) {
+          setPlanError('No plans available for your selected preferences. Please try different options.');
+        } else {
+          setPlanError('');
+        }
+      } else {
+        setPlanError('Failed to fetch plan details: ' + response.data.message);
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setPlanError('Failed to fetch plan details: ' + (error.response?.data?.message || 'Network error'));
+      } else {
+        setPlanError('Failed to fetch plan details.');
+      }
+    } finally {
+      setIsFetchingDetails(false);
+    }
+  };
+
+  // Hardcoded plan options for fallback
+  const hardcodedPlanOptions = [
+    { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
+    { label: "Per Meal (₹120/meal)", value: "perMeal" },
+    { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
+    { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
+  ];
+
+  const getPlanOptions = () => {
+    const options: { label: string; value: string }[] = [];
+    if (fetchedPricing.perBreakfast > 0) {
+      options.push({ label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`, value: "perBreakfast" });
+    }
+    if (fetchedPricing.perMeal > 0) {
+      options.push({ label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`, value: "perMeal" });
+    }
+    if (fetchedPricing.weekly > 0) {
+      options.push({ label: `Weekly (₹${fetchedPricing.weekly}/weekly)`, value: "weekly" });
+    }
+    if (fetchedPricing.monthly > 0) {
+      options.push({ label: `Monthly (₹${fetchedPricing.monthly}/monthly)`, value: "monthly" });
+    }
+    if (options.length === 0) {
+      return hardcodedPlanOptions;
+    }
+    return options;
   };
 
   const renderTiffinForm = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📅 Booking Details</Text>
-
-        <Text style={styles.label}>Number Of Tiffin</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setNumberOfTiffin}
-            items={[
-              { label: "1", value: "1" },
-              { label: "2", value: "2" },
-              { label: "3", value: "3" },
-              { label: "4", value: "4" },
-              { label: "5", value: "5" },
-              { label: "6", value: "6" },
-            ]}
-            placeholder={{ label: "Select number", value: null }}
-            style={{
-              inputIOS: styles.pickerInput,
-              inputAndroid: styles.pickerInput,
-            }}
-            value={numberOfTiffin}
-          />
+        <View style={{ flexDirection: "row" }}>
+          <Image source={calender} style={styles.icon} />
+          <Text style={styles.sectionTitle}> Booking Details</Text>
         </View>
-
+        <Text style={styles.label}>Number Of Tiffin *</Text>
+        <TextInput
+          style={styles.input}
+          value={numberOfTiffin}
+          keyboardType="numeric"
+          onChangeText={setNumberOfTiffin}
+        />
         <Text style={styles.label}>Select Tiffin Number</Text>
         <View style={styles.pickerWrapper}>
           <RNPickerSelect
@@ -173,6 +368,21 @@ export default function ContinueSubscriptionScreen() {
           />
         </View>
 
+        <Text style={[styles.subSectionTitle]}>Apply Preferences</Text>
+        {Object.entries(sameAsSelections).map(([key, value]) => (
+          <View style={styles.checkboxRow} key={key}>
+            <Checkbox
+              checked={value}
+              onPress={() => toggleSameAs(key as keyof typeof sameAsSelections)}
+            />
+            <Text style={styles.checkboxLabel}>
+              {key === "sameForAll"
+                ? "Same For All"
+                : `Same As ${key.slice(-1)}`}
+            </Text>
+          </View>
+        ))}
+
         <Text style={styles.subSectionTitle}>Meal Preference</Text>
         {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
           <View style={styles.checkboxRow} key={meal}>
@@ -187,79 +397,133 @@ export default function ContinueSubscriptionScreen() {
             </Text>
           </View>
         ))}
+        {selectedMealsSummary && (
+          <Text style={[styles.label, { fontSize: 12, color: "#666", marginTop: 5 }]}>
+            Selected: {selectedMealsSummary}
+          </Text>
+        )}
 
         <Text style={styles.subSectionTitle}>Food Type</Text>
         <RadioButton
           label="Veg"
-          value="veg"
-          selected={foodType}
-          onPress={setFoodType}
+          value="Veg"
+          selected={selectedfood}
+          onPress={setSelectedfood}
         />
         <RadioButton
           label="Non-Veg"
-          value="nonveg"
-          selected={foodType}
-          onPress={setFoodType}
+          value="Non-Veg"
+          selected={selectedfood}
+          onPress={setSelectedfood}
         />
         <RadioButton
           label="Both Veg & Non-Veg"
-          value="both"
-          selected={foodType}
-          onPress={setFoodType}
+          value="Both"
+          selected={selectedfood}
+          onPress={setSelectedfood}
         />
 
         <Text style={styles.subSectionTitle}>Choose Order Type</Text>
-        <RadioButton
-          label="Dining"
-          value="dining"
-          selected={orderType}
-          onPress={(value) => setOrderType(value as "dining" | "delivery")}
-        />
-        <RadioButton
-          label="Delivery"
-          value="delivery"
-          selected={orderType}
-          onPress={(value) => setOrderType(value as "dining" | "delivery")}
-        />
+        {["dining", "delivery"].map((type) => (
+          <View style={styles.checkboxRow} key={type}>
+            <TouchableOpacity
+              style={[
+                styles.checkboxBase,
+                orderType === type && styles.checkboxSelected,
+              ]}
+              onPress={() => setOrderType(type as "dining" | "delivery")}
+            >
+              {orderType === type && <Text style={styles.checkMark}>✓</Text>}
+            </TouchableOpacity>
+            <Text style={styles.checkboxLabel}>
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </Text>
+          </View>
+        ))}
 
-        <Text style={styles.subSectionTitle}>Choose Plan Type</Text>
-        <RadioButton
-          label="Daily (₹120/meal) - Save 10%"
-          value="daily"
-          selected={planType}
-          onPress={setPlanType}
-        />
-        <RadioButton
-          label="Weekly (₹800/week) - Save 15%"
-          value="weekly"
-          selected={planType}
-          onPress={setPlanType}
-        />
-        <RadioButton
-          label="Monthly (₹3200/month) - Save 20%"
-          value="monthly"
-          selected={planType}
-          onPress={setPlanType}
-        />
+        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>Get Plan Details</Text>
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            (Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
+          ]}
+          onPress={handleGetPlanDetails}
+          disabled={Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails}
+        >
+          {isFetchingDetails ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Get Plan Details</Text>
+          )}
+        </TouchableOpacity>
+        {planError ? (
+          <Text style={styles.errorText}>{planError}</Text>
+        ) : fetchedPricing.offers ? (
+          <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
+        ) : null}
 
-        <Text style={styles.subSectionTitle}>Select Date</Text>
+        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
+        {getPlanOptions().map((option) => (
+          <RadioButton
+            key={option.value}
+            label={option.label}
+            value={option.value}
+            selected={selectedPlanType}
+            onPress={setSelectedPlanType}
+          />
+        ))}
+
+        <View style={styles.priceContainer}>
+          <Text style={styles.priceText}>
+            ₹{currentPlanPrice}
+          </Text>
+          <Text style={styles.depositText}>
+            No Deposit
+          </Text>
+        </View>
+
+        <Text style={styles.label}>Select Start Date *</Text>
         <TouchableOpacity
           style={styles.datePickerButton}
           onPress={() => setShowDatePicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {selectedDate.toLocaleDateString()}
+            {date ? date.toLocaleDateString("en-US") : "mm/dd/yyyy"}
           </Text>
-          <Ionicons name="calendar-outline" size={20} color="#666" />
+          <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
         {showDatePicker && (
           <DateTimePicker
-            value={selectedDate}
+            value={date || new Date()}
             mode="date"
             display="default"
-            onChange={onChangeTiffinDate}
+            onChange={onChangeDate}
             minimumDate={new Date()}
           />
+        )}
+
+        {['weekly', 'monthly'].includes(selectedPlanType) && (
+          <>
+            <Text style={styles.label}>Select End Date *</Text>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowEndDatePicker(true)}
+            >
+              <Text style={styles.datePickerText}>
+                {endDate ? endDate.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+              </Text>
+              <Image source={calender} style={styles.calendarIcon} />
+            </TouchableOpacity>
+            {showEndDatePicker && (
+              <DateTimePicker
+                value={endDate || new Date(date || new Date())}
+                mode="date"
+                display="default"
+                onChange={onChangeEndDate}
+                minimumDate={date || new Date()}
+              />
+            )}
+          </>
         )}
       </View>
 
@@ -365,6 +629,7 @@ export default function ContinueSubscriptionScreen() {
           onChangeText={setMessage}
         />
 
+        <Text style={styles.subSectionTitle}>User Stay Type</Text>
         <View style={styles.purposeContainer}>
           <TouchableOpacity
             style={styles.radioOption}
@@ -390,6 +655,19 @@ export default function ContinueSubscriptionScreen() {
               )}
             </View>
             <Text style={styles.radioText}>Leisure</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.radioOption}
+            onPress={() => setPurposeType("student")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.radioButton}>
+              {purposeType === "student" && (
+                <View style={styles.radioButtonSelected} />
+              )}
+            </View>
+            <Text style={styles.radioText}>Student</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -600,6 +878,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 12,
   },
+  disabledButton: {
+    backgroundColor: "#ccc",
+  },
   submitButtonText: {
     color: "#fff",
     fontSize: 16,
@@ -647,5 +928,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#374151",
     fontWeight: "500",
+  },
+  icon: {
+    height: 18,
+    width: 16,
+    marginRight: 8,
+  },
+  priceContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 16,
+  },
+  depositText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  calendarIcon: {
+    width: 17,
+    height: 17,
+  },
+  errorText: {
+    color: "#ff0000",
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: "left",
+  },
+  offersText: {
+    fontSize: 14,
+    color: "#FF6600",
+    textAlign: "center",
+    marginTop: 5,
+    fontWeight: "bold",
   },
 });

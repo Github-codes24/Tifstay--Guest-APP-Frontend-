@@ -11,7 +11,7 @@ import bothIcon from "@/assets/images/icons/BothIcon.png";
 
 interface TiffinCardProps {
   service: {
-    id: number;
+    id: string;
     name: string;
     description: string;
     price: string;
@@ -25,17 +25,21 @@ interface TiffinCardProps {
   };
   onPress?: () => void;
   onBookPress?: () => void;
+  onFavoritePress?: () => void;
   horizontal?: boolean;
+  isFavorited?: boolean;
 }
 
 export default function TiffinCard({
   service,
   onPress,
   onBookPress,
+  onFavoritePress,
   horizontal = false,
+  isFavorited,
 }: TiffinCardProps) {
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const isFav = isFavorite(service.id, "tiffin");
+  const { isFavorite } = useFavorites();
+  const isFav = isFavorited !== undefined ? isFavorited : isFavorite(service.id, "tiffin");
 
   // safely handle tags
   const tags = Array.isArray(service.tags) ? service.tags : [];
@@ -53,7 +57,7 @@ export default function TiffinCard({
 
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
-    toggleFavorite(service, "tiffin");
+    onFavoritePress?.();
   };
 
   return (
@@ -82,7 +86,7 @@ export default function TiffinCard({
                 <Ionicons
                   name={isFav ? "heart" : "heart-outline"}
                   size={20}
-                  color={isFav ? "#A5A5A5" : "#A5A5A5"}
+                  color={isFav ? "grey" : "#6B7280"}
                 />
               </TouchableOpacity>
             </View>
@@ -127,23 +131,11 @@ export default function TiffinCard({
           </View>
 
           <View style={styles.bookButtonContainer}>
-            <View>
-              <Text style={styles.price}>{service.price}</Text>
-              <Text style={styles.oldPrice}>{service.oldPrice}</Text>
-            </View>
             <TouchableOpacity
               style={styles.bookButton}
               onPress={(e) => {
                 e.stopPropagation();
-                router.push({
-                  pathname: "/bookingScreen",
-                  params: {
-                    bookingType: "tiffin",
-                    serviceId: service.id.toString(),
-                    serviceName: service.name,
-                    price: service.price,
-                  },
-                });
+                onBookPress?.();
               }}
             >
               <Text style={styles.bookButtonText}>Book Now</Text>
@@ -206,7 +198,7 @@ const styles = StyleSheet.create({
   locationTimeContainer: { flexDirection: "row", alignItems: "center", flex: 1 },
   locationText: { fontSize: 10, color: "#6B7280", marginRight: 4 },
   timingText: { fontSize: 10, color: "#6B7280" },
-  bookButtonContainer: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "space-between" },
+  bookButtonContainer: { flexDirection: "row", justifyContent: "flex-end" },
   bookButton: { backgroundColor: colors.primary, paddingVertical: 10, borderRadius: 8, alignItems: "center", width: 78 },
   bookButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "600" },
 });

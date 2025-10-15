@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,7 +17,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 
 export default function FavoritesScreen() {
   const router = useRouter();
-  const { favoritesUpdated } = useFavorites();
+  const { favoritesUpdated, isFavorite, removeFromFavorites } = useFavorites();
 
   const [hostelFavorites, setHostelFavorites] = useState<any[]>([]);
   const [tiffinFavorites, setTiffinFavorites] = useState<any[]>([]);
@@ -49,6 +50,21 @@ export default function FavoritesScreen() {
         serviceType: item.serviceType,
       },
     });
+  };
+
+  // ❌ Handle Remove Favorite (frontend-only, no API)
+  const handleRemoveFavorite = (item: any) => {
+    console.log("Removing favorite from screen:", { id: item.id, type: item.serviceType });
+    const type = item.serviceType === "tiffin" ? "tiffin" : "hostel";
+    removeFromFavorites(item.id, type);
+    Alert.alert("Success", "Removed from favorites");
+
+    // Filter out from local state immediately (frontend handling)
+    if (type === "tiffin") {
+      setTiffinFavorites((prev) => prev.filter((f) => f.id !== item.id));
+    } else {
+      setHostelFavorites((prev) => prev.filter((h) => h.id !== item.id));
+    }
   };
 
   // 🥘 Map Tiffin Service data
@@ -228,6 +244,7 @@ export default function FavoritesScreen() {
                     service={item}
                     onPress={() => handleTiffinPress(item)}
                     onBookPress={() => handleBookPress(item)}
+                    onFavoritePress={() => handleRemoveFavorite(item)}
                   />
                 ))}
               </View>
@@ -242,6 +259,7 @@ export default function FavoritesScreen() {
                     hostel={item}
                     onPress={() => handleHostelPress(item)}
                     onBookPress={() => handleBookPress(item)}
+                    onFavoritePress={() => handleRemoveFavorite(item)}
                   />
                 ))}
               </View>

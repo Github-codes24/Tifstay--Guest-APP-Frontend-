@@ -623,45 +623,63 @@ export default function DashboardScreen() {
       return;
     }
 
-    const fetchRecentSearch = async () => {
-      setIsSearching(true);
-      const token = await getAuthToken();
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+   const fetchRecentSearch = async () => {
+  if (!searchQuery.trim()) return; // blank search avoid
+  setIsSearching(true);
+  const token = await getAuthToken();
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      try {
-        const response = await fetch(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelsByRecentSearch?query=${encodeURIComponent(searchQuery)}`,
-          { headers }
-        );
-        const result = await response.json();
-        console.log("getHostelsByRecentSearch response:", JSON.stringify(result, null, 2));
-        if (result.success && result.data && Array.isArray(result.data)) {
-          const mappedHostels = result.data.map((hostel: any) => ({
-            id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
-            name: hostel.hostelName || "Unknown Hostel",
-            type: hostel.hostelType || "Unknown",
-            location: hostel.fullAddress || "Unknown Location",
-            price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
-            amenities: hostel.facilities || [],
-            rating: hostel.rating || 0,
-            image: imageMapping["hostel1"],
-            planType: hostel.planType || "",
-            roomType: hostel.roomType || "",
-            acNonAc: hostel.acNonAc || "",
-          }));
-          setSearchedHostels(mappedHostels);
-        } else {
-          setSearchedHostels([]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch recent search:", error);
-        setSearchedHostels([]);
-        Alert.alert("Error", "Failed to search hostels. Please check your connection and try again.");
-      } finally {
-        setIsSearching(false);
-      }
-    };
+  try {
+    const response = await fetch(
+      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices?query=${encodeURIComponent(
+        searchQuery
+      )}`,
+      { headers }
+    );
+    const result = await response.json();
+    console.log(
+      "getHostelsByRecentSearch response:",
+      JSON.stringify(result, null, 2)
+    );
+
+    if (result.success && result.data && Array.isArray(result.data)) {
+      // ✅ frontend filter — sirf wohi hostels jinke naam me query mile
+      const filtered = result.data.filter((hostel: any) =>
+        hostel.hostelName?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+      const mappedHostels = filtered.map((hostel: any) => ({
+        id:
+          hostel.hostelId ||
+          `hostel-${Math.random().toString(36).substr(2, 9)}`,
+        name: hostel.hostelName || "Unknown Hostel",
+        type: hostel.hostelType || "Unknown",
+        location: hostel.fullAddress || "Unknown Location",
+        price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
+        amenities: hostel.facilities || [],
+        rating: hostel.rating || 0,
+        image: imageMapping["hostel1"],
+        planType: hostel.planType || "",
+        roomType: hostel.roomType || "",
+        acNonAc: hostel.acNonAc || "",
+      }));
+
+      setSearchedHostels(mappedHostels);
+    } else {
+      setSearchedHostels([]);
+    }
+  } catch (error) {
+    console.error("Failed to fetch recent search:", error);
+    setSearchedHostels([]);
+    Alert.alert(
+      "Error",
+      "Failed to search hostels. Please check your connection and try again."
+    );
+  } finally {
+    setIsSearching(false);
+  }
+};
 
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);

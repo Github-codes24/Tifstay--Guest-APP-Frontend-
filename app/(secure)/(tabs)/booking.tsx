@@ -72,6 +72,7 @@ const Booking: React.FC = () => {
           customer: item.fullName || "Unknown User",
           checkInDate: item.checkInDate ? new Date(item.checkInDate).toLocaleDateString() : "",
           checkOutDate: item.checkOutDate ? new Date(item.checkOutDate).toLocaleDateString() : "",
+          endDate: item.checkOutDate ? new Date(item.checkOutDate).toLocaleDateString() : "",
           status: item.status.toLowerCase() as Order["status"],
           image: item.userPhoto,
           price: item.price, // Assuming price is available; adjust if needed
@@ -103,6 +104,7 @@ const Booking: React.FC = () => {
             serviceName: `${choosePlanType?.planName || "Unknown"} Tiffin Plan`,
             customer: "You",
             startDate: item.date ? new Date(item.date).toLocaleDateString() : "",
+            endDate: item.endDate ? new Date(item.endDate).toLocaleDateString() : "", // Assuming endDate field exists in API; adjust if needed
             plan: choosePlanType?.planName,
             orderType: item.chooseOrderType,
             status: item.status.toLowerCase() as Order["status"],
@@ -123,6 +125,16 @@ const Booking: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const isWithin5DaysOfEnd = (order: Order) => {
+    const endDateStr = order.endDate || order.checkOutDate;
+    if (!endDateStr) return false;
+    const end = new Date(endDateStr);
+    if (isNaN(end.getTime())) return false;
+    const fiveDaysBefore = new Date(end.getTime() - 5 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    return now >= fiveDaysBefore && now < end;
   };
 
   const handleTrackOrder = (order: Order) => {
@@ -160,12 +172,36 @@ const Booking: React.FC = () => {
     });
   };
 
+  const handleSeeDetails = (order: Order) => {
+    console.log("See details:", order.bookingId, "using entityId:", order.entityId);
+    let pathname;
+    let params;
+    if (order.serviceType === "hostel") {
+      pathname = "/(secure)/hostel-details/[id]";
+      params = { 
+        id: order.entityId,  
+        bookingId: order.id,
+        type: order.serviceType,   
+      };
+    } else {
+      pathname = "/(secure)/tiffin-order-details/[id]";
+      params = { 
+        id: order.id,  
+        type: order.serviceType,   
+      };
+    }
+    router.push({
+      pathname,
+      params,
+    });
+  };
+
   const handleRepeatOrder = (order: Order) => {
     console.log("Repeat order:", order.bookingId);
     const pathname = order.serviceType === "hostel" ? "/hostel-details/[id]" : "/tiffin-details/[id]";
     router.push({
       pathname,
-      params: { id: order.id, repeatOrder: "true" },
+      params: { id: order.entityId, repeatOrder: "true" },  // Also use entityId here for consistency
     });
   };
 
@@ -272,10 +308,19 @@ const Booking: React.FC = () => {
       ) : (
         <>
           {order.status === "confirmed" && !isHistoryOrder(order.status) && (
-            <>
-              <Button title="Continue Subscription" onPress={() => handleContinueSubscription(order)} style={styles.primaryButtonStyle} height={48} />
-              <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.secondaryButtonStyle} textStyle={styles.secondaryButtonTextStyle} height={48} />
-            </>
+            <View>
+              {isWithin5DaysOfEnd(order) && (
+                <Button title="Continue Subscription" onPress={() => handleContinueSubscription(order)} style={styles.primaryButtonStyle} height={48} />
+              )}
+              {order.serviceType === "tiffin" ? (
+                <View style={styles.buttonRow}>
+                  <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.rateButtonStyle} textStyle={styles.secondaryButtonTextStyle} width={160} height={48} />
+                  <Button title="See Details" onPress={() => handleSeeDetails(order)} style={styles.repeatButtonStyle} width={160} height={48} />
+                </View>
+              ) : (
+                <Button title="Rate Now" onPress={() => handleRateNow(order)} style={styles.primaryButtonStyle} height={48} />
+              )}
+            </View>
           )}
           {isHistoryOrder(order.status) && (
             <View style={styles.buttonRow}>
