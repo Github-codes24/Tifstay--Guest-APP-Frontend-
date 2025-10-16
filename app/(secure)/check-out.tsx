@@ -33,10 +33,10 @@ const Checkout: React.FC = () => {
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<'online' | 'wallet' | null>(null);
   const [couponCode, setCouponCode] = useState('');
-  const [bookingDetails, setBookingDetails] = useState(null);
+  const [bookingDetails, setBookingDetails] = useState<any | null>(null);
   const [loadingBooking, setLoadingBooking] = useState(false);
-  const [tiffinOrderDetails, setTiffinOrderDetails] = useState(null);
-  const [tiffinService, setTiffinService] = useState(null);
+  const [tiffinOrderDetails, setTiffinOrderDetails] = useState<any | null>(null);
+  const [tiffinService, setTiffinService] = useState<any | null>(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
 
   const params = useLocalSearchParams();
@@ -66,6 +66,12 @@ const Checkout: React.FC = () => {
 
   const isTiffin = serviceType === "tiffin";
   const isHostel = serviceType === "hostel";
+
+  // Helper to normalize values from useLocalSearchParams which may be string | string[] | undefined
+  const firstParam = (val: string | string[] | undefined): string | undefined => {
+    if (val === undefined) return undefined;
+    return Array.isArray(val) ? val[0] : val;
+  };
 
   // Parse JSON strings if they exist (fallback to empty objects/arrays)
   const parsedHostelData = hostelDataStr ? JSON.parse(hostelDataStr as string) : {};
@@ -125,34 +131,34 @@ const Checkout: React.FC = () => {
     // Prioritize fetched order details
     if (tiffinOrderDetails) {
       return {
-        id: bookingId || serviceId || "1",
+        id: (firstParam(bookingId) || firstParam(serviceId) || "1"),
         title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
         imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-        mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? tiffinOrderDetails.mealPreference[0] || "Lunch" : (tiffinOrderDetails.mealPreference || "Lunch"),
-        foodType: tiffinOrderDetails.foodType || "Veg",
+  mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
+  foodType: tiffinOrderDetails.foodType || "Veg",
         startDate: tiffinOrderDetails.date ? new Date(tiffinOrderDetails.date).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
         plan: tiffinOrderDetails.choosePlanType?.planName || planType || "Per meal",
         orderType: tiffinOrderDetails.chooseOrderType || orderType || "Delivery",
-        price: `₹${(tiffinOrderDetails.choosePlanType?.price || parseInt(totalPrice || '120') || 120).toFixed(0)}/meal`,
+        price: `₹${(tiffinOrderDetails.choosePlanType?.price || parseInt(firstParam(totalPrice) || '120') || 120).toFixed(0)}/meal`,
       };
     }
     // Fallback to service details + params
     if (tiffinService) {
       return {
-        id: serviceId || "1",
+        id: firstParam(serviceId) || "1",
         title: tiffinService.tiffinName || tiffinService.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
         imageUrl: tiffinService.image || tiffinService.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-        mealType: mealPreference || "Lunch",
-        foodType: foodType || tiffinService.foodType || "Veg",
-        startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
-        plan: planType || "Per meal",
-        orderType: orderType || "Delivery",
-        price: `₹${parseInt(totalPrice || (tiffinService.price || '120').toString()) || 120}/meal`,
+  mealType: firstParam(mealPreference) || "Lunch",
+  foodType: firstParam(foodType) || tiffinService.foodType || "Veg",
+  startDate: startDate ? new Date(firstParam(startDate) as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(firstParam(checkInDate) as string).toLocaleDateString('en-IN') : "21/07/25"),
+  plan: firstParam(planType) || "Per meal",
+  orderType: firstParam(orderType) || "Delivery",
+        price: `₹${parseInt(firstParam(totalPrice) || (tiffinService.price || '120').toString()) || 120}/meal`,
       };
     }
     // Ultimate fallback with params
     return {
-      id: bookingId || serviceId || "1",
+      id: (firstParam(bookingId) || firstParam(serviceId) || "1"),
       title: "Maharashtrian Ghar Ka Khana",
       imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
       mealType: mealPreference || "Lunch",
@@ -160,7 +166,7 @@ const Checkout: React.FC = () => {
       startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
       plan: planType || "Per meal",
       orderType: orderType || "Delivery",
-      price: `₹${parseInt(totalPrice || '120')}/meal`,
+      price: `₹${parseInt(firstParam(totalPrice) || '120')}/meal`,
     };
   }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate]);
 
@@ -168,7 +174,7 @@ const Checkout: React.FC = () => {
 
   // FIXED: Wrap in useMemo for reactivity
   const hostelData: HostelCheckoutData = useMemo(() => ({
-    id: bookingId || "2",  // Use real bookingId
+    id: firstParam(bookingId) || "2",  // Use real bookingId
     title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",  // e.g., "Testing is it working"
     imageUrl: parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",  // First room photo
     guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",  // e.g., "F"
@@ -188,49 +194,63 @@ const Checkout: React.FC = () => {
   console.log("Full checkoutData ID :", checkoutData.id);
 
   // FIXED: Use correct keys in hostel logic
-// UPDATED: getTransactionDetails with proper hostel calculation
+// UPDATED: getTransactionDetails with proper hostel calculation (defensive)
 const getTransactionDetails = useMemo(() => {
   console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
 
   if (isTiffin) {
-    // 🥡 Tiffin logic — as it is
-    // ... existing code
-  } else {
-    // 🏠 HOSTEL LOGIC — only Rent + Deposit
-    const planPrice = bookingDetails?.selectPlan?.[0]?.price || parsedPlan?.price || 0;
-    const depositAmount = bookingDetails?.selectPlan?.[0]?.depositAmount || parsedPlan?.depositAmount || 0;
-
-    // ✅ Check-in / Check-out (optional calculation for multiple months)
-    const checkIn = bookingDetails?.checkInDate || checkInDate;
-    const checkOut = bookingDetails?.checkOutDate || checkOutDate;
-    const months = checkIn && checkOut
-      ? Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24 * 30))
-      : 1;
-
-    const totalRent = planPrice * months;
-    const total = totalRent + depositAmount;
-
-    console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
-      planPrice,
-      depositAmount,
-      months,
-      totalRent,
-      total,
-      checkIn,
-      checkOut
-    });
-
-    return {
-      rent: planPrice,
-      months,
-      totalRent,
-      deposit: depositAmount,
-      total,
-      net: total,
-    };
+    // Tiffin logic placeholder — keep existing behavior (handled elsewhere)
+    return { total: 0, net: 0, rent: 0, deposit: 0, months: 1 };
   }
 
-  return { total: 0, net: 0, rent: 0, deposit: 0 };
+  // HOSTEL LOGIC — only Rent + Deposit (defensive)
+  // Try multiple possible paths from the API/params to find price and deposit
+  const rawPlanPrice = bookingDetails?.selectPlan?.[0]?.price
+    ?? bookingDetails?.price
+    ?? parsedPlan?.price
+    ?? bookingDetails?.Rent
+    ?? 0;
+
+  const rawDeposit = bookingDetails?.selectPlan?.[0]?.depositAmount
+    ?? bookingDetails?.depositAmount
+    ?? parsedPlan?.depositAmount
+    ?? bookingDetails?.totalDeposit
+    ?? 0;
+
+  // Coerce to numbers safely
+  const planPrice = Number(rawPlanPrice) || 0;
+  const depositAmount = Number(rawDeposit) || 0;
+
+  // Check-in / Check-out (optional calculation for multiple months)
+  const checkIn = bookingDetails?.checkInDate || checkInDate;
+  const checkOut = bookingDetails?.checkOutDate || checkOutDate;
+  const months = (checkIn && checkOut)
+    ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24 * 30)))
+    : 1;
+
+  const totalRent = planPrice * months;
+  const total = totalRent + depositAmount;
+
+  console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
+    rawPlanPrice,
+    rawDeposit,
+    planPrice,
+    depositAmount,
+    months,
+    totalRent,
+    total,
+    checkIn,
+    checkOut
+  });
+
+  return {
+    rent: planPrice,
+    months,
+    totalRent,
+    deposit: depositAmount,
+    total,
+    net: total,
+  };
 }, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate]);
 
 
@@ -516,7 +536,7 @@ const getTransactionDetails = useMemo(() => {
         // Assuming the bookingId remains the same after payment confirmation on backend.
         setTimeout(() => {
           router.push({
-            pathname: "/(secure)/confirmation",
+      pathname: "/(secure)/Confirmation",
             params: {
               id: (isTiffin ? (paymentData.tiffinOrderId || finalBookingId) : finalBookingId),
               serviceType: serviceType as string,
@@ -622,7 +642,7 @@ const getTransactionDetails = useMemo(() => {
             onPress: () => {
               // Navigate to confirmation screen on OK
               router.push({
-                pathname: "/(secure)/confirmation",
+                pathname: "/(secure)/Confirmation",
                 params: {
                   id: finalBookingId,
                   serviceType: serviceType as string,
@@ -663,7 +683,7 @@ const getTransactionDetails = useMemo(() => {
   };
 
   // Render coupon item in modal
-  const renderCouponItem = ({ item }) => (
+  const renderCouponItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.couponItem}
       onPress={() => {
@@ -1020,11 +1040,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: 'underline',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
+  // sectionTitle already defined above; removed duplicate to avoid key collision
 
   couponHeader: {
     flexDirection: 'row',
