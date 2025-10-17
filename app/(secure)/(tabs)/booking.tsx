@@ -60,7 +60,7 @@ const Booking: React.FC = () => {
           : "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
 
       const hostelResponse = await axios.get(hostelUrl);
-      console.log("Hostel API Response:", hostelResponse.data);
+      // console.log("Hostel API Response:", hostelResponse.data);
 
       let fetchedHostelOrders: Order[] = [];
       if (hostelResponse.data.success) {
@@ -88,7 +88,7 @@ const Booking: React.FC = () => {
           : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
 
       const tiffinResponse = await axios.get(tiffinUrl);
-      console.log("Tiffin API Response:", tiffinResponse.data);
+      // console.log("Tiffin API Response:", tiffinResponse.data);
 
       let fetchedTiffinOrders: Order[] = [];
       if (tiffinResponse.data.success) {

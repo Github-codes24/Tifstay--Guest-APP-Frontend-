@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-redeclare */
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,12 +18,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
 import Header from "@/components/Header";
-import Profile from "../account/profile";
 
 interface SkippedMeal {
   date: string;
   meals: {
-    breakfast: boolean;
     lunch: boolean;
     dinner: boolean;
   };
@@ -36,31 +36,32 @@ export default function TiffinOrderDetails() {
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
   const [showToDatePicker, setShowToDatePicker] = useState(false);
   const [skipMeals, setSkipMeals] = useState({
-    breakfast: false,
     lunch: false,
     dinner: false,
   });
   const [skippedMealsHistory, setSkippedMealsHistory] = useState<SkippedMeal[]>(
-    [
-      {
-        date: "22/07/2025 - 25/07/2025",
-        meals: { breakfast: false, lunch: true, dinner: false },
-      },
-    ]
+    []
   );
+  const { id, bookingId, type } = params;
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const bookingData = {
-    bookingId: "TF2024002",
-    orderedOn: "21/07/2025",
-    serviceName: "Maharashtrian Ghar Ka Khana",
-    customer: "Onil Karmokar",
-    startDate: "21/07/25",
-    mealType: "Breakfast, Lunch, Dinner",
+  const [startDateFull, setStartDateFull] = useState(new Date());
+  const [endDateFull, setEndDateFull] = useState(new Date());
+
+  const [bookingData, setBookingData] = useState({
+    bookingId: "5648904",
+    orderedOn: "13/10/2025",
+    tiffinServiceName: "N/A",
+    customer: "Rahul",
+    startDate: "13/10/25",
+    mealType: "lunch",
     plan: "Monthly",
     orderType: "Delivery",
-  };
+    endDate: "2025-10-17",
+  });
+
+  const [skips, setSkips] = useState([]);
 
   useEffect(() => {
     const today = new Date();
@@ -68,11 +69,95 @@ export default function TiffinOrderDetails() {
     setSkipToDate(formatDate(today));
   }, []);
 
+  const fetchData = useCallback(async () => {
+    console.log("Fetching data for ID:", id);
+    if (!id) return;
+    try {
+      const res = await fetch(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getSkippedMeals/${id}`
+      );
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const { success, data } = await res.json();
+      if (success && data) {
+        setStartDateFull(new Date(data.summary.startDate));
+        setEndDateFull(new Date(data.summary.endDate));
+        setCurrentMonth(new Date(data.summary.startDate));
+        setSelectedDate(new Date(data.summary.startDate));
+        setBookingData((prev) => ({
+          ...prev,
+          bookingId: data.summary.bookingId,
+          tiffinServiceName: data.summary.tiffinServiceName || "N/A",
+          customer: data.summary.customerName,
+          startDate: formatShortDate(data.summary.startDate),
+          mealType:
+            data.summary.mealType.charAt(0).toUpperCase() +
+            data.summary.mealType.slice(1),
+          plan: data.summary.planType,
+          orderType: data.summary.orderType,
+          endDate: formatShortDate(data.summary.endDate),
+        }));
+
+        setSkips(data.skips || []);
+
+        const history = (data.skips || []).map((skip: any) => ({
+          date: formatDate(new Date(skip.date)),
+          meals: {
+            lunch: false,
+            dinner: false,
+            [data.summary.mealType.toLowerCase()]: true,
+          },
+        }));
+        setSkippedMealsHistory(history);
+      } else {
+        Alert.alert("Error", "Failed to fetch booking data");
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      Alert.alert("Error", "Failed to fetch booking data");
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [id]);
+
+  const latestSkip = useMemo(() => {
+    if (skips.length === 0) return null;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    let latest = null;
+    let latestDate = new Date(0);
+
+    skips.forEach((skip) => {
+      const skipDate = new Date(skip.date);
+      skipDate.setHours(0, 0, 0, 0);
+
+      if (skipDate <= today && skipDate > latestDate) {
+        latestDate = skipDate;
+        latest = skip;
+      }
+    });
+
+    return latest;
+  }, [skips]);
+
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  const formatShortDate = (isoString: string) => {
+    const date = new Date(isoString);
+    const d = date.getDate().toString().padStart(2, "0");
+    const m = (date.getMonth() + 1).toString().padStart(2, "0");
+    const y = date.getFullYear().toString().slice(2);
+    return `${d}/${m}/${y}`;
   };
 
   const getDaysInMonth = (date: Date) => {
@@ -123,45 +208,100 @@ export default function TiffinOrderDetails() {
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  const handleSaveSkipMeal = () => {
-    if (!skipFromDate || !skipToDate) {
-      Alert.alert("Error", "Please select both From and To dates");
-      return;
+ const handleSaveSkipMeal = async () => {
+  // Format selected date as YYYY-MM-DD
+  const date = new Date(selectedDate);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const formattedDate = `${year}-${month}-${day}`;
+
+  // Collect selected meals
+  const selectedMeals: string[] = [];
+  if (skipMeals.lunch) selectedMeals.push("lunch");
+  if (skipMeals.dinner) selectedMeals.push("dinner");
+
+  // Prepare request body
+  const body: any = { date: formattedDate };
+  if (selectedMeals.length > 0) {
+    body.mealType = selectedMeals; // always send array, matches your cURL
+  }
+
+  console.log("Saving skip meal with body:", body);
+
+  try {
+    const saveResponse = await fetch(
+      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`, // ✅ fixed endpoint name
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    // Check for non-success response
+    if (!saveResponse.ok) {
+      const errText = await saveResponse.text();
+      console.error("Server response:", errText);
+      throw new Error(`HTTP error! status: ${saveResponse.status}`);
     }
 
-    if (!skipMeals.breakfast && !skipMeals.lunch && !skipMeals.dinner) {
-      Alert.alert("Error", "Please select at least one meal to skip");
-      return;
-    }
+    // Refresh data after success
+    await fetchData();
 
-    // Add to history
-    const newSkippedMeal: SkippedMeal = {
-      date: `${skipFromDate} - ${skipToDate}`,
-      meals: { ...skipMeals },
-    };
-
-    setSkippedMealsHistory([...skippedMealsHistory, newSkippedMeal]);
+    // Reset states
     setShowSkipMeal(false);
-    setSkipMeals({ breakfast: false, lunch: false, dinner: false });
+    setSkipMeals({ lunch: false, dinner: false });
 
     Alert.alert("Success", "Meal skip preferences saved successfully");
-  };
+  } catch (error: any) {
+    console.error("Error saving skip meal:", error);
+    Alert.alert("Error", error || "Failed to save skip meal");
+  }
+};
 
   const handleProfilePress = () => {
     router.push("/account/profile");
   };
 
-  const isDateSkipped = (day: number) => {
-    // This is a simple example - you'd need more complex logic for date ranges
-    return [20, 21, 22, 23, 24, 25].includes(day);
-  };
-
-  const getSkippedMealsForDate = (day: number) => {
-    // Example logic - you'd implement actual date checking
-    if (day === 20) {
-      return { breakfast: false, lunch: true, dinner: false };
+  const getSkippedMealsForDate = (targetDate: Date) => {
+    const skip = skips.find((s: any) => {
+      const skipDate = new Date(s.date);
+      return (
+        targetDate.getFullYear() === skipDate.getFullYear() &&
+        targetDate.getMonth() === skipDate.getMonth() &&
+        targetDate.getDate() === skipDate.getDate()
+      );
+    });
+    if (skip) {
+      const skipped = {
+        lunch: false,
+        dinner: false,
+      };
+      skipped[bookingData.mealType.toLowerCase()] = true;
+      return skipped;
     }
     return null;
+  };
+
+  const isDateSkipped = (day: number) => {
+    const date = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day,
+      12
+    );
+    const skip = skips.find((s: any) => {
+      const skipDate = new Date(s.date);
+      return (
+        date.getFullYear() === skipDate.getFullYear() &&
+        date.getMonth() === skipDate.getMonth() &&
+        date.getDate() === skipDate.getDate()
+      );
+    });
+    return !!skip;
   };
 
   const renderCalendarDay = (day: number | null, index: number) => {
@@ -174,39 +314,61 @@ export default function TiffinOrderDetails() {
       currentMonth.getMonth() === new Date().getMonth() &&
       currentMonth.getFullYear() === new Date().getFullYear();
 
-    const isSkipped = isDateSkipped(day);
-    const skippedMeals = getSkippedMealsForDate(day);
+    const dateForMeals = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day,
+      12
+    );
+    const isInPeriod =
+      dateForMeals >= startDateFull && dateForMeals <= endDateFull;
+    const isEndDate =
+      formatShortDate(dateForMeals) === formatShortDate(endDateFull);
+    const isSkippedDate = skips.some((skip: any) => {
+      const skipDate = new Date(skip.date);
+      return (
+        dateForMeals.getFullYear() === skipDate.getFullYear() &&
+        dateForMeals.getMonth() === skipDate.getMonth() &&
+        dateForMeals.getDate() === skipDate.getDate()
+      );
+    });
+
+    let dayStyle = [styles.calendarDay];
+    let textStyle = [styles.calendarDayText];
+    // console.log("Rendering day:", day, { dateForMeals });
+
+    if (isSkippedDate) {
+      textStyle.push(styles.calendarDayTextSkipped);
+    } else if (isEndDate) {
+      textStyle.push(styles.calendarDayTextEnd);
+    } else if (isInPeriod) {
+      textStyle.push(styles.calendarDayTextPeriod);
+    }
 
     return (
       <TouchableOpacity
         key={`day-${day}`}
-        style={[
-          styles.calendarDay,
-          isToday && styles.calendarDayToday,
-          isSkipped && styles.calendarDaySkipped,
-        ]}
-        onPress={() =>
-          setSelectedDate(
-            new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
-          )
+        style={dayStyle}
+        onPress={
+          isInPeriod
+            ? () =>
+                setSelectedDate(
+                  new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth(),
+                    day
+                  )
+                )
+            : undefined
         }
       >
-        <Text
-          style={[
-            styles.calendarDayText,
-            isToday && styles.calendarDayTextToday,
-            isSkipped && styles.calendarDayTextSkipped,
-          ]}
-        >
-          {day}
-        </Text>
+        <Text style={textStyle}>{day}</Text>
       </TouchableOpacity>
     );
   };
 
   const renderSelectedDateMeals = () => {
-    const day = selectedDate.getDate();
-    const skippedMeals = getSkippedMealsForDate(day);
+    const skippedMeals = getSkippedMealsForDate(selectedDate);
 
     if (!skippedMeals) {
       return (
@@ -215,10 +377,6 @@ export default function TiffinOrderDetails() {
             Date: {formatDate(selectedDate)}
           </Text>
           <View style={styles.mealStatusRow}>
-            <View style={styles.mealStatus}>
-              <Text style={styles.mealStatusLabel}>Breakfast</Text>
-              <Ionicons name="checkmark" size={20} color="#10B981" />
-            </View>
             <View style={styles.mealStatus}>
               <Text style={styles.mealStatusLabel}>Lunch</Text>
               <Ionicons name="checkmark" size={20} color="#10B981" />
@@ -238,14 +396,6 @@ export default function TiffinOrderDetails() {
           Date: {formatDate(selectedDate)}
         </Text>
         <View style={styles.mealStatusRow}>
-          <View style={styles.mealStatus}>
-            <Text style={styles.mealStatusLabel}>Breakfast</Text>
-            {skippedMeals.breakfast ? (
-              <Ionicons name="close" size={20} color="#EF4444" />
-            ) : (
-              <Ionicons name="checkmark" size={20} color="#10B981" />
-            )}
-          </View>
           <View style={styles.mealStatus}>
             <Text style={styles.mealStatusLabel}>Lunch</Text>
             {skippedMeals.lunch ? (
@@ -301,7 +451,9 @@ export default function TiffinOrderDetails() {
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Tiffin Service:</Text>
-              <Text style={styles.detailValue}>{bookingData.serviceName}</Text>
+              <Text style={styles.detailValue}>
+                {bookingData.tiffinServiceName}
+              </Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Customer:</Text>
@@ -363,159 +515,108 @@ export default function TiffinOrderDetails() {
 
           {renderSelectedDateMeals()}
 
-          <View style={styles.skipMealSection}>
-            <View style={styles.skipMealHeader}>
-              <View style={styles.skipMealIcon}>
-                <Ionicons name="restaurant" size={20} color="#666" />
-              </View>
-              <Text style={styles.skipMealText}>Want to skip meal?</Text>
-              <Switch
-                value={showSkipMeal}
-                onValueChange={setShowSkipMeal}
-                trackColor={{ false: "#E5E7EB", true: colors.primary }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            {showSkipMeal && (
-              <View style={styles.skipMealForm}>
-                <View style={styles.datePickerRow}>
-                  <View style={styles.datePickerItem}>
-                    <Text style={styles.datePickerLabel}>From</Text>
-                    <TouchableOpacity
-                      style={styles.datePickerButton}
-                      onPress={() => setShowFromDatePicker(true)}
-                    >
-                      <Text style={styles.datePickerText}>{skipFromDate}</Text>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={16}
-                        color="#666"
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.datePickerItem}>
-                    <Text style={styles.datePickerLabel}>To</Text>
-                    <TouchableOpacity
-                      style={styles.datePickerButton}
-                      onPress={() => setShowToDatePicker(true)}
-                    >
-                      <Text style={styles.datePickerText}>{skipToDate}</Text>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={16}
-                        color="#666"
-                      />
-                    </TouchableOpacity>
-                  </View>
+          {bookingData?.plan === "Monthly" && (
+            <View style={styles.skipMealSection}>
+              <View style={styles.skipMealHeader}>
+                <View style={styles.skipMealIcon}>
+                  <Ionicons name="restaurant" size={20} color="#666" />
                 </View>
-
-                <View style={styles.mealCheckboxes}>
-                  <TouchableOpacity
-                    style={styles.mealCheckbox}
-                    onPress={() =>
-                      setSkipMeals({
-                        ...skipMeals,
-                        breakfast: !skipMeals.breakfast,
-                      })
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        skipMeals.breakfast && styles.checkboxChecked,
-                      ]}
-                    >
-                      {skipMeals.breakfast && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                      )}
-                    </View>
-                    <Text style={styles.checkboxLabel}>Breakfast</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.mealCheckbox}
-                    onPress={() =>
-                      setSkipMeals({ ...skipMeals, lunch: !skipMeals.lunch })
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        skipMeals.lunch && styles.checkboxChecked,
-                      ]}
-                    >
-                      {skipMeals.lunch && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                      )}
-                    </View>
-                    <Text style={styles.checkboxLabel}>Lunch</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.mealCheckbox}
-                    onPress={() =>
-                      setSkipMeals({ ...skipMeals, dinner: !skipMeals.dinner })
-                    }
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        skipMeals.dinner && styles.checkboxChecked,
-                      ]}
-                    >
-                      {skipMeals.dinner && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                      )}
-                    </View>
-                    <Text style={styles.checkboxLabel}>Dinner</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Button
-                  title="Save"
-                  onPress={handleSaveSkipMeal}
-                  style={styles.saveButton}
-                  height={48}
+                <Text style={styles.skipMealText}>Want to skip meal?</Text>
+                <Switch
+                  value={showSkipMeal}
+                  onValueChange={setShowSkipMeal}
+                  trackColor={{ false: "#E5E7EB", true: colors.primary }}
+                  thumbColor="#fff"
                 />
               </View>
-            )}
-          </View>
 
-          {skippedMealsHistory.length > 0 && (
-            <View style={styles.skipHistorySection}>
-              <Text style={styles.skipHistoryTitle}>
-                Previously Meal Skip Date
-              </Text>
-              {skippedMealsHistory.map((skip, index) => (
-                <View key={index} style={styles.skipHistoryItem}>
-                  <View style={styles.skipHistoryDetails}>
-                    <Text style={styles.skipHistoryDate}>
-                      Skip Meals Date: {skip.date}
-                    </Text>
-                    <Text style={styles.skipHistoryMeals}>
-                      Skip meals type:{" "}
-                      {Object.entries(skip.meals)
-                        .filter(([_, value]) => value)
-                        .map(
-                          ([meal]) =>
-                            meal.charAt(0).toUpperCase() + meal.slice(1)
-                        )
-                        .join(", ")}
-                    </Text>
+              {showSkipMeal && (
+                <View style={styles.skipMealForm}>
+                  <Text style={styles.datePickerLabel}>
+                    Date: {formatDate(selectedDate)}
+                  </Text>
+
+                  <View style={styles.mealCheckboxes}>
+                    <Text style={styles.checkboxLabel}>Select Meal</Text>
+
+                    <TouchableOpacity
+                      style={styles.mealCheckbox}
+                      onPress={() =>
+                        setSkipMeals({ ...skipMeals, lunch: !skipMeals.lunch })
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.checkbox,
+                          skipMeals.lunch && styles.checkboxChecked,
+                        ]}
+                      >
+                        {skipMeals.lunch && (
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                        )}
+                      </View>
+                      <Text style={styles.checkboxLabel}>Lunch</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.mealCheckbox}
+                      onPress={() =>
+                        setSkipMeals({
+                          ...skipMeals,
+                          dinner: !skipMeals.dinner,
+                        })
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.checkbox,
+                          skipMeals.dinner && styles.checkboxChecked,
+                        ]}
+                      >
+                        {skipMeals.dinner && (
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                        )}
+                      </View>
+                      <Text style={styles.checkboxLabel}>Dinner</Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity>
-                    <Text style={styles.changeSkipDate}>Change Skip Date</Text>
-                  </TouchableOpacity>
+
+                  <Button
+                    title="Save"
+                    onPress={handleSaveSkipMeal}
+                    style={styles.saveButton}
+                    height={48}
+                  />
                 </View>
-              ))}
+              )}
+            </View>
+          )}
+
+          {latestSkip && (
+            <View style={styles.skipHistorySection}>
+              
+              <View key={latestSkip.date} style={styles.skipHistoryItem}>
+                <View style={styles.skipHistoryDetails}>
+                  <Text style={styles.skipHistoryTitle}>
+                Previously Skipped Meal
+              </Text>
+                  <Text style={styles.skipHistoryDate}>
+                    Date: {latestSkip.date}
+                  </Text>
+                  <Text style={styles.skipHistoryMeals}>
+                    Meal Type:{" "}
+                    {latestSkip.mealType === "all"
+                      ? "Lunch & Dinner"
+                      : latestSkip.mealType.charAt(0).toUpperCase() +
+                        latestSkip.mealType.slice(1)}
+                  </Text>
+                </View>
+              </View>
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Date Pickers */}
       {showFromDatePicker && (
         <DateTimePicker
           value={new Date()}
@@ -578,10 +679,12 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: "#666",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    textAlign: "left",
+    color: "#666060",
+    paddingHorizontal: 40,
+    marginBottom: 30,
+    marginTop: -14,
+    width: "100%",
+    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -611,6 +714,7 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: "row",
     marginBottom: 10,
+    flex: 1,
   },
   detailLabel: {
     fontSize: 14,
@@ -620,8 +724,9 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 14,
     color: "#000",
-    fontWeight: "500",
+    fontWeight: "600",
     flex: 1,
+    textAlign: "right",
   },
   calendarSection: {
     marginTop: 20,
@@ -672,9 +777,6 @@ const styles = StyleSheet.create({
   calendarDayToday: {
     backgroundColor: "#E3F2FD",
   },
-  calendarDaySkipped: {
-    backgroundColor: "#FEE2E2",
-  },
   calendarDayText: {
     fontSize: 14,
     color: "#000",
@@ -683,8 +785,16 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: "600",
   },
+  calendarDayTextPeriod: {
+    color: "#1DB435",
+    fontWeight: "500",
+  },
+  calendarDayTextEnd: {
+    color: "#0088FF",
+    fontWeight: "500",
+  },
   calendarDayTextSkipped: {
-    color: "#EF4444",
+    color: "#E51A1A",
   },
   selectedDateMeals: {
     backgroundColor: "#F8F9FA",
@@ -749,9 +859,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   datePickerLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 6,
+    fontSize: 16,
+    color: "#111111",
+    marginBottom: 15,
+    marginLeft: 5,
   },
   datePickerButton: {
     flexDirection: "row",
