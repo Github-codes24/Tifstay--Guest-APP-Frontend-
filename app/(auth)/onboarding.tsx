@@ -1,99 +1,143 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
-  FlatList,
   Image,
   ImageBackground,
   StyleSheet,
   Text,
   View,
-  Animated,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../../components/Buttons";
+import { useAuthStore } from "@/store/authStore";
+import Animated, {
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolate,
+  Extrapolate,
+  useAnimatedStyle,
+  runOnJS,
+  FadeIn,
+  FadeOut,
+} from "react-native-reanimated";
 
 const { width } = Dimensions.get("window");
 
+// Create a separate component for the animated dot
+const AnimatedDot = ({
+  index,
+  scrollX,
+  currentIndex,
+}: {
+  index: number;
+  scrollX: Animated.SharedValue<number>;
+  currentIndex: number;
+}) => {
+  const animatedDotStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * width,
+      index * width,
+      (index + 1) * width,
+    ];
+
+    const widthInterpolation = interpolate(
+      scrollX.value,
+      inputRange,
+      index === 0 ? [8, 24, 8] : [8, 24, 8],
+      Extrapolate.CLAMP
+    );
+
+    const opacityInterpolation = interpolate(
+      scrollX.value,
+      inputRange,
+      index === 0 ? [0.5, 1, 0.5] : [0.5, 1, 0.5],
+      Extrapolate.CLAMP
+    );
+
+    const scale = currentIndex === index ? 1.2 : 0.8;
+
+    return {
+      width: widthInterpolation,
+      opacity: opacityInterpolation,
+      transform: [{ scale: withSpring(scale) }],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[styles.dot, { backgroundColor: "#FF6B00" }, animatedDotStyle]}
+    />
+  );
+};
+
 export default function OnboardingScreen() {
   const router = useRouter();
-  const flatListRef = useRef<FlatList>(null);
+  const scrollRef = useAnimatedRef<Animated.FlatList<any>>();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { setHasSeenOnboarding } = useAuthStore();
 
-  // Animation values
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  // Reanimated values
+  const scrollX = useSharedValue(0);
+  const fadeAnim = useSharedValue(1);
 
-  // Auto-advance from splash after 3 seconds
+  const handleGetStarted = () => {
+    setHasSeenOnboarding(true);
+    router.replace("/login");
+  };
+
   useEffect(() => {
     if (currentIndex === 0) {
       const timer = setTimeout(() => {
-        // Add fade animation before scrolling
-        Animated.sequence([
-          Animated.timing(fadeAnim, {
-            toValue: 0.3,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
+        // Animate the fade effect
+        fadeAnim.value = withTiming(0.3, { duration: 200 }, () => {
+          fadeAnim.value = withTiming(1, { duration: 200 });
+        });
 
-        flatListRef.current?.scrollToIndex({ index: 1, animated: true });
+        // Scroll to next screen with spring animation
+        scrollRef.current?.scrollToIndex({ index: 1, animated: true });
       }, 3000);
       return () => clearTimeout(timer);
     }
   }, [currentIndex]);
 
-  const handleServiceSelect = (serviceId: number) => {
-    router.push({
-      pathname: "/login",
-      params: { serviceType: serviceId },
-    });
-  };
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
 
-  // Animated dots component
+      // Update current index based on scroll position
+      const newIndex = Math.round(event.contentOffset.x / width);
+      if (newIndex !== currentIndex) {
+        runOnJS(setCurrentIndex)(newIndex);
+      }
+    },
+    onMomentumEnd: (event) => {
+      // Ensure proper snapping to page
+      const offsetX = event.contentOffset.x;
+      const newIndex = Math.round(offsetX / width);
+
+      if (newIndex !== currentIndex) {
+        runOnJS(setCurrentIndex)(newIndex);
+      }
+    },
+  });
+
+  // Animated dots component with Reanimated
   const AnimatedDots = () => {
-    const inputRange = [0, width];
-
     return (
-      <View style={styles.dotsWrapper}>
+      <View style={styles.fixedDotsContainer}>
         <View style={styles.dotsContainer}>
-          {[0, 1].map((index) => {
-            const dotWidth = scrollX.interpolate({
-              inputRange,
-              outputRange: index === 0 ? [24, 8] : [8, 24],
-              extrapolate: "clamp",
-            });
-
-            const opacity = scrollX.interpolate({
-              inputRange,
-              outputRange: index === 0 ? [1, 0.5] : [0.5, 1],
-              extrapolate: "clamp",
-            });
-
-            return (
-              <Animated.View
-                key={index}
-                style={[
-                  styles.dot,
-                  {
-                    width: dotWidth,
-                    opacity: opacity,
-                    backgroundColor:
-                      currentIndex === index ? "#FF6B00" : "#E0E0E0",
-                  },
-                ]}
-              />
-            );
-          })}
+          {[0, 1].map((index) => (
+            <AnimatedDot
+              key={index}
+              index={index}
+              scrollX={scrollX}
+              currentIndex={currentIndex}
+            />
+          ))}
         </View>
       </View>
     );
@@ -105,7 +149,11 @@ export default function OnboardingScreen() {
       style={styles.background}
       resizeMode="contain"
     >
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <Animated.View
+        style={[styles.container, { opacity: fadeAnim }]}
+        entering={FadeIn.duration(500)}
+        exiting={FadeOut.duration(300)}
+      >
         <View style={styles.logoContainer}>
           <Image
             source={require("../../assets/images/logo.png")}
@@ -114,43 +162,59 @@ export default function OnboardingScreen() {
           />
         </View>
       </Animated.View>
-      <AnimatedDots />
     </ImageBackground>
   );
 
   const renderOnboarding = () => (
     <SafeAreaView style={styles.onboardingContainer}>
-      <Animated.View style={[styles.onboardingContent, { opacity: fadeAnim }]}>
+      <Animated.View
+        style={[styles.onboardingContent, { opacity: fadeAnim }]}
+        entering={FadeIn.duration(500)}
+        exiting={FadeOut.duration(300)}
+      >
         <View style={styles.onboardingLogoSection}>
-          <View style={styles.onboardingLogoContainer}>
+          <Animated.View
+            style={styles.onboardingLogoContainer}
+            entering={FadeIn.delay(200).duration(600)}
+          >
             <Image
               source={require("../../assets/images/logoSub.png")}
               style={styles.onboardingLogo}
               resizeMode="contain"
             />
-          </View>
-          <Text style={styles.brandName}>Tifstay</Text>
-          <Text style={styles.onboardingSubtitle}>
+          </Animated.View>
+          <Animated.Text
+            style={styles.brandName}
+            entering={FadeIn.delay(300).duration(600)}
+          >
+            Tifstay
+          </Animated.Text>
+          <Animated.Text
+            style={styles.onboardingSubtitle}
+            entering={FadeIn.delay(400).duration(600)}
+          >
             Find home-style meals &{"\n"}hostels in one app.
-          </Text>
+          </Animated.Text>
         </View>
 
         <View style={styles.middleSection}>
-          <Image
+          <Animated.Image
             source={require("../../assets/images/food-tray.png")}
             style={styles.foodImage}
             resizeMode="cover"
+            entering={FadeIn.delay(500).duration(700)}
           />
 
-          <Button
-            title="Get Started"
-            onPress={() => router.navigate("/login")}
-            width={width - 48}
-            height={56}
-          />
+          <Animated.View entering={FadeIn.delay(600).duration(800)}>
+            <Button
+              title="Get Started"
+              onPress={handleGetStarted}
+              width={width - 48}
+              height={56}
+            />
+          </Animated.View>
         </View>
       </Animated.View>
-      <AnimatedDots />
     </SafeAreaView>
   );
 
@@ -160,36 +224,50 @@ export default function OnboardingScreen() {
   ];
 
   return (
-    <Animated.FlatList
-      ref={flatListRef}
-      data={screens}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      keyExtractor={(item) => item.key}
-      renderItem={({ item }) => <View style={{ width }}>{item.render()}</View>}
-      onScroll={Animated.event(
-        [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-        {
-          useNativeDriver: false,
-          listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-            const newIndex = Math.round(
-              event.nativeEvent.contentOffset.x / width
-            );
-            setCurrentIndex(newIndex);
-          },
-        }
-      )}
-      scrollEventThrottle={16}
-      decelerationRate="fast"
-      snapToInterval={width}
-      snapToAlignment="center"
-    />
+    <View style={styles.mainContainer}>
+      <Animated.FlatList
+        ref={scrollRef}
+        data={screens}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.key}
+        renderItem={({ item }) => (
+          <View style={{ width }}>{item.render()}</View>
+        )}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        snapToInterval={width}
+        snapToAlignment="center"
+        bounces={false}
+      />
+      <AnimatedDots />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Splash Screen
+  mainContainer: {
+    flex: 1,
+    position: "relative",
+  },
+  fixedDotsContainer: {
+    position: "absolute",
+    bottom: 50,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dotsContainer: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  dot: {
+    height: 8,
+    borderRadius: 4,
+  },
   container: {
     flex: 1,
     alignItems: "center",
@@ -211,26 +289,6 @@ const styles = StyleSheet.create({
     width: 228,
     tintColor: "#004AAD",
   },
-
-  // Unified dots positioning
-  dotsWrapper: {
-    position: "absolute",
-    bottom: 50,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  dotsContainer: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#E0E0E0",
-  },
-
-  // Onboarding Screen Styles
   onboardingContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -239,7 +297,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 100,
-    paddingBottom: 100, // Adjusted to accommodate dots
+    paddingBottom: 100,
   },
   onboardingLogoSection: {
     alignItems: "center",

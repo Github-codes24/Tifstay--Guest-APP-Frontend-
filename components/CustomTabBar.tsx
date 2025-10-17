@@ -1,9 +1,9 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import colors from "../constants/colors";
+import { useAppState } from "@/context/AppStateProvider";
 import {
   accountTab,
   bookingTab,
@@ -18,6 +18,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
   navigation,
 }) => {
   const insets = useSafeAreaInsets();
+  const { isFilterApplied, isSearchFocused } = useAppState();
   const [animatedValues] = React.useState(() =>
     state.routes.map(() => new Animated.Value(0))
   );
@@ -41,6 +42,9 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
     notification: notificationTab,
     account: accountTab,
   };
+  if (isFilterApplied || isSearchFocused) {
+    return null;
+  }
 
   return (
     <View
@@ -83,7 +87,6 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
             outputRange: [0, 1],
           });
 
-          // Icon tint color animation
           const iconOpacity = animatedValues[index].interpolate({
             inputRange: [0, 1],
             outputRange: [0.6, 1],
@@ -135,7 +138,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                     },
                   ]}
                 >
-                  {options.title}
+                  {isFocused && options.title}
                 </Animated.Text>
               </Animated.View>
             </TouchableOpacity>
@@ -148,18 +151,8 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    backgroundColor: "#F7F6F4",
     paddingTop: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 10,
   },
   tabBarContent: {
     flexDirection: "row",
@@ -175,6 +168,7 @@ const styles = StyleSheet.create({
   tabItemContent: {
     alignItems: "center",
     justifyContent: "center",
+    top: 6,
   },
   iconContainer: {
     width: 50,

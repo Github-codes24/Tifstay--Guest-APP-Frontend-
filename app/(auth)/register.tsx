@@ -1,12 +1,15 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
+import axios from "axios";
+
 import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
@@ -15,6 +18,84 @@ import colors from "../../constants/colors";
 export default function RegisterScreen() {
   const router = useRouter();
 
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [code, setCode] = useState("");
+
+  const handleRegister = async () => {
+    const trimmedName = name.trim();
+    const trimmedPhone = phoneNumber.trim();
+    const trimmedCode = code.trim();
+
+    if (!trimmedName || !trimmedPhone) {
+      Alert.alert("Error", "Please enter both name and phone number");
+      return;
+    }
+
+    if (!/^[A-Za-z ]+$/.test(trimmedName)) {
+      Alert.alert("Error", "Name can only contain letters and spaces");
+      return;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(trimmedPhone)) {
+      Alert.alert("Error", "Enter a valid 10-digit Indian phone number");
+      return;
+    }
+
+    try {
+      const requestBody = {
+        name: trimmedName,
+        phoneNumber: trimmedPhone,
+      };
+      if (trimmedCode) {
+        requestBody.code = trimmedCode;
+      }
+
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/register",
+        requestBody,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      const success = response.data?.success;
+      const message = response.data?.message;
+      const otpCode = response.data?.data?.guest?.otpCode;
+
+      if (success) {
+        Alert.alert(
+          "Success",
+          `Account registered!\nOTP: ${otpCode}`,
+          [
+            {
+              text: "OK",
+              onPress: () =>
+                router.push({
+                  pathname: "/verify",
+                  params: { phoneNumber: trimmedPhone, otp: otpCode },
+                }),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Registration Failed", message || "Unknown error");
+      }
+    } catch (error: any) {
+      if (error.response) {
+        // ✅ Just show clean error message
+        const serverMessage =
+          error.response.data?.message || "User already registered";
+        Alert.alert("Registration Failed", serverMessage);
+      } else if (error.request) {
+        Alert.alert(
+          "Network Error",
+          "No response from server. Please check your connection."
+        );
+      } else {
+        Alert.alert("Error", error.message);
+      }
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -22,18 +103,28 @@ export default function RegisterScreen() {
 
         <Text style={styles.title}>Get started with Tifstay</Text>
 
-        <InputField placeholder="Name" icon="person" />
+        <InputField
+          placeholder="Name"
+          icon="person"
+          value={name}
+          onChangeText={setName}
+        />
         <InputField
           placeholder="Phone Number"
           icon="phone-portrait"
           keyboardType="phone-pad"
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
         />
-        <InputField placeholder="Password" icon="lock-closed" isPassword />
+        <InputField
+          placeholder="Referral Code (optional)"
+          icon="code"
+          value={code}
+          onChangeText={setCode}
+        />
 
-        <CustomButton
-          title="Continue"
-          onPress={() => router.navigate("/login")}
-        />
+        <CustomButton title="Continue" onPress={handleRegister} />
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>Have an account? </Text>
           <TouchableOpacity onPress={() => router.push("/login")}>

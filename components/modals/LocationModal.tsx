@@ -7,12 +7,11 @@ import {
   StyleSheet,
   SafeAreaView,
   TextInput,
-  Switch,
-  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import colors from "../constants/colors";
+import colors from "../../constants/colors";
+import Header from "../Header";
 
 interface LocationModalProps {
   visible: boolean;
@@ -25,6 +24,7 @@ export default function LocationModal({
   onClose,
   onLocationSelected,
 }: LocationModalProps) {
+  const [manualLocation, setManualLocation] = useState("");
   const [locationEnabled, setLocationEnabled] = useState(false);
 
   const handleLocationPermission = async () => {
@@ -36,12 +36,20 @@ export default function LocationModal({
 
     let location = await Location.getCurrentPositionAsync({});
     onLocationSelected(location);
+    setLocationEnabled(true);
     onClose();
   };
 
   const handleSelectPreset = (type: string) => {
     onLocationSelected({ type });
     onClose();
+  };
+
+  const handleManualSubmit = () => {
+    if (manualLocation.trim()) {
+      onLocationSelected(manualLocation);
+      onClose();
+    }
   };
 
   return (
@@ -53,36 +61,31 @@ export default function LocationModal({
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons
-              name="chevron-back"
-              size={24}
-              color={colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Allow location access</Text>
-          <View style={{ width: 24 }} />
+          <Header title="Allow location access" onBack={onClose} />
         </View>
 
         <View style={styles.content}>
-          <View style={styles.locationCard}>
-            <Ionicons name="location" size={24} color={colors.primary} />
-            <Text style={styles.locationText}>Location permission is off</Text>
-            <Switch
-              value={locationEnabled}
-              onValueChange={(value) => {
-                setLocationEnabled(value);
-                if (value) handleLocationPermission();
-              }}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.white}
-            />
-          </View>
+          <View style={styles.locationSection}>
+            <View style={styles.locationCard}>
+              <Ionicons name="location" size={24} color={colors.primary} />
+              <Text style={styles.locationText}>
+                Location permission is off
+              </Text>
 
-          <Text style={styles.permissionText}>
-            Granting your location will help us provide accurate and
-            personalized results near you
-          </Text>
+              {/* Replacing Toggle with Button */}
+              <TouchableOpacity
+                style={styles.allowButton}
+                onPress={handleLocationPermission}
+              >
+                <Text style={styles.allowButtonText}>GRANT</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.permissionText}>
+              Granting your location will help us provide accurate and
+              personalized results near you
+            </Text>
+          </View>
 
           <View style={styles.addressSection}>
             <Text style={styles.sectionTitle}>Select Address</Text>
@@ -112,23 +115,12 @@ export default function LocationModal({
                 placeholder="Enter Location Manually"
                 style={styles.input}
                 placeholderTextColor={colors.textSecondary}
+                value={manualLocation}
+                onChangeText={setManualLocation}
+                onSubmitEditing={handleManualSubmit}
+                returnKeyType="done"
               />
             </TouchableOpacity>
-          </View>
-
-          {/* Avatar Group */}
-          <View style={styles.avatarGroup}>
-            {[1, 2, 3].map((i) => (
-              <View
-                key={i}
-                style={[styles.avatar, { marginLeft: i > 1 ? -10 : 0 }]}
-              >
-                <Image
-                  source={{ uri: `https://i.pravatar.cc/100?img=${i}` }}
-                  style={styles.avatarImage}
-                />
-              </View>
-            ))}
           </View>
         </View>
       </SafeAreaView>
@@ -146,25 +138,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
   },
+  locationSection: {
+    marginBottom: 24,
+    backgroundColor: "#F2EFFD",
+    borderRadius: 12,
+    padding: 12,
+  },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.border,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   locationText: {
     flex: 1,
@@ -196,9 +184,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: colors.border,
     borderRadius: 12,
     marginBottom: 12,
+   
   },
   addressText: {
     marginLeft: 12,
@@ -209,8 +197,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    backgroundColor: colors.border,
-    borderRadius: 12,
+    backgroundColor: "#F2EFFD",
+    borderRadius: 8,
     height: 50,
   },
   input: {
@@ -218,23 +206,19 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
   },
-  avatarGroup: {
-    flexDirection: "row",
-    justifyContent: "center",
-    position: "absolute",
-    bottom: 40,
-    alignSelf: "center",
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
+
+  allowButton: {
+  backgroundColor: colors.primary,
+  borderRadius: 10,
+  height: 30,
+  width: 78,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+  allowButtonText: {
+    color: colors.white,
+    fontWeight: "500",
+    fontSize: 14,
   },
 });

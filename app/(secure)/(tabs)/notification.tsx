@@ -1,14 +1,8 @@
+import Header from "@/components/Header";
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ✅ Notification data with direct image imports
 const notifications = [
   {
     id: 1,
@@ -46,22 +40,13 @@ const notifications = [
   },
 ];
 
-// ✅ Screen Component
 export default function NotificationScreen() {
   const grouped = groupByDate(notifications);
 
   return (
     <>
       <SafeAreaView edges={["top"]} style={{ backgroundColor: "white" }}>
-       <View style={styles.header}>
-        <Image
-    source={require("../../../assets/images/backicon.png")} // 👈 your local image
-    style={styles.headerIcon}
-  />
-  <Text style={styles.headerTitle}>Notifications</Text>
-  
-</View>
-
+        <Header title="Notifications" />
       </SafeAreaView>
 
       <ScrollView style={styles.container}>
@@ -107,7 +92,6 @@ export default function NotificationScreen() {
   );
 }
 
-// ✅ Group notifications by date
 function groupByDate(data: typeof notifications) {
   const grouped: Record<string, typeof notifications> = {};
   for (const item of data) {
@@ -119,32 +103,30 @@ function groupByDate(data: typeof notifications) {
   return grouped;
 }
 
-// ✅ Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
+    backgroundColor: "#Ffffff",
     paddingHorizontal: 16,
   },
   header: {
-  flexDirection: "row", // 👈 horizontal layout
-  alignItems: "center",
-  paddingHorizontal: 16,
-  paddingVertical: 16,
-  backgroundColor: "white",
-
-},
-headerTitle: {
-  fontSize: 20,
-  marginLeft:20,
-  fontWeight: "bold",
-  color: "#0A051F",
-},
-headerIcon: {
-  width: 24,
-  height: 24,
-  resizeMode: "contain",
-},
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "white",
+  },
+  headerTitle: {
+    fontSize: 20,
+    marginLeft: 20,
+    fontWeight: "bold",
+    color: "#0A051F",
+  },
+  headerIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+  },
 
   dateLabel: {
     fontSize: 16,
@@ -161,19 +143,18 @@ headerIcon: {
     alignItems: "center",
   },
   iconWrapper: {
-    width: 40,
-    height: 40,
+    width: 52,
+    height: 52,
     backgroundColor: "white",
-    borderRadius: 20,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
     elevation: 2,
   },
   icon: {
-    width: 28,
-    height: 28,
-    resizeMode: "contain",
+    width: 52,
+    height: 52,
   },
   textContainer: {
     flex: 1,
