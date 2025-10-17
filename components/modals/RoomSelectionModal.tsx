@@ -43,7 +43,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [userLoading, setUserLoading] = useState<boolean>(true);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [selectedBeds, setSelectedBeds] = useState<string[]>([]);
+  const [selectedBedsByRoom, setSelectedBedsByRoom] = useState<Record<string, string[]>>({});
   const [userData, setUserData] = useState<{
     name?: string;
     phoneNumber?: string;
@@ -123,89 +123,111 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   }, [currentRoom, hostelData]);
 
   const toggleBedSelection = (bedId: string) => {
-    setSelectedBeds((prev) =>
-      prev.includes(bedId) ? prev.filter((id) => id !== bedId) : [...prev, bedId]
-    );
+    setSelectedBedsByRoom((prev) => {
+      const currentRoomBeds = prev[selectedRoomId || ''] || [];
+      const newRoomBeds = currentRoomBeds.includes(bedId) 
+        ? currentRoomBeds.filter((id) => id !== bedId) 
+        : [...currentRoomBeds, bedId];
+      return { ...prev, [selectedRoomId || '']: newRoomBeds };
+    });
   };
 
   const handleReserve = async () => {
-  console.log("handleReserve called (Reserve button - no API call)");
+    console.log("handleReserve called (Reserve button - no API call)");
 
-  if (loading || userLoading || !userData) {
-    Alert.alert("Loading", "Please wait for data to load.");
-    return;
-  }
+    if (loading || userLoading || !userData) {
+      Alert.alert("Loading", "Please wait for data to load.");
+      return;
+    }
 
-  if (!selectedRoomId || selectedBeds.length === 0) {
-    Alert.alert("Error", "Please select at least one bed.");
-    return;
-  }
+    // Compute total selected beds across all rooms
+    const totalSelectedBeds = Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0);
+    if (totalSelectedBeds === 0) {
+      Alert.alert("Error", "Please select at least one bed.");
+      return;
+    }
 
-  const currentRoomData = rooms.find((r) => r._id === selectedRoomId);
-  if (!currentRoomData) {
-    Alert.alert("Error", "Selected room is invalid.");
-    return;
-  }
+    // Collect rooms data with selected beds
+    const roomsData: Array<{
+      roomId: string;
+      roomNumber: string | number;
+      beds: Array<{ bedId: string; bedNumber: string | number }>;
+    }> = [];
 
-  // Plan info
-  let planData = currentRoomData.selectPlan?.find((p: any) => p.name === "monthly");
-  if (!planData) {
-    planData = {
-      name: "monthly",
-      price: Number(hostelData.price?.replace(/\D/g, "")) || 0,
-      depositAmount: Number(hostelData.deposit) || 0,
+    Object.entries(selectedBedsByRoom).forEach(([roomId, bedIds]) => {
+      if (bedIds.length > 0) {
+        const roomData = rooms.find((r) => r._id === roomId);
+        if (roomData) {
+          const selectedBedDetails = roomData.totalBeds
+            .filter((bed: any) => bedIds.includes(bed._id))
+            .map((bed: any) => ({
+              bedId: bed._id,
+              bedNumber: bed.bedNumber,
+            }));
+          roomsData.push({
+            roomId: roomId,
+            roomNumber: roomData.roomNumber,
+            beds: selectedBedDetails,
+          });
+        }
+      }
+    });
+
+    if (roomsData.length === 0) {
+      Alert.alert("Error", "No valid rooms with selected beds.");
+      return;
+    }
+
+    // Plan info (assuming same for all rooms in hostel)
+    let planData = rooms[0].selectPlan?.find((p: any) => p.name === "monthly");
+    if (!planData) {
+      planData = {
+        name: "monthly",
+        price: Number(hostelData.price?.replace(/\D/g, "")) || 0,
+        depositAmount: Number(hostelData.deposit) || 0,
+      };
+    } else {
+      planData.price = Number(planData.price);
+      planData.depositAmount = Number(planData.depositAmount);
+    }
+
+    // Check-in/out dates
+    const today = new Date();
+    const checkInDateObj = new Date(today);
+    checkInDateObj.setDate(today.getDate() + 1);
+    checkInDateObj.setHours(0, 0, 0, 0);
+    const checkInDate = checkInDateObj.toISOString();
+
+    const checkOutDateObj = new Date(checkInDateObj);
+    checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
+    checkOutDateObj.setHours(0, 0, 0, 0);
+    const checkOutDate = checkOutDateObj.toISOString();
+
+    // Log params being passed to next screen
+    const params = {
+      hostelData: JSON.stringify(hostelData),
+      roomsData: JSON.stringify(roomsData),
+      plan: JSON.stringify(planData),
+      checkInDate,
+      checkOutDate,
+      userData: JSON.stringify(userData),
+      bookingType: "reserve", // flag to indicate it's a reserve
     };
-  } else {
-    planData.price = Number(planData.price);
-    planData.depositAmount = Number(planData.depositAmount);
-  }
+    console.log("Params being passed to next screen:", params);
 
-  // Check-in/out dates
-  const today = new Date();
-  const checkInDateObj = new Date(today);
-  checkInDateObj.setDate(today.getDate() + 1);
-  checkInDateObj.setHours(0, 0, 0, 0);
-  const checkInDate = checkInDateObj.toISOString();
-
-  const checkOutDateObj = new Date(checkInDateObj);
-  checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
-  checkOutDateObj.setHours(0, 0, 0, 0);
-  const checkOutDate = checkOutDateObj.toISOString();
-
-  // Selected beds details
-  const selectedBedDetails = currentRoomData.totalBeds
-    .filter((bed: any) => selectedBeds.includes(bed._id))
-    .map((bed: any) => ({
-      bedId: bed._id,
-      bedNumber: bed.bedNumber,
-    }));
-
-  // Log params being passed to next screen
-  const params = {
-    hostelData: JSON.stringify(hostelData),
-    roomData: JSON.stringify(currentRoomData),
-    selectedBeds: JSON.stringify(selectedBedDetails),
-    plan: JSON.stringify(planData),
-    checkInDate,
-    checkOutDate,
-    userData: JSON.stringify(userData),
-    bookingType: "reserve", // flag to indicate it's a reserve
+    // Pass data to next screen
+    router.push({
+      pathname: "/bookingScreen",
+      params,
+    });
   };
-  console.log("Params being passed to next screen:", params);
-
-  // Pass data to next screen
-  router.push({
-    pathname: "/bookingScreen",
-    params,
-  });
-};
-
 
   const renderBedRow = ({ item }: { item: any }) => {
     const isAvailable =
       item.status.toLowerCase() === "unoccupied" &&
       item.Availability.toLowerCase() === "available";
-    const isSelected = selectedBeds.includes(item._id);
+    const currentRoomBeds = selectedBedsByRoom[selectedRoomId || ''] || [];
+    const isSelected = currentRoomBeds.includes(item._id);
 
     return (
       <View style={styles.bedRow}>
@@ -244,7 +266,17 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     );
   };
 
-  const isButtonDisabled = selectedBeds.length === 0 || loading || userLoading || !userData;
+  // Compute total selected
+  const totalSelectedBeds = useMemo(() => 
+    Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0), 
+    [selectedBedsByRoom]
+  );
+  const numRoomsWithSelections = useMemo(() => 
+    Object.values(selectedBedsByRoom).filter(beds => beds.length > 0).length, 
+    [selectedBedsByRoom]
+  );
+
+  const isButtonDisabled = totalSelectedBeds === 0 || loading || userLoading || !userData;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
@@ -266,28 +298,32 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
                   horizontal
                   showsHorizontalScrollIndicator={false}
                 >
-                  {rooms.map((room) => (
-                    <TouchableOpacity
-                      key={room._id}
-                      style={[
-                        styles.roomTab,
-                        selectedRoomId === room._id && styles.roomTabActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedRoomId(room._id);
-                        setSelectedBeds([]);
-                      }}
-                    >
-                      <Text
+                  {rooms.map((room) => {
+                    const roomBeds = selectedBedsByRoom[room._id] || [];
+                    const hasSelections = roomBeds.length > 0;
+                    return (
+                      <TouchableOpacity
+                        key={room._id}
                         style={[
-                          styles.roomTabText,
-                          selectedRoomId === room._id && styles.roomTabTextActive,
+                          styles.roomTab,
+                          selectedRoomId === room._id && styles.roomTabActive,
                         ]}
+                        onPress={() => {
+                          setSelectedRoomId(room._id);
+                          // No longer clearing selections
+                        }}
                       >
-                        Room {room.roomNumber}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={[
+                            styles.roomTabText,
+                            selectedRoomId === room._id && styles.roomTabTextActive,
+                          ]}
+                        >
+                          Room {room.roomNumber}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               </View>
               {currentRoom && (
@@ -342,14 +378,14 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
                       scrollEnabled={false}
                     />
                   </View>
-                  {selectedBeds.length > 0 && plan && (
+                  {totalSelectedBeds > 0 && plan && (
                     <View style={styles.selectionInfo}>
                       <Text style={styles.selectionText}>
-                        You've selected {selectedBeds.length} bed(s)
+                        You've selected {totalSelectedBeds} bed(s) across {numRoomsWithSelections} room(s)
                       </Text>
                       {/* <Text style={styles.priceInfo}>
                         ₹{plan.price} per month per bed
-                        {selectedBeds.length > 1 && ` (Total: ₹${plan.price * selectedBeds.length})`}
+                        {totalSelectedBeds > 1 && ` (Total: ₹${plan.price * totalSelectedBeds})`}
                       </Text> */}
                     </View>
                   )}
@@ -421,5 +457,4 @@ const styles = StyleSheet.create({
   reserveButton: { backgroundColor: colors.primary },
   disabledButton: { backgroundColor: "#D1D5DB" },
 });
-
 export default RoomSelectionModal;

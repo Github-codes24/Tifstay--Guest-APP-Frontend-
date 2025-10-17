@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
 
+type RoomData = {
+  roomId: string;
+  roomNumber: string | number;
+  beds: Array<{ bedId: string; bedNumber: string | number }>;
+};
+
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -35,6 +41,7 @@ export default function BookingScreen() {
   const serviceDataStr = params.serviceData || '{}'; // For tiffin
   const hostelDataStr = params.hostelData || '{}';
   const roomDataStr = params.roomData || '{}';
+  const roomsDataStr = params.roomsData || '[]'; // NEW: For multiple rooms
   const userDataStr = params.userData || '{}';
   const planStr = params.plan || '{}';
   const selectedBedsStr = params.selectedBeds || '[]';
@@ -57,9 +64,8 @@ export default function BookingScreen() {
     hostelName: params.hostelName,
     monthlyPrice: params.monthlyPrice,
     deposit: params.deposit,
-    roomId: params.roomId,
-    roomNumber: params.roomNumber,
-    beds: params.beds ? JSON.parse(params.beds as string) : [],
+    // NEW: Use rooms array instead of single roomId/roomNumber/beds
+    rooms: [] as RoomData[],
     defaultPlan: params.defaultPlan,
     defaultPrice: params.defaultPrice,
     defaultDeposit: params.defaultDeposit,
@@ -135,6 +141,12 @@ export default function BookingScreen() {
 
   const ranAutofill = useRef(false);
 
+  // NEW: Compute total beds across all rooms
+  const totalBedsCount = useMemo(() => 
+    serviceData.rooms.reduce((acc, room) => acc + (room.beds?.length || 0), 0), 
+    [serviceData.rooms]
+  );
+
   // Helper to clear errors for a field
   const clearError = (field: string) => {
     setErrors(prev => ({ ...prev, [field]: '' }));
@@ -172,6 +184,10 @@ export default function BookingScreen() {
     if (checkInDate && checkOutDate && checkInDate >= checkOutDate) newErrors.checkOutDate = "Check-out date must be after Check-in date!";
     if (!aadhaarPhoto) newErrors.aadhaarPhoto = "Aadhaar Card Photo is required!";
     if (!userPhoto) newErrors.userPhoto = "User Photo is required!";
+    // NEW: Validate at least one room with beds
+    if (!serviceData.rooms || serviceData.rooms.length === 0 || !serviceData.rooms.some(r => r.beds && r.beds.length > 0)) {
+      newErrors.rooms = "Please select at least one bed across rooms!";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -204,23 +220,41 @@ export default function BookingScreen() {
 
         if (isHostelBooking) {
           const parsedHostelData = JSON.parse(hostelDataStr);
-          const parsedRoomData = JSON.parse(roomDataStr);
           const parsedPlan = JSON.parse(planStr);
-          const parsedSelectedBeds = JSON.parse(selectedBedsStr);
 
           console.log("Parsed Hostel Data:", parsedHostelData);
-          console.log("Parsed Room Data:", parsedRoomData);
           console.log("Parsed Plan:", parsedPlan);
-          console.log("Parsed Selected Beds:", parsedSelectedBeds);
 
-          // Update serviceData with minimal data (no bed enrichment needed)
+          // NEW: Handle multiple rooms via roomsData, fallback to single room
+          let rooms: RoomData[] = [];
+          try {
+            const parsedRoomsData = JSON.parse(roomsDataStr);
+            if (Array.isArray(parsedRoomsData) && parsedRoomsData.length > 0) {
+              rooms = parsedRoomsData;
+              console.log("Parsed Multiple Rooms Data:", parsedRoomsData);
+            } else {
+              // Backward compat: single room
+              const parsedRoomData = JSON.parse(roomDataStr);
+              const parsedSelectedBeds = JSON.parse(selectedBedsStr);
+              rooms = [{
+                roomId: parsedRoomData._id,
+                roomNumber: parsedRoomData.roomNumber,
+                beds: parsedSelectedBeds, // [{bedId, bedNumber}]
+              }];
+              console.log("Parsed Single Room Data:", parsedRoomData);
+              console.log("Parsed Selected Beds:", parsedSelectedBeds);
+            }
+          } catch (parseErr) {
+            console.error("Error parsing rooms data:", parseErr);
+            rooms = [];
+          }
+
+          // Update serviceData with minimal data
           setServiceData(prev => ({
             ...prev,
             hostelId: parsedHostelData.id,
             hostelName: parsedHostelData.name || prev.hostelName, // For UI
-            roomId: parsedRoomData._id,
-            roomNumber: parsedRoomData.roomNumber,
-            beds: parsedSelectedBeds, // Minimal: [{bedId, bedNumber}]
+            rooms, // NEW: Array of rooms
             monthlyPrice: parsedPlan.price,
             deposit: parsedPlan.depositAmount,
             email: userEmail || prev.email,
@@ -230,12 +264,15 @@ export default function BookingScreen() {
           }));
 
           console.log("Extracted Hostel ID:", parsedHostelData.id);
-          console.log("Extracted Room ID:", parsedRoomData._id);
+          console.log("Total Rooms:", rooms.length);
 
           // Autofill other fields (except check-in and check-out dates)
           setHostelPlan(parsedPlan.name || "monthly");
           setAadhaarPhoto(userAdharPhoto || "");
           setUserPhoto(userPhotoUrl || "");
+          // Set dates if provided
+          if (checkInDateStr) setCheckInDate(new Date(checkInDateStr));
+          if (checkOutDateStr) setCheckOutDate(new Date(checkOutDateStr));
           // FIXED: Better mapping for purposeType from userWorkType (handles casing and "leisure")
           const workTypeNormalized = userWorkType.toLowerCase();  // Normalize for matching
           let purpose = "work";  // default
@@ -299,7 +336,7 @@ export default function BookingScreen() {
         console.error("Error parsing params for autofill:", error);
       }
     }
-  }, [bookingType, serviceDataStr, hostelDataStr, roomDataStr, userDataStr, planStr, selectedBedsStr, defaultDateStr]);
+  }, [bookingType, serviceDataStr, hostelDataStr, roomDataStr, roomsDataStr, userDataStr, planStr, selectedBedsStr, defaultDateStr, checkInDateStr, checkOutDateStr]);
 
 
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
@@ -339,7 +376,7 @@ export default function BookingScreen() {
             }
             setPickerItems(items);
 
-            // Set initial price for monthly if available
+            // Set initial price for monthly if available (will be multiplied by beds in price useEffect)
             if (data.pricing?.monthly > 0) {
               setCurrentPlanPrice(data.pricing.monthly);
               setCurrentDeposit(data.securityDeposit || 0);
@@ -391,13 +428,10 @@ export default function BookingScreen() {
       }
       newDeposit = 0; // No deposit for tiffin
     } else {
-      if (hostelPlan === "weekly") {
-        newPrice = pricingData.weekly;
-        newDeposit = securityDeposit;
-      } else if (hostelPlan === "monthly") {
-        newPrice = pricingData.monthly;
-        newDeposit = securityDeposit;
-      }
+      // FIXED: For hostel, use flat rate (no multiplication by beds)
+      const basePlanPrice = hostelPlan === "weekly" ? pricingData.weekly : pricingData.monthly;
+      newPrice = basePlanPrice;
+      newDeposit = securityDeposit;
     }
 
     console.log(`💰 Updated prices - Total: ₹${newPrice}, Deposit: ₹${newDeposit}`);
@@ -413,6 +447,7 @@ export default function BookingScreen() {
     securityDeposit,
     mealPreferences,  // NEW: For numMeals calc in log
     fetchedPricing,
+    totalBedsCount, // NEW: For hostel pricing
   ]);
 
   // Auto-set meal preferences based on selected plan type
@@ -787,9 +822,11 @@ const handleTiffinSubmit = async () => {
           return;
         }
 
-        if (!serviceData.beds || serviceData.beds.length === 0) {
-          console.error("Error: No beds selected!");
-          setErrors(prev => ({ ...prev, general: "Please select at least one bed!" }));
+        // NEW: No need for single roomId validation
+
+        if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+          console.error("Error: No rooms or beds selected!");
+          setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
           return;
         }
 
@@ -805,6 +842,7 @@ const handleTiffinSubmit = async () => {
           return;
         }
 
+        // FIXED: Use flat price and deposit for the plan (no per-bed division)
         const selectPlan = [
           {
             name: hostelPlan,
@@ -813,10 +851,11 @@ const handleTiffinSubmit = async () => {
           },
         ];
 
-        // Minimal bedNumber: only bedId and bedNumber
-        const bedNumber = serviceData.beds.map((bed: any) => ({
-          bedId: bed.bedId,
-          bedNumber: bed.bedNumber,
+        // NEW: Build rooms array from serviceData.rooms
+        const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+          roomId: room.roomId,
+          roomNumber: String(room.roomNumber || ""), // e.g., "101"
+          bedNumber: room.beds, // Already [{bedId, bedNumber}]
         }));
 
         const bookingPayload = {
@@ -829,13 +868,7 @@ const handleTiffinSubmit = async () => {
           addharCardPhoto: aadhaarPhoto || null,
           userPhoto: userPhoto || null,
           guestId,
-          rooms: [
-            {
-              roomId: serviceData.roomId,
-              roomNumber: String(serviceData.roomNumber || ""), // e.g., "101"
-              bedNumber, // Minimal array
-            },
-          ],
+          rooms: roomsPayload,
         };
 
         // FIXED: Add workType as the selected purposeType string (shows "work", "leisure", or "student" in response)
@@ -843,8 +876,9 @@ const handleTiffinSubmit = async () => {
 
         console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
 
+        // NEW: API URL uses only hostelId (remove roomId query param)
         const response = await axios.post(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}?roomId=${serviceData.roomId}`,
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
           bookingPayload,
           {
             headers: {
@@ -918,6 +952,14 @@ const handleTiffinSubmit = async () => {
     </TouchableOpacity>
   );
 
+  // NEW: Helper to render selected rooms summary
+  const selectedRoomsSummary = useMemo(() => {
+    if (serviceData.rooms.length === 0) return null;
+    return serviceData.rooms.map(room => 
+      `${room.roomNumber} (Beds: ${room.beds.map(b => b.bedNumber).join(', ')})`
+    ).join(', ');
+  }, [serviceData.rooms]);
+
   const renderHostelBooking = () => (
     <>
       <View style={styles.section}>
@@ -925,6 +967,15 @@ const handleTiffinSubmit = async () => {
         <Text style={styles.hostelName}>
           {serviceData.hostelName || "Scholars Den Boys Hostel"}
         </Text>
+
+        {/* NEW: Display selected rooms/beds */}
+        {selectedRoomsSummary && (
+          <View style={styles.selectedRoomsContainer}>
+            <Text style={styles.label}>Selected Rooms</Text>
+            <Text style={styles.selectedRoomsText}>{selectedRoomsSummary}</Text>
+            <Text style={styles.totalBedsText}>Total Beds: {totalBedsCount}</Text>
+          </View>
+        )}
 
         <Text style={styles.label}>Select Plan</Text>
         <View style={styles.pickerWrapper}>
@@ -941,8 +992,8 @@ const handleTiffinSubmit = async () => {
         </View>
         <View style={styles.priceContainer}>
           <Text style={styles.priceText}>
-  ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
-</Text>
+            ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
+          </Text>
           <Text style={styles.depositText}>
             Deposit: ₹{currentDeposit}
           </Text>
@@ -1116,6 +1167,7 @@ const handleTiffinSubmit = async () => {
       </View>
 
       {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
+      {errors.rooms && <Text style={styles.errorText}>{errors.rooms}</Text>}
 
       <TouchableOpacity
         style={styles.submitButton}
@@ -1726,6 +1778,23 @@ const styles = StyleSheet.create({
     color: "#FF6600",
     textAlign: "center",
     marginTop: 5,
+    fontWeight: "bold",
+  },
+  // NEW: Styles for selected rooms
+  selectedRoomsContainer: {
+    backgroundColor: "#f0f8ff",
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 15,
+  },
+  selectedRoomsText: {
+    fontSize: 14,
+    color: "#004AAD",
+    marginBottom: 5,
+  },
+  totalBedsText: {
+    fontSize: 12,
+    color: "#666",
     fontWeight: "bold",
   },
 });
