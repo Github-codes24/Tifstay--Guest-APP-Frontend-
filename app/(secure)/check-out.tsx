@@ -229,7 +229,7 @@ const getTransactionDetails = useMemo(() => {
     : 1;
 
   const totalRent = planPrice * months;
-  const total = totalRent + depositAmount;
+  const total = totalRent;
 
   console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
     rawPlanPrice,

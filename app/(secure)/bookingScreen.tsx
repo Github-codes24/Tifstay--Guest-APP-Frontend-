@@ -941,8 +941,8 @@ const handleTiffinSubmit = async () => {
         </View>
         <View style={styles.priceContainer}>
           <Text style={styles.priceText}>
-            ₹{currentPlanPrice} / {hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)}
-          </Text>
+  ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
+</Text>
           <Text style={styles.depositText}>
             Deposit: ₹{currentDeposit}
           </Text>
