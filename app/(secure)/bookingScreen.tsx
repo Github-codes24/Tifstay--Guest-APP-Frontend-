@@ -765,24 +765,24 @@ const handleTiffinSubmit = async () => {
 };
 
   const handleHostelSubmit = async () => {
-    console.log("=== Hostel Submit Debug ===");
-    console.log("serviceData:", serviceData);
-    console.log("hostelPlan:", hostelPlan);
-    console.log("fullName:", fullName);
-    console.log("phoneNumber:", phoneNumber);
-    console.log("checkInDate:", checkInDate);
-    console.log("checkOutDate:", checkOutDate);
-    console.log("purposeType:", purposeType);
-    console.log("aadhaarPhoto:", aadhaarPhoto);
-    console.log("userPhoto:", userPhoto);
-    console.log("beds:", serviceData.beds);
+    // console.log("=== Hostel Submit Debug ===");
+    // console.log("serviceData:", serviceData);
+    // console.log("hostelPlan:", hostelPlan);
+    // console.log("fullName:", fullName);
+    // console.log("phoneNumber:", phoneNumber);
+    // console.log("checkInDate:", checkInDate);
+    // console.log("checkOutDate:", checkOutDate);
+    // console.log("purposeType:", purposeType);
+    // console.log("aadhaarPhoto:", aadhaarPhoto);
+    // console.log("userPhoto:", userPhoto);
+    // console.log("beds:", serviceData.beds);
 
     if (validateHostelForm()) {
       try {
         if (!serviceData.hostelId || !serviceData.roomId) {
           console.error("Error: Hostel ID or Room ID is missing!");
-          console.log("hostelId:", serviceData.hostelId);
-          console.log("roomId:", serviceData.roomId);
+          // console.log("hostelId:", serviceData.hostelId);
+          // console.log("roomId:", serviceData.roomId);
           setErrors(prev => ({ ...prev, general: "Hostel ID or Room ID is missing!" }));
           return;
         }
@@ -796,8 +796,8 @@ const handleTiffinSubmit = async () => {
         const token = await AsyncStorage.getItem("token");
         const guestId = await AsyncStorage.getItem("guestId");
 
-        console.log("token:", token ? "Present" : "Missing");
-        console.log("guestId:", guestId ? "Present" : "Missing");
+        // console.log("token:", token ? "Present" : "Missing");
+        // console.log("guestId:", guestId ? "Present" : "Missing");
 
         if (!token || !guestId) {
           console.error("Error: Authentication token or guest ID is missing!");
@@ -862,7 +862,7 @@ const handleTiffinSubmit = async () => {
 
           const bookingId = response.data.data._id;
 
-          console.log("Navigating to checkout with booking ID:", bookingId);
+          // console.log("Navigating to checkout with booking ID:", bookingId);
 
           router.push({
             pathname: "/check-out",
