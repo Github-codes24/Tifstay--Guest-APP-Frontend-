@@ -40,6 +40,7 @@ export default function TiffinCard({
 }: TiffinCardProps) {
   const { isFavorite } = useFavorites();
   const isFav = isFavorited !== undefined ? isFavorited : isFavorite(service.id, "tiffin");
+  console.log("id", isFav);
 
   // safely handle tags
   const tags = Array.isArray(service.tags) ? service.tags : [];

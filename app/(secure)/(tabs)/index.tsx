@@ -159,14 +159,15 @@ export default function DashboardScreen() {
     }
   };
 
-  // --- Add Favorite Tiffin Service API (returns success bool, no Alert) ---
-  const addTiffinFavoriteAPI = async (tiffinId: string): Promise<boolean> => {
+  // --- Add Favorite Tiffin Service API (returns full result for toggle) ---
+  const addTiffinFavoriteAPI = async (tiffinId: string): Promise<{success: boolean; message: string}> => {
     console.log("Adding tiffin favorite API called for ID:", tiffinId);
     const token = await getAuthToken();
     if (!token) {
       console.log("No token for add tiffin favorite");
-      return false;
+      return { success: false, message: "No token" };
     }
+    console.log("token", token);
 
     try {
       const response = await fetch(
@@ -182,20 +183,20 @@ export default function DashboardScreen() {
       );
       const result = await response.json();
       console.log("Add Tiffin Favorite API Response:", result);
-      return result.success || false;
+      return result;
     } catch (error) {
       console.error("Failed to add tiffin favorite:", error);
-      return false;
+      return { success: false, message: "Network error" };
     }
   };
 
-  // --- Add Favorite Hostel Service API (returns success bool, no Alert) ---
-  const addHostelFavoriteAPI = async (hostelId: string): Promise<boolean> => {
+  // --- Add Favorite Hostel Service API (returns full result for toggle) ---
+  const addHostelFavoriteAPI = async (hostelId: string): Promise<{success: boolean; message: string}> => {
     console.log("Adding hostel favorite API called for ID:", hostelId);
     const token = await getAuthToken();
     if (!token) {
       console.log("No token for add hostel favorite");
-      return false;
+      return { success: false, message: "No token" };
     }
 
     try {
@@ -212,10 +213,10 @@ export default function DashboardScreen() {
       );
       const result = await response.json();
       console.log("Add Hostel Favorite API Response:", result);
-      return result.success || false;
+      return result;
     } catch (error) {
       console.error("Failed to add hostel favorite:", error);
-      return false;
+      return { success: false, message: "Network error" };
     }
   };
 
@@ -226,25 +227,28 @@ export default function DashboardScreen() {
     const id = item.id;
     console.log("Toggling favorite for ID:", id, "Type:", type, "Currently favorite:", isFavorite(id, type));
 
-    if (isFavorite(id, type)) {
-      // Remove from favorites (frontend only, no API)
-      console.log("Removing from favorites (frontend only)");
-      removeFromFavorites(id, type);
-      Alert.alert("Success", "Removed successfully from favourites");
-    } else {
-      // Add to favorites
-      console.log("Adding to favorites");
-      addToFavorites({ id, type, data: item });
-      const success = await (type === "tiffin" ? addTiffinFavoriteAPI(id) : addHostelFavoriteAPI(id));
-      if (success) {
-        console.log("Favorite added successfully via API");
+    // Call the toggle API (same endpoint handles add/remove)
+    const result = await (type === "tiffin" ? addTiffinFavoriteAPI(id) : addHostelFavoriteAPI(id));
+
+    if (result.success) {
+      if (result.message.includes("added")) {
+        // Add to frontend
+        console.log("Adding to favorites via API toggle");
+        addToFavorites({ id, type, data: item });
         Alert.alert("Success", "Added successfully");
-      } else {
-        // Remove from frontend if backend failed
-        console.log("API add failed, removing from frontend");
+      } else if (result.message.includes("removed")) {
+        // Remove from frontend
+        console.log("Removing from favorites via API toggle");
         removeFromFavorites(id, type);
-        Alert.alert("Error", "Failed to add to favorites. Please try again.");
+        Alert.alert("Success", "Removed successfully from favourites");
+      } else {
+        // Unexpected message, but success, perhaps log
+        console.log("Unexpected success message:", result.message);
+        Alert.alert("Success", "Favorites updated");
       }
+    } else {
+      console.log("API toggle failed:", result.message);
+      Alert.alert("Error", "Failed to update favorites. Please try again.");
     }
   }, [isFavorite, addToFavorites, removeFromFavorites]);
 

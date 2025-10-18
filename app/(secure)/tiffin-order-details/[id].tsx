@@ -223,15 +223,17 @@ export default function TiffinOrderDetails() {
 
   // Prepare request body
   const body: any = { date: formattedDate };
-  if (selectedMeals.length > 0) {
-    body.mealType = selectedMeals; // always send array, matches your cURL
+  if (selectedMeals.length === 1) {
+    body.mealType = selectedMeals[0]; // single string
+  } else if (selectedMeals.length > 1) {
+    body.mealType = selectedMeals; // array when both selected
   }
 
   console.log("Saving skip meal with body:", body);
 
   try {
     const saveResponse = await fetch(
-      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`, // ✅ fixed endpoint name
+      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`,
       {
         method: "PUT",
         headers: {
@@ -241,26 +243,29 @@ export default function TiffinOrderDetails() {
       }
     );
 
-    // Check for non-success response
     if (!saveResponse.ok) {
       const errText = await saveResponse.text();
       console.error("Server response:", errText);
-      throw new Error(`HTTP error! status: ${saveResponse.status}`);
+      throw new Error(
+        errText || `HTTP error! status: ${saveResponse.status}`
+      );
     }
 
-    // Refresh data after success
-    await fetchData();
-
-    // Reset states
     setShowSkipMeal(false);
     setSkipMeals({ lunch: false, dinner: false });
 
     Alert.alert("Success", "Meal skip preferences saved successfully");
   } catch (error: any) {
     console.error("Error saving skip meal:", error);
-    Alert.alert("Error", error || "Failed to save skip meal");
+    const errorMessage =
+      error?.message ||
+      (typeof error === "string" ? error : JSON.stringify(error)) ||
+      "Failed to save skip meal";
+
+    Alert.alert("Error", errorMessage);
   }
 };
+
 
   const handleProfilePress = () => {
     router.push("/account/profile");
@@ -594,12 +599,11 @@ export default function TiffinOrderDetails() {
 
           {latestSkip && (
             <View style={styles.skipHistorySection}>
-              
               <View key={latestSkip.date} style={styles.skipHistoryItem}>
                 <View style={styles.skipHistoryDetails}>
                   <Text style={styles.skipHistoryTitle}>
-                Previously Skipped Meal
-              </Text>
+                    Previously Skipped Meal
+                  </Text>
                   <Text style={styles.skipHistoryDate}>
                     Date: {latestSkip.date}
                   </Text>

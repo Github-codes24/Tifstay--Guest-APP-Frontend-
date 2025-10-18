@@ -358,7 +358,7 @@ export default function ProductDetails() {
     const token = await getAuthToken();
     if (!token) {
       console.warn("No token, skipping backend favorite add");
-      return false;
+      return { success: false };
     }
 
     const headers = {
@@ -385,10 +385,10 @@ export default function ProductDetails() {
       });
       const result = await response.json();
       console.log(`Add favorite ${serviceType} response:`, result);
-      return result.success || false;
+      return result;
     } catch (error) {
       console.error(`Failed to add favorite ${serviceType}:`, error);
-      return false;
+      return { success: false };
     }
   };
 
@@ -398,28 +398,52 @@ export default function ProductDetails() {
 
     const serviceId = mappedData.id;
     const serviceType = paramType;
+    const wasFavorite = isFav;
+    const expectedAction = wasFavorite ? 'remove' : 'add';
 
-    if (isFav) {
-      // Remove logic (local context only; add remove API if backend supports it)
+    // Toggle local immediately for UI feedback
+    if (wasFavorite) {
       removeFromFavorites(serviceId, serviceType);
-      Alert.alert("Success", "Removed successfully from favourites");
     } else {
-      // Add to local context first (for instant UI feedback)
       addToFavorites({
         id: serviceId,
         type: serviceType,
         data: mappedData,
       });
+    }
 
-      // Then call backend API
-      const success = await addFavoriteToBackend(serviceId, serviceType);
-      if (!success) {
-        // Optional: Revert local if backend fails
-        removeFromFavorites(serviceId, serviceType);
-        Alert.alert("Error", "Failed to add to favorites. Please try again.");
+    // Call API (toggle)
+    const result = await addFavoriteToBackend(serviceId, serviceType);
+
+    if (result.success) {
+      const action = result.message.includes('added') ? 'add' : 'remove';
+      if (action !== expectedAction) {
+        // Revert local state
+        if (expectedAction === 'add') {
+          removeFromFavorites(serviceId, serviceType);
+        } else {
+          addToFavorites({
+            id: serviceId,
+            type: serviceType,
+            data: mappedData,
+          });
+        }
+        Alert.alert('Sync Error', 'Local and server state mismatch. Please try again.');
       } else {
-        Alert.alert("Success", "Added successfully");
+        Alert.alert('Success', wasFavorite ? 'Removed from favorites' : 'Added to favorites');
       }
+    } else {
+      // Revert local state on failure
+      if (expectedAction === 'add') {
+        removeFromFavorites(serviceId, serviceType);
+      } else {
+        addToFavorites({
+          id: serviceId,
+          type: serviceType,
+          data: mappedData,
+        });
+      }
+      Alert.alert('Error', 'Failed to update favorites. Please try again.');
     }
   };
 

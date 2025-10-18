@@ -52,18 +52,62 @@ export default function FavoritesScreen() {
     });
   };
 
-  // ❌ Handle Remove Favorite (frontend-only, no API)
-  const handleRemoveFavorite = (item: any) => {
+  // 🔄 Backend remove (toggle via add endpoint)
+  const removeFavoriteFromBackend = useCallback(async (serviceId: string, serviceType: "tiffin" | "hostel") => {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      console.warn("No token, skipping backend favorite remove");
+      return { success: false };
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+    let url: string;
+    let body: { [key: string]: string } = {};
+
+    if (serviceType === "hostel") {
+      url = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService";
+      body = { hostelServiceId: serviceId };
+    } else {
+      url = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
+      body = { tiffinServiceId: serviceId };
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      const result = await response.json();
+      console.log(`Remove favorite ${serviceType} response:`, result);
+      return result;
+    } catch (error) {
+      console.error(`Failed to remove favorite ${serviceType}:`, error);
+      return { success: false };
+    }
+  }, []);
+
+  // ❌ Handle Remove Favorite (now with backend call)
+  const handleRemoveFavorite = async (item: any) => {
     console.log("Removing favorite from screen:", { id: item.id, type: item.serviceType });
     const type = item.serviceType === "tiffin" ? "tiffin" : "hostel";
-    removeFromFavorites(item.id, type);
-    Alert.alert("Success", "Removed from favorites");
+    const result = await removeFavoriteFromBackend(item.id, type);
+    if (result.success) {
+      removeFromFavorites(item.id, type);
+      Alert.alert("Success", "Removed from favorites");
 
-    // Filter out from local state immediately (frontend handling)
-    if (type === "tiffin") {
-      setTiffinFavorites((prev) => prev.filter((f) => f.id !== item.id));
+      // Filter out from local state immediately (frontend handling)
+      if (type === "tiffin") {
+        setTiffinFavorites((prev) => prev.filter((f) => f.id !== item.id));
+      } else {
+        setHostelFavorites((prev) => prev.filter((h) => h.id !== item.id));
+      }
     } else {
-      setHostelFavorites((prev) => prev.filter((h) => h.id !== item.id));
+      Alert.alert("Error", "Failed to remove from favorites");
     }
   };
 
@@ -182,12 +226,10 @@ export default function FavoritesScreen() {
     }
   }, []);
 
-  // 🔁 Re-fetch when favorites update
   useEffect(() => {
     fetchFavorites();
   }, [favoritesUpdated, fetchFavorites]);
 
-  // ⏪ Re-fetch on focus
   useFocusEffect(
     useCallback(() => {
       fetchFavorites();
