@@ -247,10 +247,10 @@ export default function TiffinOrderDetails() {
       const errText = await saveResponse.text();
       console.error("Server response:", errText);
       throw new Error(
-        errText || `HTTP error! status: ${saveResponse.status}`
+        errText || `You reach the skip meal limit.`
       );
     }
-
+    // await fetchData();
     setShowSkipMeal(false);
     setSkipMeals({ lunch: false, dinner: false });
 
@@ -467,6 +467,10 @@ export default function TiffinOrderDetails() {
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Start Date:</Text>
               <Text style={styles.detailValue}>{bookingData.startDate}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>End Date:</Text>
+              <Text style={styles.detailValue}>{bookingData.endDate}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Meal Type:</Text>
