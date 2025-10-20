@@ -29,6 +29,7 @@ export default function ContinueSubscriptionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const serviceType = (params.serviceType as ServiceType) || "tiffin";
+
   const serviceName = params.serviceName || "";
   const price = params.price || "";
   const serviceId = params.serviceId || "";
@@ -55,26 +56,82 @@ export default function ContinueSubscriptionScreen() {
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [selectedPlanType, setSelectedPlanType] = useState("perMeal");
   const [selectedMealsSummary, setSelectedMealsSummary] = useState("");
-  const [fetchedPlanType, setFetchedPlanType] = useState('');
+  const [fetchedPlanType, setFetchedPlanType] = useState("");
   const [fetchedPricing, setFetchedPricing] = useState({
     perBreakfast: 0,
     perMeal: 0,
     weekly: 0,
     monthly: 0,
-    offers: '',
+    offers: "",
   });
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
-  const [planError, setPlanError] = useState('');
+  const [planError, setPlanError] = useState("");
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
-
-  // Hostel-specific states
   const [hostelPlan, setHostelPlan] = useState("monthly");
   const [checkInDate, setCheckInDate] = useState(new Date());
   const [checkOutDate, setCheckOutDate] = useState(new Date());
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [message, setMessage] = useState("");
-  const [purposeType, setPurposeType] = useState<"work" | "leisure" | "student">("work");
+  const [purposeType, setPurposeType] = useState<
+    "work" | "leisure" | "student"
+  >("work");
+
+  const [token, setToken] = useState<string | null>(null);
+
+  // Hostel-specific states
+  const [hostelPlanTypes, setHostelPlanTypes] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [isFetchingHostelPlans, setIsFetchingHostelPlans] = useState(false);
+
+  // Fetch token on component mount
+  useEffect(() => {
+    const fetchToken = async () => {
+      const tok = await AsyncStorage.getItem("token");
+      // console.log("token", tok);
+      setToken(tok);
+    };
+    fetchToken();
+  }, []);
+
+  // Fetch hostel plan types after token is available
+  useEffect(() => {
+    if (token && serviceType === "hostel") {
+      fetchHostelPlanTypes();
+    }
+  }, [token, serviceType]);
+
+  const fetchHostelPlanTypes = async () => {
+    if (!token) return;
+    setIsFetchingHostelPlans(true);
+    try {
+      const response = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPlanTypes",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.data.success) {
+        const items = response.data.data.map((plan: string) => ({
+          label: plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase(),
+          value: plan.toLowerCase(),
+        }));
+        setHostelPlanTypes(items);
+      }
+    } catch (error) {
+      console.error("Failed to fetch hostel plan types:", error);
+      // Fallback to hardcoded if fetch fails
+      setHostelPlanTypes([
+        { label: "Monthly", value: "monthly" },
+        { label: "Quarterly", value: "quarterly" },
+        { label: "Half Yearly", value: "halfyearly" },
+        { label: "Yearly", value: "yearly" },
+      ]);
+    } finally {
+      setIsFetchingHostelPlans(false);
+    }
+  };
 
   const Checkbox = ({
     checked,
@@ -87,7 +144,7 @@ export default function ContinueSubscriptionScreen() {
       style={[styles.checkboxBase, checked && styles.checkboxSelected]}
       onPress={onPress}
     >
-      {checked && <Text style={styles.checkMark}>✓</Text>}
+      {checked && <Text style={styles.checkMark}>✔</Text>}
     </TouchableOpacity>
   );
 
@@ -134,7 +191,7 @@ export default function ContinueSubscriptionScreen() {
         message,
       });
     }
-    router.push("/check-out");
+    // router.push("/check-out");
   };
 
   // Auto-set meal preferences based on selected plan type
@@ -145,7 +202,10 @@ export default function ContinueSubscriptionScreen() {
         prefs.breakfast = true;
       } else if (selectedPlanType === "perMeal") {
         prefs.lunch = true;
-      } else if (selectedPlanType === "weekly" || selectedPlanType === "monthly") {
+      } else if (
+        selectedPlanType === "weekly" ||
+        selectedPlanType === "monthly"
+      ) {
         prefs = { breakfast: true, lunch: true, dinner: true };
       }
       setMealPreferences(prefs);
@@ -158,17 +218,17 @@ export default function ContinueSubscriptionScreen() {
 
   // Auto-fill end date based on start date and plan type
   useEffect(() => {
-    if (date && ['weekly', 'monthly'].includes(selectedPlanType)) {
+    if (date && ["weekly", "monthly"].includes(selectedPlanType)) {
       let daysToAdd = 0;
-      if (selectedPlanType === 'weekly') {
+      if (selectedPlanType === "weekly") {
         daysToAdd = 7;
-      } else if (selectedPlanType === 'monthly') {
+      } else if (selectedPlanType === "monthly") {
         daysToAdd = 30;
       }
       const newEndDate = new Date(date);
       newEndDate.setDate(newEndDate.getDate() + daysToAdd);
       setEndDate(newEndDate);
-    } else if (!['weekly', 'monthly'].includes(selectedPlanType)) {
+    } else if (!["weekly", "monthly"].includes(selectedPlanType)) {
       setEndDate(null);
     }
   }, [date, selectedPlanType]);
@@ -235,35 +295,34 @@ export default function ContinueSubscriptionScreen() {
 
   const handleGetPlanDetails = async () => {
     const selectedMeals: string[] = [];
-    if (mealPreferences.breakfast) selectedMeals.push('Breakfast');
-    if (mealPreferences.lunch) selectedMeals.push('Lunch');
-    if (mealPreferences.dinner) selectedMeals.push('Dinner');
-    const mealPrefStr = selectedMeals.join(',');
-    if (mealPrefStr === '') {
-      setPlanError('Please select at least one meal preference.');
+    if (mealPreferences.breakfast) selectedMeals.push("Breakfast");
+    if (mealPreferences.lunch) selectedMeals.push("Lunch");
+    if (mealPreferences.dinner) selectedMeals.push("Dinner");
+    const mealPrefStr = selectedMeals.join(",");
+    if (mealPrefStr === "") {
+      setPlanError("Please select at least one meal preference.");
       return;
     }
 
-    let foodTypeStr = '';
-    if (selectedfood === 'Veg') foodTypeStr = 'Veg';
-    else if (selectedfood === 'Non-Veg') foodTypeStr = 'Non-Veg';
-    else if (selectedfood === 'Both') foodTypeStr = 'Both Veg & Non-Veg';
+    let foodTypeStr = "";
+    if (selectedfood === "Veg") foodTypeStr = "Veg";
+    else if (selectedfood === "Non-Veg") foodTypeStr = "Non-Veg";
+    else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
 
     const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
 
-    const token = await AsyncStorage.getItem("token");
     if (!token) {
-      setPlanError('Authentication required.');
+      setPlanError("Authentication required.");
       return;
     }
 
     if (!serviceId) {
-      setPlanError('Service ID not available.');
+      setPlanError("Service ID not available.");
       return;
     }
 
     setIsFetchingDetails(true);
-    setPlanError('');
+    setPlanError("");
     try {
       const queryParams = new URLSearchParams({
         mealPreference: mealPrefStr,
@@ -274,7 +333,10 @@ export default function ContinueSubscriptionScreen() {
       const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceId}?${queryParams.toString()}`;
 
       const response = await axios.get(url, {
-        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (response.data.success) {
@@ -285,22 +347,31 @@ export default function ContinueSubscriptionScreen() {
           perMeal: data.pricing.perMeal || 0,
           weekly: data.pricing.weekly || 0,
           monthly: data.pricing.monthly || 0,
-          offers: data.offers || '',
+          offers: data.offers || "",
         });
-        const totalPricing = (data.pricing.perBreakfast || 0) + (data.pricing.perMeal || 0) + (data.pricing.weekly || 0) + (data.pricing.monthly || 0);
+        const totalPricing =
+          (data.pricing.perBreakfast || 0) +
+          (data.pricing.perMeal || 0) +
+          (data.pricing.weekly || 0) +
+          (data.pricing.monthly || 0);
         if (totalPricing === 0) {
-          setPlanError('No plans available for your selected preferences. Please try different options.');
+          setPlanError(
+            "No plans available for your selected preferences. Please try different options."
+          );
         } else {
-          setPlanError('');
+          setPlanError("");
         }
       } else {
-        setPlanError('Failed to fetch plan details: ' + response.data.message);
+        setPlanError("Failed to fetch plan details: " + response.data.message);
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        setPlanError('Failed to fetch plan details: ' + (error.response?.data?.message || 'Network error'));
+        setPlanError(
+          "Failed to fetch plan details: " +
+            (error.response?.data?.message || "Network error")
+        );
       } else {
-        setPlanError('Failed to fetch plan details.');
+        setPlanError("Failed to fetch plan details.");
       }
     } finally {
       setIsFetchingDetails(false);
@@ -318,16 +389,28 @@ export default function ContinueSubscriptionScreen() {
   const getPlanOptions = () => {
     const options: { label: string; value: string }[] = [];
     if (fetchedPricing.perBreakfast > 0) {
-      options.push({ label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`, value: "perBreakfast" });
+      options.push({
+        label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`,
+        value: "perBreakfast",
+      });
     }
     if (fetchedPricing.perMeal > 0) {
-      options.push({ label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`, value: "perMeal" });
+      options.push({
+        label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`,
+        value: "perMeal",
+      });
     }
     if (fetchedPricing.weekly > 0) {
-      options.push({ label: `Weekly (₹${fetchedPricing.weekly}/weekly)`, value: "weekly" });
+      options.push({
+        label: `Weekly (₹${fetchedPricing.weekly}/weekly)`,
+        value: "weekly",
+      });
     }
     if (fetchedPricing.monthly > 0) {
-      options.push({ label: `Monthly (₹${fetchedPricing.monthly}/monthly)`, value: "monthly" });
+      options.push({
+        label: `Monthly (₹${fetchedPricing.monthly}/monthly)`,
+        value: "monthly",
+      });
     }
     if (options.length === 0) {
       return hardcodedPlanOptions;
@@ -368,7 +451,7 @@ export default function ContinueSubscriptionScreen() {
           />
         </View>
 
-        <Text style={[styles.subSectionTitle]}>Apply Preferences</Text>
+        {/* <Text style={[styles.subSectionTitle]}>Apply Preferences</Text> */}
         {Object.entries(sameAsSelections).map(([key, value]) => (
           <View style={styles.checkboxRow} key={key}>
             <Checkbox
@@ -398,7 +481,12 @@ export default function ContinueSubscriptionScreen() {
           </View>
         ))}
         {selectedMealsSummary && (
-          <Text style={[styles.label, { fontSize: 12, color: "#666", marginTop: 5 }]}>
+          <Text
+            style={[
+              styles.label,
+              { fontSize: 12, color: "#666", marginTop: 5 },
+            ]}
+          >
             Selected: {selectedMealsSummary}
           </Text>
         )}
@@ -441,14 +529,21 @@ export default function ContinueSubscriptionScreen() {
           </View>
         ))}
 
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>Get Plan Details</Text>
+        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+          Get Plan Details
+        </Text>
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
+            (Object.values(mealPreferences).filter(Boolean).length === 0 ||
+              isFetchingDetails) &&
+              styles.disabledButton,
           ]}
           onPress={handleGetPlanDetails}
-          disabled={Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails}
+          disabled={
+            Object.values(mealPreferences).filter(Boolean).length === 0 ||
+            isFetchingDetails
+          }
         >
           {isFetchingDetails ? (
             <ActivityIndicator color="#fff" />
@@ -462,7 +557,9 @@ export default function ContinueSubscriptionScreen() {
           <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
         ) : null}
 
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
+        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+          Choose Plan Type
+        </Text>
         {getPlanOptions().map((option) => (
           <RadioButton
             key={option.value}
@@ -474,12 +571,8 @@ export default function ContinueSubscriptionScreen() {
         ))}
 
         <View style={styles.priceContainer}>
-          <Text style={styles.priceText}>
-            ₹{currentPlanPrice}
-          </Text>
-          <Text style={styles.depositText}>
-            No Deposit
-          </Text>
+          <Text style={styles.priceText}>₹{currentPlanPrice}</Text>
+          <Text style={styles.depositText}>No Deposit</Text>
         </View>
 
         <Text style={styles.label}>Select Start Date *</Text>
@@ -502,7 +595,7 @@ export default function ContinueSubscriptionScreen() {
           />
         )}
 
-        {['weekly', 'monthly'].includes(selectedPlanType) && (
+        {["weekly", "monthly"].includes(selectedPlanType) && (
           <>
             <Text style={styles.label}>Select End Date *</Text>
             <TouchableOpacity
@@ -553,21 +646,24 @@ export default function ContinueSubscriptionScreen() {
 
         <Text style={styles.label}>Select Plan</Text>
         <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setHostelPlan}
-            items={[
-              { label: "Monthly", value: "monthly" },
-              { label: "Quarterly", value: "quarterly" },
-              { label: "Half Yearly", value: "halfyearly" },
-              { label: "Yearly", value: "yearly" },
-            ]}
-            placeholder={{ label: "Select Plan", value: null }}
-            style={{
-              inputIOS: styles.pickerInput,
-              inputAndroid: styles.pickerInput,
-            }}
-            value={hostelPlan}
-          />
+          {isFetchingHostelPlans ? (
+            <ActivityIndicator
+              size="small"
+              color="#666"
+              style={{ padding: 12 }}
+            />
+          ) : (
+            <RNPickerSelect
+              onValueChange={setHostelPlan}
+              items={hostelPlanTypes}
+              placeholder={{ label: "Select Plan", value: null }}
+              style={{
+                inputIOS: styles.pickerInput,
+                inputAndroid: styles.pickerInput,
+              }}
+              value={hostelPlan}
+            />
+          )}
         </View>
 
         <Text style={styles.priceText}>{price || "₹8000/month"}</Text>
@@ -784,8 +880,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   checkboxBase: {
-    width: 24,
-    height: 24,
+    width: 16,
+    height: 16,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: "#D1D5DB",
@@ -795,13 +891,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   checkboxSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.orange,
+    borderColor: colors.orange,
   },
   checkMark: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 10,
   },
   checkboxLabel: {
     fontSize: 14,
