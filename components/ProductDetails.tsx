@@ -270,8 +270,14 @@ export default function ProductDetails() {
             rooms: rooms, // Keep for potential use
           };
         } else if (paramType === "tiffin") {
-          const photos = fullApiData.photos || [];
-          const images = photos.length > 0 ? photos.map((p: string) => ({ uri: p })) : [];
+          // Handle single image or photos array
+          let images = [];
+          if (fullApiData.image && fullApiData.image.uri) {
+            images = [{ uri: fullApiData.image.uri }];
+          } else {
+            const photos = fullApiData.photos || [];
+            images = photos.length > 0 ? photos.map((p: string) => ({ uri: p })) : [];
+          }
           const mealPreferences = fullApiData.mealTimings?.map((m: any) => ({
             type: m.mealType,
             time: `${m.startTime} - ${m.endTime}`,
@@ -668,7 +674,13 @@ export default function ProductDetails() {
           {mappedData.pricing?.map((plan: any, index: number) => (
             <View key={index} style={styles.pricingPlan}>
               <View style={styles.pricingHeader}>
-                <Text style={styles.pricingSectionTitle}>{plan.planType} ({plan.foodType})</Text>
+                <Text 
+                  style={styles.pricingSectionTitle}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {plan.planType} ({plan.foodType})
+                </Text>
                 {plan.offers && (
                   <View style={styles.discountBadge}>
                     <Text style={styles.discountText}>{plan.offers}</Text>
@@ -1254,12 +1266,14 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     backgroundColor: "#E3F2FD",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 50,
+    alignItems: "center",
   },
   discountText: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#1976D2",
     fontWeight: "600",
   },
@@ -1287,9 +1301,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pricingSectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
     color: "#1976D2",
+    flex: 1,
+    marginRight: 8,
   },
   pricingColumns: {
     flexDirection: "row",
