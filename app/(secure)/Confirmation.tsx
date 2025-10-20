@@ -110,16 +110,29 @@ const Confirmation: React.FC = () => {
 
             if (response.data.success) {
               const service = response.data.data;
-              const locationString = service.location 
-                ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+              // Ensure arrays
+              service.vegPhotos = Array.isArray(service.vegPhotos) ? service.vegPhotos : service.vegPhotos ? [service.vegPhotos] : [];
+              service.nonVegPhotos = Array.isArray(service.nonVegPhotos) ? service.nonVegPhotos : service.nonVegPhotos ? [service.nonVegPhotos] : [];
+              // Set image for card
+              service.image = service.vegPhotos[0] || service.nonVegPhotos[0];
+              // Derive price, rating, etc. for card
+              const firstPricing = service.pricing?.[0];
+              service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/Month` : "₹0/Month";
+              service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || 0) * 1.1)}/Month` : "";
+              service.rating = parseFloat(service.averageRating) || 0;
+              service.reviews = service.totalReviews || 0;
+              service.description = service.description || "Delicious home-cooked meals.";
+              service.timing = service.mealTimings?.map((m: any) => `${m.startTime}-${m.endTime}`).join(' | ') || "7AM-9PM";
+              // Tags from foodType
+              service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
+
+              const locationString = service.location
+                ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
-              tiffins.push({
-                id: service._id,
-                tiffinServiceName: service.tiffinName || service.tiffinServiceName,
-                imageUrl: service.vegPhotos?.[0] || service.nonVegPhotos?.[0] || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-                ...service,
-                location: locationString,
-              });
+              service.location = locationString;
+              // Set name if it's under a different key (adjust based on API response for tiffins)
+              service.name = service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service";
+              tiffins.push(service);
             }
           }
           setRandomTiffins(tiffins);
@@ -153,16 +166,32 @@ const Confirmation: React.FC = () => {
 
             if (response.data.success) {
               const hostel = response.data.data;
-              const locationString = hostel.location 
-                ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+              // Ensure array
+              hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
+              // Set image for card
+              if (hostel.hostelPhotos[0]) {
+                hostel.image = hostel.hostelPhotos[0].replace(/\.jpg\.jpg$/, ".jpg");
+              } else {
+                hostel.image = "https://via.placeholder.com/400x300?text=No+Image";
+              }
+
+              // Derive price, rating, etc. for card
+              hostel.price = `₹${hostel.pricing?.monthly || hostel.pricing?.perDay || 0}/Month`; // Fallback to perDay if no monthly
+              hostel.type = hostel.hostelType || "Boys Hostel";
+              hostel.rating = parseFloat(hostel.averageRating) || 0;
+              hostel.reviews = hostel.totalReviews || 0;
+              hostel.availableBeds = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.filter((bed: any) => bed.status === "Unoccupied") || []).length, 0) || 0;
+              hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
+              hostel.deposit = `₹${hostel.securityDeposit || 0}`;
+              hostel.description = hostel.description || "Comfortable stay with all amenities.";
+
+              const locationString = hostel.location
+                ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
-              hostels.push({
-                id: hostel._id,
-                name: hostel.hostelName,
-                imageUrl: hostel.hostelPhotos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
-                ...hostel,
-                location: locationString,
-              });
+              hostel.location = locationString;
+              // Set name to match what HostelCard expects (likely 'name')
+              hostel.name = hostel.hostelName || "Unnamed Hostel";
+              hostels.push(hostel);
             }
           }
           setRandomHostels(hostels);
@@ -220,28 +249,51 @@ const Confirmation: React.FC = () => {
 
   const getRecommendations = () => {
     if (isTiffin) {
-      return randomHostels.length > 0 
-        ? randomHostels 
-        : (demoData.hostels?.slice(0, 3) || []).map((hostel) => {
-            const locationString = hostel.location 
-              ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
-              : 'Location not available';
-            return {
-              ...hostel,
-              imageUrl: hostel.hostelPhotos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
-              location: locationString,
-            };
-          });
+      return randomHostels.length > 0
+        ? randomHostels
+        : (demoData.hostels?.slice(0, 3) || []).map((hostel, index) => {
+          // Ensure arrays and set props for demoData
+          hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
+          hostel.image = hostel.hostelPhotos[0] || hostel.image; // Fallback to existing image if set
+          hostel.price = `₹${hostel.pricing?.monthly || hostel.pricing?.perDay || 0}/Month`;
+          hostel.type = hostel.hostelType || "Boys Hostel";
+          hostel.rating = parseFloat(hostel.averageRating) || 0;
+          hostel.reviews = hostel.totalReviews || 0;
+          hostel.availableBeds = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.filter((bed: any) => bed.status === "Unoccupied") || []).length, 0) || 0;
+          hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
+          hostel.deposit = `₹${hostel.securityDeposit || 0}`;
+          hostel.description = hostel.description || "Comfortable stay with all amenities.";
+
+          const locationString = hostel.location
+            ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
+            : 'Location not available';
+          hostel.location = locationString;
+          // Set name to match what HostelCard expects
+          hostel.name = hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`;
+          return hostel;
+        });
     } else {
-      return randomTiffins.length > 0 ? randomTiffins : (demoData.tiffinServices?.slice(0, 3) || []).map((service) => {
-        const locationString = service.location 
-          ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim() 
+      return randomTiffins.length > 0 ? randomTiffins : (demoData.tiffinServices?.slice(0, 3) || []).map((service, index) => {
+        // Ensure arrays and set props for demoData
+        service.vegPhotos = Array.isArray(service.vegPhotos) ? service.vegPhotos : service.vegPhotos ? [service.vegPhotos] : [];
+        service.nonVegPhotos = Array.isArray(service.nonVegPhotos) ? service.nonVegPhotos : service.nonVegPhotos ? [service.nonVegPhotos] : [];
+        service.image = service.vegPhotos[0] || service.nonVegPhotos[0] || service.image;
+        const firstPricing = service.pricing?.[0];
+        service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/Month` : "₹0/Month";
+        service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || 0) * 1.1)}/Month` : "";
+        service.rating = parseFloat(service.averageRating) || 0;
+        service.reviews = service.totalReviews || 0;
+        service.description = service.description || "Delicious home-cooked meals.";
+        service.timing = service.mealTimings?.map((m: any) => `${m.startTime}-${m.endTime}`).join(' | ') || "7AM-9PM";
+        service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
+
+        const locationString = service.location
+          ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
           : 'Location not available';
-        return {
-          ...service,
-          imageUrl: service.vegPhotos?.[0] || service.nonVegPhotos?.[0] || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-          location: locationString,
-        };
+        service.location = locationString;
+        // Set name to match what TiffinCard expects
+        service.name = service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`;
+        return service;
       });
     }
   };
@@ -258,9 +310,9 @@ const Confirmation: React.FC = () => {
 
   const handleBookNow = (item: any) => {
     if (isTiffin) {
-      router.push(`/hostel-details/${item.id}`);
+      router.push(`/hostel-details/${item.id || item._id}`);
     } else {
-      router.push(`/tiffin-details/${item.id}`);
+      router.push(`/tiffin-details/${item.id || item._id}`);
     }
   };
 
@@ -478,7 +530,7 @@ const Confirmation: React.FC = () => {
             style={styles.recommendationsScroll}
           >
             {recommendations.map((item: any, index: number) => (
-              <View key={item.id} style={styles.cardWrapper}>
+              <View key={item.id || item._id || index} style={styles.cardWrapper}>
                 <View style={styles.recommendationCard}>
                   {isTiffin ? (
                     <HostelCard

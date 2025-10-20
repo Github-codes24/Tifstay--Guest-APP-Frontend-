@@ -198,10 +198,56 @@ const Checkout: React.FC = () => {
   const getTransactionDetails = useMemo(() => {
     console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
 
-    if (isTiffin) {
-      // Tiffin logic placeholder — keep existing behavior (handled elsewhere)
-      return { total: 0, net: 0, rent: 0, deposit: 0, months: 1 };
+  if (isTiffin) {
+    // TIFFIN LOGIC — Price based on plan (daily/weekly/monthly), no deposit
+    // Extract price from various possible sources
+    const rawPrice = bookingDetails?.price
+      ?? bookingDetails?.selectPlan?.[0]?.price
+      ?? parsedPlan?.price
+      ?? tiffinData?.price  // If tiffinData is available as state/prop
+      ?? 0;
+
+    // Parse numeric value from string like '₹870/meal' or '₹3500/Month'
+    const priceMatch = rawPrice.toString().match(/₹?(\d+(?:\.\d+)?)/);
+    const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+
+    // Plan type for multiplier (if duration-based; for now, assume price is for full plan unit)
+    const plan = bookingDetails?.plan || parsedPlan?.plan || tiffinData?.plan || 'monthly';
+    let multiplier = 1; // Default: 1 unit (week/month)
+
+    // Optional: If startDate/endDate available, calculate multiplier (e.g., number of weeks/months)
+    const startDate = bookingDetails?.startDate || tiffinData?.startDate;
+    const endDate = bookingDetails?.endDate; // If available
+    if (startDate && endDate && plan) {
+      const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
+      if (plan === 'daily') multiplier = daysDiff;
+      else if (plan === 'weekly') multiplier = Math.ceil(daysDiff / 7);
+      else if (plan === 'monthly') multiplier = Math.ceil(daysDiff / 30);
     }
+
+    const totalTiffin = price * multiplier;
+    const total = totalTiffin;
+
+    console.log("🍲 TIFFIN BREAKDOWN:", {
+      rawPrice,
+      price,
+      plan,
+      multiplier,
+      totalTiffin,
+      total,
+      startDate,
+      endDate
+    });
+
+    return {
+      rent: price,  // Reuse 'rent' key for UI compatibility (represents tiffin cost per unit)
+      months: multiplier,  // Reuse 'months' as units (weeks/months)
+      totalRent: totalTiffin,
+      deposit: 0,  // No deposit for tiffin
+      total,
+      net: total,
+    };
+  }
 
     // HOSTEL LOGIC — only Rent + Deposit (defensive)
     // Try multiple possible paths from the API/params to find price and deposit
@@ -228,9 +274,8 @@ const Checkout: React.FC = () => {
       ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24 * 30)))
       : 1;
 
-    const totalRent = planPrice * months;
-    const total = totalRent + depositAmount;
-
+  const totalRent = planPrice * months;
+  const total = totalRent + depositAmount;  // Include deposit in total for hostel
 
     console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
       rawPlanPrice,
@@ -244,15 +289,15 @@ const Checkout: React.FC = () => {
       checkOut
     });
 
-    return {
-      rent: planPrice,
-      months,
-      totalRent,
-      deposit: depositAmount,
-      total,
-      net: total,
-    };
-  }, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate]);
+  return {
+    rent: planPrice,
+    months,
+    totalRent,
+    deposit: depositAmount,
+    total,
+    net: total,
+  };
+}, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate, tiffinData]);  // Added tiffinData to deps if used
 
 
   const transaction = getTransactionDetails;
