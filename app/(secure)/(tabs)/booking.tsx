@@ -83,8 +83,8 @@ const Booking: React.FC = () => {
             : "",
           status: item.status.toLowerCase() as Order["status"],
           image: item.userPhoto,
-          price: item.price,
-          entityId: item.hostelId?._id || item.hostelId,
+          price: item.price, // Assuming price is available; adjust if needed
+          entityId: item.hostelId?._id || item.hostelId, // Use the actual hostel ID for reviews
         }));
       }
       setHostelOrders(fetchedHostelOrders);
@@ -96,7 +96,7 @@ const Booking: React.FC = () => {
           : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
 
       const tiffinResponse = await axios.get(tiffinUrl);
-      // console.log("Tiffin API Response:", tiffinResponse);
+      console.log("Tiffin API Response:", tiffinResponse);
 
       let fetchedTiffinOrders: Order[] = [];
       if (tiffinResponse.data.success) {
@@ -356,14 +356,14 @@ const Booking: React.FC = () => {
         <>
           {order.status === "confirmed" && !isHistoryOrder(order.status) && (
             <View>
-              {/* {isWithin5DaysOfEnd(order) && ( */}
+              {isWithin5DaysOfEnd(order) && (
                 <Button
                   title="Continue Subscription"
                   onPress={() => handleContinueSubscription(order)}
                   style={styles.primaryButtonStyle}
                   height={48}
                 />
-              {/* )} */}
+              )}
               {order.serviceType === "tiffin" ? (
                 <View style={styles.buttonRow}>
                   <Button
