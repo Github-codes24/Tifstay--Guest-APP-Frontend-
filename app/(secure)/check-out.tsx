@@ -134,8 +134,8 @@ const Checkout: React.FC = () => {
         id: (firstParam(bookingId) || firstParam(serviceId) || "1"),
         title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
         imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-  mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
-  foodType: tiffinOrderDetails.foodType || "Veg",
+        mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
+        foodType: tiffinOrderDetails.foodType || "Veg",
         startDate: tiffinOrderDetails.date ? new Date(tiffinOrderDetails.date).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
         plan: tiffinOrderDetails.choosePlanType?.planName || planType || "Per meal",
         orderType: tiffinOrderDetails.chooseOrderType || orderType || "Delivery",
@@ -148,11 +148,11 @@ const Checkout: React.FC = () => {
         id: firstParam(serviceId) || "1",
         title: tiffinService.tiffinName || tiffinService.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
         imageUrl: tiffinService.image || tiffinService.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-  mealType: firstParam(mealPreference) || "Lunch",
-  foodType: firstParam(foodType) || tiffinService.foodType || "Veg",
-  startDate: startDate ? new Date(firstParam(startDate) as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(firstParam(checkInDate) as string).toLocaleDateString('en-IN') : "21/07/25"),
-  plan: firstParam(planType) || "Per meal",
-  orderType: firstParam(orderType) || "Delivery",
+        mealType: firstParam(mealPreference) || "Lunch",
+        foodType: firstParam(foodType) || tiffinService.foodType || "Veg",
+        startDate: startDate ? new Date(firstParam(startDate) as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(firstParam(checkInDate) as string).toLocaleDateString('en-IN') : "21/07/25"),
+        plan: firstParam(planType) || "Per meal",
+        orderType: firstParam(orderType) || "Delivery",
         price: `₹${parseInt(firstParam(totalPrice) || (tiffinService.price || '120').toString()) || 120}/meal`,
       };
     }
@@ -194,64 +194,65 @@ const Checkout: React.FC = () => {
   console.log("Full checkoutData ID :", checkoutData.id);
 
   // FIXED: Use correct keys in hostel logic
-// UPDATED: getTransactionDetails with proper hostel calculation (defensive)
-const getTransactionDetails = useMemo(() => {
-  console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
+  // UPDATED: getTransactionDetails with proper hostel calculation (defensive)
+  const getTransactionDetails = useMemo(() => {
+    console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
 
-  if (isTiffin) {
-    // Tiffin logic placeholder — keep existing behavior (handled elsewhere)
-    return { total: 0, net: 0, rent: 0, deposit: 0, months: 1 };
-  }
+    if (isTiffin) {
+      // Tiffin logic placeholder — keep existing behavior (handled elsewhere)
+      return { total: 0, net: 0, rent: 0, deposit: 0, months: 1 };
+    }
 
-  // HOSTEL LOGIC — only Rent + Deposit (defensive)
-  // Try multiple possible paths from the API/params to find price and deposit
-  const rawPlanPrice = bookingDetails?.selectPlan?.[0]?.price
-    ?? bookingDetails?.price
-    ?? parsedPlan?.price
-    ?? bookingDetails?.Rent
-    ?? 0;
+    // HOSTEL LOGIC — only Rent + Deposit (defensive)
+    // Try multiple possible paths from the API/params to find price and deposit
+    const rawPlanPrice = bookingDetails?.selectPlan?.[0]?.price
+      ?? bookingDetails?.price
+      ?? parsedPlan?.price
+      ?? bookingDetails?.Rent
+      ?? 0;
 
-  const rawDeposit = bookingDetails?.selectPlan?.[0]?.depositAmount
-    ?? bookingDetails?.depositAmount
-    ?? parsedPlan?.depositAmount
-    ?? bookingDetails?.totalDeposit
-    ?? 0;
+    const rawDeposit = bookingDetails?.selectPlan?.[0]?.depositAmount
+      ?? bookingDetails?.depositAmount
+      ?? parsedPlan?.depositAmount
+      ?? bookingDetails?.totalDeposit
+      ?? 0;
 
-  // Coerce to numbers safely
-  const planPrice = Number(rawPlanPrice) || 0;
-  const depositAmount = Number(rawDeposit) || 0;
+    // Coerce to numbers safely
+    const planPrice = Number(rawPlanPrice) || 0;
+    const depositAmount = Number(rawDeposit) || 0;
 
-  // Check-in / Check-out (optional calculation for multiple months)
-  const checkIn = bookingDetails?.checkInDate || checkInDate;
-  const checkOut = bookingDetails?.checkOutDate || checkOutDate;
-  const months = (checkIn && checkOut)
-    ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24 * 30)))
-    : 1;
+    // Check-in / Check-out (optional calculation for multiple months)
+    const checkIn = bookingDetails?.checkInDate || checkInDate;
+    const checkOut = bookingDetails?.checkOutDate || checkOutDate;
+    const months = (checkIn && checkOut)
+      ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24 * 30)))
+      : 1;
 
-  const totalRent = planPrice * months;
-  const total = totalRent;
+    const totalRent = planPrice * months;
+    const total = totalRent + depositAmount;
 
-  console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
-    rawPlanPrice,
-    rawDeposit,
-    planPrice,
-    depositAmount,
-    months,
-    totalRent,
-    total,
-    checkIn,
-    checkOut
-  });
 
-  return {
-    rent: planPrice,
-    months,
-    totalRent,
-    deposit: depositAmount,
-    total,
-    net: total,
-  };
-}, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate]);
+    console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
+      rawPlanPrice,
+      rawDeposit,
+      planPrice,
+      depositAmount,
+      months,
+      totalRent,
+      total,
+      checkIn,
+      checkOut
+    });
+
+    return {
+      rent: planPrice,
+      months,
+      totalRent,
+      deposit: depositAmount,
+      total,
+      net: total,
+    };
+  }, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate]);
 
 
   const transaction = getTransactionDetails;
@@ -536,7 +537,7 @@ const getTransactionDetails = useMemo(() => {
         // Assuming the bookingId remains the same after payment confirmation on backend.
         setTimeout(() => {
           router.push({
-      pathname: "/(secure)/Confirmation",
+            pathname: "/(secure)/Confirmation",
             params: {
               id: (isTiffin ? (paymentData.tiffinOrderId || finalBookingId) : finalBookingId),
               serviceType: serviceType as string,
@@ -763,10 +764,10 @@ const getTransactionDetails = useMemo(() => {
           </View>
         </View>
 
-<View style={styles.totalRow}>
-  <Text style={styles.totalLabel}>Total</Text>
-  <Text style={styles.totalValue}>₹{getTransactionDetails.total.toFixed(2)}</Text>
-</View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalValue}>₹{getTransactionDetails.total.toFixed(2)}</Text>
+        </View>
 
 
 

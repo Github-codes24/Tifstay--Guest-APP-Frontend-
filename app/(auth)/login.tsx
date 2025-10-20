@@ -106,6 +106,7 @@ if (error.response) {
       <View style={styles.container}>
         <Logo showText={false} />
         <Text style={styles.title}>Get started with Tifstay</Text>
+        <Text style={styles.Subtitle}>Guest</Text>
 
         <InputField
           placeholder="Phone Number"
@@ -148,6 +149,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 16,
     color: colors.textPrimary,
+  },
+   Subtitle:{
+   fontSize: 20,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 24,
+    marginTop: -16,
+    color: '#000000ff',
   },
   errorText: {
     color: "red",
