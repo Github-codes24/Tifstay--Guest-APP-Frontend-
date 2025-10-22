@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
@@ -55,13 +56,18 @@ const Booking: React.FC = () => {
   const fetchOrders = async (tab: "pending" | "confirmed") => {
     setLoading(true);
     try {
+      const token = await AsyncStorage.getItem("token");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+
       // Fetch hostel orders
       const hostelUrl =
         tab === "pending"
           ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings"
           : "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
 
-      const hostelResponse = await axios.get(hostelUrl);
+      const hostelResponse = await axios.get(hostelUrl, { headers });
       // console.log("Hostel API Response:", hostelResponse.data);
 
       let fetchedHostelOrders: Order[] = [];
@@ -95,37 +101,36 @@ const Booking: React.FC = () => {
           ? "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPendingTiffinOrder"
           : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
 
-      const tiffinResponse = await axios.get(tiffinUrl);
+      const tiffinResponse = await axios.get(tiffinUrl, { headers });
       console.log("Tiffin API Response:", tiffinResponse);
 
       let fetchedTiffinOrders: Order[] = [];
       if (tiffinResponse.data.success) {
         fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
-          const choosePlanType = Array.isArray(item.choosePlanType)
-            ? item.choosePlanType[0]
-            : item.choosePlanType;
-          const serviceId =
-            choosePlanType?._id || item.serviceId || item.tiffinServiceId;
+          // Updated mapping to match actual API structure
+          const serviceId = item.guestId || item._id; // Use guestId as fallback for entityId
+          const mealType = Array.isArray(item.mealtype) ? item.mealtype.join(", ") : item.mealtype || "";
           return {
-            id: item._id,
-            bookingId: item._id,
+            id: item.guestId || item._id || "", // Use guestId as order ID
+            bookingId: item.guestId || item._id || "",
             serviceType: "tiffin" as const,
-            serviceName: `${choosePlanType?.planName || "Unknown"} Tiffin Plan`,
+            serviceName: `${item.tiffinServiceName || "Unknown"} Tiffin Plan`,
             customer: "You",
-            startDate: item.date
-              ? new Date(item.date).toLocaleDateString()
+            startDate: item.startDate
+              ? new Date(item.startDate).toLocaleDateString()
               : "",
-            endDate: item.endDate
+            endDate: item.endDate // Not in response; leave empty or compute if needed (e.g., based on plan)
               ? new Date(item.endDate).toLocaleDateString()
-              : "", // Assuming endDate field exists in API; adjust if needed
-            plan: choosePlanType?.planName,
-            orderType: item.chooseOrderType,
-            status: item.status.toLowerCase() as Order["status"],
-            price: `₹${choosePlanType?.price || 0}`,
+              : "",
+            mealType: mealType, // Joined meal types
+            plan: item.plan || "",
+            orderType: item.orderType || "",
+            status: (item.status || "").toLowerCase() as Order["status"],
+            price: `₹${item.price || 0}`,
             image: undefined,
             checkInDate: undefined,
             checkOutDate: undefined,
-            entityId: serviceId, // Use the actual service ID for reviews
+            entityId: serviceId, // For reviews; use guestId or adjust
           };
         });
       }
@@ -186,11 +191,13 @@ const Booking: React.FC = () => {
   };
 
   const handleSeeDetails = (order: Order) => {
+    
     console.log(
       "See details:",
       order.bookingId,
       "using entityId:",
-      order.entityId
+      order.entityId,
+    
     );
     let pathname;
     let params;
@@ -329,7 +336,7 @@ const Booking: React.FC = () => {
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Meal Type:</Text>
-              <Text style={styles.detailValue}>{order.serviceType}</Text>
+              <Text style={styles.detailValue}>{order.mealType || order.serviceType}</Text> {/* Updated to use mealType */}
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Plan:</Text>

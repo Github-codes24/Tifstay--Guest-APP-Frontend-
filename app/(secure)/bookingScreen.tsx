@@ -10,6 +10,7 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
@@ -103,26 +104,19 @@ export default function BookingScreen() {
     offers: '',
   });
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [showTiffinModal, setShowTiffinModal] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const [address, setAddress] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [numberOfTiffin, setNumberOfTiffin] = useState("1"); // Changed default to 1
-  const [selectTiffinNumber, setSelectTiffinNumber] = useState("1");
   const [selectedfood, setSelectedfood] = useState("Both");
   const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
   const [mealPreferences, setMealPreferences] = useState({
     breakfast: true,
     lunch: true,
     dinner: true,
-  });
-  const [sameAsSelections, setSameAsSelections] = useState({
-    sameForAll: false,
-    sameAs1: false,
-    sameAs2: false,
-    sameAs3: false,
   });
   const [date, setDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -159,7 +153,6 @@ export default function BookingScreen() {
     if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
     if (!phoneNumber.trim()) newErrors.phoneNumber = "Phone Number is required!";
     if (orderType === "delivery" && !address.trim()) newErrors.address = "Address is required for delivery!";
-    if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) newErrors.numberOfTiffin = "Valid Number of Tiffin is required!";
     if (!date) newErrors.date = "Date is required!";
     if (['weekly', 'monthly'].includes(selectedPlanType) && (!endDate || endDate <= date)) newErrors.endDate = "End date is required and must be after start date!";
     if (!selectedfood) newErrors.selectedfood = "Food Type is required!";
@@ -401,7 +394,7 @@ export default function BookingScreen() {
     // NEW: Compute numMeals for logging
     const numMeals = Object.values(mealPreferences).filter(Boolean).length;
 
-    console.log("Price useEffect: selectedPlanType", selectedPlanType, "orderType", orderType, "numberOfTiffin", numberOfTiffin);
+    console.log("Price useEffect: selectedPlanType", selectedPlanType, "orderType", orderType);
 
     if (bookingType === "tiffin") {
       if (selectedPlanType) {
@@ -422,7 +415,7 @@ export default function BookingScreen() {
             basePrice = 3200; // Discounted price
           }
         }
-        const numTiffins = parseInt(numberOfTiffin || "1");
+        const numTiffins = 4;
         newPrice = basePrice * numTiffins;
         console.log("final newPrice:", newPrice);
       }
@@ -440,7 +433,6 @@ export default function BookingScreen() {
   }, [
     selectedPlanType,
     orderType,
-    numberOfTiffin,
     bookingType,
     hostelPlan,
     pricingData,
@@ -503,10 +495,6 @@ export default function BookingScreen() {
   // Helper functions
   const toggleMealPreference = (meal: MealType) => {
     setMealPreferences((prev) => ({ ...prev, [meal]: !prev[meal] }));
-  };
-
-  const toggleSameAs = (key: keyof typeof sameAsSelections) => {
-    setSameAsSelections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
@@ -664,7 +652,6 @@ const handleTiffinSubmit = async () => {
   console.log("fullName:", fullName);
   console.log("phoneNumber:", phoneNumber);
   console.log("address:", address);
-  console.log("numberOfTiffin:", numberOfTiffin);
   console.log("selectedPlanType:", selectedPlanType);
   console.log("mealPreferences:", mealPreferences);
   console.log("orderType:", orderType);
@@ -718,23 +705,14 @@ const handleTiffinSubmit = async () => {
         price: currentPlanPrice
       };
 
-      // FIXED: Conditionally add sameUs only if sameForAll is checked (omit empty to avoid enum validation)
-      const tiffinNumberObj: { tiffinNumber: number; sameUs?: string } = {
-        tiffinNumber: parseInt(selectTiffinNumber),
-      };
-      if (sameAsSelections.sameForAll) {
-        tiffinNumberObj.sameUs = "All";
-      }
-      
-
-      const selectTiffinNumberArray = [tiffinNumberObj];
+      const selectTiffinNumberArray = [{ tiffinNumber: 1, sameUs: "All" }];
 
       const payload = {
         fullName,
         phoneNumber,
         address,
         specialInstructions,
-        numberOfTiffin: parseInt(numberOfTiffin),
+        numberOfTiffin: 4,
         selectTiffinNumber: selectTiffinNumberArray,
         mealPreference, 
         foodType,
@@ -783,7 +761,7 @@ const handleTiffinSubmit = async () => {
             mealPreference: mealPreference,
             foodType: selectedfood,
             orderType: orderType,
-            numberOfTiffin: numberOfTiffin,
+            numberOfTiffin: "4",
             fullName: fullName,  // If needed for display
           },
         });
@@ -958,6 +936,14 @@ const handleTiffinSubmit = async () => {
       `${room.roomNumber} (Beds: ${room.beds.map(b => b.bedNumber).join(', ')})`
     ).join(', ');
   }, [serviceData.rooms]);
+
+  // NEW: Helper for selected meals summary in UI
+  const selectedMealsSummary = React.useMemo(() => {
+    const selectedMeals = Object.entries(mealPreferences)
+      .filter(([_, checked]) => checked)
+      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+    return selectedMeals.join(", ");
+  }, [mealPreferences]);
 
   const renderHostelBooking = () => (
     <>
@@ -1206,14 +1192,6 @@ const handleTiffinSubmit = async () => {
     return options;
   };
 
-  // NEW: Helper for selected meals summary in UI
-  const selectedMealsSummary = React.useMemo(() => {
-    const selectedMeals = Object.entries(mealPreferences)
-      .filter(([_, checked]) => checked)
-      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-    return selectedMeals.join(", ");
-  }, [mealPreferences]);
-
   const renderTiffinBooking = () => {
     return (
       <>
@@ -1297,215 +1275,18 @@ const handleTiffinSubmit = async () => {
             <Image source={calender} style={styles.icon} />
             <Text style={styles.sectionTitle}> Booking Details</Text>
           </View>
-          <Text style={styles.label}>Number Of Tiffin *</Text>
-          <TextInput
-            style={[styles.input, errors.numberOfTiffin && styles.inputError]}
-            value={numberOfTiffin}
-            keyboardType="numeric"
-            onChangeText={(text) => {
-              setNumberOfTiffin(text);
-              clearError('numberOfTiffin');
-            }}
-            onBlur={() => {
-              if (!numberOfTiffin || parseInt(numberOfTiffin) <= 0) setErrors(prev => ({ ...prev, numberOfTiffin: "Valid Number of Tiffin is required!" }));
-            }}
-          />
-          {errors.numberOfTiffin && <Text style={styles.errorText}>{errors.numberOfTiffin}</Text>}
-          <Text style={styles.label}>Select Tiffin Number</Text>
-          <View style={styles.pickerWrapper}>
-            <RNPickerSelect
-              onValueChange={setSelectTiffinNumber}
-              items={[
-                { label: "1", value: "1" },
-                { label: "2", value: "2" },
-                { label: "3", value: "3" },
-                { label: "4", value: "4" },
-              ]}
-              placeholder={{ label: "Select Tiffin Number", value: null }}
-              style={{
-                inputIOS: styles.pickerInput,
-                inputAndroid: styles.pickerInput,
-              }}
-              value={selectTiffinNumber}
-            />
-          </View>
-
-          <Text style={[styles.sectionTitle]}>Apply Preferences</Text>
-          {Object.entries(sameAsSelections).map(([key, value]) => (
-            <View style={styles.checkboxRow} key={key}>
-              <Checkbox
-                checked={value}
-                onPress={() => toggleSameAs(key as keyof typeof sameAsSelections)}
-              />
-              <Text style={styles.checkboxLabel}>
-                {key === "sameForAll"
-                  ? "Same For All"
-                  : `Same As ${key.slice(-1)}`}
-              </Text>
-            </View>
-          ))}
-
-          <Text style={[styles.sectionTitle]}>Meal Preference</Text>
-          {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
-            <View style={styles.checkboxRow} key={meal}>
-              <Checkbox
-                checked={mealPreferences[meal]}
-                onPress={() => toggleMealPreference(meal)}
-              />
-              <Text style={styles.checkboxLabel}>
-                {mealLabels[meal] || (meal.charAt(0).toUpperCase() + meal.slice(1))}
-              </Text>
-            </View>
-          ))}
-          {/* NEW: Display selected meals summary */}
-          {selectedMealsSummary && (
-            <Text style={[styles.label, { fontSize: 12, color: "#666", marginTop: 5 }]}>
-              Selected: {selectedMealsSummary}
-            </Text>
-          )}
-          {errors.mealPreferences && <Text style={styles.errorText}>{errors.mealPreferences}</Text>}
-
-          <Text style={[styles.sectionTitle]}>Food Type</Text>
-          <RadioButton
-            label="Veg"
-            value="Veg"
-            selected={selectedfood}
-            onPress={(value) => {
-              setSelectedfood(value);
-              clearError('selectedfood');
-            }}
-          />
-          <RadioButton
-            label="Non-Veg"
-            value="Non-Veg"
-            selected={selectedfood}
-            onPress={(value) => {
-              setSelectedfood(value);
-              clearError('selectedfood');
-            }}
-          />
-          <RadioButton
-            label="Both Veg & Non-Veg"
-            value="Both"
-            selected={selectedfood}
-            onPress={(value) => {
-              setSelectedfood(value);
-              clearError('selectedfood');
-            }}
-          />
-          {errors.selectedfood && <Text style={styles.errorText}>{errors.selectedfood}</Text>}
-
-          {/* Order Type */}
-          <Text style={[styles.sectionTitle]}>Choose Order Type</Text>
-          {["dining", "delivery"].map((type) => (
-            <View style={styles.checkboxRow} key={type}>
+          <View style={styles.tiffinSelectorsContainer}>
+            {[1, 2, 3, 4].map((num) => (
               <TouchableOpacity
-                style={[
-                  styles.checkboxBase,
-                  orderType === type && styles.checkboxSelected,
-                ]}
-                onPress={() => setOrderType(type as any)}
+                key={num}
+                style={styles.tiffinDropdown}
+                onPress={() => setShowTiffinModal(true)}
               >
-                {orderType === type && <Text style={styles.checkMark}>✓</Text>}
+                <Text style={styles.tiffinDropdownLabel}>Select Tiffin {num}</Text>
+                <Text style={styles.dropdownIcon}>▼</Text>
               </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </View>
-          ))}
-
-          {/* Get Plan Details Button */}
-          <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Get Plan Details</Text>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
-            ]}
-            onPress={handleGetPlanDetails}
-            disabled={Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails}
-          >
-            {isFetchingDetails ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Get Plan Details</Text>
-            )}
-          </TouchableOpacity>
-          {planError ? (
-            <Text style={styles.errorText}>{planError}</Text>
-          ) : fetchedPricing.offers ? (
-            <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
-          ) : null}
-
-          <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
-          {getPlanOptions().map((option) => (
-            <RadioButton
-              key={option.value}
-              label={option.label}
-              value={option.value}
-              selected={selectedPlanType}
-              onPress={(value) => {
-                setSelectedPlanType(value);
-                clearError('selectedPlanType');
-              }}
-            />
-          ))}
-          {errors.selectedPlanType && <Text style={styles.errorText}>{errors.selectedPlanType}</Text>}
-          {errors.fetchedPlanType && <Text style={styles.errorText}>{errors.fetchedPlanType}</Text>}
-
-          <View style={styles.priceContainer}>
-            <Text style={styles.priceText}>
-              ₹{currentPlanPrice}
-            </Text>
-            <Text style={styles.depositText}>
-              No Deposit
-            </Text>
+            ))}
           </View>
-
-          <Text style={styles.label}>Select Start Date *</Text>
-          <TouchableOpacity
-            style={[styles.datePickerButton, errors.date && styles.inputError]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={styles.datePickerText}>
-              {date ? date.toLocaleDateString("en-US") : "mm/dd/yyyy"}
-            </Text>
-            <Image source={calender} style={styles.calendarIcon} />
-          </TouchableOpacity>
-          {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
-          {showDatePicker && (
-            <DateTimePicker
-              value={date || new Date()}
-              mode="date"
-              display="default"
-              onChange={onChangeDate}
-              minimumDate={new Date()}
-            />
-          )}
-
-          {['weekly', 'monthly'].includes(selectedPlanType) && (
-            <>
-              <Text style={styles.label}>Select End Date *</Text>
-              <TouchableOpacity
-                style={[styles.datePickerButton, errors.endDate && styles.inputError]}
-                onPress={() => setShowEndDatePicker(true)}
-              >
-                <Text style={styles.datePickerText}>
-                  {endDate ? endDate.toLocaleDateString("en-US") : "mm/dd/yyyy"}
-                </Text>
-                <Image source={calender} style={styles.calendarIcon} />
-              </TouchableOpacity>
-              {errors.endDate && <Text style={styles.errorText}>{errors.endDate}</Text>}
-              {showEndDatePicker && (
-                <DateTimePicker
-                  value={endDate || new Date(date || new Date())}
-                  mode="date"
-                  display="default"
-                  onChange={onChangeEndDate}
-                  minimumDate={date || new Date()}
-                />
-              )}
-            </>
-          )}
         </View>
         {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
         <Buttons
@@ -1516,6 +1297,181 @@ const handleTiffinSubmit = async () => {
         <Text style={styles.confirmationText}>
           Provider will reach out within 1 hour to confirm.
         </Text>
+
+        <Modal
+          visible={showTiffinModal}
+          animationType="slide"
+          onRequestClose={() => setShowTiffinModal(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tiffin Preferences</Text>
+              <TouchableOpacity onPress={() => setShowTiffinModal(false)}>
+                <Text style={styles.closeText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScroll}>
+              <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Meal Preference</Text>
+              {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
+                <View style={styles.checkboxRow} key={meal}>
+                  <Checkbox
+                    checked={mealPreferences[meal]}
+                    onPress={() => toggleMealPreference(meal)}
+                  />
+                  <Text style={styles.checkboxLabel}>
+                    {mealLabels[meal] || (meal.charAt(0).toUpperCase() + meal.slice(1))}
+                  </Text>
+                </View>
+              ))}
+              {selectedMealsSummary && (
+                <Text style={[styles.label, { fontSize: 12, color: "#666", marginTop: 5 }]}>
+                  Selected: {selectedMealsSummary}
+                </Text>
+              )}
+              {errors.mealPreferences && <Text style={styles.errorText}>{errors.mealPreferences}</Text>}
+
+              <Text style={styles.sectionTitle}>Food Type</Text>
+              <RadioButton
+                label="Veg"
+                value="Veg"
+                selected={selectedfood}
+                onPress={(value) => {
+                  setSelectedfood(value);
+                  clearError('selectedfood');
+                }}
+              />
+              <RadioButton
+                label="Non-Veg"
+                value="Non-Veg"
+                selected={selectedfood}
+                onPress={(value) => {
+                  setSelectedfood(value);
+                  clearError('selectedfood');
+                }}
+              />
+              <RadioButton
+                label="Both Veg & Non-Veg"
+                value="Both"
+                selected={selectedfood}
+                onPress={(value) => {
+                  setSelectedfood(value);
+                  clearError('selectedfood');
+                }}
+              />
+              {errors.selectedfood && <Text style={styles.errorText}>{errors.selectedfood}</Text>}
+
+              <Text style={styles.sectionTitle}>Choose Order Type</Text>
+              {["dining", "delivery"].map((type) => (
+                <View style={styles.checkboxRow} key={type}>
+                  <TouchableOpacity
+                    style={[
+                      styles.checkboxBase,
+                      orderType === type && styles.checkboxSelected,
+                    ]}
+                    onPress={() => setOrderType(type as any)}
+                  >
+                    {orderType === type && <Text style={styles.checkMark}>✓</Text>}
+                  </TouchableOpacity>
+                  <Text style={styles.checkboxLabel}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Text>
+                </View>
+              ))}
+
+              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Get Plan Details</Text>
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  (Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
+                ]}
+                onPress={handleGetPlanDetails}
+                disabled={Object.values(mealPreferences).filter(Boolean).length === 0 || isFetchingDetails}
+              >
+                {isFetchingDetails ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Get Plan Details</Text>
+                )}
+              </TouchableOpacity>
+              {planError ? (
+                <Text style={styles.errorText}>{planError}</Text>
+              ) : fetchedPricing.offers ? (
+                <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
+              ) : null}
+
+              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
+              {getPlanOptions().map((option) => (
+                <RadioButton
+                  key={option.value}
+                  label={option.label}
+                  value={option.value}
+                  selected={selectedPlanType}
+                  onPress={(value) => {
+                    setSelectedPlanType(value);
+                    clearError('selectedPlanType');
+                  }}
+                />
+              ))}
+              {errors.selectedPlanType && <Text style={styles.errorText}>{errors.selectedPlanType}</Text>}
+              {errors.fetchedPlanType && <Text style={styles.errorText}>{errors.fetchedPlanType}</Text>}
+
+              <View style={styles.priceContainer}>
+                <Text style={styles.priceText}>
+                  ₹{currentPlanPrice} (for 4 tiffins)
+                </Text>
+                <Text style={styles.depositText}>
+                  No Deposit
+                </Text>
+              </View>
+
+              <Text style={styles.label}>Select Start Date *</Text>
+              <TouchableOpacity
+                style={[styles.datePickerButton, errors.date && styles.inputError]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={styles.datePickerText}>
+                  {date ? date.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+                </Text>
+                <Image source={calender} style={styles.calendarIcon} />
+              </TouchableOpacity>
+              {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={onChangeDate}
+                  minimumDate={new Date()}
+                />
+              )}
+
+              {['weekly', 'monthly'].includes(selectedPlanType) && (
+                <>
+                  <Text style={styles.label}>Select End Date *</Text>
+                  <TouchableOpacity
+                    style={[styles.datePickerButton, errors.endDate && styles.inputError]}
+                    onPress={() => setShowEndDatePicker(true)}
+                  >
+                    <Text style={styles.datePickerText}>
+                      {endDate ? endDate.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+                    </Text>
+                    <Image source={calender} style={styles.calendarIcon} />
+                  </TouchableOpacity>
+                  {errors.endDate && <Text style={styles.errorText}>{errors.endDate}</Text>}
+                  {showEndDatePicker && (
+                    <DateTimePicker
+                      value={endDate || new Date(date || new Date())}
+                      mode="date"
+                      display="default"
+                      onChange={onChangeEndDate}
+                      minimumDate={date || new Date()}
+                    />
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
       </>
     );
   };
@@ -1795,5 +1751,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     fontWeight: "bold",
+  },
+  // NEW: Styles for tiffin dropdowns
+  tiffinSelectorsContainer: {
+    marginBottom: 20,
+  },
+  tiffinDropdown: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#aaa",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    marginBottom: 10,
+    backgroundColor: "#fff",
+  },
+  tiffinDropdownLabel: {
+    fontSize: 14,
+    color: "#333",
+  },
+  dropdownIcon: {
+    fontSize: 12,
+    color: "#666",
+  },
+  // NEW: Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  closeText: {
+    fontSize: 16,
+    color: "#004AAD",
+  },
+  modalScroll: {
+    flex: 1,
+    padding: 15,
   },
 });
