@@ -55,7 +55,7 @@ export default function TiffinOrderDetails() {
     tiffinServiceName: "N/A",
     customer: "Rahul",
     startDate: "13/10/25",
-    mealType: "lunch",
+    mealType: "Lunch & Dinner",
     plan: "Monthly",
     orderType: "Delivery",
     endDate: "2025-10-17",
@@ -80,42 +80,42 @@ export default function TiffinOrderDetails() {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
       const { success, data } = await res.json();
+      console.log("API Response:", { success, data });
       if (success && data) {
         setStartDateFull(new Date(data.summary.startDate));
         setEndDateFull(new Date(data.summary.endDate));
         setCurrentMonth(new Date(data.summary.startDate));
         setSelectedDate(new Date(data.summary.startDate));
+        const mealPreference = data.summary.mealPreference || [];
+        const mealTypeValue = mealPreference.length > 0 ? mealPreference.join(' & ') : "N/A";
         setBookingData((prev) => ({
           ...prev,
           bookingId: data.summary.bookingId,
           tiffinServiceName: data.summary.tiffinServiceName || "N/A",
           customer: data.summary.customerName,
           startDate: formatShortDate(data.summary.startDate),
-          mealType:
-            data.summary.mealType.charAt(0).toUpperCase() +
-            data.summary.mealType.slice(1),
+          mealType: mealTypeValue,
           plan: data.summary.planType,
           orderType: data.summary.orderType,
           endDate: formatShortDate(data.summary.endDate),
         }));
 
-        setSkips(data.skips || []);
+        setSkips(data.skipsThisMonth || []);
 
-        const history = (data.skips || []).map((skip: any) => ({
+        const history = (data.skipsThisMonth || []).map((skip: any) => ({
           date: formatDate(new Date(skip.date)),
           meals: {
             lunch: false,
             dinner: false,
-            [data.summary.mealType.toLowerCase()]: true,
           },
         }));
         setSkippedMealsHistory(history);
       } else {
-        Alert.alert("Error", "Failed to fetch booking data");
+        Alert.alert("Error", "Failed to fetch booking details. Please try again.");
       }
     } catch (error) {
       console.error("Error fetching data:", error);
-      Alert.alert("Error", "Failed to fetch booking data");
+      Alert.alert("Error", "Unable to load booking details. Please check your connection and try again.");
     }
   }, [id]);
 
@@ -227,6 +227,8 @@ export default function TiffinOrderDetails() {
     body.mealType = selectedMeals[0]; // single string
   } else if (selectedMeals.length > 1) {
     body.mealType = selectedMeals; // array when both selected
+  } else if (selectedMeals.length === 0) {
+    body.mealType = "all"; // if none selected, perhaps skip all? But adjust as needed
   }
 
   console.log("Saving skip meal with body:", body);
@@ -244,23 +246,52 @@ export default function TiffinOrderDetails() {
     );
 
     if (!saveResponse.ok) {
-      const errText = await saveResponse.text();
-      console.error("Server response:", errText);
-      throw new Error(
-        errText || `You reach the skip meal limit.`
-      );
+      let errorMessage = "Failed to skip meal. Please try again.";
+      try {
+        const errText = await saveResponse.text();
+        console.error("Server response:", errText);
+
+        // Map server error messages to user-friendly ones
+        if (errText.toLowerCase().includes("limit") || errText.toLowerCase().includes("exceed")) {
+          errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
+        } else if (errText.toLowerCase().includes("invalid date") || errText.toLowerCase().includes("date")) {
+          errorMessage = "The selected date is invalid or outside the booking period. Please choose a valid date.";
+        } else if (errText.toLowerCase().includes("already")) {
+          errorMessage = "Meals for this date have already been skipped. No changes made.";
+        } else if (errText.toLowerCase().includes("network") || errText.toLowerCase().includes("connection")) {
+          errorMessage = "Network issue. Please check your connection and try again.";
+        } else {
+          errorMessage = errText || "You have reached the skip meal limit. Please upgrade your plan for more skips.";
+        }
+      } catch (parseError) {
+        console.error("Error parsing server error:", parseError);
+        errorMessage = "An unexpected error occurred. Please try again.";
+      }
+      Alert.alert("Error", errorMessage);
+      return; // Exit early without refreshing data
     }
-    // await fetchData();
+
+    await fetchData();
     setShowSkipMeal(false);
     setSkipMeals({ lunch: false, dinner: false });
 
-    Alert.alert("Success", "Meal skip preferences saved successfully");
+    Alert.alert("Success", "Meal skip preferences saved successfully!");
   } catch (error: any) {
     console.error("Error saving skip meal:", error);
-    const errorMessage =
-      error?.message ||
-      (typeof error === "string" ? error : JSON.stringify(error)) ||
-      "Failed to save skip meal";
+    let errorMessage = "Failed to save skip meal. Please try again.";
+
+    // Handle common network or other errors
+    if (error.message.includes("network") || error.message.includes("fetch")) {
+      errorMessage = "Network error. Please check your internet connection and try again.";
+    } else if (error.message.includes("limit")) {
+      errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
+    } else if (error.message.includes("invalid") || error.message.includes("date")) {
+      errorMessage = "Invalid date selected. Please choose a date within your booking period.";
+    } else {
+      errorMessage =
+        error?.message ||
+        (typeof error === "string" ? error : "An unexpected error occurred. Please try again later.");
+    }
 
     Alert.alert("Error", errorMessage);
   }
@@ -285,7 +316,15 @@ export default function TiffinOrderDetails() {
         lunch: false,
         dinner: false,
       };
-      skipped[bookingData.mealType.toLowerCase()] = true;
+      const mealType = skip.mealType;
+      if (mealType === "all") {
+        skipped.lunch = true;
+        skipped.dinner = true;
+      } else if (mealType === "lunch") {
+        skipped.lunch = true;
+      } else if (mealType === "dinner") {
+        skipped.dinner = true;
+      }
       return skipped;
     }
     return null;
@@ -615,8 +654,7 @@ export default function TiffinOrderDetails() {
                     Meal Type:{" "}
                     {latestSkip.mealType === "all"
                       ? "Lunch & Dinner"
-                      : latestSkip.mealType.charAt(0).toUpperCase() +
-                        latestSkip.mealType.slice(1)}
+                      : latestSkip.mealType ? latestSkip.mealType.charAt(0).toUpperCase() + latestSkip.mealType.slice(1) : "Unknown"}
                   </Text>
                 </View>
               </View>
