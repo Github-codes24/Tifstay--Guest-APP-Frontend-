@@ -92,6 +92,7 @@ export default function BookingScreen() {
   const [pickerItems, setPickerItems] = useState([]); // For plan types (tiffin) or plans (hostel)
   // Tiffin-specific states
   const [selectedPlanType, setSelectedPlanType] = useState("perMeal"); // Default to perMeal
+  // FIXED: Fixed to 4 tiffins, no dynamic number
   const [mealLabels, setMealLabels] = useState<Record<MealType, string>>({});
   // New state for fetched plan details
   const [fetchedPlanType, setFetchedPlanType] = useState('');
@@ -112,12 +113,13 @@ export default function BookingScreen() {
   // NEW: For tiffin 3 and 4, use radio-like selection
   const [copyFor3, setCopyFor3] = useState<'1' | '2' | null>(null);
   const [copyFor4, setCopyFor4] = useState<'1' | '2' | '3' | null>(null);
-  // NEW: Per-tiffin meal preferences
-  const [tiffinMeals, setTiffinMeals] = useState<Record<number, Record<MealType, boolean>>>({
-    1: { breakfast: false, lunch: false, dinner: false },
-    2: { breakfast: false, lunch: false, dinner: false },
-    3: { breakfast: false, lunch: false, dinner: false },
-    4: { breakfast: false, lunch: false, dinner: false },
+  // NEW: Per-tiffin meal preferences (fixed to 4 tiffins)
+  const [tiffinMeals, setTiffinMeals] = useState<Record<number, Record<MealType, boolean>>>(() => {
+    const initial = {};
+    for (let i = 1; i <= 4; i++) {
+      initial[i] = { breakfast: false, lunch: false, dinner: false };
+    }
+    return initial;
   });
 
   const [fullName, setFullName] = useState("");
@@ -157,7 +159,7 @@ export default function BookingScreen() {
 
   // NEW: Helper for selected meals summary per tiffin
   const selectedMealsSummaryForNum = (num: number) => {
-    const selectedMeals = Object.entries(tiffinMeals[num])
+    const selectedMeals = Object.entries(tiffinMeals[num] || {})
       .filter(([_, checked]) => checked)
       .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
     return selectedMeals.join(", ");
@@ -175,9 +177,9 @@ export default function BookingScreen() {
     if (!selectedfood) newErrors.selectedfood = "Food Type is required!";
     if (!selectedPlanType) newErrors.selectedPlanType = "Plan type is required!";
     if (!fetchedPlanType) newErrors.fetchedPlanType = "Please get plan details first!";
-    // NEW: Validate at least one meal selected for tiffin 1
-    const numMealsSelected = Object.values(tiffinMeals[1]).filter(Boolean).length;
-    if (numMealsSelected === 0) newErrors.mealPreferences = "At least one meal preference is required!";
+    // NEW: Validate at least one meal selected for tiffin 1 (and optionally for others)
+    const numMealsSelected = Object.values(tiffinMeals[1] || {}).filter(Boolean).length;
+    if (numMealsSelected === 0) newErrors.mealPreferences = "At least one meal preference is required for Tiffin 1!";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -202,6 +204,8 @@ export default function BookingScreen() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  // REMOVED: Update tiffinMeals when numberOfTiffins changes (fixed to 4)
 
   useEffect(() => {
     console.log("=== Autofill useEffect triggered ===");
@@ -324,13 +328,11 @@ export default function BookingScreen() {
             }
           });
           console.log("mealPreferences set to:", defaultMealPrefs);
-          // NEW: Set for all tiffins
-          setTiffinMeals({
-            1: defaultMealPrefs,
-            2: { ...defaultMealPrefs },
-            3: { ...defaultMealPrefs },
-            4: { ...defaultMealPrefs },
-          });
+          // FIXED: Set for tiffin 1 only (no autofill for others)
+          setTiffinMeals(prev => ({
+            ...prev,
+            1: { ...defaultMealPrefs }
+          }));
 
           // Set meal labels with timings
           const mealLabelMap: Record<MealType, string> = { breakfast: '', lunch: '', dinner: '' };
@@ -415,7 +417,12 @@ export default function BookingScreen() {
     let newDeposit = 0;
 
     // NEW: Compute numMeals for logging from tiffin 1
-    const numMeals = Object.values(tiffinMeals[1]).filter(Boolean).length;
+    const numMeals = Object.values(tiffinMeals[1] || {}).filter(Boolean).length;
+
+    // FIXED: Compute filled tiffins count for pricing (only filled ones)
+    const filledTiffinsCount = Object.keys(tiffinMeals)
+      .filter(i => Object.values(tiffinMeals[Number(i)] || {}).some(Boolean))
+      .length;
 
     console.log("Price useEffect: selectedPlanType", selectedPlanType, "orderType", orderType);
 
@@ -440,8 +447,8 @@ export default function BookingScreen() {
             basePrice = 3200; // Discounted price
           }
         }
-        const numTiffins = 4;
-        newPrice = basePrice * numTiffins;
+        // FIXED: Use filledTiffinsCount for dynamic pricing
+        newPrice = basePrice * filledTiffinsCount;
         console.log("final newPrice:", newPrice);
       }
       newDeposit = 0; // No deposit for tiffin
@@ -462,34 +469,12 @@ export default function BookingScreen() {
     hostelPlan,
     pricingData,
     securityDeposit,
-    tiffinMeals[1],  // NEW: For numMeals calc in log
+    tiffinMeals,  // FIXED: Depend on full tiffinMeals for filled count
     fetchedPricing,
     totalBedsCount, // NEW: For hostel pricing
   ]);
 
-  // Auto-set meal preferences based on selected plan type (for all tiffins)
-  useEffect(() => {
-    if (selectedPlanType) {
-      let prefs = { breakfast: false, lunch: false, dinner: false };
-      if (selectedPlanType === "perBreakfast") {
-        prefs.breakfast = true;
-      } else if (selectedPlanType === "perLunch") {
-        prefs.lunch = true;
-      } else if (selectedPlanType === "perMeal") {
-        prefs.lunch = true; // Assume lunch for per meal
-      } else if (selectedPlanType === "weekly" || selectedPlanType === "monthly") {
-        prefs = { breakfast: true, lunch: true, dinner: true }; // Full plan
-      }
-      // Set for all tiffins
-      setTiffinMeals({
-        1: prefs,
-        2: { ...prefs },
-        3: { ...prefs },
-        4: { ...prefs },
-      });
-      console.log(`💡 Auto-set meals for ${selectedPlanType}:`, prefs);
-    }
-  }, [selectedPlanType]);
+  // REMOVED: Auto-set meal preferences based on selected plan type (to prevent autofill without user apply preference)
 
   // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
@@ -603,9 +588,9 @@ export default function BookingScreen() {
   const handleGetPlanDetails = async () => {
     // Use tiffin 1's meals
     const selectedMeals: string[] = [];
-    if (tiffinMeals[1].breakfast) selectedMeals.push('Breakfast');
-    if (tiffinMeals[1].lunch) selectedMeals.push('Lunch');
-    if (tiffinMeals[1].dinner) selectedMeals.push('Dinner');
+    if (tiffinMeals[1]?.breakfast) selectedMeals.push('Breakfast');
+    if (tiffinMeals[1]?.lunch) selectedMeals.push('Lunch');
+    if (tiffinMeals[1]?.dinner) selectedMeals.push('Dinner');
     const mealPrefStr = selectedMeals.join(',');
     if (mealPrefStr === '') {
       setPlanError('Please select at least one meal preference.');
@@ -716,9 +701,9 @@ const handleTiffinSubmit = async () => {
         return;
       }
 
-      // FIXED: Build selectTiffinNumber array for 4 tiffins with per-tiffin details
+      // FIXED: Build selectTiffinNumber array for fixed 4 tiffins, but only filled
       const numTiffins = 4;
-      const perTiffinPrice = currentPlanPrice / numTiffins; // Per tiffin price
+      const perTiffinPrice = currentPlanPrice / Math.max(1, Object.keys(tiffinMeals).filter(i => Object.values(tiffinMeals[Number(i)] || {}).some(Boolean)).length); // Per filled tiffin price
       const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
 
       // FIXED: Use short form for payload body (matches backend validation)
@@ -741,22 +726,37 @@ const handleTiffinSubmit = async () => {
 
       const selectTiffinNumberArray = [];
       for (let i = 1; i <= numTiffins; i++) {
-        // FIXED: Omit mealPreference (not in successful example; derive via backend if needed)
-        // REMOVED: No 'sameUs' field - frontend handles copying, backend gets resolved details only
+        // Per-tiffin meal preference as comma-separated string
+        const selectedMealsForTiffin = Object.entries(tiffinMeals[i] || {})
+          .filter(([_, checked]) => checked)
+          .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+        const mealPreferenceStr = selectedMealsForTiffin.join(',');
 
-        const tiffinObj = {
-          tiffinNumber: i,
-          foodType: foodTypeStr,
-          chooseOrderType: chooseOrderTypeStr,
-          choosePlanType: {
-            planName,
-            price: perTiffinPrice
-          }
-          // FIXED: Removed mealPreference here
-        };
+        // FIXED: Only include if at least one meal selected (strict: no fallback, skip empty tiffins)
+        if (selectedMealsForTiffin.length > 0) {
+          const tiffinObj = {
+            tiffinNumber: i,
+            foodType: foodTypeStr,
+            chooseOrderType: chooseOrderTypeStr,
+            choosePlanType: {
+              planName,
+              price: perTiffinPrice
+            },
+            mealPreference: mealPreferenceStr
+          };
 
-        selectTiffinNumberArray.push(tiffinObj);
+          selectTiffinNumberArray.push(tiffinObj);
+        }
       }
+
+      // FIXED: Check if any tiffins were filled; if none, error
+      if (selectTiffinNumberArray.length === 0) {
+        setErrors(prev => ({ ...prev, general: "Please fill meal preferences for at least one tiffin!" }));
+        return;
+      }
+
+      // FIXED: Set numberOfTiffin to actual filled count
+      const filledNumTiffins = selectTiffinNumberArray.length;
 
       // FIXED: Use full ISO date (with time) to match successful example
       const startDateISO = date ? new Date(date).toISOString() : '';
@@ -765,11 +765,12 @@ const handleTiffinSubmit = async () => {
         phoneNumber,
         address,
         specialInstructions,
-        numberOfTiffin: numTiffins,
+        numberOfTiffin: filledNumTiffins,
         selectTiffinNumber: selectTiffinNumberArray,
         date: startDateISO,
       };
 
+      
       if (['weekly', 'monthly'].includes(selectedPlanType)) {
         const endDateISO = endDate ? new Date(endDate).toISOString() : '';
         payload.endDate = endDateISO;
@@ -806,12 +807,12 @@ const handleTiffinSubmit = async () => {
             // NEW: Pass key booking data as fallback (strings for params)
             totalPrice: currentPlanPrice.toString(),
             planType: selectedPlanType,
-            startDate: startDateISO.split('T')[0], // YYYY-MM-DD for display
+            startDate: startDateISO.split('T')[0] || '',
             endDate: payload.endDate ? (payload.endDate as string).split('T')[0] : '',
-            mealPreference: Object.entries(tiffinMeals[1]).filter(([_, checked]) => checked).map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1)).join(','),
+            mealPreference: Object.entries(tiffinMeals[1] || {}).filter(([_, checked]) => checked).map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1)).join(','),
             foodType: selectedfood,
             orderType: orderType,
-            numberOfTiffin: numTiffins.toString(),
+            numberOfTiffin: filledNumTiffins.toString(),
             fullName: fullName,  // If needed for display
           },
         });
@@ -1239,8 +1240,11 @@ const handleTiffinSubmit = async () => {
   };
 
   const renderTiffinBooking = () => {
-    // NEW: Compute per-tiffin price (base price, since currentPlanPrice is total for 4)
-    const perTiffinPrice = currentPlanPrice > 0 ? currentPlanPrice / 4 : 0;
+    // FIXED: Compute per-tiffin price based on filled count
+    const filledTiffinsCount = Object.keys(tiffinMeals)
+      .filter(i => Object.values(tiffinMeals[Number(i)] || {}).some(Boolean))
+      .length;
+    const perTiffinPrice = filledTiffinsCount > 0 ? currentPlanPrice / filledTiffinsCount : 0;
     return (
       <>
         <View style={styles.section}>
@@ -1323,8 +1327,9 @@ const handleTiffinSubmit = async () => {
             <Image source={calender} style={styles.icon} />
             <Text style={styles.sectionTitle}> Booking Details</Text>
           </View>
+          {/* FIXED: Removed picker for number of tiffins; fixed to 4 */}
           <View style={styles.tiffinSelectorsContainer}>
-            {[1, 2, 3, 4].map((num) => {
+            {Array.from({ length: 4 }, (_, index) => index + 1).map((num) => {
               const isExpanded = expandedTiffin === num;
               return (
                 <View key={num}>
@@ -1337,9 +1342,9 @@ const handleTiffinSubmit = async () => {
                   </TouchableOpacity>
                   {isExpanded && (
                     <View style={styles.expandedContent}>
-                      {/* NEW: Apply Pref section */}
+                      {/* NEW: Apply Pref section (conditional based on num) */}
                       <Text style={styles.sectionTitle}>Apply Pref</Text>
-                      {num === 1 && (
+                      {num === 1 && true && (
                         <View style={styles.checkboxRow}>
                           <Checkbox
                             checked={applyToAllFor1}
@@ -1348,19 +1353,20 @@ const handleTiffinSubmit = async () => {
                               setApplyToAllFor1(newVal);
                               if (newVal) {
                                 const pref1 = tiffinMeals[1];
-                                setTiffinMeals(prev => ({
-                                  ...prev,
-                                  2: { ...pref1 },
-                                  3: { ...pref1 },
-                                  4: { ...pref1 },
-                                }));
+                                setTiffinMeals(prev => {
+                                  const updated = { ...prev };
+                                  for (let j = 2; j <= 4; j++) {
+                                    updated[j] = { ...pref1 };
+                                  }
+                                  return updated;
+                                });
                               }
                             }}
                           />
                           <Text style={styles.checkboxLabel}>same for all</Text>
                         </View>
                       )}
-                      {num === 2 && (
+                      {num === 2 && true && (
                         <View style={styles.checkboxRow}>
                           <Checkbox
                             checked={sameAs1For2}
@@ -1378,7 +1384,7 @@ const handleTiffinSubmit = async () => {
                           <Text style={styles.checkboxLabel}>same as 1</Text>
                         </View>
                       )}
-                      {num === 3 && (
+                      {num === 3 && true && (
                         <>
                           <RadioButton
                             label="same as 1"
@@ -1406,7 +1412,7 @@ const handleTiffinSubmit = async () => {
                           />
                         </>
                       )}
-                      {num === 4 && (
+                      {num === 4 && true && (
                         <>
                           <RadioButton
                             label="same as 1"
@@ -1451,7 +1457,7 @@ const handleTiffinSubmit = async () => {
                       {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
                         <View style={styles.checkboxRow} key={meal}>
                           <Checkbox
-                            checked={tiffinMeals[num][meal]}
+                            checked={tiffinMeals[num]?.[meal] || false}
                             onPress={() => toggleMealPreference(num, meal)}
                           />
                           <Text style={styles.checkboxLabel}>
@@ -1519,10 +1525,10 @@ const handleTiffinSubmit = async () => {
                       <TouchableOpacity
                         style={[
                           styles.submitButton,
-                          (Object.values(tiffinMeals[1]).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
+                          (Object.values(tiffinMeals[1] || {}).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
                         ]}
                         onPress={handleGetPlanDetails}
-                        disabled={Object.values(tiffinMeals[1]).filter(Boolean).length === 0 || isFetchingDetails}
+                        disabled={Object.values(tiffinMeals[1] || {}).filter(Boolean).length === 0 || isFetchingDetails}
                       >
                         {isFetchingDetails ? (
                           <ActivityIndicator color="#fff" />
@@ -1552,7 +1558,7 @@ const handleTiffinSubmit = async () => {
                       {errors.selectedPlanType && <Text style={styles.errorText}>{errors.selectedPlanType}</Text>}
                       {errors.fetchedPlanType && <Text style={styles.errorText}>{errors.fetchedPlanType}</Text>}
 
-                      {/* FIXED: Show per-tiffin price under each tiffin (instead of global total) */}
+                      {/* FIXED: Show per-tiffin price under each tiffin (dynamic) */}
                       <View style={styles.priceContainer}>
                         <Text style={styles.priceText}>
                           ₹{perTiffinPrice} / {selectedPlanType.charAt(0).toUpperCase() + selectedPlanType.slice(1)}
