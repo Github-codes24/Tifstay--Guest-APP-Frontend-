@@ -833,8 +833,8 @@ const Checkout: React.FC = () => {
         <View style={styles.paymentContent}>
           <View style={styles.paymentMethodContainer}>
             <View style={styles.paymentMethodLeft}>
-              <Image source={mastercard} style={styles.cardIcon} />
-              <View style={styles.paymentTextContainer}>
+              {/* <Image source={mastercard} style={styles.cardIcon} /> */}
+              {/* <View style={styles.paymentTextContainer}>
                 <View style={styles.payUsingRow}>
                   <Text style={styles.payUsing}>Pay Using</Text>
                   <Ionicons
@@ -845,7 +845,7 @@ const Checkout: React.FC = () => {
                   />
                 </View>
                 <Text style={styles.cardDetails}>Credit Card | **3054</Text>
-              </View>
+              </View> */}
             </View>
           </View>
 
@@ -1135,6 +1135,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginLeft:20,
+    marginRight:20
   },
   totalLabel: {
     fontSize: 15,
