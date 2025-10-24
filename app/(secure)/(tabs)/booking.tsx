@@ -51,6 +51,7 @@ const Booking: React.FC = () => {
 
   useEffect(() => {
     fetchOrders(activeTab);
+    
   }, [activeTab]);
 
   const fetchOrders = async (tab: "pending" | "confirmed") => {
@@ -69,6 +70,7 @@ const Booking: React.FC = () => {
 
       const hostelResponse = await axios.get(hostelUrl, { headers });
       // console.log("Hostel API Response:", hostelResponse.data);
+      
 
       let fetchedHostelOrders: Order[] = [];
       if (hostelResponse.data.success) {
@@ -102,37 +104,37 @@ const Booking: React.FC = () => {
           : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
 
       const tiffinResponse = await axios.get(tiffinUrl, { headers });
+       console.log("Token res:", token)
       console.log("Tiffin API Response:", tiffinResponse);
+     
 
       let fetchedTiffinOrders: Order[] = [];
       if (tiffinResponse.data.success) {
         fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
-          // Updated mapping to match actual API structure
-          const serviceId = item.guestId || item._id; // Use guestId as fallback for entityId
-          const mealType = Array.isArray(item.mealtype) ? item.mealtype.join(", ") : item.mealtype || "";
-          return {
-            id: item.guestId || item._id || "", // Use guestId as order ID
-            bookingId: item.guestId || item._id || "",
-            serviceType: "tiffin" as const,
-            serviceName: `${item.tiffinServiceName || "Unknown"} Tiffin Plan`,
-            customer: "You",
-            startDate: item.startDate
-              ? new Date(item.startDate).toLocaleDateString()
-              : "",
-            endDate: item.endDate // Not in response; leave empty or compute if needed (e.g., based on plan)
-              ? new Date(item.endDate).toLocaleDateString()
-              : "",
-            mealType: mealType, // Joined meal types
-            plan: item.plan || "",
-            orderType: item.orderType || "",
-            status: (item.status || "").toLowerCase() as Order["status"],
-            price: `₹${item.price || 0}`,
-            image: undefined,
-            checkInDate: undefined,
-            checkOutDate: undefined,
-            entityId: serviceId, // For reviews; use guestId or adjust
-          };
-        });
+  const tiffins = item.tiffins || [];
+  const mealType = [...new Set(tiffins.map((t: any) => t.foodType))].join(", ");
+  const plan = [...new Set(tiffins.map((t: any) => t.planName))].join(", ");
+  const orderType = [...new Set(tiffins.map((t: any) => t.orderType))].join(", ");
+  const totalPrice = tiffins.reduce((sum: number, t: any) => sum + (t.price || 0), 0);
+
+  return {
+    id: item._id,
+    bookingId: item.bookingId,
+    serviceType: "tiffin" as const,
+    serviceName: item.tiffinServiceName || "Unknown Tiffin Service",
+    customer: "You",
+    startDate: item.startDate ? new Date(item.startDate).toLocaleDateString() : "",
+    endDate: "", // Not provided by backend
+    mealType,
+    plan,
+    orderType,
+    status: (item.status || "").toLowerCase() as Order["status"],
+    price: `₹${totalPrice}`,
+    image: undefined,
+    entityId: item._id,
+  };
+});
+
       }
       setTiffinOrders(fetchedTiffinOrders);
     } catch (error) {
@@ -197,7 +199,6 @@ const Booking: React.FC = () => {
       order.bookingId,
       "using entityId:",
       order.entityId,
-    
     );
     let pathname;
     let params;
@@ -350,57 +351,20 @@ const Booking: React.FC = () => {
         )}
       </View>
 
-      {activeTab === "pending" ? (
-        order.serviceType !== "hostel" && (
+      {activeTab === "pending" ? null : (
+  <>
+    {order.status === "confirmed" && !isHistoryOrder(order.status) && (
+      <View>
+        {isWithin5DaysOfEnd(order) && (
           <Button
-            title="Track Order"
-            onPress={() => handleTrackOrder(order)}
+            title="Continue Subscription"
+            onPress={() => handleContinueSubscription(order)}
             style={styles.primaryButtonStyle}
             height={48}
           />
-        )
-      ) : (
-        <>
-          {order.status === "confirmed" && !isHistoryOrder(order.status) && (
-            <View>
-              {isWithin5DaysOfEnd(order) && (
-                <Button
-                  title="Continue Subscription"
-                  onPress={() => handleContinueSubscription(order)}
-                  style={styles.primaryButtonStyle}
-                  height={48}
-                />
-              )}
-              {order.serviceType === "tiffin" ? (
-                <View style={styles.buttonRow}>
-                  <Button
-                    title="Rate Now"
-                    onPress={() => handleRateNow(order)}
-                    style={styles.rateButtonStyle}
-                    textStyle={styles.secondaryButtonTextStyle}
-                    width={160}
-                    height={48}
-                  />
-                  <Button
-                    title="See Details"
-                    onPress={() => handleSeeDetails(order)}
-                    style={styles.repeatButtonStyle}
-                    width={160}
-                    height={48}
-                  />
-                </View>
-              ) : (
-                <Button
-                  title="Rate Now"
-                  onPress={() => handleRateNow(order)}
-                  textStyle={styles.secondaryButtonTextStyle}
-                  style={styles.rateButtonStyle}
-                  height={48}
-                />
-              )}
-            </View>
-          )}
-          {isHistoryOrder(order.status) && (
+        )}
+        {order.serviceType === "tiffin" ? (
+          <View>
             <View style={styles.buttonRow}>
               <Button
                 title="Rate Now"
@@ -411,16 +375,52 @@ const Booking: React.FC = () => {
                 height={48}
               />
               <Button
-                title="Repeat Order"
-                onPress={() => handleRepeatOrder(order)}
+                title="See Details"
+                onPress={() => handleSeeDetails(order)}
                 style={styles.repeatButtonStyle}
                 width={160}
                 height={48}
               />
             </View>
-          )}
-        </>
-      )}
+            <Button
+              title="Track Now"
+              onPress={() => handleTrackOrder(order)}
+              style={styles.primaryButtonStyle}
+              height={48}
+            />
+          </View>
+        ) : (
+          <Button
+            title="Rate Now"
+            onPress={() => handleRateNow(order)}
+            textStyle={styles.secondaryButtonTextStyle}
+            style={styles.rateButtonStyle}
+            height={48}
+          />
+        )}
+      </View>
+    )}
+    {isHistoryOrder(order.status) && (
+      <View style={styles.buttonRow}>
+        <Button
+          title="Rate Now"
+          onPress={() => handleRateNow(order)}
+          style={styles.rateButtonStyle}
+          textStyle={styles.secondaryButtonTextStyle}
+          width={160}
+          height={48}
+        />
+        <Button
+          title="Repeat Order"
+          onPress={() => handleRepeatOrder(order)}
+          style={styles.repeatButtonStyle}
+          width={160}
+          height={48}
+        />
+      </View>
+    )}
+  </>
+)}
     </View>
   );
 
@@ -441,7 +441,7 @@ const Booking: React.FC = () => {
 
   // Debug log for tab data
   console.log(
-    `Rendering ${activeTab} tab - Hostels: ${hostelOrders.length}, Tiffins: ${tiffinOrders.length}`
+    `Rendering ${activeTab} tab - Hostels: ${hostelOrders.length}, Tiffins: ${tiffinOrders.length}`,
   );
 
   return (
@@ -545,7 +545,7 @@ const Booking: React.FC = () => {
             setShowTrackOrderModal(false);
             setTrackingOrder(null);
           }}
-          orderId={trackingOrder.bookingId}
+          orderId={trackingOrder.id}
           serviceType={trackingOrder.serviceType}
         />
       )}
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonStyle: {
     backgroundColor: colors.primary,
-    marginBottom: 8,
+    marginTop: 8,
     width: "100%",
   },
   secondaryButtonStyle: {

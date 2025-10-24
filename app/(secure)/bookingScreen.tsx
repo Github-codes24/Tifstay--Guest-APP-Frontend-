@@ -77,7 +77,14 @@ export default function BookingScreen() {
 
   // Error states for better UX
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [planError, setPlanError] = useState<string>('');
+  // Tiffin plan errors per tiffin
+  const [planErrors, setPlanErrors] = useState<Record<number, string>>(() => {
+    const initial: Record<number, string> = {};
+    for (let i = 1; i <= 4; i++) {
+      initial[i] = '';
+    }
+    return initial;
+  });
 
   // New states for dynamic pricing
   const [pricingData, setPricingData] = useState({
@@ -91,18 +98,22 @@ export default function BookingScreen() {
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
   const [pickerItems, setPickerItems] = useState([]); // For plan types (tiffin) or plans (hostel)
   // Tiffin-specific states
-  const [selectedPlanType, setSelectedPlanType] = useState("perMeal"); // Default to perMeal
   // FIXED: Fixed to 4 tiffins, no dynamic number
   const [mealLabels, setMealLabels] = useState<Record<MealType, string>>({});
-  // New state for fetched plan details
-  const [fetchedPlanType, setFetchedPlanType] = useState('');
-  const [fetchedPricing, setFetchedPricing] = useState({
-    perBreakfast: 0,
-    perLunch: 0,
-    perMeal: 0,
-    weekly: 0,
-    monthly: 0,
-    offers: '',
+  // NEW: Per-tiffin fetched pricing
+  const [fetchedPricings, setFetchedPricings] = useState<Record<number, {
+    perBreakfast: number;
+    perLunch: number;
+    perMeal: number;
+    weekly: number;
+    monthly: number;
+    offers: string;
+  }>>(() => {
+    const initial: Record<number, any> = {};
+    for (let i = 1; i <= 4; i++) {
+      initial[i] = { perBreakfast: 0, perLunch: 0, perMeal: 0, weekly: 0, monthly: 0, offers: '' };
+    }
+    return initial;
   });
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
   const [expandedTiffin, setExpandedTiffin] = useState<number | null>(null);
@@ -118,6 +129,14 @@ export default function BookingScreen() {
     const initial = {};
     for (let i = 1; i <= 4; i++) {
       initial[i] = { breakfast: false, lunch: false, dinner: false };
+    }
+    return initial;
+  });
+  // NEW: Per-tiffin plan types
+  const [tiffinPlans, setTiffinPlans] = useState<Record<number, string>>(() => {
+    const initial: Record<number, string> = {};
+    for (let i = 1; i <= 4; i++) {
+      initial[i] = '';
     }
     return initial;
   });
@@ -165,6 +184,30 @@ export default function BookingScreen() {
     return selectedMeals.join(", ");
   };
 
+  // NEW: Helper to get base price for a plan and tiffin num
+  const getBasePriceForPlan = (num: number, plan: string) => {
+    const thisPricing = fetchedPricings[num];
+    const pricingKey = plan as keyof typeof fetchedPricings[1];
+    if (thisPricing && thisPricing[pricingKey] > 0) {
+      return thisPricing[pricingKey];
+    }
+    // Hardcoded fallback
+    switch (plan) {
+      case "perBreakfast":
+        return 120;
+      case "perLunch":
+        return 130;
+      case "perMeal":
+        return 120;
+      case "weekly":
+        return 800;
+      case "monthly":
+        return 3200;
+      default:
+        return 0;
+    }
+  };
+
   // Validate tiffin form
   const validateTiffinForm = () => {
     const newErrors: Record<string, string> = {};
@@ -173,13 +216,21 @@ export default function BookingScreen() {
     if (!phoneNumber.trim()) newErrors.phoneNumber = "Phone Number is required!";
     if (orderType === "delivery" && !address.trim()) newErrors.address = "Address is required for delivery!";
     if (!date) newErrors.date = "Date is required!";
-    if (['weekly', 'monthly'].includes(selectedPlanType) && (!endDate || endDate <= date)) newErrors.endDate = "End date is required and must be after start date!";
+    const hasPeriodic = Object.values(tiffinPlans).some(p => ['weekly', 'monthly'].includes(p));
+    if (hasPeriodic && (!endDate || endDate <= date)) newErrors.endDate = "End date is required and must be after start date!";
     if (!selectedfood) newErrors.selectedfood = "Food Type is required!";
-    if (!selectedPlanType) newErrors.selectedPlanType = "Plan type is required!";
-    if (!fetchedPlanType) newErrors.fetchedPlanType = "Please get plan details first!";
-    // NEW: Validate at least one meal selected for tiffin 1 (and optionally for others)
-    const numMealsSelected = Object.values(tiffinMeals[1] || {}).filter(Boolean).length;
-    if (numMealsSelected === 0) newErrors.mealPreferences = "At least one meal preference is required for Tiffin 1!";
+    // FIXED: Check total meals across all tiffins
+    const totalSelectedMeals = Object.values(tiffinMeals).reduce((acc: number, meals) => {
+      return acc + Object.values(meals || {}).filter((v: boolean) => v).length;
+    }, 0);
+    if (totalSelectedMeals === 0) newErrors.mealPreferences = "At least one meal preference is required!";
+    // NEW: Validate plan for each filled tiffin
+    for (let i = 1; i <= 4; i++) {
+      const hasMeals = Object.values(tiffinMeals[i] || {}).some((v: boolean) => v);
+      if (hasMeals && !tiffinPlans[i]) {
+        newErrors[`plan${i}`] = `Plan type is required for Tiffin ${i}!`;
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -204,8 +255,6 @@ export default function BookingScreen() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // REMOVED: Update tiffinMeals when numberOfTiffins changes (fixed to 4)
 
   useEffect(() => {
     console.log("=== Autofill useEffect triggered ===");
@@ -314,27 +363,10 @@ export default function BookingScreen() {
             contactInfo: parsedServiceData.contactInfo,
           }));
 
-          // Autofill tiffin-specific fields
-          // NEW: Use first available plan's foodType (handles mismatches)
-          const firstPlan = parsedServiceData.pricing?.[0];
-          const planFoodType = firstPlan?.foodType?.toLowerCase() || "Veg";
-          setSelectedfood(planFoodType.includes("Both") ? "Both" : planFoodType.includes("Non") ? "Non-Veg" : "Veg");
-          // Set meal preferences from data (assume types like "Breakfast" -> "breakfast")
-          const defaultMealPrefs = { breakfast: false, lunch: false, dinner: false };
-          parsedServiceData.mealPreferences?.forEach((meal: any) => {
-            const key = meal.type.toLowerCase() as MealType;
-            if (key in defaultMealPrefs) {
-              defaultMealPrefs[key] = true;
-            }
-          });
-          console.log("mealPreferences set to:", defaultMealPrefs);
-          // FIXED: Set for tiffin 1 only (no autofill for others)
-          setTiffinMeals(prev => ({
-            ...prev,
-            1: { ...defaultMealPrefs }
-          }));
-
-          // Set meal labels with timings
+          // FIXED: No prefill for meals or food type - start blank
+          setSelectedfood("Both");
+          setOrderType("delivery");
+          // Set meal labels with timings (service info, keep)
           const mealLabelMap: Record<MealType, string> = { breakfast: '', lunch: '', dinner: '' };
           parsedServiceData.mealPreferences?.forEach((meal: any) => {
             const key = meal.type.toLowerCase() as MealType;
@@ -343,8 +375,6 @@ export default function BookingScreen() {
             }
           });
           setMealLabels(mealLabelMap);
-
-          setOrderType(parsedServiceData.orderTypes?.includes("Delivery") ? "delivery" : "dining");
           // Default date from params - but set to null for user selection
           setDate(null);
         }
@@ -416,41 +446,18 @@ export default function BookingScreen() {
     let newPrice = 0;
     let newDeposit = 0;
 
-    // NEW: Compute numMeals for logging from tiffin 1
-    const numMeals = Object.values(tiffinMeals[1] || {}).filter(Boolean).length;
-
-    // FIXED: Compute filled tiffins count for pricing (only filled ones)
-    const filledTiffinsCount = Object.keys(tiffinMeals)
-      .filter(i => Object.values(tiffinMeals[Number(i)] || {}).some(Boolean))
-      .length;
-
-    console.log("Price useEffect: selectedPlanType", selectedPlanType, "orderType", orderType);
+    console.log("Price useEffect: orderType", orderType);
 
     if (bookingType === "tiffin") {
-      if (selectedPlanType) {
-        let basePrice = 0;
-        // Use fetched pricing if available, else fallback to hardcoded
-        const pricingKey = selectedPlanType as keyof typeof fetchedPricing;
-        if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
-          basePrice = fetchedPricing[pricingKey];
-        } else {
-          // Hardcoded fallback
-          if (selectedPlanType === "perBreakfast") {
-            basePrice = 120; // Assume delivery
-          } else if (selectedPlanType === "perLunch") {
-            basePrice = 130;
-          } else if (selectedPlanType === "perMeal") {
-            basePrice = 120;
-          } else if (selectedPlanType === "weekly") {
-            basePrice = 800; // Discounted price
-          } else if (selectedPlanType === "monthly") {
-            basePrice = 3200; // Discounted price
-          }
+      // FIXED: Sum prices across filled tiffins with their specific plans
+      for (let i = 1; i <= 4; i++) {
+        const hasMeals = Object.values(tiffinMeals[i] || {}).some(Boolean);
+        const plan = tiffinPlans[i];
+        if (hasMeals && plan) {
+          newPrice += getBasePriceForPlan(i, plan);
         }
-        // FIXED: Use filledTiffinsCount for dynamic pricing
-        newPrice = basePrice * filledTiffinsCount;
-        console.log("final newPrice:", newPrice);
       }
+      console.log("final newPrice:", newPrice);
       newDeposit = 0; // No deposit for tiffin
     } else {
       // FIXED: For hostel, use flat rate (no multiplication by beds)
@@ -463,18 +470,16 @@ export default function BookingScreen() {
     setCurrentPlanPrice(newPrice);
     setCurrentDeposit(newDeposit);
   }, [
-    selectedPlanType,
     orderType,
     bookingType,
     hostelPlan,
     pricingData,
     securityDeposit,
     tiffinMeals,  // FIXED: Depend on full tiffinMeals for filled count
-    fetchedPricing,
+    fetchedPricings,
+    tiffinPlans, // NEW: Depend on per-tiffin plans
     totalBedsCount, // NEW: For hostel pricing
   ]);
-
-  // REMOVED: Auto-set meal preferences based on selected plan type (to prevent autofill without user apply preference)
 
   // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
@@ -492,23 +497,25 @@ export default function BookingScreen() {
     }
   }, [checkInDate, hostelPlan]);
 
-  // Auto-fill end date based on start date and plan type (for tiffin weekly/monthly)
+  // FIXED: Auto-fill end date based on start date and plans (for tiffin weekly/monthly, if any)
   useEffect(() => {
-    if (date && ['weekly', 'monthly'].includes(selectedPlanType)) {
+    const periodicPlans = Object.values(tiffinPlans).filter(p => ['weekly', 'monthly'].includes(p));
+    if (date && periodicPlans.length > 0) {
+      // Assume all periodic are same type, take first
+      const firstPeriodic = periodicPlans[0];
       let daysToAdd = 0;
-      if (selectedPlanType === 'weekly') {
+      if (firstPeriodic === 'weekly') {
         daysToAdd = 7;
-      } else if (selectedPlanType === 'monthly') {
-        daysToAdd = 30; // Approximate for a month
+      } else if (firstPeriodic === 'monthly') {
+        daysToAdd = 30;
       }
-
       const newEndDate = new Date(date);
       newEndDate.setDate(newEndDate.getDate() + daysToAdd);
       setEndDate(newEndDate);
-    } else if (!['weekly', 'monthly'].includes(selectedPlanType)) {
-      setEndDate(null); // Clear end date for per meal plans
+    } else {
+      setEndDate(null); // Clear end date if no periodic plans
     }
-  }, [date, selectedPlanType]);
+  }, [date, tiffinPlans]);
 
   // Helper functions
   const toggleMealPreference = (num: number, meal: MealType) => {
@@ -585,15 +592,14 @@ export default function BookingScreen() {
     }
   };
 
-  const handleGetPlanDetails = async () => {
-    // Use tiffin 1's meals
-    const selectedMeals: string[] = [];
-    if (tiffinMeals[1]?.breakfast) selectedMeals.push('Breakfast');
-    if (tiffinMeals[1]?.lunch) selectedMeals.push('Lunch');
-    if (tiffinMeals[1]?.dinner) selectedMeals.push('Dinner');
+  // FIXED: Per-tiffin plan details fetch
+  const handleGetPlanDetails = async (num: number) => {
+    const selectedMeals = Object.entries(tiffinMeals[num] || {})
+      .filter(([_, checked]) => checked)
+      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
     const mealPrefStr = selectedMeals.join(',');
     if (mealPrefStr === '') {
-      setPlanError('Please select at least one meal preference.');
+      setPlanErrors(prev => ({ ...prev, [num]: 'Please select at least one meal preference.' }));
       return;
     }
 
@@ -606,17 +612,17 @@ export default function BookingScreen() {
 
     const token = await AsyncStorage.getItem("token");
     if (!token) {
-      setPlanError('Authentication required.');
+      setPlanErrors(prev => ({ ...prev, [num]: 'Authentication required.' }));
       return;
     }
 
     if (!serviceData.serviceId) {
-      setPlanError('Service ID not available.');
+      setPlanErrors(prev => ({ ...prev, [num]: 'Service ID not available.' }));
       return;
     }
 
     setIsFetchingDetails(true);
-    setPlanError('');
+    setPlanErrors(prev => ({ ...prev, [num]: '' }));
     try {
       const queryParams = new URLSearchParams({
         mealPreference: mealPrefStr,
@@ -635,34 +641,34 @@ export default function BookingScreen() {
 
       if (response.data.success) {
         const data = response.data.data;
-        setFetchedPlanType(data.planType);
-        setFetchedPricing({
+        const newPricing = {
           perBreakfast: data.pricing.perBreakfast || 0,
           perLunch: data.pricing.perLunch || 0,
           perMeal: data.pricing.perMeal || 0,
           weekly: data.pricing.weekly || 0,
           monthly: data.pricing.monthly || 0,
           offers: data.offers || '',
-        });
+        };
+        setFetchedPricings(prev => ({ ...prev, [num]: newPricing }));
         // Check if no plans found
-        const totalPricing = (data.pricing.perBreakfast || 0) + (data.pricing.perLunch || 0) + (data.pricing.perMeal || 0) + (data.pricing.weekly || 0) + (data.pricing.monthly || 0);
+        const totalPricing = Object.values(newPricing).reduce((acc, v) => acc + (typeof v === 'number' ? v : 0), 0);
         if (totalPricing === 0) {
-          setPlanError('No plans available for your selected preferences. Please try different options.');
+          setPlanErrors(prev => ({ ...prev, [num]: 'No plans available for your selected preferences. Please try different options.' }));
         } else {
-          setPlanError('');
+          setPlanErrors(prev => ({ ...prev, [num]: '' }));
         }
         console.log(`✅ Fetched details:`, data);
       } else {
         console.log(`❌ API false:`, response.data.message);
-        setPlanError('Failed to fetch plan details: ' + response.data.message);
+        setPlanErrors(prev => ({ ...prev, [num]: 'Failed to fetch plan details: ' + response.data.message }));
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error(`❌ Error: Status ${error.response?.status}, Data:`, error.response?.data);
-        setPlanError('Failed to fetch plan details: ' + (error.response?.data?.message || 'Network error'));
+        setPlanErrors(prev => ({ ...prev, [num]: 'Failed to fetch plan details: ' + (error.response?.data?.message || 'Network error') }));
       } else {
         console.error(`❌ Non-Axios error:`, error);
-        setPlanError('Failed to fetch plan details.');
+        setPlanErrors(prev => ({ ...prev, [num]: 'Failed to fetch plan details.' }));
       }
     } finally {
       setIsFetchingDetails(false);
@@ -678,7 +684,6 @@ const handleTiffinSubmit = async () => {
   // console.log("fullName:", fullName);
   // console.log("phoneNumber:", phoneNumber);
   // console.log("address:", address);
-  // console.log("selectedPlanType:", selectedPlanType);
   // console.log("tiffinMeals[1]:", tiffinMeals[1]);
   // console.log("orderType:", orderType);
   // console.log("selectedfood:", selectedfood);
@@ -686,145 +691,145 @@ const handleTiffinSubmit = async () => {
   // console.log("date:", date);
   // console.log("endDate:", endDate);
   // console.log("serviceData:", serviceData);
-  // console.log("fetchedPlanType:", fetchedPlanType);
 
-  if (validateTiffinForm()) {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        setErrors(prev => ({ ...prev, general: "Authentication token is missing!" }));
-        return;
-      }
+  if (!validateTiffinForm()) {
+    return;
+  }
 
-      if (!serviceData.serviceId) {
-        setErrors(prev => ({ ...prev, general: "Service ID is missing!" }));
-        return;
-      }
-
-      // FIXED: Build selectTiffinNumber array for fixed 4 tiffins, but only filled
-      const numTiffins = 4;
-      const perTiffinPrice = currentPlanPrice / Math.max(1, Object.keys(tiffinMeals).filter(i => Object.values(tiffinMeals[Number(i)] || {}).some(Boolean)).length); // Per filled tiffin price
-      const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
-
-      // FIXED: Use short form for payload body (matches backend validation)
-      const foodTypeMap = {
-        Veg: "Veg",
-        "Non-Veg": "Non-Veg",
-        Both: "Both"  // Shortened for create payload
-      };
-      const foodTypeStr = foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
-
-      // FIXED: Use short, capitalized selectedPlanType for planName (e.g., "Monthly") to match backend expectations
-      const planNameMap: Record<string, string> = {
-        perBreakfast: "Per Breakfast",
-        perLunch: "Per Lunch",
-        perMeal: "Per Meal",
-        weekly: "Weekly",
-        monthly: "Monthly"
-      };
-      const planName = planNameMap[selectedPlanType] || selectedPlanType.charAt(0).toUpperCase() + selectedPlanType.slice(1);
-
-      const selectTiffinNumberArray = [];
-      for (let i = 1; i <= numTiffins; i++) {
-        // Per-tiffin meal preference as comma-separated string
-        const selectedMealsForTiffin = Object.entries(tiffinMeals[i] || {})
-          .filter(([_, checked]) => checked)
-          .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-        const mealPreferenceStr = selectedMealsForTiffin.join(',');
-
-        // FIXED: Only include if at least one meal selected (strict: no fallback, skip empty tiffins)
-        if (selectedMealsForTiffin.length > 0) {
-          const tiffinObj = {
-            tiffinNumber: i,
-            foodType: foodTypeStr,
-            chooseOrderType: chooseOrderTypeStr,
-            choosePlanType: {
-              planName,
-              price: perTiffinPrice
-            },
-            mealPreference: mealPreferenceStr
-          };
-
-          selectTiffinNumberArray.push(tiffinObj);
-        }
-      }
-
-      // FIXED: Check if any tiffins were filled; if none, error
-      if (selectTiffinNumberArray.length === 0) {
-        setErrors(prev => ({ ...prev, general: "Please fill meal preferences for at least one tiffin!" }));
-        return;
-      }
-
-      // FIXED: Set numberOfTiffin to actual filled count
-      const filledNumTiffins = selectTiffinNumberArray.length;
-
-      // FIXED: Use full ISO date (with time) to match successful example
-      const startDateISO = date ? new Date(date).toISOString() : '';
-      const payload = {
-        fullName,
-        phoneNumber,
-        address,
-        specialInstructions,
-        numberOfTiffin: filledNumTiffins,
-        selectTiffinNumber: selectTiffinNumberArray,
-        date: startDateISO,
-      };
-
-      
-      if (['weekly', 'monthly'].includes(selectedPlanType)) {
-        const endDateISO = endDate ? new Date(endDate).toISOString() : '';
-        payload.endDate = endDateISO;
-      }
-
-      console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
-
-      // FIXED: Use 'tiffinServices' query param (matches backend req.query)
-      const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      console.log("API Response:", response.data);
-
-      if (response.data.success) {
-        console.log("Tiffin booking successful:", response.data.data);
-        const bookingId = response.data.data._id;
-
-        console.log("Navigating to checkout with booking ID:", bookingId,serviceData);
-
-        router.push({
-          pathname: "/check-out",
-          params: {
-            serviceType: "tiffin",
-            bookingId,
-            serviceId: serviceData.serviceId,
-            // NEW: Pass key booking data as fallback (strings for params)
-            totalPrice: currentPlanPrice.toString(),
-            planType: selectedPlanType,
-            startDate: startDateISO.split('T')[0] || '',
-            endDate: payload.endDate ? (payload.endDate as string).split('T')[0] : '',
-            mealPreference: Object.entries(tiffinMeals[1] || {}).filter(([_, checked]) => checked).map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1)).join(','),
-            foodType: selectedfood,
-            orderType: orderType,
-            numberOfTiffin: filledNumTiffins.toString(),
-            fullName: fullName,  // If needed for display
-          },
-        });
-      } else {
-        console.error("Booking failed:", response.data.message || "Unknown error");
-        setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
-      }
-    } catch (error: any) {
-      console.error("Error creating tiffin booking:", error.response?.data || error.message);
-      console.error("Full error object:", error);
-      setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      setErrors(prev => ({ ...prev, general: "Authentication token is missing!" }));
+      return;
     }
+
+    if (!serviceData.serviceId) {
+      setErrors(prev => ({ ...prev, general: "Service ID is missing!" }));
+      return;
+    }
+
+    const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
+
+    // FIXED: Use short form for payload body (matches backend validation)
+    const foodTypeMap = {
+      Veg: "Veg",
+      "Non-Veg": "Non-Veg",
+      Both: "Both"  // Shortened for create payload
+    };
+    const foodTypeStr = foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
+
+    // FIXED: Use short, capitalized selectedPlanType for planName (e.g., "Monthly") to match backend expectations
+    const planNameMap: Record<string, string> = {
+      perBreakfast: "Per Breakfast",
+      perLunch: "Per Lunch",
+      perMeal: "Per Meal",
+      weekly: "Weekly",
+      monthly: "Monthly"
+    };
+
+    const selectTiffinNumberArray = [];
+    for (let i = 1; i <= 4; i++) {
+      // Per-tiffin meal preference as comma-separated string
+      const selectedMealsForTiffin = Object.entries(tiffinMeals[i] || {})
+        .filter(([_, checked]) => checked)
+        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+      const mealPreferenceStr = selectedMealsForTiffin.join(',');
+
+      // FIXED: Only include if at least one meal selected (strict: no fallback, skip empty tiffins)
+      if (selectedMealsForTiffin.length > 0) {
+        const plan = tiffinPlans[i];
+        const planName = planNameMap[plan] || plan.charAt(0).toUpperCase() + plan.slice(1);
+        const priceForThis = getBasePriceForPlan(i, plan);
+        const tiffinObj = {
+          tiffinNumber: i,
+          foodType: foodTypeStr,
+          chooseOrderType: chooseOrderTypeStr,
+          choosePlanType: {
+            planName,
+            price: priceForThis
+          },
+         mealType: mealPreferenceStr
+        };
+
+        selectTiffinNumberArray.push(tiffinObj);
+      }
+    }
+
+    // FIXED: Check if any tiffins were filled; if none, error
+    if (selectTiffinNumberArray.length === 0) {
+      setErrors(prev => ({ ...prev, general: "Please fill meal preferences for at least one tiffin!" }));
+      return;
+    }
+
+    // FIXED: Set numberOfTiffin to actual filled count
+    const filledNumTiffins = selectTiffinNumberArray.length;
+
+    // FIXED: Use full ISO date (with time) to match successful example
+    const startDateISO = date ? new Date(date).toISOString() : '';
+    const payload = {
+      fullName,
+      phoneNumber,
+      address,
+      specialInstructions,
+      numberOfTiffin: filledNumTiffins,
+      selectTiffinNumber: selectTiffinNumberArray,
+      date: startDateISO,
+    };
+
+    const hasPeriodic = Object.values(tiffinPlans).some(p => ['weekly', 'monthly'].includes(p));
+    if (hasPeriodic) {
+      const endDateISO = endDate ? new Date(endDate).toISOString() : '';
+      payload.endDate = endDateISO;
+    }
+
+    console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
+
+    // FIXED: Use 'tiffinServices' query param (matches backend req.query)
+    const response = await axios.post(
+      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    console.log("API Response:", response.data);
+
+    if (response.data.success) {
+      console.log("Tiffin booking successful:", response.data.data);
+      const bookingId = response.data.data._id;
+
+      console.log("Navigating to checkout with booking ID:", bookingId,serviceData);
+
+      router.push({
+        pathname: "/check-out",
+        params: {
+          serviceType: "tiffin",
+          bookingId,
+          serviceId: serviceData.serviceId,
+          // NEW: Pass key booking data as fallback (strings for params)
+          totalPrice: currentPlanPrice.toString(),
+          planType: '', // No global now
+          startDate: startDateISO.split('T')[0] || '',
+          endDate: payload.endDate ? (payload.endDate as string).split('T')[0] : '',
+          mealPreference: Object.entries(tiffinMeals[1] || {}).filter(([_, checked]) => checked).map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1)).join(','),
+          foodType: selectedfood,
+          orderType: orderType,
+          numberOfTiffin: filledNumTiffins.toString(),
+          fullName: fullName,  // If needed for display
+        },
+      });
+    } else {
+      console.error("Booking failed:", response.data.message || "Unknown error");
+      setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+    }
+  } catch (error: any) {
+    console.error("Error creating tiffin booking:", error.response?.data || error.message);
+    console.error("Full error object:", error);
+    setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
   }
 };
 
@@ -987,6 +992,32 @@ const handleTiffinSubmit = async () => {
       `${room.roomNumber} (Beds: ${room.beds.map(b => b.bedNumber).join(', ')})`
     ).join(', ');
   }, [serviceData.rooms]);
+
+  // FIXED: Per-tiffin plan options
+  const getPlanOptionsForNum = (num: number) => {
+    const thisPricing = fetchedPricings[num];
+    const options: { label: string; value: string }[] = [];
+    if (thisPricing.perBreakfast > 0) {
+      options.push({ label: `Per Breakfast (₹${thisPricing.perBreakfast} / per breakfast)`, value: "perBreakfast" });
+    }
+    if (thisPricing.perLunch > 0) {
+      options.push({ label: `Per Lunch (₹${thisPricing.perLunch} / per lunch)`, value: "perLunch" });
+    }
+    if (thisPricing.perMeal > 0) {
+      options.push({ label: `Per Meal (₹${thisPricing.perMeal}/meal)`, value: "perMeal" });
+    }
+    if (thisPricing.weekly > 0) {
+      options.push({ label: `Weekly (₹${thisPricing.weekly}/weekly)`, value: "weekly" });
+    }
+    if (thisPricing.monthly > 0) {
+      options.push({ label: `Monthly (₹${thisPricing.monthly}/monthly)`, value: "monthly" });
+    }
+    // If no dynamic options, fallback to hardcoded
+    if (options.length === 0) {
+      return hardcodedPlanOptions;
+    }
+    return options;
+  };
 
   const renderHostelBooking = () => (
     <>
@@ -1215,36 +1246,8 @@ const handleTiffinSubmit = async () => {
     { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
   ];
 
-  const getPlanOptions = () => {
-    const options: { label: string; value: string }[] = [];
-    if (fetchedPricing.perBreakfast > 0) {
-      options.push({ label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`, value: "perBreakfast" });
-    }
-    if (fetchedPricing.perLunch > 0) {
-      options.push({ label: `Per Lunch (₹${fetchedPricing.perLunch} / per lunch)`, value: "perLunch" });
-    }
-    if (fetchedPricing.perMeal > 0) {
-      options.push({ label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`, value: "perMeal" });
-    }
-    if (fetchedPricing.weekly > 0) {
-      options.push({ label: `Weekly (₹${fetchedPricing.weekly}/weekly)`, value: "weekly" });
-    }
-    if (fetchedPricing.monthly > 0) {
-      options.push({ label: `Monthly (₹${fetchedPricing.monthly}/monthly)`, value: "monthly" });
-    }
-    // If no dynamic options, fallback to hardcoded
-    if (options.length === 0) {
-      return hardcodedPlanOptions;
-    }
-    return options;
-  };
-
   const renderTiffinBooking = () => {
-    // FIXED: Compute per-tiffin price based on filled count
-    const filledTiffinsCount = Object.keys(tiffinMeals)
-      .filter(i => Object.values(tiffinMeals[Number(i)] || {}).some(Boolean))
-      .length;
-    const perTiffinPrice = filledTiffinsCount > 0 ? currentPlanPrice / filledTiffinsCount : 0;
+    const hasPeriodic = Object.values(tiffinPlans).some(p => ['weekly', 'monthly'].includes(p));
     return (
       <>
         <View style={styles.section}>
@@ -1525,10 +1528,10 @@ const handleTiffinSubmit = async () => {
                       <TouchableOpacity
                         style={[
                           styles.submitButton,
-                          (Object.values(tiffinMeals[1] || {}).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
+                          (Object.values(tiffinMeals[num] || {}).filter(Boolean).length === 0 || isFetchingDetails) && styles.disabledButton
                         ]}
-                        onPress={handleGetPlanDetails}
-                        disabled={Object.values(tiffinMeals[1] || {}).filter(Boolean).length === 0 || isFetchingDetails}
+                        onPress={() => handleGetPlanDetails(num)}
+                        disabled={Object.values(tiffinMeals[num] || {}).filter(Boolean).length === 0 || isFetchingDetails}
                       >
                         {isFetchingDetails ? (
                           <ActivityIndicator color="#fff" />
@@ -1536,37 +1539,38 @@ const handleTiffinSubmit = async () => {
                           <Text style={styles.submitButtonText}>Get Plan Details</Text>
                         )}
                       </TouchableOpacity>
-                      {planError ? (
-                        <Text style={styles.errorText}>{planError}</Text>
-                      ) : fetchedPricing.offers ? (
-                        <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
+                      {planErrors[num] ? (
+                        <Text style={styles.errorText}>{planErrors[num]}</Text>
+                      ) : fetchedPricings[num].offers ? (
+                        <Text style={styles.offersText}>{fetchedPricings[num].offers}</Text>
                       ) : null}
 
                       <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
-                      {getPlanOptions().map((option) => (
+                      {getPlanOptionsForNum(num).map((option) => (
                         <RadioButton
                           key={option.value}
                           label={option.label}
                           value={option.value}
-                          selected={selectedPlanType}
+                          selected={tiffinPlans[num] || ''}
                           onPress={(value) => {
-                            setSelectedPlanType(value);
-                            clearError('selectedPlanType');
+                            setTiffinPlans((prev) => ({ ...prev, [num]: value }));
+                            clearError(`plan${num}`);
                           }}
                         />
                       ))}
-                      {errors.selectedPlanType && <Text style={styles.errorText}>{errors.selectedPlanType}</Text>}
-                      {errors.fetchedPlanType && <Text style={styles.errorText}>{errors.fetchedPlanType}</Text>}
+                      {errors[`plan${num}`] && <Text style={styles.errorText}>{errors[`plan${num}`]}</Text>}
 
                       {/* FIXED: Show per-tiffin price under each tiffin (dynamic) */}
-                      <View style={styles.priceContainer}>
-                        <Text style={styles.priceText}>
-                          ₹{perTiffinPrice} / {selectedPlanType.charAt(0).toUpperCase() + selectedPlanType.slice(1)}
-                        </Text>
-                        <Text style={styles.depositText}>
-                          No Deposit
-                        </Text>
-                      </View>
+                      {tiffinPlans[num] && (
+                        <View style={styles.priceContainer}>
+                          <Text style={styles.priceText}>
+                            ₹{getBasePriceForPlan(num, tiffinPlans[num])} / {tiffinPlans[num].charAt(0).toUpperCase() + tiffinPlans[num].slice(1)}
+                          </Text>
+                          <Text style={styles.depositText}>
+                            No Deposit
+                          </Text>
+                        </View>
+                      )}
 
                       <Text style={styles.label}>Select Start Date *</Text>
                       <TouchableOpacity
@@ -1589,7 +1593,7 @@ const handleTiffinSubmit = async () => {
                         />
                       )}
 
-                      {['weekly', 'monthly'].includes(selectedPlanType) && (
+                      {hasPeriodic && (
                         <>
                           <Text style={styles.label}>Select End Date *</Text>
                           <TouchableOpacity
