@@ -112,7 +112,8 @@ const Booking: React.FC = () => {
       if (tiffinResponse.data.success) {
         fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
   const tiffins = item.tiffins || [];
-  const mealType = [...new Set(tiffins.map((t: any) => t.foodType))].join(", ");
+  const mealType = [...new Set(tiffins.map((t: any) => t.mealType))].join(", ");
+  const foodType = [...new Set(tiffins.map((t: any) => t.foodType))].join(", ");
   const plan = [...new Set(tiffins.map((t: any) => t.planName))].join(", ");
   const orderType = [...new Set(tiffins.map((t: any) => t.orderType))].join(", ");
   const totalPrice = tiffins.reduce((sum: number, t: any) => sum + (t.price || 0), 0);
@@ -126,6 +127,7 @@ const Booking: React.FC = () => {
     startDate: item.startDate ? new Date(item.startDate).toLocaleDateString() : "",
     endDate: "", // Not provided by backend
     mealType,
+    foodType,
     plan,
     orderType,
     status: (item.status || "").toLowerCase() as Order["status"],
@@ -337,8 +339,14 @@ const Booking: React.FC = () => {
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Meal Type:</Text>
-              <Text style={styles.detailValue}>{order.mealType || order.serviceType}</Text> {/* Updated to use mealType */}
+              <Text style={styles.detailValue}>{order.mealType}</Text>
             </View>
+            {order.foodType && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Food Type:</Text>
+                <Text style={styles.detailValue}>{order.foodType}</Text>
+              </View>
+            )}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Plan:</Text>
               <Text style={styles.detailValue}>{order.plan}</Text>

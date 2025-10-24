@@ -680,18 +680,6 @@ export default function BookingScreen() {
   };
 
 const handleTiffinSubmit = async () => {
-  // console.log("=== Tiffin Submit Debug ===");
-  // console.log("fullName:", fullName);
-  // console.log("phoneNumber:", phoneNumber);
-  // console.log("address:", address);
-  // console.log("tiffinMeals[1]:", tiffinMeals[1]);
-  // console.log("orderType:", orderType);
-  // console.log("selectedfood:", selectedfood);
-  // console.log("specialInstructions:", specialInstructions);
-  // console.log("date:", date);
-  // console.log("endDate:", endDate);
-  // console.log("serviceData:", serviceData);
-
   if (!validateTiffinForm()) {
     return;
   }
@@ -710,15 +698,13 @@ const handleTiffinSubmit = async () => {
 
     const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
 
-    // FIXED: Use short form for payload body (matches backend validation)
     const foodTypeMap = {
       Veg: "Veg",
       "Non-Veg": "Non-Veg",
-      Both: "Both"  // Shortened for create payload
+      Both: "Both"
     };
     const foodTypeStr = foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
 
-    // FIXED: Use short, capitalized selectedPlanType for planName (e.g., "Monthly") to match backend expectations
     const planNameMap: Record<string, string> = {
       perBreakfast: "Per Breakfast",
       perLunch: "Per Lunch",
@@ -728,18 +714,18 @@ const handleTiffinSubmit = async () => {
     };
 
     const selectTiffinNumberArray = [];
+
     for (let i = 1; i <= 4; i++) {
-      // Per-tiffin meal preference as comma-separated string
       const selectedMealsForTiffin = Object.entries(tiffinMeals[i] || {})
         .filter(([_, checked]) => checked)
         .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-      const mealPreferenceStr = selectedMealsForTiffin.join(',');
 
-      // FIXED: Only include if at least one meal selected (strict: no fallback, skip empty tiffins)
+    
       if (selectedMealsForTiffin.length > 0) {
         const plan = tiffinPlans[i];
         const planName = planNameMap[plan] || plan.charAt(0).toUpperCase() + plan.slice(1);
         const priceForThis = getBasePriceForPlan(i, plan);
+
         const tiffinObj = {
           tiffinNumber: i,
           foodType: foodTypeStr,
@@ -748,25 +734,23 @@ const handleTiffinSubmit = async () => {
             planName,
             price: priceForThis
           },
-         mealType: mealPreferenceStr
+          
+          mealType: selectedMealsForTiffin
         };
 
         selectTiffinNumberArray.push(tiffinObj);
       }
     }
 
-    // FIXED: Check if any tiffins were filled; if none, error
     if (selectTiffinNumberArray.length === 0) {
       setErrors(prev => ({ ...prev, general: "Please fill meal preferences for at least one tiffin!" }));
       return;
     }
 
-    // FIXED: Set numberOfTiffin to actual filled count
     const filledNumTiffins = selectTiffinNumberArray.length;
-
-    // FIXED: Use full ISO date (with time) to match successful example
     const startDateISO = date ? new Date(date).toISOString() : '';
-    const payload = {
+
+    const payload: any = {
       fullName,
       phoneNumber,
       address,
@@ -784,7 +768,6 @@ const handleTiffinSubmit = async () => {
 
     console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
 
-    // FIXED: Use 'tiffinServices' query param (matches backend req.query)
     const response = await axios.post(
       `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
       payload,
@@ -802,34 +785,40 @@ const handleTiffinSubmit = async () => {
       console.log("Tiffin booking successful:", response.data.data);
       const bookingId = response.data.data._id;
 
-      console.log("Navigating to checkout with booking ID:", bookingId,serviceData);
-
       router.push({
         pathname: "/check-out",
         params: {
           serviceType: "tiffin",
           bookingId,
           serviceId: serviceData.serviceId,
-          // NEW: Pass key booking data as fallback (strings for params)
           totalPrice: currentPlanPrice.toString(),
-          planType: '', // No global now
+          planType: '',
           startDate: startDateISO.split('T')[0] || '',
           endDate: payload.endDate ? (payload.endDate as string).split('T')[0] : '',
-          mealPreference: Object.entries(tiffinMeals[1] || {}).filter(([_, checked]) => checked).map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1)).join(','),
+          mealPreference: Object.entries(tiffinMeals[1] || {})
+            .filter(([_, checked]) => checked)
+            .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1))
+            .join(','),
           foodType: selectedfood,
-          orderType: orderType,
+          orderType,
           numberOfTiffin: filledNumTiffins.toString(),
-          fullName: fullName,  // If needed for display
+          fullName,
         },
       });
     } else {
       console.error("Booking failed:", response.data.message || "Unknown error");
-      setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+      setErrors(prev => ({
+        ...prev,
+        general: "Booking failed: " + (response.data.message || "Unknown error"),
+      }));
     }
   } catch (error: any) {
     console.error("Error creating tiffin booking:", error.response?.data || error.message);
     console.error("Full error object:", error);
-    setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+    setErrors(prev => ({
+      ...prev,
+      general: "Something went wrong while booking. Please try again.",
+    }));
   }
 };
 
