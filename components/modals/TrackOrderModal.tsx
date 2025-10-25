@@ -21,8 +21,8 @@ interface TrackOrderModalProps {
 }
 
 interface TrackingData {
-  currentMeal: string;
-  currentMealStatus: string;
+  currentMeal: string | null;
+  currentMealStatus: string | null;
   summaryEntry?: {
     orderId?: string;
     breakfastStatus?: string;
@@ -72,16 +72,14 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
     "Delivered": 2,
   };
 
-  const currentStep = trackingData
+  const currentStep = trackingData?.currentMealStatus
     ? statusToStep[trackingData.currentMealStatus] || 0
     : 0;
 
   const steps = [
     { status: "Out For Delivery" },
     { status: "On the way" },
-    {
-      status: `${trackingData?.currentMeal || "Meal"} Delivered`,
-    },
+    { status: `${trackingData?.currentMeal || "Meal"} Delivered` },
   ];
 
   if (loading) {
@@ -95,7 +93,10 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
             style={styles.headerStyle}
           />
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary || "#ff7f00"} />
+            <ActivityIndicator
+              size="large"
+              color={colors.primary || "#ff7f00"}
+            />
             <Text style={styles.loadingText}>Loading tracking info...</Text>
           </View>
         </SafeAreaView>
@@ -124,50 +125,61 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
                 </Text>
               </Text>
               <Text style={styles.mealText}>
-                {trackingData?.currentMeal ? trackingData.currentMeal : ""}
+                {trackingData?.currentMeal || ""}
               </Text>
             </View>
 
-
-            {/* Timeline */}
-            <View style={styles.timeline}>
-              {steps.map((step, index) => (
-                <View key={index} style={styles.stepRow}>
-                  <View style={styles.lineContainer}>
-                    <View
-                      style={[
-                        styles.circle,
-                        index <= currentStep
-                          ? styles.circleActive
-                          : styles.circleInactive,
-                      ]}
-                    />
-                    {index < steps.length - 1 && (
+            
+            {trackingData?.currentMeal ? (
+              <View style={styles.timeline}>
+                {steps.map((step, index) => (
+                  <View key={index} style={styles.stepRow}>
+                    <View style={styles.lineContainer}>
                       <View
                         style={[
-                          styles.verticalLine,
-                          index < currentStep
-                            ? styles.verticalLine
-                            : index === currentStep
-                              ? styles.verticalDashedLine
-                              : styles.verticalLineInactive,
+                          styles.circle,
+                          index <= currentStep
+                            ? styles.circleActive
+                            : styles.circleInactive,
                         ]}
                       />
-                    )}
+                      {index < steps.length - 1 && (
+                        <View
+                          style={[
+                            index < currentStep
+                              ? styles.verticalLine
+                              : index === currentStep
+                              ? styles.verticalDashedLine
+                              : styles.verticalLineInactive,
+                          ]}
+                        />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        index <= currentStep
+                          ? styles.statusTextActive
+                          : styles.statusTextInactive,
+                      ]}
+                    >
+                      {step.status}
+                    </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.statusText,
-                      index <= currentStep
-                        ? styles.statusTextActive
-                        : styles.statusTextInactive,
-                    ]}
-                  >
-                    {step.status}
-                  </Text>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.noMealContainer}>
+                <View style={styles.iconCircle}>
+                  <Text style={styles.iconText}>⏰</Text>
                 </View>
-              ))}
-            </View>
+                <Text style={styles.noMealTitle}>Meal Time Not Active</Text>
+                <Text style={styles.noMealSubText}>
+                  Your delicious meal will be ready at the scheduled time.  
+                  Hang tight and get ready to enjoy!
+                </Text>
+              </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -226,6 +238,32 @@ const styles = StyleSheet.create({
   statusText: { marginLeft: 10, fontSize: 14 },
   statusTextActive: { color: "#222", fontWeight: "600" },
   statusTextInactive: { color: "#ccc" },
+
+  // New styles for dark blue themed "meal not active" card
+  noMealContainer: {
+    marginTop: 30,
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: "#004AAD", // dark blue
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#432399",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  iconText: { fontSize: 28, color: "#fff" },
+  noMealTitle: { fontSize: 18, fontWeight: "600", color: "#fff", marginBottom: 8, textAlign: "center" },
+  noMealSubText: { fontSize: 14, color: "#d1d9eb", textAlign: "center", lineHeight: 20 },
 });
 
 export default TrackOrderModal;
