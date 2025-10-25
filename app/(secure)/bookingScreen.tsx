@@ -65,6 +65,7 @@ export default function BookingScreen() {
     monthlyPrice: params.monthlyPrice,
     deposit: params.deposit,
     // NEW: Use rooms array instead of single roomId/roomNumber/beds
+    
     rooms: [] as RoomData[],
     defaultPlan: params.defaultPlan,
     defaultPrice: params.defaultPrice,

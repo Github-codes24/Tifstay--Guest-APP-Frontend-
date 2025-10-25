@@ -3,9 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   ScrollView,
-  TouchableOpacity,
   Modal,
   SafeAreaView,
   ActivityIndicator,
@@ -25,7 +23,12 @@ interface TrackOrderModalProps {
 interface TrackingData {
   currentMeal: string;
   currentMealStatus: string;
-  // Add other fields if needed
+  summaryEntry?: {
+    orderId?: string;
+    breakfastStatus?: string;
+    lunchStatus?: string;
+    dinnerStatus?: string;
+  };
 }
 
 const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
@@ -58,7 +61,6 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
       }
     } catch (error) {
       console.error("Error fetching tracking data:", error);
-      // Optionally show alert
     } finally {
       setLoading(false);
     }
@@ -75,19 +77,16 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
     : 0;
 
   const steps = [
-    { status: "Out for Delivery", time: "11:30am" },
-    { status: "On the way", time: "01:40pm" },
-    { status: `${trackingData?.currentMeal || "Meal"} Delivered`, time: "02:30pm" },
+    { status: "Out For Delivery" },
+    { status: "On the way" },
+    {
+      status: `${trackingData?.currentMeal || "Meal"} Delivered`,
+    },
   ];
 
   if (loading) {
     return (
-      <Modal
-        visible={visible}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={onClose}
-      >
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <SafeAreaView style={styles.container}>
           <Header
             title="Track Order"
@@ -105,12 +104,7 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
         <Header
           title="Track Order"
@@ -119,58 +113,61 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
           style={styles.headerStyle}
         />
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             {/* Header */}
             <View style={styles.headerRow}>
               <Text style={styles.orderIdText}>
-                Order ID: <Text style={styles.orderId}>#{orderId}</Text>
+                Order ID:{" "}
+                <Text style={styles.orderId}>
+                  #{trackingData?.orderId || orderId}
+                </Text>
               </Text>
-              <Text style={styles.today}>Today</Text>
+              <Text style={styles.mealText}>
+                {trackingData?.currentMeal ? trackingData.currentMeal : ""}
+              </Text>
             </View>
+
 
             {/* Timeline */}
             <View style={styles.timeline}>
-  {steps.map((step, index) => (
-    <View key={index} style={styles.stepRow}>
-      {/* remove timing column */}
-      <View style={styles.lineContainer}>
-        <View
-          style={[
-            styles.circle,
-            index <= currentStep ? styles.circleActive : styles.circleInactive,
-          ]}
-        />
-        {index < steps.length - 1 && (
-          <View
-            style={[
-              styles.verticalLine,
-              index < currentStep
-                ? styles.verticalLine
-                : index === currentStep
-                ? styles.verticalDashedLine
-                : styles.verticalLineInactive,
-            ]}
-          />
-        )}
-      </View>
-      <Text
-        style={[
-          styles.statusText,
-          index <= currentStep
-            ? styles.statusTextActive
-            : styles.statusTextInactive,
-        ]}
-      >
-        {step.status}
-      </Text>
-    </View>
-  ))}
-</View>
-
+              {steps.map((step, index) => (
+                <View key={index} style={styles.stepRow}>
+                  <View style={styles.lineContainer}>
+                    <View
+                      style={[
+                        styles.circle,
+                        index <= currentStep
+                          ? styles.circleActive
+                          : styles.circleInactive,
+                      ]}
+                    />
+                    {index < steps.length - 1 && (
+                      <View
+                        style={[
+                          styles.verticalLine,
+                          index < currentStep
+                            ? styles.verticalLine
+                            : index === currentStep
+                              ? styles.verticalDashedLine
+                              : styles.verticalLineInactive,
+                        ]}
+                      />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.statusText,
+                      index <= currentStep
+                        ? styles.statusTextActive
+                        : styles.statusTextInactive,
+                    ]}
+                  >
+                    {step.status}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -179,27 +176,11 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  headerStyle: {
-    paddingTop: 16,
-  },
-  scrollView: {
-    flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#666",
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  headerStyle: { paddingTop: 16 },
+  scrollView: { flex: 1, padding: 16 },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -218,77 +199,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  orderIdText: {
-    fontSize: 14,
-    fontWeight: "400",
-    color: "#444",
-  },
-  orderId: {
-    fontSize: 14,
-    fontWeight: "400",
-    color: "#0A051F",
-  },
-  today: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0A051F",
-  },
-  timeline: {
-    marginTop: 10,
-    marginBottom: 12,
-    alignSelf: "center",
-  },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  timeText: {
-    marginRight: 25,
-    fontSize: 11.5,
-    fontWeight: "400",
-    color: "#000",
-    flexShrink: 0,
-    textAlign: "right",
-    minWidth: 60,
-  },
-  timeTextInactive: {
-    marginRight: 25,
-    fontSize: 11.5,
-    color: "#ccc",
-    flexShrink: 0,
-    textAlign: "right",
-    minWidth: 60,
-  },
-  lineContainer: {
-    alignItems: "center",
-    marginRight: 12,
-  },
-  circle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#ff7f00",
-    zIndex: 2,
-  },
-  circleActive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#ff7f00",
-    zIndex: 2,
-  },
-  circleInactive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#f0cbb6",
-  },
-  verticalLine: {
-    width: 2,
-    height: 60,
-    backgroundColor: "#ff7f00",
-    marginTop: 2,
-  },
+  orderIdText: { fontSize: 14, fontWeight: "400", color: "#444" },
+  orderId: { fontSize: 14, fontWeight: "500", color: "#0A051F" },
+  mealText: { fontSize: 14, fontWeight: "600", color: "#0A051F" },
+  timeline: { marginTop: 10, marginBottom: 12, alignSelf: "center" },
+  stepRow: { flexDirection: "row", alignItems: "flex-start" },
+  lineContainer: { alignItems: "center", marginRight: 12 },
+  circle: { width: 12, height: 12, borderRadius: 6 },
+  circleActive: { backgroundColor: "#ff7f00" },
+  circleInactive: { backgroundColor: "#f0cbb6" },
+  verticalLine: { width: 2, height: 60, backgroundColor: "#ff7f00", marginTop: 2 },
   verticalDashedLine: {
     width: 2,
     height: 60,
@@ -297,29 +217,15 @@ const styles = StyleSheet.create({
     borderColor: "#f0cbb6",
     marginTop: 2,
   },
-  statusText: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: "#222",
-  },
-  statusTextActive: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: "#222",
-    fontWeight: "600",
-  },
-  statusTextInactive: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: "#ccc",
-  },
   verticalLineInactive: {
-  width: 2,
-  height: 60,
-  backgroundColor: "#f0cbb6",
-  marginTop: 2,
-},
-
+    width: 2,
+    height: 60,
+    backgroundColor: "#f0cbb6",
+    marginTop: 2,
+  },
+  statusText: { marginLeft: 10, fontSize: 14 },
+  statusTextActive: { color: "#222", fontWeight: "600" },
+  statusTextInactive: { color: "#ccc" },
 });
 
 export default TrackOrderModal;
