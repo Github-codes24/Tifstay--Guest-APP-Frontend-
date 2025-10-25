@@ -40,21 +40,14 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (visible && orderId && serviceType === "tiffin") {
-      fetchTracking();
-    }
-  }, [visible, orderId]);
-
-  const fetchTracking = async () => {
-    setLoading(true);
+  // Fetch tracking data
+  const fetchTracking = async (showLoading: boolean = true) => {
+    if (showLoading) setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await axios.get(
         `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/trackOrder/${orderId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
         setTrackingData(response.data.data);
@@ -62,9 +55,22 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
     } catch (error) {
       console.error("Error fetching tracking data:", error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
+
+  // Initial fetch + silent auto-refresh every 5 seconds
+  useEffect(() => {
+    if (visible && orderId && serviceType === "tiffin") {
+      fetchTracking(true); // show loading only on first fetch
+
+      const interval = setInterval(() => {
+        fetchTracking(false); // silent refresh
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [visible, orderId]);
 
   const statusToStep: { [key: string]: number } = {
     "Out For Delivery": 0,
@@ -73,7 +79,7 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
   };
 
   const currentStep = trackingData?.currentMealStatus
-    ? statusToStep[trackingData.currentMealStatus] || 0
+    ? statusToStep[trackingData.currentMealStatus] ?? 0
     : 0;
 
   const steps = [
@@ -82,7 +88,13 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
     { status: `${trackingData?.currentMeal || "Meal"} Delivered` },
   ];
 
-  if (loading) {
+  const showWaitingProviderUpdate =
+    trackingData?.currentMeal &&
+    (!trackingData.currentMealStatus ||
+      trackingData.currentMealStatus === "Not Selected");
+
+  if (loading && !trackingData) {
+    // show spinner only on initial load
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <SafeAreaView style={styles.container}>
@@ -113,7 +125,6 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
           onBack={onClose}
           style={styles.headerStyle}
         />
-
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             {/* Header */}
@@ -129,8 +140,18 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
               </Text>
             </View>
 
-            
-            {trackingData?.currentMeal ? (
+            {/* Timeline or waiting card */}
+            {showWaitingProviderUpdate ? (
+              <View style={styles.noMealContainer}>
+                <View style={styles.iconCircle}>
+                  <Text style={styles.iconText}>⏰</Text>
+                </View>
+                <Text style={styles.noMealTitle}>Waiting for Provider Update</Text>
+                <Text style={styles.noMealSubText}>
+                  Your tiffin time is here, but the provider hasn’t updated the status yet. Hang tight!
+                </Text>
+              </View>
+            ) : trackingData?.currentMeal ? (
               <View style={styles.timeline}>
                 {steps.map((step, index) => (
                   <View key={index} style={styles.stepRow}>
@@ -175,8 +196,7 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
                 </View>
                 <Text style={styles.noMealTitle}>Meal Time Not Active</Text>
                 <Text style={styles.noMealSubText}>
-                  Your delicious meal will be ready at the scheduled time.  
-                  Hang tight and get ready to enjoy!
+                  Your delicious meal will be ready at the scheduled time. Hang tight and get ready to enjoy!
                 </Text>
               </View>
             )}
@@ -206,11 +226,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border || "#E5E7EB",
     borderWidth: 1,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
   orderIdText: { fontSize: 14, fontWeight: "400", color: "#444" },
   orderId: { fontSize: 14, fontWeight: "500", color: "#0A051F" },
   mealText: { fontSize: 14, fontWeight: "600", color: "#0A051F" },
@@ -221,30 +237,17 @@ const styles = StyleSheet.create({
   circleActive: { backgroundColor: "#ff7f00" },
   circleInactive: { backgroundColor: "#f0cbb6" },
   verticalLine: { width: 2, height: 60, backgroundColor: "#ff7f00", marginTop: 2 },
-  verticalDashedLine: {
-    width: 2,
-    height: 60,
-    borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "#f0cbb6",
-    marginTop: 2,
-  },
-  verticalLineInactive: {
-    width: 2,
-    height: 60,
-    backgroundColor: "#f0cbb6",
-    marginTop: 2,
-  },
+  verticalDashedLine: { width: 2, height: 60, borderStyle: "dashed", borderWidth: 1, borderColor: "#f0cbb6", marginTop: 2 },
+  verticalLineInactive: { width: 2, height: 60, backgroundColor: "#f0cbb6", marginTop: 2 },
   statusText: { marginLeft: 10, fontSize: 14 },
   statusTextActive: { color: "#222", fontWeight: "600" },
   statusTextInactive: { color: "#ccc" },
 
-  // New styles for dark blue themed "meal not active" card
   noMealContainer: {
     marginTop: 30,
     padding: 24,
     borderRadius: 16,
-    backgroundColor: "#004AAD", // dark blue
+    backgroundColor: "#004AAD",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
