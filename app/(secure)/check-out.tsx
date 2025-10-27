@@ -326,7 +326,6 @@ const Checkout: React.FC = () => {
       if (response.data?.success) {
         setFinalPricing(response.data.data);
         if (coupon && coupon.trim()) {
-          Alert.alert('Coupon Applied!', `Coupon ${coupon} applied successfully.`);
           setCouponCode('');
         }
       } else {
@@ -866,42 +865,23 @@ const Checkout: React.FC = () => {
           </View>
         </View>
 
-        {finalPricing && finalPricing.discountValue > 0 && (
-          <View style={styles.transactionSection}>
-            <Text style={styles.paymentSectionTitle}>Price Breakdown</Text>
-            <View style={styles.transactionDetails}>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>Total Amount</Text>
-                <Text style={styles.transactionValue}>₹{finalPricing.totalAmount}</Text>
-              </View>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>Discount</Text>
-                <Text style={styles.transactionValue}>-₹{finalPricing.discountValue}</Text>
-              </View>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>After Discount</Text>
-                <Text style={styles.transactionValue}>₹{finalPricing.afterDiscount}</Text>
-              </View>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>TPS</Text>
-                <Text style={styles.transactionValue}>₹{finalPricing.TPS}</Text>
-              </View>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>TVQ</Text>
-                <Text style={styles.transactionValue}>₹{finalPricing.TVQ}</Text>
-              </View>
-              <View style={styles.netRow}>
-                <Text style={styles.netLabel}>Final Price</Text>
-                <Text style={styles.netValue}>₹{finalPricing.finalPrice}</Text>
-              </View>
+        {finalPricing && finalPricing.discountValue > 0 ? (
+          <View>
+            <View style={styles.discountRow}>
+              <Text style={styles.discountLabel}>Discount</Text>
+              <Text style={styles.discountValue}>-₹{finalPricing.discountValue.toFixed(2)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
             </View>
           </View>
+        ) : (
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
+          </View>
         )}
-
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
-        </View>
 
         {/* Cancellation Policy */}
         <View style={styles.policySection}>
@@ -1231,6 +1211,24 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   totalValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000",
+  },
+  discountRow: {
+    marginBottom: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginLeft:20,
+    marginRight:20
+  },
+  discountLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000",
+  },
+  discountValue: {
     fontSize: 15,
     fontWeight: "600",
     color: "#000",
