@@ -38,6 +38,7 @@ const Checkout: React.FC = () => {
   const [tiffinOrderDetails, setTiffinOrderDetails] = useState<any | null>(null);
   const [tiffinService, setTiffinService] = useState<any | null>(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
+  const [finalPricing, setFinalPricing] = useState<any | null>(null);
 
   const params = useLocalSearchParams();
   const {
@@ -302,7 +303,44 @@ const Checkout: React.FC = () => {
 
   const transaction = getTransactionDetails;
 
-  console.log("Transaction Details:", transaction);  // Log transaction for debugging
+  console.log("Transaction Details:", transaction); 
+
+
+  const fetchFinalPricing = async (coupon: string | null = null) => {
+    if (!isHostel) return;
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token || !bookingId) {
+        console.error("Token or booking ID missing");
+        return;
+      }
+
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/AppliedCoupon/${bookingId}`,
+        { coupon },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data?.success) {
+        setFinalPricing(response.data.data);
+        if (coupon && coupon.trim()) {
+          Alert.alert('Coupon Applied!', `Coupon ${coupon} applied successfully.`);
+          setCouponCode('');
+        }
+      } else {
+        if (coupon && coupon.trim()) {
+          Alert.alert("Error", response.data?.message || "Failed to apply coupon");
+        }
+      }
+    } catch (error: any) {
+      console.error("Error fetching/applying pricing:", error);
+      if (coupon && coupon.trim()) {
+        Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
+      }
+    }
+  };
 
   // Fetch booking details for hostel
   useEffect(() => {
@@ -334,6 +372,28 @@ const Checkout: React.FC = () => {
 
     fetchBookingDetails();
   }, [isHostel, bookingId]);
+
+  // Fetch initial final pricing for hostel from API (base pricing)
+  useEffect(() => {
+    if (isHostel && !loadingBooking && bookingDetails && !finalPricing) {
+      fetchFinalPricing(null); // Fetch base pricing (coupon: null) from API
+    }
+  }, [isHostel, loadingBooking, bookingDetails, finalPricing]);
+
+  // Set initial final pricing for tiffin
+  useEffect(() => {
+    if (isTiffin && !loadingTiffin && (tiffinOrderDetails || tiffinService) && !finalPricing && transaction.total > 0) {
+      setFinalPricing({
+        totalAmount: transaction.total,
+        afterDiscount: transaction.total,
+        discountValue: 0,
+        TPS: 0,
+        TVQ: 0,
+        finalPrice: transaction.total,
+        couponApplied: null
+      });
+    }
+  }, [isTiffin, loadingTiffin, tiffinOrderDetails, tiffinService, finalPricing, transaction.total]);
 
   // UPDATED: Fetch tiffin order details with fixed URL
   useEffect(() => {
@@ -429,30 +489,47 @@ const Checkout: React.FC = () => {
     fetchWalletAmount();
   }, []);
 
-  const paymentAmount = transaction.net ?? transaction.total ?? 0;
+  const paymentAmount = finalPricing?.finalPrice ?? transaction.net ?? transaction.total ?? 0;
 
-  // Fetch all coupons
+  // Fetch all coupons - UPDATED: Use new API endpoint for hostel/service ID
   const fetchCoupons = async () => {
+    // Only fetch for hostel (tiffin endpoint not provided)
+    if (isTiffin) {
+      setCoupons([]);
+      return;
+    }
+    if (!serviceId) {
+      console.warn("No serviceId available for fetching coupons");
+      setCoupons([]);
+      return;
+    }
     setLoadingCoupons(true);
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
       const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getApprovedCoupons", // Assuming this endpoint; adjust if different
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getCouponCodeForHostel/${serviceId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (response.data?.success) {
-        const fetchedCoupons = response.data.data || [];
+        const data = response.data.data || {};
+        const fetchedCoupons = [
+          ...(data.hostelCoupons || []),
+          ...(data.guestCoupons || [])
+        ];
         setCoupons(fetchedCoupons);
         console.log("Fetched coupons:", fetchedCoupons); // Debug log
+      } else {
+        setCoupons([]);
       }
     } catch (error: any) {
       console.error("Error fetching coupons:", error);
       Alert.alert("Error", "Failed to fetch coupons");
+      setCoupons([]);
     } finally {
       setLoadingCoupons(false);
     }
@@ -464,39 +541,19 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token || !bookingId) {
-        Alert.alert("Error", "Token or booking ID missing");
-        return;
-      }
-
-      const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/coupons/apply", // Assuming this endpoint; adjust if different
-        {
-          code: couponCode,
-          bookingId: bookingId,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data?.success) {
-        Alert.alert('Coupon Applied!', `Coupon ${couponCode} applied successfully.`);
-        setCouponCode('');
-        // TODO: Refetch transaction details to update discount/net amount
-        // e.g., refetch booking or update local state
-      } else {
-        Alert.alert("Error", response.data?.message || "Failed to apply coupon");
-      }
-    } catch (error: any) {
-      console.error("Error applying coupon:", error);
-      Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
+    if (!isHostel) {
+      Alert.alert("Info", "Coupons are not available for this service.");
+      return;
     }
+
+    await fetchFinalPricing(couponCode.trim());
   };
 
   const handleViewCoupons = async () => {
+    if (isTiffin) {
+      Alert.alert("Info", "Coupons are not available for tiffin services at this time.");
+      return;
+    }
     await fetchCoupons();
     setCouponModalVisible(true);
   };
@@ -809,12 +866,42 @@ const Checkout: React.FC = () => {
           </View>
         </View>
 
+        {finalPricing && finalPricing.discountValue > 0 && (
+          <View style={styles.transactionSection}>
+            <Text style={styles.paymentSectionTitle}>Price Breakdown</Text>
+            <View style={styles.transactionDetails}>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>Total Amount</Text>
+                <Text style={styles.transactionValue}>₹{finalPricing.totalAmount}</Text>
+              </View>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>Discount</Text>
+                <Text style={styles.transactionValue}>-₹{finalPricing.discountValue}</Text>
+              </View>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>After Discount</Text>
+                <Text style={styles.transactionValue}>₹{finalPricing.afterDiscount}</Text>
+              </View>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>TPS</Text>
+                <Text style={styles.transactionValue}>₹{finalPricing.TPS}</Text>
+              </View>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>TVQ</Text>
+                <Text style={styles.transactionValue}>₹{finalPricing.TVQ}</Text>
+              </View>
+              <View style={styles.netRow}>
+                <Text style={styles.netLabel}>Final Price</Text>
+                <Text style={styles.netValue}>₹{finalPricing.finalPrice}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₹{getTransactionDetails.total.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
         </View>
-
-
 
         {/* Cancellation Policy */}
         <View style={styles.policySection}>
