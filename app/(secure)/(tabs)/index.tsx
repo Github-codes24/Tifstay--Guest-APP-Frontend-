@@ -11,6 +11,7 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -120,6 +121,7 @@ export default function DashboardScreen() {
   const [isLoadingHostelTypes, setIsLoadingHostelTypes] = useState(false);
   const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
   const [isLoadingPlanTypes, setIsLoadingPlanTypes] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const hostelTypeOptions = useMemo(() => ["All", ...hostelTypes], [hostelTypes]);
   const areaOptions = useMemo(() => ["All", ...cities], [cities]);
@@ -308,7 +310,7 @@ export default function DashboardScreen() {
   };
 
   // --- Fetch tiffin services ---
-  const fetchTiffinServices = async (search = "", priceSort = "", minRating = 0) => {
+  const fetchTiffinServices = async (search = "", priceSort = "", minRating = 0, foodType?: string) => {
     setIsLoadingTiffins(true);
     const token = await getAuthToken();
     if (!token) {
@@ -322,6 +324,9 @@ export default function DashboardScreen() {
     });
     if (minRating > 0) {
       params.append("rating", `${minRating} & above`);
+    }
+    if (foodType && foodType !== "Both Veg & Non-Veg") {
+      params.append("foodType", foodType);
     }
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     try {
@@ -577,6 +582,95 @@ const fetchTiffinRecentSearch = async (
     }
   };
 
+  const fetchHostelSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchedHostels([]);
+      return;
+    }
+    setIsSearching(true);
+    const token = await getAuthToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const response = await fetch(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices?query=${encodeURIComponent(
+          query
+        )}`,
+        { headers }
+      );
+      const result = await response.json();
+      console.log(
+        "getHostelsByRecentSearch response:",
+        JSON.stringify(result, null, 2)
+      );
+
+      if (result.success && result.data && Array.isArray(result.data)) {
+        // ✅ frontend filter — sirf wohi hostels jinke naam me query mile
+        const filtered = result.data.filter((hostel: any) =>
+          hostel.hostelName?.toLowerCase().includes(query.toLowerCase())
+        );
+
+        const mappedHostels = filtered.map((hostel: any) => ({
+          id:
+            hostel.hostelId ||
+            `hostel-${Math.random().toString(36).substr(2, 9)}`,
+          name: hostel.hostelName || "Unknown Hostel",
+          type: hostel.hostelType || "Unknown",
+          location: hostel.fullAddress || "Unknown Location",
+          price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
+          amenities: hostel.facilities || [],
+          rating: hostel.rating || 0,
+          image: imageMapping["hostel1"],
+          planType: hostel.planType || "",
+          roomType: hostel.roomType || "",
+          acNonAc: hostel.acNonAc || "",
+        }));
+
+        setSearchedHostels(mappedHostels);
+      } else {
+        setSearchedHostels([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch recent search:", error);
+      setSearchedHostels([]);
+      Alert.alert(
+        "Error",
+        "Failed to search hostels. Please check your connection and try again."
+      );
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (isHostel) {
+        if (isSearchFocused && searchQuery.trim()) {
+          await fetchHostelSearch(searchQuery);
+        } else {
+          await fetchAllHostels();
+        }
+      } else {
+        const priceSort = appliedFilters.cost || "";
+        const minRating = appliedFilters.rating || 0;
+        const foodTypeParam = vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : "Both Veg & Non-Veg";
+        if (isSearchFocused && searchQuery.trim()) {
+          await fetchTiffinRecentSearch(searchQuery, priceSort, minRating, foodTypeParam);
+        } else {
+          const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : undefined);
+          await fetchTiffinServices(searchQuery || "", priceSort, minRating, vegValue);
+        }
+      }
+    } catch (error) {
+      console.error("Refresh error:", error);
+      Alert.alert("Error", "Failed to refresh data. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, vegFilter, fetchHostelSearch]);
+
   // --- Refetch data when FilterModal opens if data is missing ---
   useEffect(() => {
     if (showFilterModal && isHostel) {
@@ -621,11 +715,12 @@ const fetchTiffinRecentSearch = async (
     if (!isHostel) {
       const priceSort = appliedFilters.cost || "";
       const minRating = appliedFilters.rating || 0;
-      if (!isSearchFocused || !searchQuery) {
-        fetchTiffinServices("", priceSort, minRating);
+      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : undefined);
+      if (!isSearchFocused) {
+        fetchTiffinServices(searchQuery, priceSort, minRating, vegValue);
       }
     }
-  }, [isHostel, appliedFilters.cost, appliedFilters.rating, isSearchFocused, searchQuery]);
+  }, [isHostel, appliedFilters.cost, appliedFilters.rating, vegFilter, isSearchFocused, searchQuery]);
 
   // --- Fetch hostel by recent search (with debounce) ---
   useEffect(() => {
@@ -635,69 +730,11 @@ const fetchTiffinRecentSearch = async (
       return;
     }
 
-   const fetchRecentSearch = async () => {
-  if (!searchQuery.trim()) return; // blank search avoid
-  setIsSearching(true);
-  const token = await getAuthToken();
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  try {
-    const response = await fetch(
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices?query=${encodeURIComponent(
-        searchQuery
-      )}`,
-      { headers }
-    );
-    const result = await response.json();
-    console.log(
-      "getHostelsByRecentSearch response:",
-      JSON.stringify(result, null, 2)
-    );
-
-    if (result.success && result.data && Array.isArray(result.data)) {
-      // ✅ frontend filter — sirf wohi hostels jinke naam me query mile
-      const filtered = result.data.filter((hostel: any) =>
-        hostel.hostelName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      const mappedHostels = filtered.map((hostel: any) => ({
-        id:
-          hostel.hostelId ||
-          `hostel-${Math.random().toString(36).substr(2, 9)}`,
-        name: hostel.hostelName || "Unknown Hostel",
-        type: hostel.hostelType || "Unknown",
-        location: hostel.fullAddress || "Unknown Location",
-        price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
-        amenities: hostel.facilities || [],
-        rating: hostel.rating || 0,
-        image: imageMapping["hostel1"],
-        planType: hostel.planType || "",
-        roomType: hostel.roomType || "",
-        acNonAc: hostel.acNonAc || "",
-      }));
-
-      setSearchedHostels(mappedHostels);
-    } else {
-      setSearchedHostels([]);
-    }
-  } catch (error) {
-    console.error("Failed to fetch recent search:", error);
-    setSearchedHostels([]);
-    Alert.alert(
-      "Error",
-      "Failed to search hostels. Please check your connection and try again."
-    );
-  } finally {
-    setIsSearching(false);
-  }
-};
-
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
     searchDebounceRef.current = setTimeout(() => {
-      fetchRecentSearch();
+      fetchHostelSearch(searchQuery);
     }, 500);
 
     return () => {
@@ -705,7 +742,7 @@ const fetchTiffinRecentSearch = async (
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [isHostel, isSearchFocused, searchQuery]);
+  }, [isHostel, isSearchFocused, searchQuery, fetchHostelSearch]);
 
   // --- Fetch search for tiffin ---
   useEffect(() => {
@@ -714,7 +751,8 @@ const fetchTiffinRecentSearch = async (
         setIsSearching(true);
         const priceSort = appliedFilters.cost || "";
         const minRating = appliedFilters.rating || 0;
-        await fetchTiffinRecentSearch(searchQuery, priceSort, minRating);
+        const foodTypeParam = vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : "Both Veg & Non-Veg";
+        await fetchTiffinRecentSearch(searchQuery, priceSort, minRating, foodTypeParam);
         setIsSearching(false);
       };
 
@@ -734,7 +772,7 @@ const fetchTiffinRecentSearch = async (
       setSearchedTiffins([]);
       setIsSearching(false);
     }
-  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating]);
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, vegFilter]);
 
   // --- Fetch suggestions ---
   useEffect(() => {
@@ -1130,6 +1168,9 @@ const fetchTiffinRecentSearch = async (
                   keyExtractor={keyExtractor}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ paddingBottom: 20 }}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                  }
                 />
               ) : (
                 <View style={styles.noResultsContainer}>
@@ -1147,6 +1188,9 @@ const fetchTiffinRecentSearch = async (
                 keyExtractor={keyExtractor}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                }
               />
             ) : (
               <View style={styles.noResultsContainer}>
@@ -1321,6 +1365,9 @@ const fetchTiffinRecentSearch = async (
               keyExtractor={keyExtractor}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 20 }}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+              }
               ListFooterComponent={
                 <TouchableOpacity
                   style={styles.backToHomeButton}
@@ -1412,6 +1459,9 @@ const fetchTiffinRecentSearch = async (
         renderItem={isHostel ? renderHostelItem : renderTiffinItem}
         keyExtractor={keyExtractor}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
         ListHeaderComponent={
           <>
             <View style={styles.searchWrapper}>

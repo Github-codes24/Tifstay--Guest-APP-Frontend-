@@ -94,6 +94,7 @@ export default function BookingScreen() {
     monthly: 0,
   });
   const [securityDeposit, setSecurityDeposit] = useState(0);
+  const [weeklyDeposit, setWeeklyDeposit] = useState(0);
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
   const [currentDeposit, setCurrentDeposit] = useState(0);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
@@ -410,13 +411,18 @@ export default function BookingScreen() {
           if (response.data.success) {
             const data = response.data.data;
             setPricingData({
+              daily: data.pricing?.perDay || 0,
               weekly: data.pricing?.weekly || 0,
               monthly: data.pricing?.monthly || 0,
             });
             setSecurityDeposit(data.securityDeposit || 0);
+            setWeeklyDeposit(data.weeklyDeposit || 0);
 
             // Dynamically create picker items based on available plans
             const items = [];
+            if (data.pricing?.perDay > 0) {
+              items.push({ label: "Per Day", value: "daily" });
+            }
             if (data.pricing?.weekly > 0) {
               items.push({ label: "Weekly", value: "weekly" });
             }
@@ -462,9 +468,9 @@ export default function BookingScreen() {
       newDeposit = 0; // No deposit for tiffin
     } else {
       // FIXED: For hostel, use flat rate (no multiplication by beds)
-      const basePlanPrice = hostelPlan === "weekly" ? pricingData.weekly : pricingData.monthly;
+      const basePlanPrice = hostelPlan === "daily" ? pricingData.daily : hostelPlan === "weekly" ? pricingData.weekly : pricingData.monthly;
       newPrice = basePlanPrice;
-      newDeposit = securityDeposit;
+     newDeposit = hostelPlan === "weekly" ? weeklyDeposit : hostelPlan === "daily" ? 0 : securityDeposit;
     }
 
     console.log(`💰 Updated prices - Total: ₹${newPrice}, Deposit: ₹${newDeposit}`);
@@ -476,6 +482,7 @@ export default function BookingScreen() {
     hostelPlan,
     pricingData,
     securityDeposit,
+    weeklyDeposit,
     tiffinMeals,  // FIXED: Depend on full tiffinMeals for filled count
     fetchedPricings,
     tiffinPlans, // NEW: Depend on per-tiffin plans
@@ -486,7 +493,9 @@ export default function BookingScreen() {
   useEffect(() => {
     if (checkInDate && hostelPlan) {
       let daysToAdd = 0;
-      if (hostelPlan === 'weekly') {
+      if (hostelPlan === 'daily') {
+        daysToAdd = 1;
+      } else if (hostelPlan === 'weekly') {
         daysToAdd = 7;
       } else if (hostelPlan === 'monthly') {
         daysToAdd = 30; // Approximate for a month
@@ -562,8 +571,7 @@ export default function BookingScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 1,
     });
 
@@ -582,8 +590,7 @@ export default function BookingScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 1,
     });
 
@@ -1090,7 +1097,18 @@ const handleTiffinSubmit = async () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo *</Text>
         {aadhaarPhoto ? (
-          <Image source={{ uri: aadhaarPhoto }} style={{ width: 100, height: 100, marginTop: 10 }} />
+          <View style={{ position: 'relative', marginTop: 10 }}>
+            <Image source={{ uri: aadhaarPhoto }} style={{ width: 100, height: 100 }} />
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setAadhaarPhoto('');
+                clearError('aadhaarPhoto');
+              }}
+            >
+              <Text style={styles.closeText}>×</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
             <Text style={styles.uploadButtonText}>Upload photo</Text>
@@ -1105,7 +1123,18 @@ const handleTiffinSubmit = async () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Your Photo *</Text>
         {userPhoto ? (
-          <Image source={{ uri: userPhoto }} style={{ width: 100, height: 100, marginTop: 10 }} />
+          <View style={{ position: 'relative', marginTop: 10 }}>
+            <Image source={{ uri: userPhoto }} style={{ width: 100, height: 100 }} />
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setUserPhoto('');
+                clearError('userPhoto');
+              }}
+            >
+              <Text style={styles.closeText}>×</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <TouchableOpacity style={styles.uploadButton} onPress={pickUserPhoto}>
             <Text style={styles.uploadButtonText}>Upload photo</Text>
@@ -1937,5 +1966,22 @@ const styles = StyleSheet.create({
   },
   expandedScroll: {
     maxHeight: 500,
+  },
+  // NEW: Styles for close button on images
+  closeButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 15,
+    width: 25,
+    height: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
