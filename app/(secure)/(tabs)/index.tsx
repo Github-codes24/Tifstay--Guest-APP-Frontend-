@@ -388,66 +388,74 @@ export default function DashboardScreen() {
   };
 
   // --- Fetch tiffin recent search ---
-  const fetchTiffinRecentSearch = async (query: string, priceSort = "", minRating = 0) => {
-    const token = await getAuthToken();
-    if (!token) return;
-    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-    const params = new URLSearchParams({ query: encodeURIComponent(query) });
-    if (priceSort) params.append("priceSort", priceSort);
-    if (minRating > 0) params.append("rating", `${minRating} & above`);
-    try {
-      const response = await fetch(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinByRecentSearch?${params.toString()}`,
-        { headers }
-      );
-      const result = await response.json();
-      console.log("getTiffinByRecentSearch response:", JSON.stringify(result, null, 2));
-      if (result.success && result.data) {
-        const mapped = result.data.map((tiffin: any) => {
-          const foodTags: string[] = [];
-          tiffin.pricing.forEach((p: any) => {
-            const ft = p.foodType.toLowerCase();
-            if (ft === "veg") foodTags.push("veg");
-            if (ft === "both veg & non-veg") {
-              foodTags.push("veg");
-              foodTags.push("non-veg");
-            }
-            if (ft === "non-veg") foodTags.push("non-veg");
-          });
-          const uniqueTags = [...new Set(foodTags)];
-          const offersText = tiffin.pricing.map((p: any) => p.offers).join(" ");
-          const fullDesc = `${tiffin.description} ${offersText}`;
-          const image = tiffin.photos?.[0] ? { uri: tiffin.photos[0] } : food1;
-          const firstPrice = tiffin.pricing[0];
-          const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
-          const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
-            type: m.mealType,
-            time: `${m.startTime} - ${m.endTime}`,
-          })) || [];
-          return {
-            id: tiffin._id,
-            name: tiffin.tiffinName,
-            description: fullDesc,
-            location: tiffin.location.fullAddress,
-            price,
-            tags: uniqueTags,
-            rating: tiffin.averageRating,
-            image,
-            pricing: tiffin.pricing,
-            mealPreferences,
-            foodType: tiffin.foodType,
-          };
+const fetchTiffinRecentSearch = async (
+  query: string,
+  priceSort = "",
+  minRating = 0,
+  foodTypeParam = "Both Veg & Non-Veg"
+) => {
+  if (!query.trim()) {
+    setSearchedTiffins([]);
+    return;
+  }
+
+  const token = await getAuthToken();
+  const headers: any = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const params = new URLSearchParams({
+    search: query.trim(), // 🔥 removed .toLowerCase()
+    ...(priceSort && { priceSort }),
+    ...(minRating > 0 && { rating: `${minRating} & above` }),
+    foodType: foodTypeParam,
+  });
+
+  const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
+  console.log("🔍 Tiffin Search URL:", url);
+
+  setIsSearching(true);
+
+  try {
+    const response = await fetch(url, { headers });
+    const result = await response.json();
+    console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
+
+    const data = result.data || [];
+    if (result.success && Array.isArray(data) && data.length > 0) {
+      const mapped = data.map((tiffin: any) => {
+        const tags: string[] = [];
+        tiffin.pricing?.forEach((p: any) => {
+          const ft = p.foodType?.toLowerCase();
+          if (ft?.includes("veg")) tags.push("veg");
+          if (ft?.includes("non-veg")) tags.push("non-veg");
         });
-        setSearchedTiffins(mapped);
-      } else {
-        setSearchedTiffins([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch tiffin recent search:", error);
+
+        return {
+          id: tiffin._id,
+          name: tiffin.tiffinName,
+          description: `${tiffin.description || ""}`,
+          location: tiffin.location?.fullAddress || "Unknown",
+          price: `₹${tiffin.pricing?.[0]?.monthlyDelivery || 0}`,
+          tags: [...new Set(tags)],
+          rating: tiffin.averageRating || 0,
+          image: tiffin.photos?.[0]
+            ? { uri: tiffin.photos[0] }
+            : food1,
+        };
+      });
+
+      setSearchedTiffins(mapped);
+    } else {
       setSearchedTiffins([]);
-      Alert.alert("Error", "Failed to search tiffins. Please check your connection and try again.");
     }
-  };
+  } catch (err) {
+    console.error("❌ Tiffin Search Error:", err);
+    setSearchedTiffins([]);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
 
   // --- Fetch cities ---
   const fetchCities = async () => {
@@ -968,19 +976,23 @@ export default function DashboardScreen() {
   };
 
   const handleBookPress = (item: Hostel | TiffinService) => {
-    if ("amenities" in item) {
-      router.push({
-        pathname: "/hostel-details/[id]",
-        params: { id: item.id, type: "hostel" },
-      });
-    } else {
-      // For tiffin, navigate to details (or handle booking logic)
-      router.push({
-        pathname: "/tiffin-details/[id]",
-        params: { id: item.id },
-      });
-    }
-  };
+  if ("amenities" in item) {
+    router.push({
+      pathname: "/hostel-details/[id]",
+      params: { id: item.id, type: "hostel" },
+    });
+  } else {
+    // For tiffin, navigate to details (or handle booking logic)
+    router.push({
+      pathname: "/tiffin-details/[id]",
+      params: { 
+        id: item.id,
+        type: "tiffin",
+        fullServiceData: JSON.stringify(item) 
+      },
+    });
+  }
+};
 
   const handleClearSearch = () => setSearchQuery("");
 

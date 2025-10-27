@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl, // Add this import for pull-to-refresh
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -45,6 +46,7 @@ const Booking: React.FC = () => {
   const [hostelOrders, setHostelOrders] = useState<Order[]>([]);
   const [tiffinOrders, setTiffinOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false); // Add state for pull-to-refresh
 
   const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
@@ -144,6 +146,19 @@ const Booking: React.FC = () => {
       setTiffinOrders([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add handleRefresh function for pull-to-refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchOrders(activeTab);
+    } catch (error) {
+      console.error("Error during refresh:", error);
+      Alert.alert("Error", "Failed to refresh orders");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -510,6 +525,9 @@ const Booking: React.FC = () => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        } // Add pull-to-refresh here
       >
         {!hasAnyOrders ? (
           <View style={styles.emptyState}>
