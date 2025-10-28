@@ -78,9 +78,8 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
     "Delivered": 2,
   };
 
-  const currentStep = trackingData?.currentMealStatus
-    ? statusToStep[trackingData.currentMealStatus] ?? 0
-    : 0;
+  const trimmedStatus = trackingData?.currentMealStatus?.trim();
+  const currentStep = trimmedStatus ? statusToStep[trimmedStatus] ?? 0 : 0;
 
   const steps = [
     { status: "Out For Delivery" },
@@ -170,8 +169,8 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
                             index < currentStep
                               ? styles.verticalLine
                               : index === currentStep
-                              ? styles.verticalDashedLine
-                              : styles.verticalLineInactive,
+                                ? styles.verticalDashedLine
+                                : styles.verticalLineInactive,
                           ]}
                         />
                       )}
