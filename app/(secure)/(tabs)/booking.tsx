@@ -95,6 +95,8 @@ const Booking: React.FC = () => {
           // FIXED: Extract _id as string; handle object or string input
           entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
         }));
+        // DEBUG: Log hostel orders statuses
+        console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
       }
       setHostelOrders(fetchedHostelOrders);
 
@@ -137,6 +139,8 @@ const Booking: React.FC = () => {
             entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
           };
         });
+        // DEBUG: Log tiffin orders statuses (especially for "confirmed" tab)
+        console.log("Fetched Tiffin Orders:", fetchedTiffinOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
       }
       setTiffinOrders(fetchedTiffinOrders);
     } catch (error) {
@@ -173,9 +177,26 @@ const Booking: React.FC = () => {
   };
 
   const handleTrackOrder = (order: Order) => {
-    console.log("Track order:", order.bookingId);
+    console.log("=== DEBUG: handleTrackOrder called ===");
+    console.log("Track order clicked for bookingId:", order.bookingId);
+    console.log("Order details:", { id: order.id, status: order.status, serviceType: order.serviceType });
+    console.log("Current modal state before set:", { showTrackOrderModal, trackingOrder: trackingOrder ? 'exists' : null });
+    
+    if (!order.id) {
+      console.error("=== ERROR: Invalid order ID for tracking ===");
+      Alert.alert("Error", "Cannot track this order. Invalid details.");
+      return;
+    }
+    
     setTrackingOrder(order);
     setShowTrackOrderModal(true);
+    
+    // Note: State updates are async, so log after a tick if needed (use setTimeout for immediate check)
+    setTimeout(() => {
+      console.log("=== DEBUG: Modal state after set (next tick) ===");
+      console.log("showTrackOrderModal:", true);
+      console.log("trackingOrder:", order.id);
+    }, 0);
   };
 
   const handleContinueSubscription = (order: Order) => {
@@ -297,163 +318,182 @@ const Booking: React.FC = () => {
 
   const handleProfilePress = () => router.push("/account/profile");
 
-  const renderOrderCard = (order: Order) => (
-    <View key={order.id} style={styles.orderCard}>
-      <View style={styles.orderHeader}>
-        <Text style={styles.bookingId}>
-          {order.serviceType === "hostel"
-            ? "Booking Summary"
-            : `Booking #${order.bookingId}`}
-        </Text>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: `${getStatusColor(order.status)}20` },
-          ]}
-        >
-          <Text
-            style={[styles.statusText, { color: getStatusColor(order.status) }]}
-          >
-            {getStatusText(order.status)}
+  const renderOrderCard = (order: Order) => {
+    // DEBUG: Log order details and conditions for button visibility
+    console.log("=== DEBUG: Rendering Order Card ===");
+    console.log("Order:", { id: order.id, status: order.status, serviceType: order.serviceType, activeTab });
+    console.log("Conditions check:", {
+      isConfirmedTab: activeTab === "confirmed",
+      statusIsConfirmed: order.status === "confirmed",
+      isNotHistory: !isHistoryOrder(order.status),
+      isTiffin: order.serviceType === "tiffin",
+      within5Days: isWithin5DaysOfEnd(order),
+    });
+    console.log("Track button should show:", activeTab === "confirmed" && order.status === "confirmed" && !isHistoryOrder(order.status) && order.serviceType === "tiffin");
+
+    return (
+      <View key={order.id} style={styles.orderCard}>
+        <View style={styles.orderHeader}>
+          <Text style={styles.bookingId}>
+            {order.serviceType === "hostel"
+              ? "Booking Summary"
+              : `Booking #${order.bookingId}`}
           </Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: `${getStatusColor(order.status)}20` },
+            ]}
+          >
+            <Text
+              style={[styles.statusText, { color: getStatusColor(order.status) }]}
+            >
+              {getStatusText(order.status)}
+            </Text>
+          </View>
         </View>
-      </View>
-      {order.serviceType !== "hostel" && (
-        <Text style={styles.orderedOneLbl}>Order On {order.startDate}</Text>
-      )}
-
-      <View style={styles.orderDetails}>
-        {order.serviceType === "hostel" ? (
-          <>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Hostel Booking:</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>
-                {order.serviceName}
-              </Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Customer:</Text>
-              <Text style={styles.detailValue}>{order.customer}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Check-in date:</Text>
-              <Text style={styles.detailValue}>{order.checkInDate}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Check-out date:</Text>
-              <Text style={styles.detailValue}>{order.checkOutDate}</Text>
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tiffin Service:</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>
-                {order.serviceName}
-              </Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Customer:</Text>
-              <Text style={styles.detailValue}>{order.customer}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Start Date:</Text>
-              <Text style={styles.detailValue}>{order.startDate}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Meal Type:</Text>
-              <Text style={styles.detailValue}>{order.mealType}</Text>
-            </View>
-            {order.foodType && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Food Type:</Text>
-                <Text style={styles.detailValue}>{order.foodType}</Text>
-              </View>
-            )}
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Plan:</Text>
-              <Text style={styles.detailValue}>{order.plan}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Order Type:</Text>
-              <Text style={styles.detailValue}>{order.orderType}</Text>
-            </View>
-          </>
+        {order.serviceType !== "hostel" && (
+          <Text style={styles.orderedOneLbl}>Order On {order.startDate}</Text>
         )}
-      </View>
 
-      {activeTab === "pending" ? null : (
-        <>
-          {order.status === "confirmed" && !isHistoryOrder(order.status) && (
-            <View>
-              {isWithin5DaysOfEnd(order) && (
-                <Button
-                  title="Continue Subscription"
-                  onPress={() => handleContinueSubscription(order)}
-                  style={styles.primaryButtonStyle}
-                  height={48}
-                />
+        <View style={styles.orderDetails}>
+          {order.serviceType === "hostel" ? (
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Hostel Booking:</Text>
+                <Text style={styles.detailValue} numberOfLines={1}>
+                  {order.serviceName}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Customer:</Text>
+                <Text style={styles.detailValue}>{order.customer}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Check-in date:</Text>
+                <Text style={styles.detailValue}>{order.checkInDate}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Check-out date:</Text>
+                <Text style={styles.detailValue}>{order.checkOutDate}</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Tiffin Service:</Text>
+                <Text style={styles.detailValue} numberOfLines={1}>
+                  {order.serviceName}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Customer:</Text>
+                <Text style={styles.detailValue}>{order.customer}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Start Date:</Text>
+                <Text style={styles.detailValue}>{order.startDate}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Meal Type:</Text>
+                <Text style={styles.detailValue}>{order.mealType}</Text>
+              </View>
+              {order.foodType && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Food Type:</Text>
+                  <Text style={styles.detailValue}>{order.foodType}</Text>
+                </View>
               )}
-              {order.serviceType === "tiffin" ? (
-                <View>
-                  <View style={styles.buttonRow}>
-                    <Button
-                      title="Rate Now"
-                      onPress={() => handleRateNow(order)}
-                      style={styles.rateButtonStyle}
-                      textStyle={styles.secondaryButtonTextStyle}
-                      width={160}
-                      height={48}
-                    />
-                    <Button
-                      title="See Details"
-                      onPress={() => handleSeeDetails(order)}
-                      style={styles.repeatButtonStyle}
-                      width={160}
-                      height={48}
-                    />
-                  </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Plan:</Text>
+                <Text style={styles.detailValue}>{order.plan}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Order Type:</Text>
+                <Text style={styles.detailValue}>{order.orderType}</Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        {activeTab === "pending" ? null : (
+          <>
+            {order.status === "confirmed" && !isHistoryOrder(order.status) && (
+              <View>
+                {isWithin5DaysOfEnd(order) && (
                   <Button
-                    title="Track Now"
-                    onPress={() => handleTrackOrder(order)}
+                    title="Continue Subscription"
+                    onPress={() => handleContinueSubscription(order)}
                     style={styles.primaryButtonStyle}
                     height={48}
                   />
-                </View>
-              ) : (
+                )}
+                {order.serviceType === "tiffin" ? (
+                  <View>
+                    <View style={styles.buttonRow}>
+                      <Button
+                        title="Rate Now"
+                        onPress={() => handleRateNow(order)}
+                        style={styles.rateButtonStyle}
+                        textStyle={styles.secondaryButtonTextStyle}
+                        width={160}
+                        height={48}
+                      />
+                      <Button
+                        title="See Details"
+                        onPress={() => handleSeeDetails(order)}
+                        style={styles.repeatButtonStyle}
+                        width={160}
+                        height={48}
+                      />
+                    </View>
+                    <Button
+                      title="Track Now"
+                      onPress={() => {
+                        // DEBUG: Log button click
+                        console.log("=== DEBUG: Track Now Button Clicked ===");
+                        console.log("Order for track:", { id: order.id, bookingId: order.bookingId });
+                        handleTrackOrder(order);
+                      }}
+                      style={styles.primaryButtonStyle}
+                      height={48}
+                    />
+                  </View>
+                ) : (
+                  <Button
+                    title="Rate Now"
+                    onPress={() => handleRateNow(order)}
+                    textStyle={styles.secondaryButtonTextStyle}
+                    style={styles.rateButtonStyle}
+                    height={48}
+                  />
+                )}
+              </View>
+            )}
+            {isHistoryOrder(order.status) && (
+              <View style={styles.buttonRow}>
                 <Button
                   title="Rate Now"
                   onPress={() => handleRateNow(order)}
-                  textStyle={styles.secondaryButtonTextStyle}
                   style={styles.rateButtonStyle}
+                  textStyle={styles.secondaryButtonTextStyle}
+                  width={160}
                   height={48}
                 />
-              )}
-            </View>
-          )}
-          {isHistoryOrder(order.status) && (
-            <View style={styles.buttonRow}>
-              <Button
-                title="Rate Now"
-                onPress={() => handleRateNow(order)}
-                style={styles.rateButtonStyle}
-                textStyle={styles.secondaryButtonTextStyle}
-                width={160}
-                height={48}
-              />
-              <Button
-                title="Repeat Order"
-                onPress={() => handleRepeatOrder(order)}
-                style={styles.repeatButtonStyle}
-                width={160}
-                height={48}
-              />
-            </View>
-          )}
-        </>
-      )}
-    </View>
-  );
+                <Button
+                  title="Repeat Order"
+                  onPress={() => handleRepeatOrder(order)}
+                  style={styles.repeatButtonStyle}
+                  width={160}
+                  height={48}
+                />
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -572,10 +612,19 @@ const Booking: React.FC = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
+      {/* DEBUG: Log before modal render */}
+      {console.log("=== DEBUG: Checking Modal Render ===", { 
+        trackingOrder: trackingOrder ? trackingOrder.id : null, 
+        showTrackOrderModal,
+        orderId: trackingOrder?.id,
+        serviceType: trackingOrder?.serviceType 
+      })}
+      
       {trackingOrder && (
         <TrackOrderModal
           visible={showTrackOrderModal}
           onClose={() => {
+            console.log("=== DEBUG: Modal Close Called ===");
             setShowTrackOrderModal(false);
             setTrackingOrder(null);
           }}
