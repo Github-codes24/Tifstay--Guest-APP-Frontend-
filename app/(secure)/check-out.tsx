@@ -33,6 +33,7 @@ const Checkout: React.FC = () => {
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<'online' | 'wallet' | null>(null);
   const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] = useState<any | null>(null);
   const [loadingBooking, setLoadingBooking] = useState(false);
   const [tiffinOrderDetails, setTiffinOrderDetails] = useState<any | null>(null);
@@ -349,6 +350,7 @@ const Checkout: React.FC = () => {
       console.log("API Response after coupon apply:", response.data.data);
       setFinalPricing(response.data.data);
       if (coupon && coupon.trim()) {
+        setAppliedCoupon(coupon.trim());
         setCouponCode('');
       }
     } else {
@@ -363,6 +365,52 @@ const Checkout: React.FC = () => {
     }
   }
 };
+
+const handleRemoveCoupon = async () => {
+  if (!bookingId) {
+    Alert.alert("Error", "Booking ID missing");
+    return;
+  }
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      Alert.alert("Error", "Token missing");
+      return;
+    }
+
+    let url;
+    if (isTiffin) {
+      url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/removeCoupon/${bookingId}`;
+    } else if (isHostel) {
+      url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/removeCouponFromHostel/${bookingId}`;
+    } else {
+      console.error("Invalid service type");
+      return;
+    }
+
+    const response = await axios.put(
+      url,
+      {}, // Empty body for remove
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (response.data?.success) {
+      console.log("API Response after coupon remove:", response.data.data);
+      setFinalPricing(response.data.data);
+      setAppliedCoupon(null);
+      setCouponCode('');
+      Alert.alert("Success", response.data.message || "Coupon removed successfully");
+    } else {
+      Alert.alert("Error", response.data?.message || "Failed to remove coupon");
+    }
+  } catch (error: any) {
+    console.error("Error removing coupon:", error);
+    Alert.alert("Error", error.response?.data?.message || "Failed to remove coupon");
+  }
+};
+
   // Fetch booking details for hostel
   useEffect(() => {
     const fetchBookingDetails = async () => {
@@ -828,6 +876,8 @@ const Checkout: React.FC = () => {
     );
   }
 
+  const discountValueNum = Number(finalPricing?.discountValue || 0);
+
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -865,25 +915,38 @@ const Checkout: React.FC = () => {
 
           {/* Input Row */}
           <View style={styles.couponInputContainer}>
-            <TextInput
-              style={styles.couponInput}
-              placeholder="Enter Coupon Code"
-              value={couponCode}
-              onChangeText={setCouponCode}
-            />
-            <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
-              <Text style={styles.applyButtonText}>Apply</Text>
-            </TouchableOpacity>
+            {appliedCoupon ? (
+              // Show applied coupon and remove button
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.appliedCouponText}>Applied: {appliedCoupon}</Text>
+                <TouchableOpacity style={styles.removeButton} onPress={handleRemoveCoupon}>
+                  <Text style={styles.removeButtonText}>Remove Coupon</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // Original input and apply
+              <>
+                <TextInput
+                  style={styles.couponInput}
+                  placeholder="Enter Coupon Code"
+                  value={couponCode}
+                  onChangeText={setCouponCode}
+                />
+                <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
+                  <Text style={styles.applyButtonText}>Apply</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
         {isTiffin ? (
           // Simple display for Tiffin: discount if >0, else total only
-          finalPricing && finalPricing.discountValue > 0 ? (
+          discountValueNum > 0 ? (
             <View>
               <View style={styles.discountRow}>
                 <Text style={styles.discountLabel}>Discount</Text>
-                <Text style={styles.discountValue}>-₹{finalPricing.discountValue.toFixed(2)}</Text>
+                <Text style={styles.discountValue}>-₹{discountValueNum.toFixed(2)}</Text>
               </View>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
@@ -909,10 +972,10 @@ const Checkout: React.FC = () => {
                 <Text style={styles.transactionLabel}>Deposit</Text>
                 <Text style={styles.transactionValue}>₹{transaction.deposit.toFixed(2)}</Text>
               </View>
-              {finalPricing && finalPricing.discountValue > 0 && (
+              {discountValueNum > 0 && (
                 <View style={styles.transactionRow}>
                   <Text style={styles.transactionLabel}>Discount</Text>
-                  <Text style={styles.transactionValue}>-₹{finalPricing.discountValue.toFixed(2)}</Text>
+                  <Text style={styles.transactionValue}>-₹{discountValueNum.toFixed(2)}</Text>
                 </View>
               )}
               <View style={styles.netRow}>
@@ -1184,6 +1247,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  removeButton: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  appliedCouponText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2854C5',
+    fontWeight: '500',
   },
   viewCouponsButton: {
     marginTop: 12,
