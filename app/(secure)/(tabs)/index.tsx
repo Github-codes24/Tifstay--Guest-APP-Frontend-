@@ -100,7 +100,7 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
   const [showVegFilterModal, setShowVegFilterModal] = useState(false);
-  const [vegFilter, setVegFilter] = useState<"off" | "veg" | "nonveg">("off");
+  const [vegFilter, setVegFilter] = useState<"off" | "veg">("off");
   const [hostelType, setHostelType] = useState("");
   const [area, setArea] = useState("");
   const [maxRent, setMaxRent] = useState("");
@@ -128,7 +128,7 @@ export default function DashboardScreen() {
   const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
 
   const hasFilters = Object.keys(appliedFilters).length > 0;
-  const vegAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
+  const vegToggleAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -655,11 +655,11 @@ const fetchTiffinRecentSearch = async (
       } else {
         const priceSort = appliedFilters.cost || "";
         const minRating = appliedFilters.rating || 0;
-        const foodTypeParam = vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : "Both Veg & Non-Veg";
+        const foodTypeParam = vegFilter === "veg" ? "Veg" : "Both Veg & Non-Veg";
         if (isSearchFocused && searchQuery.trim()) {
           await fetchTiffinRecentSearch(searchQuery, priceSort, minRating, foodTypeParam);
         } else {
-          const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : undefined);
+          const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
           await fetchTiffinServices(searchQuery || "", priceSort, minRating, vegValue);
         }
       }
@@ -715,7 +715,7 @@ const fetchTiffinRecentSearch = async (
     if (!isHostel) {
       const priceSort = appliedFilters.cost || "";
       const minRating = appliedFilters.rating || 0;
-      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : undefined);
+      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
       if (!isSearchFocused) {
         fetchTiffinServices(searchQuery, priceSort, minRating, vegValue);
       }
@@ -751,7 +751,7 @@ const fetchTiffinRecentSearch = async (
         setIsSearching(true);
         const priceSort = appliedFilters.cost || "";
         const minRating = appliedFilters.rating || 0;
-        const foodTypeParam = vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : "Both Veg & Non-Veg";
+        const foodTypeParam = vegFilter === "veg" ? "Veg" : "Both Veg & Non-Veg";
         await fetchTiffinRecentSearch(searchQuery, priceSort, minRating, foodTypeParam);
         setIsSearching(false);
       };
@@ -812,10 +812,10 @@ const fetchTiffinRecentSearch = async (
 
   // --- Veg Filter Animation ---
   useEffect(() => {
-    Animated.timing(vegAnimated, {
+    Animated.timing(vegToggleAnimated, {
       toValue: vegFilter !== "off" ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: false, // color & layout animations require JS driver
     }).start();
   }, [vegFilter]);
 
@@ -840,11 +840,10 @@ const fetchTiffinRecentSearch = async (
 
     // Veg/Non-Veg filter - Check on aggregated tags
     const vegFilterValue = appliedFilters.vegNonVeg || 
-      (vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : null);
-    if (vegFilterValue && vegFilterValue !== "Both") {
-      const tagToCheck = vegFilterValue === "Veg" ? "veg" : "non-veg";
+      (vegFilter === "veg" ? "Veg" : null);
+    if (vegFilterValue === "Veg") {
       filtered = filtered.filter((service) => 
-        service.tags.includes(tagToCheck)
+        service.tags.includes("veg")
       );
     }
 
@@ -1055,11 +1054,9 @@ const fetchTiffinRecentSearch = async (
     } else {
       // Sync vegFilter with applied vegNonVeg for toggle consistency
       if (filters.vegNonVeg) {
-        let newVeg: "off" | "veg" | "nonveg" = "off";
+        let newVeg: "off" | "veg" = "off";
         if (filters.vegNonVeg === "Veg") {
           newVeg = "veg";
-        } else if (filters.vegNonVeg === "Non-Veg") {
-          newVeg = "nonveg";
         }
         setVegFilter(newVeg);
       }
@@ -1069,25 +1066,17 @@ const fetchTiffinRecentSearch = async (
     }
   };
 
-  const handleVegFilterApply = (filter: "all" | "veg" | "nonveg") => {
-    const newVeg = filter === "all" ? "off" : (filter as "veg" | "nonveg");
+  const handleVegFilterApply = (filter: "all" | "veg") => {
+    const newVeg = filter === "all" ? "off" : "veg";
     setVegFilter(newVeg);
     const newFilters = { ...appliedFilters };
     if (filter === "all") {
       delete newFilters.vegNonVeg;
     } else {
-      newFilters.vegNonVeg = filter === "veg" ? "Veg" : "Non-Veg";
+      newFilters.vegNonVeg = "Veg";
     }
     setAppliedFilters(newFilters);
     setIsFilterApplied(Object.keys(newFilters).length > 0);
-  };
-
-  const handleVegTogglePress = () => {
-    if (vegFilter === "off") {
-      setShowVegFilterModal(true);
-    } else {
-      setVegFilter("off");
-    }
   };
 
   const handleHostelTypeSelect = (value: string) => setHostelType(value === "All" ? "" : value);
@@ -1328,27 +1317,48 @@ const fetchTiffinRecentSearch = async (
           <View style={styles.sectionHeader}>
             <Text style={styles.filteredResultsTitle}>Filtered Results</Text>
             {!isHostel && (
-              <TouchableOpacity style={styles.vegToggle} onPress={handleVegTogglePress} activeOpacity={0.7}>
-                <Text style={styles.vegText}>
-                  {vegFilter === "off" ? "All" : vegFilter === "veg" ? "Veg" : "Non-Veg"}
-                </Text>
-                <View style={[styles.vegSwitchContainer, vegFilter !== "off" && styles.vegSwitchActive]}>
+              <TouchableOpacity 
+                style={styles.vegToggleButton} 
+                onPress={() => setShowVegFilterModal(true)} 
+                activeOpacity={0.7}
+              >
+                <View style={styles.vegLabelContainer}>
+                  <Text style={styles.vegLabelText}>VEG</Text>
+                </View>
+                <Animated.View style={[styles.vegToggleTrack]}> 
+                  {/* Thumb that moves to the right when toggled ON and fills with primary color behind the leaf */}
                   <Animated.View
                     style={[
-                      styles.vegSwitchThumb,
+                      styles.vegToggleThumb,
                       {
                         transform: [
                           {
-                            translateX: vegAnimated.interpolate({
+                            translateX: vegToggleAnimated.interpolate({
                               inputRange: [0, 1],
-                              outputRange: [0, 20],
+                              outputRange: [0, 18], // move right when ON
                             }),
                           },
                         ],
+                        // thumb remains green even when OFF; only its position and leaf opacity change
+                        // backgroundColor provided by styles.vegToggleThumb
                       },
                     ]}
-                  />
-                </View>
+                  >
+                    <Animated.View style={[
+                      styles.leafContainer,
+                      {
+                        opacity: vegToggleAnimated,
+                        transform: [
+                          {
+                            scale: vegToggleAnimated.interpolate({ inputRange: [0,1], outputRange: [0.8, 1] }),
+                          }
+                        ],
+                      }
+                    ]}>
+                      <Ionicons name="leaf" size={12} color="#FFFFFF" />
+                    </Animated.View>
+                  </Animated.View>
+                </Animated.View>
               </TouchableOpacity>
             )}
           </View>
@@ -1626,27 +1636,47 @@ const fetchTiffinRecentSearch = async (
                         : "Available Tiffin Service"}
                 </Text>
                 {!isHostel && (
-                  <TouchableOpacity style={styles.vegToggle} onPress={handleVegTogglePress} activeOpacity={0.7}>
-                    <Text style={styles.vegText}>
-                      {vegFilter === "off" ? "All" : vegFilter === "veg" ? "Veg" : "Non-Veg"}
-                    </Text>
-                    <View style={[styles.vegSwitchContainer, vegFilter !== "off" && styles.vegSwitchActive]}>
+                  <TouchableOpacity 
+                    style={styles.vegToggleButton} 
+                    onPress={() => setShowVegFilterModal(true)} 
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.vegLabelContainer}>
+                      <Text style={styles.vegLabelText}>VEG</Text>
+                    </View>
+                    <Animated.View style={styles.vegToggleTrack}>
                       <Animated.View
                         style={[
-                          styles.vegSwitchThumb,
+                          styles.vegToggleThumb,
                           {
                             transform: [
                               {
-                                translateX: vegAnimated.interpolate({
+                                translateX: vegToggleAnimated.interpolate({
                                   inputRange: [0, 1],
-                                  outputRange: [0, 20],
+                                  outputRange: [0, 18],
                                 }),
                               },
                             ],
                           },
                         ]}
-                      />
-                    </View>
+                      >
+                        <Animated.View
+                          style={[
+                            styles.leafContainer,
+                            {
+                              opacity: vegToggleAnimated,
+                              transform: [
+                                {
+                                  scale: vegToggleAnimated.interpolate({ inputRange: [0,1], outputRange: [0.8, 1] }),
+                                }
+                              ],
+                            },
+                          ]}
+                        >
+                          <Ionicons name="leaf" size={10} color="#FFFFFF" />
+                        </Animated.View>
+                      </Animated.View>
+                    </Animated.View>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1659,7 +1689,7 @@ const fetchTiffinRecentSearch = async (
                       : `${filteredHostels.length} properties found in ${userLocation || "Unknown Location"}`
                   : hasFilters
                     ? `${filteredTiffinServices.length} filtered results`
-                    : searchQuery || vegFilter !== "off"
+                    : searchQuery || vegFilter === "veg"
                       ? `${filteredTiffinServices.length} results found`
                       : `${tiffinServices.length} services found in ${userLocation || "Unknown Location"}`}
               </Text>
@@ -1723,7 +1753,7 @@ const fetchTiffinRecentSearch = async (
       <VegFilterModal
         visible={showVegFilterModal}
         onClose={() => setShowVegFilterModal(false)}
-        currentFilter={vegFilter === "off" ? "all" : vegFilter}
+        currentFilter={vegFilter === "off" ? "all" : "veg"}
         onApply={handleVegFilterApply}
       />
     </View>
@@ -1923,38 +1953,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-  vegToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  vegText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  vegSwitchContainer: {
-    width: 44,
-    height: 24,
-    backgroundColor: "red",
-    borderRadius: 12,
-    paddingTop: 4,
-    paddingBottom: 4,
+vegToggleButton: {
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 3,
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  backgroundColor: "#FFFFFF",
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.1,
+  shadowRadius: 1.5,
+  elevation: 2,
+  height: 56, // smaller height
+  width: 55, // smaller width
+},
+
+vegLabelContainer: {
+  paddingHorizontal: 4,
+  paddingVertical: 2,
+},
+
+vegLabelText: {
+  fontSize: 9,
+  fontWeight: "600",
+  color: "#374151",
+},
+
+
+vegToggleTrack: {
+  width: 30,
+  height: 14,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+  justifyContent: "center",
+  backgroundColor: "transparent",
+  position: "relative",
+  paddingHorizontal: 2,
+},
+
+vegToggleThumb: {
+  width: 12,
+  height: 12,
+  borderRadius: 11,
+  backgroundColor: "green", // show green thumb even when OFF
+  position: "absolute",
+  left: 0,
+  top: 0,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+
+  leafContainer: {
+    width: 18,
+    height: 18,
     justifyContent: "center",
-  },
-  vegSwitchActive: {
-    backgroundColor: "#10B981",
-  },
-  vegSwitchThumb: {
-    width: 20,
-    height: 15,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
+    alignItems: "center",
   },
   servicesCount: {
     fontSize: 14,
