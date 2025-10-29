@@ -84,8 +84,8 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 16,
     padding: 24,
-    width: "85%",
-    maxWidth: 340,
+    width: "95%",
+    maxWidth: 440,
   },
   title: {
     fontSize: 18,
