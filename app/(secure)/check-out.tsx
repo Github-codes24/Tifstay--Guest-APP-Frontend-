@@ -916,12 +916,20 @@ const handleRemoveCoupon = async () => {
           {/* Input Row */}
           <View style={styles.couponInputContainer}>
             {appliedCoupon ? (
-              // Show applied coupon and remove button
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={styles.appliedCouponText}>Applied: {appliedCoupon}</Text>
-                <TouchableOpacity style={styles.removeButton} onPress={handleRemoveCoupon}>
-                  <Text style={styles.removeButtonText}>Remove Coupon</Text>
-                </TouchableOpacity>
+              // Show applied coupon as a themed tag with inline remove
+              <View style={styles.appliedCouponContainer}>
+                <View style={styles.appliedTag}>
+                  <Text style={styles.appliedTagText}>✓ {appliedCoupon}</Text>
+                  <TouchableOpacity 
+                    style={styles.removeTagButton} 
+                    onPress={handleRemoveCoupon}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove coupon"
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               // Original input and apply
@@ -1248,25 +1256,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  removeButton: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 120,
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  appliedCouponText: {
+  appliedCouponContainer: {
     flex: 1,
+    marginTop: 12,
+  },
+  appliedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD', // Light blue matching theme
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BBDEFB', // Softer blue border
+  },
+  appliedTagText: {
+    color: '#1976D2', // Deeper blue for text, theme-aligned
     fontSize: 14,
-    color: '#2854C5',
     fontWeight: '500',
+    marginRight: 8,
+  },
+  removeTagButton: {
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: '#2854C5', // Pay button blue
+    marginLeft: 4,
   },
   viewCouponsButton: {
     marginTop: 12,
