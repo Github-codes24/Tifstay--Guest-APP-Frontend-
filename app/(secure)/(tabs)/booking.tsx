@@ -31,7 +31,7 @@ interface Order {
   foodType?: string;
   plan?: string;
   orderType?: string;
-  status: "pending" | "confirmed" | "delivered" | "cancelled" | "completed";
+  status: "pending" | "confirmed" | "delivered" | "cancelled" | "completed" | "rejected";
   checkInDate?: string;
   checkOutDate?: string;
   price?: string;
@@ -40,7 +40,7 @@ interface Order {
 }
 
 const Booking: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"pending" | "confirmed">(
+  const [activeTab, setActiveTab] = useState<"pending" | "confirmed" | "rejected">(
     "pending"
   );
   const [hostelOrders, setHostelOrders] = useState<Order[]>([]);
@@ -55,7 +55,7 @@ const Booking: React.FC = () => {
     fetchOrders(activeTab);
   }, [activeTab]);
 
-  const fetchOrders = async (tab: "pending" | "confirmed") => {
+  const fetchOrders = async (tab: "pending" | "confirmed" | "rejected") => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -64,47 +64,61 @@ const Booking: React.FC = () => {
       };
 
       // Fetch hostel orders
-      const hostelUrl =
-        tab === "pending"
-          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings"
-          : "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
+      let hostelUrl: string;
+      if (tab === "pending") {
+        hostelUrl = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings";
+      } else if (tab === "confirmed") {
+        hostelUrl = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getConfirmedHostelBookings";
+      } else {
+        hostelUrl = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRejectedHostelBookings";
+      }
 
       const hostelResponse = await axios.get(hostelUrl, { headers });
       console.log("Hostel API Response:", hostelResponse.data);
 
       let fetchedHostelOrders: Order[] = [];
       if (hostelResponse.data.success) {
-        fetchedHostelOrders = hostelResponse.data.data.map((item: any) => ({
-          id: item._id,
-          bookingId: item.bookingId || item._id, // Use bookingId if available, fallback to _id
-          serviceType: "hostel" as const,
-          serviceName: item.hostelId?.hostelName || "Unknown Hostel",
-          customer: item.fullName || "Unknown User",
-          checkInDate: item.checkInDate
-            ? new Date(item.checkInDate).toLocaleDateString()
-            : "",
-          checkOutDate: item.checkOutDate
-            ? new Date(item.checkOutDate).toLocaleDateString()
-            : "",
-          endDate: item.checkOutDate
-            ? new Date(item.checkOutDate).toLocaleDateString()
-            : "",
-          status: item.status.toLowerCase() as Order["status"],
-          image: item.userPhoto,
-          price: item.price, // Assuming price is available; adjust if needed
-          // FIXED: Extract _id as string; handle object or string input
-          entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
-        }));
+        fetchedHostelOrders = hostelResponse.data.data.map((item: any) => {
+          let priceValue = item.price;
+          if (tab === "rejected") {
+            priceValue = item.AppiledCoupon?.finalprice || 0;
+          }
+          return {
+            id: item._id,
+            bookingId: item.bookingId || item._id, // Use bookingId if available, fallback to _id
+            serviceType: "hostel" as const,
+            serviceName: item.hostelId?.hostelName || "Unknown Hostel",
+            customer: item.fullName || "Unknown User",
+            checkInDate: item.checkInDate
+              ? new Date(item.checkInDate).toLocaleDateString()
+              : "",
+            checkOutDate: item.checkOutDate
+              ? new Date(item.checkOutDate).toLocaleDateString()
+              : "",
+            endDate: item.checkOutDate
+              ? new Date(item.checkOutDate).toLocaleDateString()
+              : "",
+            status: item.status.toLowerCase() as Order["status"],
+            image: item.userPhoto,
+            price: priceValue ? `₹${priceValue}` : undefined,
+            // FIXED: Extract _id as string; handle object or string input
+            entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
+          };
+        });
         // DEBUG: Log hostel orders statuses
         console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
       }
       setHostelOrders(fetchedHostelOrders);
 
       // Fetch tiffin orders
-      const tiffinUrl =
-        tab === "pending"
-          ? "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPendingTiffinOrder"
-          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
+      let tiffinUrl: string;
+      if (tab === "pending") {
+        tiffinUrl = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPendingTiffinOrder";
+      } else if (tab === "confirmed") {
+        tiffinUrl = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getConfirmedTiffinOrder";
+      } else {
+        tiffinUrl = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getRejectedTiffinOrder";
+      }
 
       const tiffinResponse = await axios.get(tiffinUrl, { headers });
       console.log("Token res:", token);
@@ -120,11 +134,16 @@ const Booking: React.FC = () => {
           const orderType = [...new Set(tiffins.map((t: any) => t.orderType))].join(", ");
           const totalPrice = tiffins.reduce((sum: number, t: any) => sum + (t.price || 0), 0);
 
+          // FIXED: Handle serviceName to prioritize valid names, skip "N/A" or empty
+          const serviceName = (item.tiffinServiceName && item.tiffinServiceName !== "N/A" && item.tiffinServiceName.trim() !== "")
+            ? item.tiffinServiceName
+            : (item.tiffinServiceId?.tiffinName || "Unknown Tiffin Service");
+
           return {
             id: item._id,
             bookingId: item.bookingId,
             serviceType: "tiffin" as const,
-            serviceName: item.tiffinServiceName || item.tiffinServiceId?.tiffinName || "Unknown Tiffin Service",
+            serviceName,
             customer: "You",
             startDate: item.startDate ? new Date(item.startDate).toLocaleDateString() : "",
             endDate: "", // Not provided by backend
@@ -290,6 +309,7 @@ const Booking: React.FC = () => {
       case "completed":
         return "#6B7280";
       case "cancelled":
+      case "rejected":
         return "#EF4444";
       default:
         return "#6B7280";
@@ -308,6 +328,8 @@ const Booking: React.FC = () => {
         return "Completed";
       case "cancelled":
         return "Cancelled";
+      case "rejected":
+        return "Rejected";
       default:
         return status;
     }
@@ -365,10 +387,10 @@ const Booking: React.FC = () => {
                   {order.serviceName}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
+              {/* <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Customer:</Text>
                 <Text style={styles.detailValue}>{order.customer}</Text>
-              </View>
+              </View> */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Check-in date:</Text>
                 <Text style={styles.detailValue}>{order.checkInDate}</Text>
@@ -386,10 +408,10 @@ const Booking: React.FC = () => {
                   {order.serviceName}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
+              {/* <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Customer:</Text>
                 <Text style={styles.detailValue}>{order.customer}</Text>
-              </View>
+              </View> */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Start Date:</Text>
                 <Text style={styles.detailValue}>{order.startDate}</Text>
@@ -468,6 +490,25 @@ const Booking: React.FC = () => {
                     height={48}
                   />
                 )}
+              </View>
+            )}
+            {order.status === "rejected" && (
+              <View style={styles.buttonRow}>
+                {/* <Button
+                  title="See Details"
+                  onPress={() => handleSeeDetails(order)}
+                  style={styles.rateButtonStyle}
+                  textStyle={styles.secondaryButtonTextStyle}
+                  width={160}
+                  height={48}
+                />
+                <Button
+                  title="Repeat Order"
+                  onPress={() => handleRepeatOrder(order)}
+                  style={styles.repeatButtonStyle}
+                  width={160}
+                  height={48}
+                /> */}
               </View>
             )}
             {isHistoryOrder(order.status) && (
@@ -560,6 +601,19 @@ const Booking: React.FC = () => {
             Confirmed
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "rejected" && styles.activeTab]}
+          onPress={() => setActiveTab("rejected")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "rejected" && styles.activeTabText,
+            ]}
+          >
+            Rejected
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -576,7 +630,9 @@ const Booking: React.FC = () => {
             <Text style={styles.emptyStateSubtext}>
               {activeTab === "pending"
                 ? "You don't have any pending orders"
-                : "You don't have any confirmed orders"}
+                : activeTab === "confirmed"
+                ? "You don't have any confirmed orders"
+                : "You don't have any rejected orders"}
             </Text>
           </View>
         ) : (
@@ -812,12 +868,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  rateButtonStyle: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.primary,
-    flex: 1,
-  },
+ rateButtonStyle: {
+  backgroundColor: "transparent",
+  borderWidth: 1,
+  borderColor: colors.primary,
+  width: 430,
+  alignSelf: "center",
+  marginTop:10
+},
   repeatButtonStyle: {
     backgroundColor: colors.primary,
     flex: 1,
