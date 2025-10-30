@@ -830,123 +830,152 @@ const handleTiffinSubmit = async () => {
   }
 };
 
-  const handleHostelSubmit = async () => {
-    console.log("=== Hostel Submit Debug ===");
-    console.log("serviceData:", serviceData);
-    console.log("hostelPlan:", hostelPlan);
-    console.log("fullName:", fullName);
-    console.log("phoneNumber:", phoneNumber);
-    console.log("checkInDate:", checkInDate);
-    console.log("checkOutDate:", checkOutDate);
-    console.log("purposeType:", purposeType);
-    console.log("aadhaarPhoto:", aadhaarPhoto);
-    console.log("userPhoto:", userPhoto);
-    console.log("rooms:", serviceData.rooms);
+const handleHostelSubmit = async () => {
+  console.log("=== Hostel Submit Debug ===");
+  console.log("serviceData:", serviceData);
+  console.log("hostelPlan:", hostelPlan);
+  console.log("fullName:", fullName);
+  console.log("phoneNumber:", phoneNumber);
+  console.log("checkInDate:", checkInDate);
+  console.log("checkOutDate:", checkOutDate);
+  console.log("purposeType:", purposeType);
+  console.log("aadhaarPhoto:", aadhaarPhoto);
+  console.log("userPhoto:", userPhoto);
+  console.log("rooms:", serviceData.rooms);
 
-    if (validateHostelForm()) {
-      try {
-        if (!serviceData.hostelId) {
-          console.error("Error: Hostel ID is missing!");
-          console.log("hostelId:", serviceData.hostelId);
-          setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
-          return;
-        }
-
-        // NEW: No need for single roomId validation
-
-        if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
-          console.error("Error: No rooms or beds selected!");
-          setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
-          return;
-        }
-
-        const token = await AsyncStorage.getItem("token");
-        const guestId = await AsyncStorage.getItem("guestId");
-
-        console.log("token:", token ? "Present" : "Missing");
-        console.log("guestId:", guestId ? "Present" : "Missing");
-
-        if (!token || !guestId) {
-          console.error("Error: Authentication token or guest ID is missing!");
-          setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
-          return;
-        }
-
-        // FIXED: Use flat price and deposit for the plan (no per-bed division)
-        const selectPlan = [
-          {
-            name: hostelPlan,
-            price: currentPlanPrice,
-            depositAmount: currentDeposit,
-          },
-        ];
-
-        // NEW: Build rooms array from serviceData.rooms
-        const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
-          roomId: room.roomId,
-          roomNumber: String(room.roomNumber || ""), // e.g., "101"
-          bedNumber: room.beds, // Already [{bedId, bedNumber}]
-        }));
-
-        const bookingPayload = {
-          fullName,
-          phoneNumber,
-          email: serviceData.email || "example@example.com",
-          checkInDate: checkInDate.toISOString(),
-          checkOutDate: checkOutDate.toISOString(),
-          selectPlan,
-          addharCardPhoto: aadhaarPhoto || null,
-          userPhoto: userPhoto || null,
-          guestId,
-          rooms: roomsPayload,
-        };
-
-        // FIXED: Add workType as the selected purposeType string (shows "work", "leisure", or "student" in response)
-        bookingPayload.workType = purposeType;
-
-        console.log("Full Booking Payload:", JSON.stringify(bookingPayload, null, 2));
-
-        // NEW: API URL uses only hostelId (remove roomId query param)
-        const response = await axios.post(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
-          bookingPayload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        console.log("API Response:", response.data);
-
-        if (response.data.success) {
-          console.log("Booking successful:", response.data.data);
-          // alert("Hostel booking created successfully!");
-
-          const bookingId = response.data.data._id;
-
-          console.log("Navigating to checkout with booking ID:", bookingId);
-
-          router.push({
-            pathname: "/check-out",
-            params: {
-              serviceType: "hostel",
-              bookingId,
-              serviceId: serviceData.hostelId,
-            },
-          });
-        } else {
-          console.error("Booking failed:", response.data.message || "Unknown error");
-          setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
-        }
-      } catch (error: any) {
-        console.error("Error creating hostel booking:", error.response?.data || error.message);
-        console.error("Full error object:", error);
-        setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+  if (validateHostelForm()) {
+    try {
+      if (!serviceData.hostelId) {
+        console.error("Error: Hostel ID is missing!");
+        console.log("hostelId:", serviceData.hostelId);
+        setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
+        return;
       }
+
+      // NEW: No need for single roomId validation
+
+      if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+        console.error("Error: No rooms or beds selected!");
+        setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
+        return;
+      }
+
+      const token = await AsyncStorage.getItem("token");
+      const guestId = await AsyncStorage.getItem("guestId");
+
+      console.log("token:", token ? "Present" : "Missing");
+      console.log("guestId:", guestId ? "Present" : "Missing");
+
+      if (!token || !guestId) {
+        console.error("Error: Authentication token or guest ID is missing!");
+        setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+        return;
+      }
+
+      // FIXED: Use flat price and deposit for the plan (no per-bed division)
+      const selectPlan = [
+        {
+          name: hostelPlan,
+          price: currentPlanPrice,
+          depositAmount: currentDeposit,
+        },
+      ];
+
+      // NEW: Build rooms array from serviceData.rooms
+      const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+        roomId: room.roomId,
+        roomNumber: String(room.roomNumber || ""), // e.g., "101"
+        bedNumber: room.beds, // Already [{bedId, bedNumber}]
+      }));
+
+      // Create FormData for file uploads
+      const formData = new FormData();
+      formData.append('fullName', fullName);
+      formData.append('phoneNumber', phoneNumber);
+      formData.append('email', serviceData.email || "example@example.com");
+      formData.append('checkInDate', checkInDate.toISOString());
+      formData.append('checkOutDate', checkOutDate.toISOString());
+      formData.append('workType', purposeType);
+      formData.append('guestId', guestId);
+
+      // Append rooms as JSON string
+      formData.append('rooms', JSON.stringify(roomsPayload));
+
+      // Append plan as JSON string
+      formData.append('selectPlan', JSON.stringify(selectPlan));
+
+      // Append images as files (if selected)
+      if (aadhaarPhoto) {
+        formData.append('addharCardPhoto', {
+          uri: aadhaarPhoto,
+          type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
+          name: 'aadhar.jpg',
+        } as any);
+      }
+      if (userPhoto) {
+        formData.append('userPhoto', {
+          uri: userPhoto,
+          type: 'image/jpeg',
+          name: 'user.jpg',
+        } as any);
+      }
+
+      console.log("Full FormData Payload: (logged as object for debug)");
+      console.log({
+        fullName,
+        phoneNumber,
+        email: serviceData.email || "example@example.com",
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        workType: purposeType,
+        guestId,
+        rooms: roomsPayload,
+        selectPlan,
+        aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
+        userPhoto: userPhoto ? 'Attached' : 'Null',
+      });
+
+      // NEW: API URL uses only hostelId (remove roomId query param)
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("API Response:", response.data);
+
+      if (response.data.success) {
+        console.log("Booking successful:", response.data.data);
+        // alert("Hostel booking created successfully!");
+
+        const bookingId = response.data.data._id;
+
+        console.log("Navigating to checkout with booking ID:", bookingId);
+
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "hostel",
+            bookingId,
+            serviceId: serviceData.hostelId,
+          },
+        });
+      } else {
+        console.error("Booking failed:", response.data.message || "Unknown error");
+        setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+      }
+    } catch (error: any) {
+      console.error("Error creating hostel booking:", error.response?.data || error.message);
+      console.error("Full error object:", error);
+      setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
     }
-  };
+  }
+};
 
   const Checkbox = ({
     checked,

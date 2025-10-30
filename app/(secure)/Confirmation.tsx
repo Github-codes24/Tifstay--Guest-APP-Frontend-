@@ -205,7 +205,7 @@ const Confirmation: React.FC = () => {
   }, [isTiffin]);
 
   const tiffinBookingDetails = tiffinDetails ? {
-    id: id,
+    bookingId: tiffinDetails.bookingId,
     tiffinService: tiffinDetails.tiffinServiceName,
     customer: tiffinDetails.guestName,
     amount: tiffinDetails.amount,
@@ -213,10 +213,9 @@ const Confirmation: React.FC = () => {
     mealType: tiffinDetails.mealType || "Lunch",
     foodType: tiffinDetails.foodType || "Veg",
     orderType: tiffinDetails.orderType || "Delivery",
-    plan: tiffinDetails.plan || "Daily",
-    numberOfTiffin: tiffinDetails.numberOfTiffin,
+    planType: tiffinDetails.planType || "Daily",
   } : {
-    id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
+    bookingId: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
       Math.random() * 10000000
     )}`,
     tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
@@ -226,7 +225,7 @@ const Confirmation: React.FC = () => {
     mealType: "Lunch",
     foodType: "Veg",
     orderType: "Delivery",
-    plan: "Daily",
+    planType: "Daily",
   };
 
   const hostelBookingDetails = bookingDetails ? {
@@ -401,15 +400,9 @@ const Confirmation: React.FC = () => {
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Plan:</Text>
+                <Text style={styles.detailLabel}>Plan Type:</Text>
                 <Text style={styles.detailValue}>
-                  {tiffinBookingDetails.plan}
-                </Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Number of Tiffins:</Text>
-                <Text style={styles.detailValue}>
-                  {tiffinBookingDetails.numberOfTiffin || 'N/A'}
+                  {tiffinBookingDetails.planType}
                 </Text>
               </View>
               <View style={styles.detailRow}>
@@ -420,7 +413,7 @@ const Confirmation: React.FC = () => {
               </View>
               <View style={[styles.detailRow]}>
                 <Text style={styles.detailLabel}>Order ID:</Text>
-                <Text style={styles.orderId}>#{tiffinBookingDetails.id}</Text>
+                <Text style={styles.orderId}>#{tiffinBookingDetails.bookingId}</Text>
               </View>
             </>
           ) : (
@@ -451,8 +444,8 @@ const Confirmation: React.FC = () => {
                 </Text>
               </View>
               <View style={[styles.detailRow]}>
-                <Text style={styles.detailLabel}>Order ID:</Text>
-                <Text style={styles.orderId}>#{hostelBookingDetails.id}</Text>
+                {/* <Text style={styles.detailLabel}>Order ID:</Text>
+                <Text style={styles.orderId}>#{hostelBookingDetails.id}</Text> */}
               </View>
             </>
           )}
