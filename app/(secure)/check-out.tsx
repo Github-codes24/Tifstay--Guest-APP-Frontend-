@@ -467,7 +467,7 @@ const handleRemoveCoupon = async () => {
 
         // FIXED: Add / before 'beforePayment' for correct route
         const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingById/${bookingId}/beforePayment`,
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${bookingId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -695,16 +695,27 @@ const handleRemoveCoupon = async () => {
         // TODO: For proper Razorpay integration, use Razorpay SDK with callbacks.
         // After opening the link, navigate to confirmation assuming success (or implement deep link handling for redirect back).
         // For now, simulate navigation after opening (in real app, handle via deep links or polling).
-        // Assuming the bookingId remains the same after payment confirmation on backend.
+        // FIXED: Always use original bookingId for confirmation (ignore API-returned IDs)
+        const confirmationId = finalBookingId;
+        const confirmationServiceType = serviceType as string;
+        const confirmationServiceName = checkoutData.title || "Fallback Service Name";
+        const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
+        const confirmationAmount = paymentAmount;
+        
+        console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
+        console.log("confirmationId (booking/order ID):", confirmationId);
+        console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+        console.log("========================================================");
+
         setTimeout(() => {
           router.push({
             pathname: "/(secure)/Confirmation",
             params: {
-              id: (isTiffin ? (paymentData.tiffinOrderId || finalBookingId) : finalBookingId),
-              serviceType: serviceType as string,
-              serviceName: checkoutData.title || "Fallback Service Name",
-              guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name")),
-              amount: paymentAmount,
+              id: confirmationId,
+              serviceType: confirmationServiceType,
+              serviceName: confirmationServiceName,
+              guestName: confirmationGuestName,
+              amount: confirmationAmount,
             },
           });
         }, 2000); // Delay to simulate processing
@@ -742,7 +753,6 @@ const handleRemoveCoupon = async () => {
         return;
       }
 
-      let finalBookingId = bookingId as string;
       let newBalance = walletBalance;
 
       if (isHostel) {
@@ -758,8 +768,8 @@ const handleRemoveCoupon = async () => {
         if (response.data?.success) {
           const { data } = response.data;
           newBalance = data.remainingWallet;
-          finalBookingId = data.hostelBookingId || bookingId; // Use returned ID or fallback to original
-          console.log("Wallet booking created successfully:", data);
+          // FIXED: Log new ID but use original for confirmation
+          console.log("Wallet booking created successfully (new ID):", data.hostelBookingId, "Original ID:", bookingId);
         } else {
           Alert.alert("Error", response.data?.message || "Failed to create booking with wallet");
           return;
@@ -777,8 +787,8 @@ const handleRemoveCoupon = async () => {
         if (response.data?.success) {
           const { data } = response.data;
           newBalance = data.remainingWallet;
-          finalBookingId = data.tiffinOrderId || bookingId; // Use returned ID or fallback to original
-          console.log("Wallet payment for tiffin successful:", data);
+          // FIXED: Log new ID but use original for confirmation
+          console.log("Wallet payment for tiffin successful (new ID):", data.tiffinOrderId, "Original ID:", bookingId);
         } else {
           Alert.alert("Error", response.data?.message || "Failed to pay with wallet for tiffin");
           return;
@@ -802,15 +812,26 @@ const handleRemoveCoupon = async () => {
           {
             text: "OK",
             onPress: () => {
-              // Navigate to confirmation screen on OK
+              // FIXED: Always use original bookingId for confirmation
+              const confirmationId = bookingId as string;
+              const confirmationServiceType = serviceType as string;
+              const confirmationServiceName = checkoutData.title || "Fallback Service Name";
+              const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
+              const confirmationAmount = paymentAmount;
+              
+              console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
+              console.log("confirmationId (booking/order ID):", confirmationId);
+              console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+              console.log("========================================================");
+
               router.push({
                 pathname: "/(secure)/Confirmation",
                 params: {
-                  id: finalBookingId,
-                  serviceType: serviceType as string,
-                  serviceName: checkoutData.title || "Fallback Service Name",
-                  guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name")),
-                  amount: paymentAmount,
+                  id: confirmationId,
+                  serviceType: confirmationServiceType,
+                  serviceName: confirmationServiceName,
+                  guestName: confirmationGuestName,
+                  amount: confirmationAmount,
                 },
               });
             },
