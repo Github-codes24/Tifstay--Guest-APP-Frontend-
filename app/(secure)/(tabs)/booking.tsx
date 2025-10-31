@@ -483,12 +483,12 @@ const Booking: React.FC = () => {
                   </View>
                 ) : (
                   <Button
-                    title="Rate Now"
-                    onPress={() => handleRateNow(order)}
-                    textStyle={styles.secondaryButtonTextStyle}
-                    style={styles.rateButtonStyle}
-                    height={48}
-                  />
+    title="Rate Now"
+    onPress={() => handleRateNow(order)}
+    textStyle={styles.secondaryButtonTextStyle}
+    style={[styles.rateButtonStyle, { width: 430, marginTop:10 }]}
+    height={48}
+  />
                 )}
               </View>
             )}
@@ -501,14 +501,14 @@ const Booking: React.FC = () => {
                   textStyle={styles.secondaryButtonTextStyle}
                   width={160}
                   height={48}
-                />
-                <Button
+                /> <Button
                   title="Repeat Order"
                   onPress={() => handleRepeatOrder(order)}
                   style={styles.repeatButtonStyle}
                   width={160}
                   height={48}
-                /> */}
+                /> */} */}
+                
               </View>
             )}
             {isHistoryOrder(order.status) && (
@@ -872,9 +872,9 @@ const styles = StyleSheet.create({
   backgroundColor: "transparent",
   borderWidth: 1,
   borderColor: colors.primary,
-  width: 430,
+  width: 230,
   alignSelf: "center",
-  marginTop:10
+
 },
   repeatButtonStyle: {
     backgroundColor: colors.primary,
