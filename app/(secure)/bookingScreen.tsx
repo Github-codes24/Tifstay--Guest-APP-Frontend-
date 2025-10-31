@@ -165,6 +165,8 @@ export default function BookingScreen() {
   const [aadhaarPhoto, setAadhaarPhoto] = useState<string>("");
   const [userPhoto, setUserPhoto] = useState<string>("");
 
+  const [isLoadingHostel, setIsLoadingHostel] = useState(false);
+
   const ranAutofill = useRef(false);
 
   // NEW: Compute total beds across all rooms
@@ -335,9 +337,7 @@ export default function BookingScreen() {
           setHostelPlan(parsedPlan.name || "monthly");
           setAadhaarPhoto(userAdharPhoto || "");
           setUserPhoto(userPhotoUrl || "");
-          // Set dates if provided
-          if (checkInDateStr) setCheckInDate(new Date(checkInDateStr));
-          if (checkOutDateStr) setCheckOutDate(new Date(checkOutDateStr));
+          // Do not pre-fill dates - let user fill them
           // FIXED: Better mapping for purposeType from userWorkType (handles casing and "leisure")
           const workTypeNormalized = userWorkType.toLowerCase();  // Normalize for matching
           let purpose = "work";  // default
@@ -551,14 +551,20 @@ export default function BookingScreen() {
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
     setShowCheckInPicker(Platform.OS === "ios");
     if (selectedDate) {
-      setCheckInDate(selectedDate);
+      // Fix: Set to 12:00 local on selected day to avoid UTC shift to previous day
+      selectedDate.setHours(12, 0, 0, 0);
+      setCheckInDate(new Date(selectedDate));
       // Auto-fill check-out will happen via useEffect
     }
   };
 
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
     setShowCheckOutPicker(Platform.OS === "ios");
-    if (selectedDate) setCheckOutDate(selectedDate);
+    if (selectedDate) {
+      // Same fix for check-out
+      selectedDate.setHours(12, 0, 0, 0);
+      setCheckOutDate(new Date(selectedDate));
+    }
   };
 
   // NEW: Image picker functions for hostel uploads
@@ -844,6 +850,7 @@ const handleHostelSubmit = async () => {
   console.log("rooms:", serviceData.rooms);
 
   if (validateHostelForm()) {
+    setIsLoadingHostel(true);
     try {
       if (!serviceData.hostelId) {
         console.error("Error: Hostel ID is missing!");
@@ -973,6 +980,8 @@ const handleHostelSubmit = async () => {
       console.error("Error creating hostel booking:", error.response?.data || error.message);
       console.error("Full error object:", error);
       setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+    } finally {
+      setIsLoadingHostel(false);
     }
   }
 };
@@ -1235,10 +1244,10 @@ const handleHostelSubmit = async () => {
 
         <View style={styles.section}>
           <Text style={styles.label}>User Stay Type</Text>
-          <View style={{ flexDirection: "row", marginTop: 10 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-around", marginTop: 10 }}>
             {/* Work */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", marginRight: 20 }}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
               onPress={() => setPurposeType("work")}
             >
               <View style={styles.radioOuter}>
@@ -1249,7 +1258,7 @@ const handleHostelSubmit = async () => {
 
             {/* Leisure */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", marginRight: 20 }}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
               onPress={() => setPurposeType("leisure")}
             >
               <View style={styles.radioOuter}>
@@ -1260,7 +1269,7 @@ const handleHostelSubmit = async () => {
 
             {/* Student */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center" }}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
               onPress={() => setPurposeType("student")}
             >
               <View style={styles.radioOuter}>
@@ -1277,10 +1286,15 @@ const handleHostelSubmit = async () => {
       {errors.rooms && <Text style={styles.errorText}>{errors.rooms}</Text>}
 
       <TouchableOpacity
-        style={styles.submitButton}
+        style={[styles.submitButton, isLoadingHostel && styles.disabledButton]}
         onPress={handleHostelSubmit}
+        disabled={isLoadingHostel}
       >
-        <Text style={styles.submitButtonText}>Book Now</Text>
+        {isLoadingHostel ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.submitButtonText}>Book Now</Text>
+        )}
       </TouchableOpacity>
     </>
   );
