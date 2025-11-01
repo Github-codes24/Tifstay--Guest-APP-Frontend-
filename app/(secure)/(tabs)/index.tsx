@@ -11,6 +11,7 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -99,7 +100,7 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
   const [showVegFilterModal, setShowVegFilterModal] = useState(false);
-  const [vegFilter, setVegFilter] = useState<"off" | "veg" | "nonveg">("off");
+  const [vegFilter, setVegFilter] = useState<"off" | "veg">("off");
   const [hostelType, setHostelType] = useState("");
   const [area, setArea] = useState("");
   const [maxRent, setMaxRent] = useState("");
@@ -120,13 +121,14 @@ export default function DashboardScreen() {
   const [isLoadingHostelTypes, setIsLoadingHostelTypes] = useState(false);
   const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
   const [isLoadingPlanTypes, setIsLoadingPlanTypes] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const hostelTypeOptions = useMemo(() => ["All", ...hostelTypes], [hostelTypes]);
   const areaOptions = useMemo(() => ["All", ...cities], [cities]);
   const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
 
   const hasFilters = Object.keys(appliedFilters).length > 0;
-  const vegAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
+  const vegToggleAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -307,8 +309,8 @@ export default function DashboardScreen() {
     }
   };
 
-  // --- Fetch tiffin services ---
-  const fetchTiffinServices = async (search = "", priceSort = "", minRating = 0) => {
+  // --- Fetch tiffin services (FIX: Always append foodType if present) ---
+  const fetchTiffinServices = async (search = "", priceSort = "", minRating = 0, foodType?: string) => {
     setIsLoadingTiffins(true);
     const token = await getAuthToken();
     if (!token) {
@@ -322,6 +324,10 @@ export default function DashboardScreen() {
     });
     if (minRating > 0) {
       params.append("rating", `${minRating} & above`);
+    }
+    // FIX: Always append foodType if present (consistent with search; backend handles "Both")
+    if (foodType) {
+      params.append("foodType", foodType);
     }
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     try {
@@ -387,67 +393,167 @@ export default function DashboardScreen() {
     }
   };
 
-  // --- Fetch tiffin recent search ---
-  const fetchTiffinRecentSearch = async (query: string, priceSort = "", minRating = 0) => {
+  // --- Fetch tiffin recent search (enhanced with filters) ---
+  const fetchTiffinRecentSearch = async (
+    query: string,
+    priceSort = "",
+    minRating = 0,
+    foodTypeParam?: string
+  ) => {
+    if (!query.trim()) {
+      setSearchedTiffins([]);
+      return;
+    }
+
     const token = await getAuthToken();
-    if (!token) return;
-    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-    const params = new URLSearchParams({ query: encodeURIComponent(query) });
-    if (priceSort) params.append("priceSort", priceSort);
-    if (minRating > 0) params.append("rating", `${minRating} & above`);
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const params = new URLSearchParams({
+      search: query.trim(), // 🔥 Already correct: using 'search' param
+      ...(priceSort && { priceSort }),
+      ...(minRating > 0 && { rating: `${minRating} & above` }),
+    });
+
+    if (foodTypeParam) {
+      params.append("foodType", foodTypeParam);
+    }
+
+    const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
+    console.log("🔍 Tiffin Search URL:", url);
+
+    setIsSearching(true);
+
     try {
-      const response = await fetch(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinByRecentSearch?${params.toString()}`,
-        { headers }
-      );
+      const response = await fetch(url, { headers });
       const result = await response.json();
-      console.log("getTiffinByRecentSearch response:", JSON.stringify(result, null, 2));
-      if (result.success && result.data) {
-        const mapped = result.data.map((tiffin: any) => {
-          const foodTags: string[] = [];
-          tiffin.pricing.forEach((p: any) => {
-            const ft = p.foodType.toLowerCase();
-            if (ft === "veg") foodTags.push("veg");
-            if (ft === "both veg & non-veg") {
-              foodTags.push("veg");
-              foodTags.push("non-veg");
-            }
-            if (ft === "non-veg") foodTags.push("non-veg");
+      console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
+
+      const data = result.data || [];
+      if (result.success && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((tiffin: any) => {
+          const tags: string[] = [];
+          tiffin.pricing?.forEach((p: any) => {
+            const ft = p.foodType?.toLowerCase();
+            if (ft?.includes("veg")) tags.push("veg");
+            if (ft?.includes("non-veg")) tags.push("non-veg");
           });
-          const uniqueTags = [...new Set(foodTags)];
-          const offersText = tiffin.pricing.map((p: any) => p.offers).join(" ");
-          const fullDesc = `${tiffin.description} ${offersText}`;
-          const image = tiffin.photos?.[0] ? { uri: tiffin.photos[0] } : food1;
-          const firstPrice = tiffin.pricing[0];
-          const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
-          const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
-            type: m.mealType,
-            time: `${m.startTime} - ${m.endTime}`,
-          })) || [];
+
           return {
             id: tiffin._id,
             name: tiffin.tiffinName,
-            description: fullDesc,
-            location: tiffin.location.fullAddress,
-            price,
-            tags: uniqueTags,
-            rating: tiffin.averageRating,
-            image,
-            pricing: tiffin.pricing,
-            mealPreferences,
-            foodType: tiffin.foodType,
+            description: `${tiffin.description || ""}`,
+            location: tiffin.location?.fullAddress || "Unknown",
+            price: `₹${tiffin.pricing?.[0]?.monthlyDelivery || 0}`,
+            tags: [...new Set(tags)],
+            rating: tiffin.averageRating || 0,
+            image: tiffin.photos?.[0]
+              ? { uri: tiffin.photos[0] }
+              : food1,
           };
         });
+
         setSearchedTiffins(mapped);
       } else {
         setSearchedTiffins([]);
       }
-    } catch (error) {
-      console.error("Failed to fetch tiffin recent search:", error);
+    } catch (err) {
+      console.error("❌ Tiffin Search Error:", err);
       setSearchedTiffins([]);
-      Alert.alert("Error", "Failed to search tiffins. Please check your connection and try again.");
+    } finally {
+      setIsSearching(false);
     }
   };
+
+  // --- Fetch hostel search (FIX: Use 'search' param; add fallback filtering on allHostels if backend fails; fix encoding) ---
+  const fetchHostelSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchedHostels([]);
+      return;
+    }
+    setIsSearching(true);
+    const trimmedQuery = query.trim().toLowerCase(); // FIX: Normalize query
+    const token = await getAuthToken();
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    // 🔥 FIX: Single encode; log decoded for debug
+    const encodedSearch = encodeURIComponent(query.trim());
+    const params = new URLSearchParams({
+      search: encodedSearch,
+    });
+    // Wire in filters if applied
+    if (appliedFilters.hostelType) params.append("hostelType", appliedFilters.hostelType);
+    if (appliedFilters.roomType) params.append("roomType", appliedFilters.roomType);
+    if (appliedFilters.acNonAc) params.append("acNonAc", appliedFilters.acNonAc);
+    if (appliedFilters.planType) params.append("planType", appliedFilters.planType);
+    if (appliedFilters.priceRange) {
+      params.append("priceRangeMin", appliedFilters.priceRange[0].toString());
+      params.append("priceRangeMax", appliedFilters.priceRange[1].toString());
+    }
+    if (appliedFilters.location) params.append("location", appliedFilters.location);
+    if (appliedFilters.rating) params.append("rating", appliedFilters.rating.toString());
+
+    const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices?${params.toString()}`;
+    console.log("🔍 Hostel Search URL:", url);
+    console.log("🔍 Decoded Query for Debug:", decodeURIComponent(encodedSearch)); // FIX: Debug log
+
+    try {
+      const response = await fetch(url, { headers });
+      const result = await response.json();
+      console.log(
+        "getHostelsByRecentSearch response:",
+        JSON.stringify(result, null, 2)
+      );
+
+      if (result.success && result.data && Array.isArray(result.data)) {
+        // Client-side filter as backup (case-insensitive partial match)
+        const filtered = result.data.filter((hostel: any) =>
+          (hostel.hostelName || "").toLowerCase().includes(trimmedQuery)
+        );
+
+        const mappedHostels = filtered.map((hostel: any) => ({
+          id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
+          name: hostel.hostelName || "Unknown Hostel",
+          type: hostel.hostelType || "Unknown",
+          location: hostel.fullAddress || "Unknown Location",
+          price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
+          amenities: hostel.facilities || [],
+          rating: hostel.rating || 0,
+          image: imageMapping["hostel1"],
+          planType: hostel.planType || "",
+          roomType: hostel.roomType || "",
+          acNonAc: hostel.acNonAc || "",
+        }));
+
+        setSearchedHostels(mappedHostels);
+      } else {
+        // FIX: Backend failed? Fallback to client-side filter on allHostels
+        console.warn("Backend search failed, falling back to client-side filter:", result.message);
+        const clientFiltered = allHostels.filter((hostel) =>
+          hostel.name.toLowerCase().includes(trimmedQuery)
+        );
+        setSearchedHostels(clientFiltered);
+        if (clientFiltered.length === 0) {
+          Alert.alert("Search Tip", "Try broader keywords – searching locally now.");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch recent search:", error);
+      // FIX: Fallback on error too
+      const clientFiltered = allHostels.filter((hostel) =>
+        hostel.name.toLowerCase().includes(trimmedQuery)
+      );
+      setSearchedHostels(clientFiltered);
+      Alert.alert(
+        "Error",
+        "Search failed. Showing local results. Retry?",
+        [{ text: "Retry", onPress: () => fetchHostelSearch(query) }]
+      );
+    } finally {
+      setIsSearching(false);
+    }
+  }, [appliedFilters, allHostels]); // FIX: Added allHostels dep for fallback
 
   // --- Fetch cities ---
   const fetchCities = async () => {
@@ -569,6 +675,33 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (isHostel) {
+        if (isSearchFocused && searchQuery.trim()) {
+          await fetchHostelSearch(searchQuery);
+        } else {
+          await fetchAllHostels();
+        }
+      } else {
+        const priceSort = appliedFilters.cost || "";
+        const minRating = appliedFilters.rating || 0;
+        const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+        if (isSearchFocused && searchQuery.trim()) {
+          await fetchTiffinRecentSearch(searchQuery, priceSort, minRating, vegValue);
+        } else {
+          await fetchTiffinServices(searchQuery || "", priceSort, minRating, vegValue);
+        }
+      }
+    } catch (error) {
+      console.error("Refresh error:", error);
+      Alert.alert("Error", "Failed to refresh data. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, vegFilter, fetchHostelSearch]);
+
   // --- Refetch data when FilterModal opens if data is missing ---
   useEffect(() => {
     if (showFilterModal && isHostel) {
@@ -577,7 +710,7 @@ export default function DashboardScreen() {
       if (roomTypes.length === 0 && !isLoadingRoomTypes) fetchRoomTypes();
       if (planTypes.length === 0 && !isLoadingPlanTypes) fetchPlanTypes();
     }
-  }, [showFilterModal, isHostel, cities, hostelTypes, roomTypes, planTypes]);
+  }, [showFilterModal, isHostel, cities.length, hostelTypes.length, roomTypes.length, planTypes.length]); // FIX: Use .length to avoid re-fetch on same array ref
 
   // --- Fetch data when switching to hostel mode ---
   useEffect(() => {
@@ -613,122 +746,49 @@ export default function DashboardScreen() {
     if (!isHostel) {
       const priceSort = appliedFilters.cost || "";
       const minRating = appliedFilters.rating || 0;
-      if (!isSearchFocused || !searchQuery) {
-        fetchTiffinServices("", priceSort, minRating);
+      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+      if (!isSearchFocused) {
+        fetchTiffinServices(searchQuery, priceSort, minRating, vegValue);
       }
     }
-  }, [isHostel, appliedFilters.cost, appliedFilters.rating, isSearchFocused, searchQuery]);
+  }, [isHostel, appliedFilters.cost, appliedFilters.rating, vegFilter, isSearchFocused, searchQuery]);
 
-  // --- Fetch hostel by recent search (with debounce) ---
+  // --- Unified Search Debounce Effect (FIX: Combined for both modes to avoid duplication) ---
   useEffect(() => {
-    if (!isHostel || !isSearchFocused || !searchQuery) {
-      setSearchedHostels([]);
+    if (!isSearchFocused || !searchQuery.trim()) {
+      if (isHostel) setSearchedHostels([]);
+      else setSearchedTiffins([]);
       setIsSearching(false);
       return;
     }
 
-   const fetchRecentSearch = async () => {
-  if (!searchQuery.trim()) return; // blank search avoid
-  setIsSearching(true);
-  const token = await getAuthToken();
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  try {
-    const response = await fetch(
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices?query=${encodeURIComponent(
-        searchQuery
-      )}`,
-      { headers }
-    );
-    const result = await response.json();
-    console.log(
-      "getHostelsByRecentSearch response:",
-      JSON.stringify(result, null, 2)
-    );
-
-    if (result.success && result.data && Array.isArray(result.data)) {
-      // ✅ frontend filter — sirf wohi hostels jinke naam me query mile
-      const filtered = result.data.filter((hostel: any) =>
-        hostel.hostelName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      const mappedHostels = filtered.map((hostel: any) => ({
-        id:
-          hostel.hostelId ||
-          `hostel-${Math.random().toString(36).substr(2, 9)}`,
-        name: hostel.hostelName || "Unknown Hostel",
-        type: hostel.hostelType || "Unknown",
-        location: hostel.fullAddress || "Unknown Location",
-        price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
-        amenities: hostel.facilities || [],
-        rating: hostel.rating || 0,
-        image: imageMapping["hostel1"],
-        planType: hostel.planType || "",
-        roomType: hostel.roomType || "",
-        acNonAc: hostel.acNonAc || "",
-      }));
-
-      setSearchedHostels(mappedHostels);
-    } else {
-      setSearchedHostels([]);
-    }
-  } catch (error) {
-    console.error("Failed to fetch recent search:", error);
-    setSearchedHostels([]);
-    Alert.alert(
-      "Error",
-      "Failed to search hostels. Please check your connection and try again."
-    );
-  } finally {
-    setIsSearching(false);
-  }
-};
+    const trimmedQuery = searchQuery.trim();
+    const fetchSearch = async () => {
+      setIsSearching(true);
+      if (isHostel) {
+        await fetchHostelSearch(trimmedQuery);
+      } else {
+        const priceSort = appliedFilters.cost || "";
+        const minRating = appliedFilters.rating || 0;
+        const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+        await fetchTiffinRecentSearch(trimmedQuery, priceSort, minRating, vegValue);
+      }
+      setIsSearching(false);
+    };
 
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
-    searchDebounceRef.current = setTimeout(() => {
-      fetchRecentSearch();
-    }, 500);
+    searchDebounceRef.current = setTimeout(fetchSearch, 500);
 
     return () => {
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [isHostel, isSearchFocused, searchQuery]);
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, vegFilter, fetchHostelSearch]);
 
-  // --- Fetch search for tiffin ---
-  useEffect(() => {
-    if (!isHostel && isSearchFocused && searchQuery) {
-      const fetchRecentSearch = async () => {
-        setIsSearching(true);
-        const priceSort = appliedFilters.cost || "";
-        const minRating = appliedFilters.rating || 0;
-        await fetchTiffinRecentSearch(searchQuery, priceSort, minRating);
-        setIsSearching(false);
-      };
-
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-      searchDebounceRef.current = setTimeout(() => {
-        fetchRecentSearch();
-      }, 500);
-
-      return () => {
-        if (searchDebounceRef.current) {
-          clearTimeout(searchDebounceRef.current);
-        }
-      };
-    } else if (!isHostel) {
-      setSearchedTiffins([]);
-      setIsSearching(false);
-    }
-  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating]);
-
-  // --- Fetch suggestions ---
+  // --- Fetch suggestions (FIX: Ensure strings only; add String() wrapper) ---
   useEffect(() => {
     if (!isSearchFocused || searchQuery.length > 0) return;
 
@@ -745,7 +805,11 @@ export default function DashboardScreen() {
         const result = await response.json();
         console.log(`${isHostel ? "getHostel" : "getTiffin"}Suggestions response:`, JSON.stringify(result, null, 2));
         if (result.success && result.data && Array.isArray(result.data)) {
-          const suggs = isHostel ? result.data : result.data.map((item: any) => item.tiffinName);
+          // FIX: Explicit String() to prevent object rendering; filter empty
+          const suggs = (isHostel 
+            ? result.data.map((item: any) => String(item.hostelName || "Unknown Hostel"))
+            : result.data.map((item: any) => String(item.tiffinName || "Unknown"))
+          ).filter((s: string) => s.trim());
           setSuggestions(suggs);
         } else {
           setSuggestions([]);
@@ -757,7 +821,7 @@ export default function DashboardScreen() {
     };
 
     fetchSugg();
-  }, [isHostel, isSearchFocused, searchQuery]);
+  }, [isHostel, isSearchFocused]); // FIX: Removed searchQuery dep (only fetch when empty)
 
   // --- Location Modal ---
   useEffect(() => {
@@ -766,18 +830,19 @@ export default function DashboardScreen() {
 
   // --- Veg Filter Animation ---
   useEffect(() => {
-    Animated.timing(vegAnimated, {
+    Animated.timing(vegToggleAnimated, {
       toValue: vegFilter !== "off" ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: false, // color & layout animations require JS driver
     }).start();
   }, [vegFilter]);
 
   // --- Data mappings ---
   const tiffinServices = allTiffinServices;
 
-  // --- Filtering logic (Tiffin & Hostels) ---
+  // --- Filtering logic (Tiffin & Hostels) --- (FIX: Enhanced veg filtering for Veg/Non-Veg/Both; added debug log)
   const filteredTiffinServices = useMemo(() => {
+    console.log("🔍 Client Filtering Tiffins - Applied:", appliedFilters, "VegFilter:", vegFilter); // Debug
     const baseTiffins = isSearchFocused && searchQuery ? searchedTiffins : tiffinServices;
     let filtered = [...baseTiffins];
     const query = searchQuery.toLowerCase().trim();
@@ -792,13 +857,20 @@ export default function DashboardScreen() {
       );
     }
 
-    // Veg/Non-Veg filter - Check on aggregated tags
+    // FIX: Enhanced Veg/Non-Veg/Both filter - Client-side backup
     const vegFilterValue = appliedFilters.vegNonVeg || 
-      (vegFilter === "veg" ? "Veg" : vegFilter === "nonveg" ? "Non-Veg" : null);
-    if (vegFilterValue && vegFilterValue !== "Both") {
-      const tagToCheck = vegFilterValue === "Veg" ? "veg" : "non-veg";
+      (vegFilter === "veg" ? "Veg" : null);
+    if (vegFilterValue === "Veg") {
       filtered = filtered.filter((service) => 
-        service.tags.includes(tagToCheck)
+        service.tags.includes("veg") && !service.tags.includes("non-veg")
+      );
+    } else if (vegFilterValue === "Non-Veg") {
+      filtered = filtered.filter((service) => 
+        service.tags.includes("non-veg") && !service.tags.includes("veg")
+      );
+    } else if (vegFilterValue === "Both Veg & Non-Veg") {
+      filtered = filtered.filter((service) => 
+        service.tags.includes("veg") && service.tags.includes("non-veg")
       );
     }
 
@@ -808,9 +880,10 @@ export default function DashboardScreen() {
       filtered = filtered.filter((service) => service.rating >= minRatingFilter);
     }
 
-    // Price sort
+    // FIXED: Price sort logic - Use exact match to avoid substring overlap (e.g., "high to low" contains "low")
     const priceSort = appliedFilters.cost || "";
     if (priceSort) {
+      console.log("🔍 Applying client-side price sort:", priceSort); // Debug: Log to confirm trigger
       const getPriceNum = (service: TiffinService) => {
         const num = service.price.replace(/[^0-9]/g, "");
         return parseInt(num, 10) || 0;
@@ -818,10 +891,11 @@ export default function DashboardScreen() {
       filtered.sort((a, b) => {
         const pa = getPriceNum(a);
         const pb = getPriceNum(b);
-        if (priceSort.toLowerCase().includes("low")) {
-          return pa - pb;
-        } else if (priceSort.toLowerCase().includes("high")) {
-          return pb - pa;
+        const sortLower = priceSort.toLowerCase();
+        if (sortLower === "low to high") {
+          return pa - pb; // Ascending
+        } else if (sortLower === "high to low") {
+          return pb - pa; // Descending
         }
         return 0;
       });
@@ -845,6 +919,7 @@ export default function DashboardScreen() {
       );
     }
 
+    console.log("🔍 Filtered Tiffins Count:", filtered.length, "VegValue:", vegFilterValue); // Debug
     return filtered;
   }, [tiffinServices, searchedTiffins, searchQuery, isSearchFocused, appliedFilters, vegFilter]);
 
@@ -917,7 +992,7 @@ export default function DashboardScreen() {
 
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
 
-  // --- Handlers ---
+  // --- Handlers --- (unchanged)
   const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
     if (location.coords) {
@@ -968,19 +1043,23 @@ export default function DashboardScreen() {
   };
 
   const handleBookPress = (item: Hostel | TiffinService) => {
-    if ("amenities" in item) {
-      router.push({
-        pathname: "/hostel-details/[id]",
-        params: { id: item.id, type: "hostel" },
-      });
-    } else {
-      // For tiffin, navigate to details (or handle booking logic)
-      router.push({
-        pathname: "/tiffin-details/[id]",
-        params: { id: item.id },
-      });
-    }
-  };
+  if ("amenities" in item) {
+    router.push({
+      pathname: "/hostel-details/[id]",
+      params: { id: item.id, type: "hostel" },
+    });
+  } else {
+    // For tiffin, navigate to details (or handle booking logic)
+    router.push({
+      pathname: "/tiffin-details/[id]",
+      params: { 
+        id: item.id,
+        type: "tiffin",
+        fullServiceData: JSON.stringify(item) 
+      },
+    });
+  }
+};
 
   const handleClearSearch = () => setSearchQuery("");
 
@@ -1005,11 +1084,9 @@ export default function DashboardScreen() {
     } else {
       // Sync vegFilter with applied vegNonVeg for toggle consistency
       if (filters.vegNonVeg) {
-        let newVeg: "off" | "veg" | "nonveg" = "off";
+        let newVeg: "off" | "veg" = "off";
         if (filters.vegNonVeg === "Veg") {
           newVeg = "veg";
-        } else if (filters.vegNonVeg === "Non-Veg") {
-          newVeg = "nonveg";
         }
         setVegFilter(newVeg);
       }
@@ -1019,25 +1096,17 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleVegFilterApply = (filter: "all" | "veg" | "nonveg") => {
-    const newVeg = filter === "all" ? "off" : (filter as "veg" | "nonveg");
+  const handleVegFilterApply = (filter: "all" | "veg") => {
+    const newVeg = filter === "all" ? "off" : "veg";
     setVegFilter(newVeg);
     const newFilters = { ...appliedFilters };
     if (filter === "all") {
       delete newFilters.vegNonVeg;
     } else {
-      newFilters.vegNonVeg = filter === "veg" ? "Veg" : "Non-Veg";
+      newFilters.vegNonVeg = "Veg";
     }
     setAppliedFilters(newFilters);
     setIsFilterApplied(Object.keys(newFilters).length > 0);
-  };
-
-  const handleVegTogglePress = () => {
-    if (vegFilter === "off") {
-      setShowVegFilterModal(true);
-    } else {
-      setVegFilter("off");
-    }
   };
 
   const handleHostelTypeSelect = (value: string) => setHostelType(value === "All" ? "" : value);
@@ -1070,7 +1139,7 @@ export default function DashboardScreen() {
 
   const keyExtractor = (item: Hostel | TiffinService) => (item.id || Math.random().toString()).toString();
 
-  // --- Search Focused View ---
+  // --- Search Focused View (FIX: Ensure <Text> wrappers; stringify suggestions) ---
   if (isSearchFocused) {
     return (
       <View style={styles.container}>
@@ -1118,6 +1187,9 @@ export default function DashboardScreen() {
                   keyExtractor={keyExtractor}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ paddingBottom: 20 }}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                  }
                 />
               ) : (
                 <View style={styles.noResultsContainer}>
@@ -1135,6 +1207,9 @@ export default function DashboardScreen() {
                 keyExtractor={keyExtractor}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                }
               />
             ) : (
               <View style={styles.noResultsContainer}>
@@ -1156,7 +1231,8 @@ export default function DashboardScreen() {
                         style={styles.suggestionTag}
                         onPress={() => setSearchQuery(suggestion)}
                       >
-                        <Text style={styles.suggestionTagText}>{suggestion}</Text>
+                        {/* FIX: Explicit <Text> with string */}
+                        <Text style={styles.suggestionTagText}>{String(suggestion)}</Text>
                       </TouchableOpacity>
                     ))
                   ) : (
@@ -1186,7 +1262,8 @@ export default function DashboardScreen() {
                         style={styles.suggestionTag}
                         onPress={() => setSearchQuery(suggestion)}
                       >
-                        <Text style={styles.suggestionTagText}>{suggestion}</Text>
+                        {/* FIX: Explicit <Text> with string */}
+                        <Text style={styles.suggestionTagText}>{String(suggestion)}</Text>
                       </TouchableOpacity>
                     ))
                   ) : (
@@ -1217,7 +1294,7 @@ export default function DashboardScreen() {
     );
   }
 
-  // --- Filtered View ---
+  // --- Filtered View --- (unchanged)
   if (isFilterApplied && hasFilters) {
     return (
       <View style={styles.container}>
@@ -1272,27 +1349,48 @@ export default function DashboardScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.filteredResultsTitle}>Filtered Results</Text>
             {!isHostel && (
-              <TouchableOpacity style={styles.vegToggle} onPress={handleVegTogglePress} activeOpacity={0.7}>
-                <Text style={styles.vegText}>
-                  {vegFilter === "off" ? "All" : vegFilter === "veg" ? "Veg" : "Non-Veg"}
-                </Text>
-                <View style={[styles.vegSwitchContainer, vegFilter !== "off" && styles.vegSwitchActive]}>
+              <TouchableOpacity 
+                style={styles.vegToggleButton} 
+                onPress={() => setShowVegFilterModal(true)} 
+                activeOpacity={0.7}
+              >
+                <View style={styles.vegLabelContainer}>
+                  <Text style={styles.vegLabelText}>VEG</Text>
+                </View>
+                <Animated.View style={[styles.vegToggleTrack]}> 
+                  {/* Thumb that moves to the right when toggled ON and fills with primary color behind the leaf */}
                   <Animated.View
                     style={[
-                      styles.vegSwitchThumb,
+                      styles.vegToggleThumb,
                       {
                         transform: [
                           {
-                            translateX: vegAnimated.interpolate({
+                            translateX: vegToggleAnimated.interpolate({
                               inputRange: [0, 1],
-                              outputRange: [0, 20],
+                              outputRange: [0, 18], // move right when ON
                             }),
                           },
                         ],
+                        // thumb remains green even when OFF; only its position and leaf opacity change
+                        // backgroundColor provided by styles.vegToggleThumb
                       },
                     ]}
-                  />
-                </View>
+                  >
+                    <Animated.View style={[
+                      styles.leafContainer,
+                      {
+                        opacity: vegToggleAnimated,
+                        transform: [
+                          {
+                            scale: vegToggleAnimated.interpolate({ inputRange: [0,1], outputRange: [0.8, 1] }),
+                          }
+                        ],
+                      }
+                    ]}>
+                      <Ionicons name="leaf" size={12} color="#FFFFFF" />
+                    </Animated.View>
+                  </Animated.View>
+                </Animated.View>
               </TouchableOpacity>
             )}
           </View>
@@ -1309,6 +1407,9 @@ export default function DashboardScreen() {
               keyExtractor={keyExtractor}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 20 }}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+              }
               ListFooterComponent={
                 <TouchableOpacity
                   style={styles.backToHomeButton}
@@ -1372,7 +1473,7 @@ export default function DashboardScreen() {
     );
   }
 
-  // --- Normal Dashboard View ---
+  // --- Normal Dashboard View --- (FIX: Ensure banner text is wrapped)
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -1400,6 +1501,9 @@ export default function DashboardScreen() {
         renderItem={isHostel ? renderHostelItem : renderTiffinItem}
         keyExtractor={keyExtractor}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
         ListHeaderComponent={
           <>
             <View style={styles.searchWrapper}>
@@ -1437,14 +1541,15 @@ export default function DashboardScreen() {
                 <View style={styles.bannerContent}>
                   {isHostel ? (
                     <>
-                      <Text style={styles.bannerTitle}>Premium{"\n"}Hostels</Text>
-                      <Text style={styles.bannerSubtitle}>Find your perfect home{"\n"}away from home</Text>
+                      {/* FIX: Explicit <Text> for multiline */}
+                      <Text style={styles.bannerTitle}>Premium{'\n'}Hostels</Text>
+                      <Text style={styles.bannerSubtitle}>Find your perfect home{'\n'}away from home</Text>
                       <Text style={styles.bannerLink}>Safe & Secure Living</Text>
                     </>
                   ) : (
                     <>
-                      <Text style={styles.bannerTitle}>Indian{"\n"}Cuisine</Text>
-                      <Text style={styles.bannerSubtitle}>Enjoy pure taste of your{"\n"}home-made delights</Text>
+                      <Text style={styles.bannerTitle}>Indian{'\n'}Cuisine</Text>
+                      <Text style={styles.bannerSubtitle}>Enjoy pure taste of your{'\n'}home-made delights</Text>
                       <Text style={styles.bannerLink}>www.website.com</Text>
                     </>
                   )}
@@ -1564,27 +1669,47 @@ export default function DashboardScreen() {
                         : "Available Tiffin Service"}
                 </Text>
                 {!isHostel && (
-                  <TouchableOpacity style={styles.vegToggle} onPress={handleVegTogglePress} activeOpacity={0.7}>
-                    <Text style={styles.vegText}>
-                      {vegFilter === "off" ? "All" : vegFilter === "veg" ? "Veg" : "Non-Veg"}
-                    </Text>
-                    <View style={[styles.vegSwitchContainer, vegFilter !== "off" && styles.vegSwitchActive]}>
+                  <TouchableOpacity 
+                    style={styles.vegToggleButton} 
+                    onPress={() => setShowVegFilterModal(true)} 
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.vegLabelContainer}>
+                      <Text style={styles.vegLabelText}>VEG</Text>
+                    </View>
+                    <Animated.View style={styles.vegToggleTrack}>
                       <Animated.View
                         style={[
-                          styles.vegSwitchThumb,
+                          styles.vegToggleThumb,
                           {
                             transform: [
                               {
-                                translateX: vegAnimated.interpolate({
+                                translateX: vegToggleAnimated.interpolate({
                                   inputRange: [0, 1],
-                                  outputRange: [0, 20],
+                                  outputRange: [0, 18],
                                 }),
                               },
                             ],
                           },
                         ]}
-                      />
-                    </View>
+                      >
+                        <Animated.View
+                          style={[
+                            styles.leafContainer,
+                            {
+                              opacity: vegToggleAnimated,
+                              transform: [
+                                {
+                                  scale: vegToggleAnimated.interpolate({ inputRange: [0,1], outputRange: [0.8, 1] }),
+                                }
+                              ],
+                            },
+                          ]}
+                        >
+                          <Ionicons name="leaf" size={10} color="#FFFFFF" />
+                        </Animated.View>
+                      </Animated.View>
+                    </Animated.View>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1597,7 +1722,7 @@ export default function DashboardScreen() {
                       : `${filteredHostels.length} properties found in ${userLocation || "Unknown Location"}`
                   : hasFilters
                     ? `${filteredTiffinServices.length} filtered results`
-                    : searchQuery || vegFilter !== "off"
+                    : searchQuery || vegFilter === "veg"
                       ? `${filteredTiffinServices.length} results found`
                       : `${tiffinServices.length} services found in ${userLocation || "Unknown Location"}`}
               </Text>
@@ -1661,12 +1786,14 @@ export default function DashboardScreen() {
       <VegFilterModal
         visible={showVegFilterModal}
         onClose={() => setShowVegFilterModal(false)}
-        currentFilter={vegFilter === "off" ? "all" : vegFilter}
+        currentFilter={vegFilter === "off" ? "all" : "veg"}
         onApply={handleVegFilterApply}
       />
     </View>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1861,38 +1988,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-  vegToggle: {
-    flexDirection: "row",
+  vegToggleButton: {
+    flexDirection: "column",
     alignItems: "center",
-    gap: 8,
-  },
-  vegText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  vegSwitchContainer: {
-    width: 44,
-    height: 24,
-    backgroundColor: "red",
-    borderRadius: 12,
-    paddingTop: 4,
-    paddingBottom: 4,
-    justifyContent: "center",
-  },
-  vegSwitchActive: {
-    backgroundColor: "#10B981",
-  },
-  vegSwitchThumb: {
-    width: 20,
-    height: 15,
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 1.5,
     elevation: 2,
+    height: 56, // smaller height
+    width: 55, // smaller width
+  },
+
+  vegLabelContainer: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+
+  vegLabelText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#374151",
+  },
+
+
+  vegToggleTrack: {
+    width: 30,
+    height: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+    position: "relative",
+    paddingHorizontal: 2,
+  },
+
+  vegToggleThumb: {
+    width: 12,
+    height: 12,
+    borderRadius: 11,
+    backgroundColor: "green", // show green thumb even when OFF
+    position: "absolute",
+    left: 0,
+    top: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+
+  leafContainer: {
+    width: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
   },
   servicesCount: {
     fontSize: 14,

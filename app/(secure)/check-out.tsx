@@ -33,11 +33,13 @@ const Checkout: React.FC = () => {
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<'online' | 'wallet' | null>(null);
   const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] = useState<any | null>(null);
   const [loadingBooking, setLoadingBooking] = useState(false);
   const [tiffinOrderDetails, setTiffinOrderDetails] = useState<any | null>(null);
   const [tiffinService, setTiffinService] = useState<any | null>(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
+  const [finalPricing, setFinalPricing] = useState<any | null>(null);
 
   const params = useLocalSearchParams();
   const {
@@ -195,36 +197,43 @@ const Checkout: React.FC = () => {
 
   // FIXED: Use correct keys in hostel logic
   // UPDATED: getTransactionDetails with proper hostel calculation (defensive)
+  // FIXED: For tiffin, use tiffinOrderDetails instead of bookingDetails
   const getTransactionDetails = useMemo(() => {
     console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
 
   if (isTiffin) {
     // TIFFIN LOGIC — Price based on plan (daily/weekly/monthly), no deposit
-    // Extract price from various possible sources
-    const rawPrice = bookingDetails?.price
-      ?? bookingDetails?.selectPlan?.[0]?.price
+    // Extract price from various possible sources - FIXED for tiffin
+    const rawPrice = tiffinOrderDetails?.choosePlanType?.price
+      ?? tiffinOrderDetails?.price
       ?? parsedPlan?.price
-      ?? tiffinData?.price  // If tiffinData is available as state/prop
-      ?? 0;
-
-    // Parse numeric value from string like '₹870/meal' or '₹3500/Month'
-    const priceMatch = rawPrice.toString().match(/₹?(\d+(?:\.\d+)?)/);
-    const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+      ?? Number((tiffinData?.price || '').replace(/[^0-9.]/g, ''))
+      ?? 120;
 
     // Plan type for multiplier (if duration-based; for now, assume price is for full plan unit)
-    const plan = bookingDetails?.plan || parsedPlan?.plan || tiffinData?.plan || 'monthly';
+    const plan = tiffinOrderDetails?.choosePlanType?.planName || tiffinData?.plan || 'per meal';
     let multiplier = 1; // Default: 1 unit (week/month)
 
-    // Optional: If startDate/endDate available, calculate multiplier (e.g., number of weeks/months)
-    const startDate = bookingDetails?.startDate || tiffinData?.startDate;
-    const endDate = bookingDetails?.endDate; // If available
-    if (startDate && endDate && plan) {
-      const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
-      if (plan === 'daily') multiplier = daysDiff;
-      else if (plan === 'weekly') multiplier = Math.ceil(daysDiff / 7);
-      else if (plan === 'monthly') multiplier = Math.ceil(daysDiff / 30);
+    // Number of tiffins
+    const numTiffin = parseInt(firstParam(numberOfTiffin) || (tiffinOrderDetails?.numberOfTiffin?.toString() || '1'));
+
+    if (plan === 'per meal') {
+      multiplier = numTiffin;
+    } else {
+      // For duration-based plans
+      const start = tiffinOrderDetails?.date || startDate || checkInDate;
+      const end = tiffinOrderDetails?.endDate || endDate || checkOutDate;
+      if (start && end) {
+        const daysDiff = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1; // Inclusive
+        if (plan.toLowerCase().includes('daily')) multiplier = daysDiff * numTiffin;
+        else if (plan.toLowerCase().includes('weekly')) multiplier = Math.ceil(daysDiff / 7) * numTiffin;
+        else if (plan.toLowerCase().includes('monthly')) multiplier = Math.ceil(daysDiff / 30) * numTiffin;
+      } else {
+        multiplier = numTiffin;
+      }
     }
 
+    const price = Number(rawPrice);
     const totalTiffin = price * multiplier;
     const total = totalTiffin;
 
@@ -233,15 +242,16 @@ const Checkout: React.FC = () => {
       price,
       plan,
       multiplier,
+      numTiffin,
       totalTiffin,
       total,
-      startDate,
-      endDate
+      startDate: startDate || tiffinOrderDetails?.date,
+      endDate: endDate || tiffinOrderDetails?.endDate
     });
 
     return {
       rent: price,  // Reuse 'rent' key for UI compatibility (represents tiffin cost per unit)
-      months: multiplier,  // Reuse 'months' as units (weeks/months)
+      months: multiplier,  // Reuse 'months' as units (days/weeks/months)
       totalRent: totalTiffin,
       deposit: 0,  // No deposit for tiffin
       total,
@@ -297,12 +307,109 @@ const Checkout: React.FC = () => {
     total,
     net: total,
   };
-}, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate, tiffinData]);  // Added tiffinData to deps if used
+}, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate, tiffinData, tiffinOrderDetails, numberOfTiffin, startDate, endDate]);
 
 
   const transaction = getTransactionDetails;
 
-  console.log("Transaction Details:", transaction);  // Log transaction for debugging
+  console.log("Transaction Details:", transaction); 
+
+
+ const fetchFinalPricing = async (coupon: string | null = null) => {
+  if (!bookingId) {
+    console.error("Booking ID missing");
+    return;
+  }
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      console.error("Token missing");
+      return;
+    }
+
+    let url;
+    if (isTiffin) {
+      url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/AppliedCoupon/${bookingId}`;
+    } else if (isHostel) {
+      url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/AppliedCoupon/${bookingId}`;
+    } else {
+      console.error("Invalid service type");
+      return;
+    }
+
+    const body = coupon ? { coupon } : {};
+    const response = await axios.post(
+      url,
+      body,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (response.data?.success) {
+      console.log("API Response after coupon apply:", response.data.data);
+      setFinalPricing(response.data.data);
+      if (coupon && coupon.trim()) {
+        setAppliedCoupon(coupon.trim());
+        setCouponCode('');
+      }
+    } else {
+      if (coupon && coupon.trim()) {
+        Alert.alert("Error", response.data?.message || "Failed to apply coupon");
+      }
+    }
+  } catch (error: any) {
+    console.error("Error fetching/applying pricing:", error);
+    if (coupon && coupon.trim()) {
+      Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
+    }
+  }
+};
+
+const handleRemoveCoupon = async () => {
+  if (!bookingId) {
+    Alert.alert("Error", "Booking ID missing");
+    return;
+  }
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      Alert.alert("Error", "Token missing");
+      return;
+    }
+
+    let url;
+    if (isTiffin) {
+      url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/removeCoupon/${bookingId}`;
+    } else if (isHostel) {
+      url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/removeCouponFromHostel/${bookingId}`;
+    } else {
+      console.error("Invalid service type");
+      return;
+    }
+
+    const response = await axios.put(
+      url,
+      {}, // Empty body for remove
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    if (response.data?.success) {
+      console.log("API Response after coupon remove:", response.data.data);
+      setFinalPricing(response.data.data);
+      setAppliedCoupon(null);
+      setCouponCode('');
+      Alert.alert("Success", response.data.message || "Coupon removed successfully");
+    } else {
+      Alert.alert("Error", response.data?.message || "Failed to remove coupon");
+    }
+  } catch (error: any) {
+    console.error("Error removing coupon:", error);
+    Alert.alert("Error", error.response?.data?.message || "Failed to remove coupon");
+  }
+};
 
   // Fetch booking details for hostel
   useEffect(() => {
@@ -335,6 +442,20 @@ const Checkout: React.FC = () => {
     fetchBookingDetails();
   }, [isHostel, bookingId]);
 
+  // Fetch initial final pricing for hostel from API (base pricing)
+  useEffect(() => {
+    if (isHostel && !loadingBooking && bookingDetails && !finalPricing) {
+      fetchFinalPricing(null); // Fetch base pricing (coupon: null) from API
+    }
+  }, [isHostel, loadingBooking, bookingDetails, finalPricing]);
+
+  // Fetch initial final pricing for tiffin from API (base pricing)
+  useEffect(() => {
+    if (isTiffin && !loadingTiffin && tiffinOrderDetails && !finalPricing) {
+      fetchFinalPricing(null); // Fetch base pricing (coupon: null) from API
+    }
+  }, [isTiffin, loadingTiffin, tiffinOrderDetails, finalPricing]);
+
   // UPDATED: Fetch tiffin order details with fixed URL
   useEffect(() => {
     const fetchTiffinOrderDetails = async () => {
@@ -346,7 +467,7 @@ const Checkout: React.FC = () => {
 
         // FIXED: Add / before 'beforePayment' for correct route
         const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingById/${bookingId}/beforePayment`,
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${bookingId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -429,30 +550,54 @@ const Checkout: React.FC = () => {
     fetchWalletAmount();
   }, []);
 
-  const paymentAmount = transaction.net ?? transaction.total ?? 0;
+  const paymentAmount = finalPricing?.finalPrice ?? transaction.net ?? transaction.total ?? 0;
 
-  // Fetch all coupons
+  // Fetch all coupons - UPDATED: Support both hostel and tiffin APIs
   const fetchCoupons = async () => {
+    if (!serviceId) {
+      console.warn("No serviceId available for fetching coupons");
+      setCoupons([]);
+      return;
+    }
     setLoadingCoupons(true);
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
+      let url;
+      let serviceCouponsKey;
+      let guestCouponsKey = 'guestCoupons';
+
+      if (isTiffin) {
+        url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getCouponForTiffinService/${serviceId}`;
+        serviceCouponsKey = 'tiffinServiceCoupons';
+      } else {
+        url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getCouponCodeForHostel/${serviceId}`;
+        serviceCouponsKey = 'hostelCoupons';
+      }
+
       const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getApprovedCoupons", // Assuming this endpoint; adjust if different
+        url,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (response.data?.success) {
-        const fetchedCoupons = response.data.data || [];
+        const data = response.data.data || {};
+        const fetchedCoupons = [
+          ...(data[serviceCouponsKey] || []),
+          ...(data[guestCouponsKey] || [])
+        ];
         setCoupons(fetchedCoupons);
         console.log("Fetched coupons:", fetchedCoupons); // Debug log
+      } else {
+        setCoupons([]);
       }
     } catch (error: any) {
       console.error("Error fetching coupons:", error);
       Alert.alert("Error", "Failed to fetch coupons");
+      setCoupons([]);
     } finally {
       setLoadingCoupons(false);
     }
@@ -464,36 +609,7 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token || !bookingId) {
-        Alert.alert("Error", "Token or booking ID missing");
-        return;
-      }
-
-      const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/coupons/apply", // Assuming this endpoint; adjust if different
-        {
-          code: couponCode,
-          bookingId: bookingId,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data?.success) {
-        Alert.alert('Coupon Applied!', `Coupon ${couponCode} applied successfully.`);
-        setCouponCode('');
-        // TODO: Refetch transaction details to update discount/net amount
-        // e.g., refetch booking or update local state
-      } else {
-        Alert.alert("Error", response.data?.message || "Failed to apply coupon");
-      }
-    } catch (error: any) {
-      console.error("Error applying coupon:", error);
-      Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
-    }
+    await fetchFinalPricing(couponCode.trim());
   };
 
   const handleViewCoupons = async () => {
@@ -579,16 +695,27 @@ const Checkout: React.FC = () => {
         // TODO: For proper Razorpay integration, use Razorpay SDK with callbacks.
         // After opening the link, navigate to confirmation assuming success (or implement deep link handling for redirect back).
         // For now, simulate navigation after opening (in real app, handle via deep links or polling).
-        // Assuming the bookingId remains the same after payment confirmation on backend.
+        // FIXED: Always use original bookingId for confirmation (ignore API-returned IDs)
+        const confirmationId = finalBookingId;
+        const confirmationServiceType = serviceType as string;
+        const confirmationServiceName = checkoutData.title || "Fallback Service Name";
+        const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
+        const confirmationAmount = paymentAmount;
+        
+        console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
+        console.log("confirmationId (booking/order ID):", confirmationId);
+        console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+        console.log("========================================================");
+
         setTimeout(() => {
           router.push({
             pathname: "/(secure)/Confirmation",
             params: {
-              id: (isTiffin ? (paymentData.tiffinOrderId || finalBookingId) : finalBookingId),
-              serviceType: serviceType as string,
-              serviceName: checkoutData.title || "Fallback Service Name",
-              guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name")),
-              amount: paymentAmount,
+              id: confirmationId,
+              serviceType: confirmationServiceType,
+              serviceName: confirmationServiceName,
+              guestName: confirmationGuestName,
+              amount: confirmationAmount,
             },
           });
         }, 2000); // Delay to simulate processing
@@ -626,7 +753,6 @@ const Checkout: React.FC = () => {
         return;
       }
 
-      let finalBookingId = bookingId as string;
       let newBalance = walletBalance;
 
       if (isHostel) {
@@ -642,8 +768,8 @@ const Checkout: React.FC = () => {
         if (response.data?.success) {
           const { data } = response.data;
           newBalance = data.remainingWallet;
-          finalBookingId = data.hostelBookingId || bookingId; // Use returned ID or fallback to original
-          console.log("Wallet booking created successfully:", data);
+          // FIXED: Log new ID but use original for confirmation
+          console.log("Wallet booking created successfully (new ID):", data.hostelBookingId, "Original ID:", bookingId);
         } else {
           Alert.alert("Error", response.data?.message || "Failed to create booking with wallet");
           return;
@@ -661,8 +787,8 @@ const Checkout: React.FC = () => {
         if (response.data?.success) {
           const { data } = response.data;
           newBalance = data.remainingWallet;
-          finalBookingId = data.tiffinOrderId || bookingId; // Use returned ID or fallback to original
-          console.log("Wallet payment for tiffin successful:", data);
+          // FIXED: Log new ID but use original for confirmation
+          console.log("Wallet payment for tiffin successful (new ID):", data.tiffinOrderId, "Original ID:", bookingId);
         } else {
           Alert.alert("Error", response.data?.message || "Failed to pay with wallet for tiffin");
           return;
@@ -686,15 +812,26 @@ const Checkout: React.FC = () => {
           {
             text: "OK",
             onPress: () => {
-              // Navigate to confirmation screen on OK
+              // FIXED: Always use original bookingId for confirmation
+              const confirmationId = bookingId as string;
+              const confirmationServiceType = serviceType as string;
+              const confirmationServiceName = checkoutData.title || "Fallback Service Name";
+              const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
+              const confirmationAmount = paymentAmount;
+              
+              console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
+              console.log("confirmationId (booking/order ID):", confirmationId);
+              console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+              console.log("========================================================");
+
               router.push({
                 pathname: "/(secure)/Confirmation",
                 params: {
-                  id: finalBookingId,
-                  serviceType: serviceType as string,
-                  serviceName: checkoutData.title || "Fallback Service Name",
-                  guestName: (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name")),
-                  amount: paymentAmount,
+                  id: confirmationId,
+                  serviceType: confirmationServiceType,
+                  serviceName: confirmationServiceName,
+                  guestName: confirmationGuestName,
+                  amount: confirmationAmount,
                 },
               });
             },
@@ -760,6 +897,8 @@ const Checkout: React.FC = () => {
     );
   }
 
+  const discountValueNum = Number(finalPricing?.discountValue || 0);
+
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -797,24 +936,84 @@ const Checkout: React.FC = () => {
 
           {/* Input Row */}
           <View style={styles.couponInputContainer}>
-            <TextInput
-              style={styles.couponInput}
-              placeholder="Enter Coupon Code"
-              value={couponCode}
-              onChangeText={setCouponCode}
-            />
-            <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
-              <Text style={styles.applyButtonText}>Apply</Text>
-            </TouchableOpacity>
+            {appliedCoupon ? (
+              // Show applied coupon as a themed tag with inline remove
+              <View style={styles.appliedCouponContainer}>
+                <View style={styles.appliedTag}>
+                  <Text style={styles.appliedTagText}>✓ {appliedCoupon}</Text>
+                  <TouchableOpacity 
+                    style={styles.removeTagButton} 
+                    onPress={handleRemoveCoupon}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove coupon"
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              // Original input and apply
+              <>
+                <TextInput
+                  style={styles.couponInput}
+                  placeholder="Enter Coupon Code"
+                  value={couponCode}
+                  onChangeText={setCouponCode}
+                />
+                <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
+                  <Text style={styles.applyButtonText}>Apply</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₹{getTransactionDetails.total.toFixed(2)}</Text>
-        </View>
-
-
+        {isTiffin ? (
+          // Simple display for Tiffin: discount if >0, else total only
+          discountValueNum > 0 ? (
+            <View>
+              <View style={styles.discountRow}>
+                <Text style={styles.discountLabel}>Discount</Text>
+                <Text style={styles.discountValue}>-₹{discountValueNum.toFixed(2)}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
+            </View>
+          )
+        ) : (
+          // Detailed display for Hostel: rent, deposit, discount if applied, total
+          <View style={styles.transactionSection}>
+            <Text style={styles.paymentSectionTitle}>Price Details</Text>
+            <View style={styles.transactionDetails}>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>Rent ({transaction.months} {transaction.months > 1 ? 'months' : 'month'})</Text>
+                <Text style={styles.transactionValue}>₹{transaction.totalRent.toFixed(2)}</Text>
+              </View>
+              <View style={styles.transactionRow}>
+                <Text style={styles.transactionLabel}>Deposit</Text>
+                <Text style={styles.transactionValue}>₹{transaction.deposit.toFixed(2)}</Text>
+              </View>
+              {discountValueNum > 0 && (
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>Discount</Text>
+                  <Text style={styles.transactionValue}>-₹{discountValueNum.toFixed(2)}</Text>
+                </View>
+              )}
+              <View style={styles.netRow}>
+                <Text style={styles.netLabel}>Total</Text>
+                <Text style={styles.netValue}>₹{paymentAmount.toFixed(2)}</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Cancellation Policy */}
         <View style={styles.policySection}>
@@ -833,8 +1032,8 @@ const Checkout: React.FC = () => {
         <View style={styles.paymentContent}>
           <View style={styles.paymentMethodContainer}>
             <View style={styles.paymentMethodLeft}>
-              <Image source={mastercard} style={styles.cardIcon} />
-              <View style={styles.paymentTextContainer}>
+              {/* <Image source={mastercard} style={styles.cardIcon} /> */}
+              {/* <View style={styles.paymentTextContainer}>
                 <View style={styles.payUsingRow}>
                   <Text style={styles.payUsing}>Pay Using</Text>
                   <Ionicons
@@ -845,7 +1044,7 @@ const Checkout: React.FC = () => {
                   />
                 </View>
                 <Text style={styles.cardDetails}>Credit Card | **3054</Text>
-              </View>
+              </View> */}
             </View>
           </View>
 
@@ -1078,6 +1277,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  appliedCouponContainer: {
+    flex: 1,
+    marginTop: 12,
+  },
+  appliedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD', // Light blue matching theme
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BBDEFB', // Softer blue border
+  },
+  appliedTagText: {
+    color: '#1976D2', // Deeper blue for text, theme-aligned
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 8,
+  },
+  removeTagButton: {
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: '#2854C5', // Pay button blue
+    marginLeft: 4,
+  },
   viewCouponsButton: {
     marginTop: 12,
   },
@@ -1135,6 +1360,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginLeft:20,
+    marginRight:20
   },
   totalLabel: {
     fontSize: 15,
@@ -1142,6 +1369,24 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   totalValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000",
+  },
+  discountRow: {
+    marginBottom: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginLeft:20,
+    marginRight:20
+  },
+  discountLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000",
+  },
+  discountValue: {
     fontSize: 15,
     fontWeight: "600",
     color: "#000",

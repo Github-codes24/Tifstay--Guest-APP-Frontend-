@@ -62,19 +62,11 @@ const AccountScreen = () => {
     }, [])
   );
 
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        onPress: () => {
-          logout();
-          router.replace("/(auth)/login");
-        },
-        style: "destructive",
-      },
-    ]);
-  };
+ const handleLogout = () => {
+  logout();
+  router.replace("/(auth)/login");
+};
+
 
   return (
     <SafeAreaView style={styles.container}>

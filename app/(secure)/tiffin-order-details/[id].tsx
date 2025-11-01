@@ -86,8 +86,13 @@ export default function TiffinOrderDetails() {
         setEndDateFull(new Date(data.summary.endDate));
         setCurrentMonth(new Date(data.summary.startDate));
         setSelectedDate(new Date(data.summary.startDate));
-        const mealPreference = data.summary.mealPreference || [];
-        const mealTypeValue = mealPreference.length > 0 ? mealPreference.join(' & ') : "N/A";
+        
+        // FIXED: Use mealType from summary, and format it properly
+        const mealTypeRaw = data.summary.mealType || "N/A";
+        const mealTypeValue = mealTypeRaw === "N/A" 
+          ? "N/A" 
+          : mealTypeRaw.replace(", ", " & ");  // e.g., "Lunch, Dinner" → "Lunch & Dinner"
+        
         setBookingData((prev) => ({
           ...prev,
           bookingId: data.summary.bookingId,
