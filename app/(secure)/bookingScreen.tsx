@@ -489,37 +489,41 @@ export default function BookingScreen() {
     totalBedsCount, // NEW: For hostel pricing
   ]);
 
-  // FIXED: Auto-fill check-out date based on check-in and plan (for hostel) - Use setMonth for monthly
+  // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
     if (checkInDate && hostelPlan) {
-      const newCheckOut = new Date(checkInDate); // Already 12:00 local
-      if (hostelPlan === 'monthly') {
-        newCheckOut.setMonth(newCheckOut.getMonth() + 1); // Oct 31 → Nov 31 (handles month-end correctly)
+      let daysToAdd = 0;
+      if (hostelPlan === 'daily') {
+        daysToAdd = 1;
       } else if (hostelPlan === 'weekly') {
-        newCheckOut.setDate(newCheckOut.getDate() + 7);
-      } else if (hostelPlan === 'daily') {
-        newCheckOut.setDate(newCheckOut.getDate() + 1);
+        daysToAdd = 7;
+      } else if (hostelPlan === 'monthly') {
+        daysToAdd = 30; // Approximate for a month
       }
+
+      const newCheckOut = new Date(checkInDate);
+      newCheckOut.setDate(newCheckOut.getDate() + daysToAdd);
       setCheckOutDate(newCheckOut);
     }
   }, [checkInDate, hostelPlan]);
 
-  // FIXED: Auto-fill end date based on start date and plans (for tiffin weekly/monthly, if any) - Use setMonth for monthly
+  // FIXED: Auto-fill end date based on start date and plans (for tiffin weekly/monthly, if any)
   useEffect(() => {
     const periodicPlans = Object.values(tiffinPlans).filter(p => ['weekly', 'monthly'].includes(p));
     if (date && periodicPlans.length > 0) {
       // Assume all periodic are same type, take first
       const firstPeriodic = periodicPlans[0];
-      const newEndDate = new Date(date); // date already at 12:00 local
-      if (firstPeriodic === 'monthly') {
-        newEndDate.setMonth(newEndDate.getMonth() + 1); // Preserves day (Oct 31 → Nov 31)
-      } else if (firstPeriodic === 'weekly') {
-        newEndDate.setDate(newEndDate.getDate() + 7);
+      let daysToAdd = 0;
+      if (firstPeriodic === 'weekly') {
+        daysToAdd = 7;
+      } else if (firstPeriodic === 'monthly') {
+        daysToAdd = 30;
       }
-      // For daily/per meal, no endDate needed
+      const newEndDate = new Date(date);
+      newEndDate.setDate(newEndDate.getDate() + daysToAdd);
       setEndDate(newEndDate);
     } else {
-      setEndDate(null); // Clear if no periodic plans
+      setEndDate(null); // Clear end date if no periodic plans
     }
   }, [date, tiffinPlans]);
 
@@ -534,24 +538,14 @@ export default function BookingScreen() {
     }));
   };
 
-  // FIXED: Tiffin date handlers - Set to 12:00 local to avoid UTC shift
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
-    if (selectedDate) {
-      // Fix: Set to 12:00 local to avoid UTC shift to previous day
-      selectedDate.setHours(12, 0, 0, 0);
-      setDate(new Date(selectedDate));
-    }
+    if (selectedDate) setDate(selectedDate);
   };
 
-  // FIXED: Tiffin end date handler - Set to 12:00 local
   const onChangeEndDate = (event: any, selectedDate?: Date) => {
     setShowEndDatePicker(Platform.OS === "ios");
-    if (selectedDate) {
-      // Same fix for end date
-      selectedDate.setHours(12, 0, 0, 0);
-      setEndDate(new Date(selectedDate));
-    }
+    if (selectedDate) setEndDate(selectedDate);
   };
 
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
@@ -721,7 +715,7 @@ const handleTiffinSubmit = async () => {
     const foodTypeMap = {
       Veg: "Veg",
       "Non-Veg": "Non-Veg",
-      Both: "Both",
+      Both: "Both"
     };
     const foodTypeStr = foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
 
@@ -730,16 +724,17 @@ const handleTiffinSubmit = async () => {
       perLunch: "Per Lunch",
       perMeal: "Per Meal",
       weekly: "Weekly",
-      monthly: "Monthly",
+      monthly: "Monthly"
     };
 
-    const selectTiffinNumberArray: any[] = [];
+    const selectTiffinNumberArray = [];
 
     for (let i = 1; i <= 4; i++) {
       const selectedMealsForTiffin = Object.entries(tiffinMeals[i] || {})
         .filter(([_, checked]) => checked)
         .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
 
+    
       if (selectedMealsForTiffin.length > 0) {
         const plan = tiffinPlans[i];
         const planName = planNameMap[plan] || plan.charAt(0).toUpperCase() + plan.slice(1);
@@ -751,9 +746,10 @@ const handleTiffinSubmit = async () => {
           chooseOrderType: chooseOrderTypeStr,
           choosePlanType: {
             planName,
-            price: priceForThis,
+            price: priceForThis
           },
-          mealType: selectedMealsForTiffin,
+          
+          mealType: selectedMealsForTiffin
         };
 
         selectTiffinNumberArray.push(tiffinObj);
@@ -766,10 +762,7 @@ const handleTiffinSubmit = async () => {
     }
 
     const filledNumTiffins = selectTiffinNumberArray.length;
-
-    // ✅ Send plain YYYY-MM-DD (not ISO)
-    const formattedStartDate = date ? new Date(date).toISOString().split("T")[0] : "";
-    const formattedEndDate = endDate ? new Date(endDate).toISOString().split("T")[0] : "";
+    const startDateISO = date ? new Date(date).toISOString() : '';
 
     const payload: any = {
       fullName,
@@ -778,15 +771,15 @@ const handleTiffinSubmit = async () => {
       specialInstructions,
       numberOfTiffin: filledNumTiffins,
       selectTiffinNumber: selectTiffinNumberArray,
-      date: formattedStartDate,
+      date: startDateISO,
     };
 
-    const hasPeriodic = Object.values(tiffinPlans).some(p => ["weekly", "monthly"].includes(p));
-    if (hasPeriodic && formattedEndDate) {
-      payload.endDate = formattedEndDate;
+    const hasPeriodic = Object.values(tiffinPlans).some(p => ['weekly', 'monthly'].includes(p));
+    if (hasPeriodic) {
+      const endDateISO = endDate ? new Date(endDate).toISOString() : '';
+      payload.endDate = endDateISO;
     }
 
-    console.log("Submitted Dates:", { start: formattedStartDate, end: formattedEndDate });
     console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
@@ -803,6 +796,7 @@ const handleTiffinSubmit = async () => {
     console.log("API Response:", response.data);
 
     if (response.data.success) {
+      console.log("Tiffin booking successful:", response.data.data);
       const bookingId = response.data.data._id;
 
       router.push({
@@ -812,13 +806,13 @@ const handleTiffinSubmit = async () => {
           bookingId,
           serviceId: serviceData.serviceId,
           totalPrice: currentPlanPrice.toString(),
-          planType: "",
-          startDate: formattedStartDate,
-          endDate: formattedEndDate,
+          planType: '',
+          startDate: startDateISO.split('T')[0] || '',
+          endDate: payload.endDate ? (payload.endDate as string).split('T')[0] : '',
           mealPreference: Object.entries(tiffinMeals[1] || {})
             .filter(([_, checked]) => checked)
             .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1))
-            .join(","),
+            .join(','),
           foodType: selectedfood,
           orderType,
           numberOfTiffin: filledNumTiffins.toString(),
@@ -826,6 +820,7 @@ const handleTiffinSubmit = async () => {
         },
       });
     } else {
+      console.error("Booking failed:", response.data.message || "Unknown error");
       setErrors(prev => ({
         ...prev,
         general: "Booking failed: " + (response.data.message || "Unknown error"),
@@ -833,6 +828,7 @@ const handleTiffinSubmit = async () => {
     }
   } catch (error: any) {
     console.error("Error creating tiffin booking:", error.response?.data || error.message);
+    console.error("Full error object:", error);
     setErrors(prev => ({
       ...prev,
       general: "Something went wrong while booking. Please try again.",
@@ -930,14 +926,6 @@ const handleHostelSubmit = async () => {
           name: 'user.jpg',
         } as any);
       }
-
-      // Log for testing dates (e.g., for Oct 31, 2025)
-      console.log('Submitted hostel dates:', { 
-        checkIn: checkInDate.toISOString().split('T')[0], 
-        checkOut: checkOutDate.toISOString().split('T')[0],
-        fullCheckIn: checkInDate.toISOString(),
-        fullCheckOut: checkOutDate.toISOString()
-      });
 
       console.log("Full FormData Payload: (logged as object for debug)");
       console.log({
