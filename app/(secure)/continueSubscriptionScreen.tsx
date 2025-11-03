@@ -9,6 +9,7 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -25,6 +26,30 @@ import RoomSelectionModal from "@/components/modals/RoomSelectionModal";// Adjus
 
 type ServiceType = "tiffin" | "hostel";
 type MealType = "breakfast" | "lunch" | "dinner";
+type SelectedRoom = {
+  roomNumber: string;
+  bedNumber: number;
+  roomId?: string;
+  bedId?: string;
+};
+
+interface ContinueRoomSelectionData {
+  roomsData: Array<{
+    roomId: string;
+    roomNumber: string | number;
+    beds: Array<{ bedId: string; bedNumber: string | number }>;
+  }>;
+  plan: any;
+  checkInDate: string;
+  checkOutDate: string;
+  userData: string;
+}
+
+type RoomData = Array<{
+  roomId: string;
+  roomNumber: string | number;
+  beds: Array<{ bedId: string; bedNumber: string | number }>;
+}>;
 
 export default function ContinueSubscriptionScreen() {
   const router = useRouter();
@@ -33,6 +58,8 @@ export default function ContinueSubscriptionScreen() {
 
   const serviceName = params.serviceName || "";
   const price = params.price || "";
+  const planPrice = params.planPrice || price || ""; // New: Base plan price from params
+  const plan = params.plan || "monthly"; // New: Plan from params (e.g., "monthly", "weekly")
   const serviceId = params.serviceId || "";
   const hostelId = params.hostelId || ""; // From entityId in Booking screen
   const bookingData = params.bookingData ? JSON.parse(params.bookingData as string) : null;
@@ -71,9 +98,9 @@ export default function ContinueSubscriptionScreen() {
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
   const [planError, setPlanError] = useState("");
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
-  const [hostelPlan, setHostelPlan] = useState("monthly");
-  const [checkInDate, setCheckInDate] = useState(new Date());
-  const [checkOutDate, setCheckOutDate] = useState(new Date());
+  const [hostelPlan, setHostelPlan] = useState(plan); // New: Initialize with passed plan
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [message, setMessage] = useState("");
@@ -88,46 +115,54 @@ export default function ContinueSubscriptionScreen() {
     { label: string; value: string }[]
   >([]);
   const [isFetchingHostelPlans, setIsFetchingHostelPlans] = useState(false);
-  const [displayPrice, setDisplayPrice] = useState(price || "");
+  const [displayPrice, setDisplayPrice] = useState(planPrice || price || ""); // New: Prefer planPrice if available
+
+  // Room data state
+  const [roomsData, setRoomsData] = useState<RoomData>([]);
 
   // Room selection modal state (for hostel only)
   const [showRoomModal, setShowRoomModal] = useState(false);
+  const [selectedRooms, setSelectedRooms] = useState<SelectedRoom[]>([]);
   const hostelData = {
     id: hostelId,
     name: serviceName,
-    price: price,
+    price: planPrice || price, // Use planPrice for base
     deposit: "0", // Assume 0 for now; can be fetched or passed if needed
   };
 
   // Add this useEffect inside the ContinueSubscriptionScreen component, after the state declarations
-useEffect(() => {
-  console.log("=== Continue Subscription Screen Debug ===");
-  console.log("Params:", params);
-  console.log("Service Type:", serviceType);
-  console.log("Service Name:", serviceName);
-  console.log("Price:", price);
-  console.log("Service ID:", serviceId);
-  console.log("Hostel ID:", hostelId);
-  console.log("Booking Data (raw):", params.bookingData);
-  console.log("Parsed Booking Data:", bookingData);
-  if (bookingData) {
-    console.log("Select Plan:", bookingData.selectPlan);
-    console.log("Existing Select Plan:", existingSelectPlan);
-    console.log("Check-in Date:", bookingData.checkInDate);
-    console.log("Check-out Date:", bookingData.checkOutDate);
-    console.log("Total Amount:", bookingData.totalAmount);
-    console.log("Deposit Amount:", bookingData.depositAmount);
-    console.log("Work Type:", bookingData.workType);
-    console.log("Rooms:", bookingData.rooms);
-    console.log("Full Name:", bookingData.fullName);
-    console.log("Phone Number:", bookingData.phoneNumber);
-  }
-  console.log("Current Check-in Date State:", checkInDate);
-  console.log("Current Check-out Date State:", checkOutDate);
-  console.log("Current Hostel Plan State:", hostelPlan);
-  console.log("Display Price:", displayPrice);
-  console.log("=== End Debug ===");
-}, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice]);
+  useEffect(() => {
+    console.log("=== Continue Subscription Screen Debug ===");
+    console.log("Params:", params);
+    console.log("Service Type:", serviceType);
+    console.log("Service Name:", serviceName);
+    console.log("Price:", price);
+    console.log("Plan Price:", planPrice);
+    console.log("Plan:", plan);
+    console.log("Service ID:", serviceId);
+    console.log("Hostel ID:", hostelId);
+    console.log("Booking Data (raw):", params.bookingData);
+    console.log("Parsed Booking Data:", bookingData);
+    if (bookingData) {
+      console.log("Select Plan:", bookingData.selectPlan);
+      console.log("Existing Select Plan:", existingSelectPlan);
+      console.log("Check-in Date:", bookingData.checkInDate);
+      console.log("Check-out Date:", bookingData.checkOutDate);
+      console.log("Total Amount:", bookingData.totalAmount);
+      console.log("Deposit Amount:", bookingData.depositAmount);
+      console.log("Work Type:", bookingData.workType);
+      console.log("Rooms:", bookingData.rooms);
+      console.log("Full Name:", bookingData.fullName);
+      console.log("Phone Number:", bookingData.phoneNumber);
+    }
+    console.log("Current Check-in Date State:", checkInDate);
+    console.log("Current Check-out Date State:", checkOutDate);
+    console.log("Current Hostel Plan State:", hostelPlan);
+    console.log("Display Price:", displayPrice);
+    console.log("Fetched Rooms Data:", roomsData);
+    console.log("Selected Rooms:", selectedRooms);
+    console.log("=== End Debug ===");
+  }, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice, selectedRooms, roomsData]);
 
   // Fetch token on component mount
   useEffect(() => {
@@ -139,13 +174,17 @@ useEffect(() => {
     fetchToken();
   }, []);
 
-  // Set existing plan if available
+  // Set existing plan if available (fallback to params if no bookingData)
   useEffect(() => {
     if (existingSelectPlan) {
       setHostelPlan(existingSelectPlan.name);
       setDisplayPrice(existingSelectPlan.price.toString());
+    } else if (serviceType === "hostel") {
+      // New: Use passed plan and planPrice from params if no existingSelectPlan
+      setHostelPlan(plan);
+      setDisplayPrice(planPrice);
     }
-  }, [existingSelectPlan]);
+  }, [existingSelectPlan, plan, planPrice, serviceType]);
 
   // Set check-in and check-out dates from booking data if available
   useEffect(() => {
@@ -159,38 +198,80 @@ useEffect(() => {
     }
   }, [bookingData]);
 
+  // Set selected rooms from booking data if available (for continue mode)
+  useEffect(() => {
+    if (bookingData && bookingData.rooms && Array.isArray(bookingData.rooms) && bookingData.rooms.length > 0) {
+      // Flatten rooms with their selected beds (bedNumber is an array in bookingData)
+      const restoredRooms: SelectedRoom[] = bookingData.rooms.flatMap((room: any) =>
+        (room.bedNumber || []).map((bed: any) => ({
+          roomNumber: room.roomNumber?.toString() || room.roomNum?.toString() || room.room_number?.toString() || '',
+          bedNumber: typeof bed === 'number' ? Number(bed) : Number(bed.bedNumber || bed.bedNum || bed || 0),
+          roomId: room.roomId || room.room_id,
+          bedId: typeof bed === 'object' ? (bed.bedId || bed.bed_id) : undefined,
+        }))
+      ).filter(room => room.roomNumber && room.bedNumber > 0); // Filter out invalid rooms/beds
+
+      setSelectedRooms(restoredRooms);
+      console.log("Restored selected rooms from bookingData:", restoredRooms); // For debugging
+    }
+  }, [bookingData]);
+
   // Auto-fill check-out date based on check-in and plan
   useEffect(() => {
-    if (checkInDate && hostelPlan) {
+    if (checkInDate && hostelPlan && !bookingData?.checkOutDate) { // Only auto-fill if not from existing booking
       let daysToAdd = 0;
       switch (hostelPlan) {
-        case "monthly":
+        case 'weekly':
+          daysToAdd = 7;
+          break;
+        case 'monthly':
           daysToAdd = 30;
           break;
-        case "quarterly":
+        case 'quarterly':
           daysToAdd = 90;
           break;
-        case "halfyearly":
-          daysToAdd = 182;
+        case 'halfyearly':
+          daysToAdd = 182; // Approx 6 months
           break;
-        case "yearly":
+        case 'yearly':
           daysToAdd = 365;
           break;
-        default:
-          daysToAdd = 30;
       }
-      const newCheckOutDate = new Date(checkInDate);
-      newCheckOutDate.setDate(newCheckOutDate.getDate() + daysToAdd);
-      setCheckOutDate(newCheckOutDate);
+      if (daysToAdd > 0) {
+        const newCheckOutDate = new Date(checkInDate);
+        newCheckOutDate.setDate(checkInDate.getDate() + daysToAdd);
+        newCheckOutDate.setHours(0, 0, 0, 0);
+        setCheckOutDate(newCheckOutDate);
+      }
     }
-  }, [checkInDate, hostelPlan]);
+  }, [checkInDate, hostelPlan, bookingData]);
 
-  // Fetch hostel plan types after token is available (skip if existing plan)
+  // Fetch hostel plan types after token is available (skip if existing plan or params plan available)
   useEffect(() => {
-    if (token && serviceType === "hostel" && !existingSelectPlan) {
+    if (token && serviceType === "hostel" && !existingSelectPlan && !plan) {
       fetchHostelPlanTypes();
     }
-  }, [token, serviceType, existingSelectPlan]);
+  }, [token, serviceType, existingSelectPlan, plan]);
+
+  // Fetch rooms data for hostel
+  useEffect(() => {
+    if (token && serviceType === "hostel" && hostelId) {
+      fetchRooms();
+    }
+  }, [token, serviceType, hostelId]);
+
+  // Handle room selection from modal (for continue mode)
+  const handleRoomSelection = (data: ContinueRoomSelectionData) => {
+    const selected = data.roomsData.flatMap((room) =>
+      room.beds.map((bed) => ({
+        roomNumber: room.roomNumber.toString(),
+        bedNumber: Number(bed.bedNumber),
+        roomId: room.roomId,
+        bedId: bed.bedId,
+      }))
+    );
+    setSelectedRooms(selected);
+  };
 
   const fetchHostelPlanTypes = async () => {
     if (!token) return;
@@ -214,12 +295,31 @@ useEffect(() => {
       // Fallback to hardcoded if fetch fails
       setHostelPlanTypes([
         { label: "Monthly", value: "monthly" },
+        { label: "Weekly", value: "weekly" }, // New: Add weekly
         { label: "Quarterly", value: "quarterly" },
         { label: "Half Yearly", value: "halfyearly" },
         { label: "Yearly", value: "yearly" },
       ]);
     } finally {
       setIsFetchingHostelPlans(false);
+    }
+  };
+
+  const fetchRooms = async () => {
+    if (!token || !hostelId) return;
+    try {
+      const response = await axios.get(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.data.success) {
+        setRoomsData(response.data.data);
+        console.log("Fetched rooms data:", response.data.data); // For debugging
+      }
+    } catch (error) {
+      console.error("Failed to fetch rooms:", error);
     }
   };
 
@@ -273,11 +373,16 @@ useEffect(() => {
         date,
       });
     } else {
+      if (selectedRooms.length === 0) {
+        Alert.alert("Error", "Please select at least one room and bed.");
+        return;
+      }
       console.log("Hostel subscription renewed:", {
         hostelPlan,
         checkInDate,
         checkOutDate,
         message,
+        selectedRooms, // Include selected rooms
         // Add selected rooms/beds data here if state is updated from modal
       });
     }
@@ -458,7 +563,7 @@ useEffect(() => {
       if (axios.isAxiosError(error)) {
         setPlanError(
           "Failed to fetch plan details: " +
-            (error.response?.data?.message || "Network error")
+          (error.response?.data?.message || "Network error")
         );
       } else {
         setPlanError("Failed to fetch plan details.");
@@ -627,7 +732,7 @@ useEffect(() => {
             styles.submitButton,
             (Object.values(mealPreferences).filter(Boolean).length === 0 ||
               isFetchingDetails) &&
-              styles.disabledButton,
+            styles.disabledButton,
           ]}
           onPress={handleGetPlanDetails}
           disabled={
@@ -671,7 +776,7 @@ useEffect(() => {
           onPress={() => setShowDatePicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {date ? date.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+            {date ? date.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
@@ -693,7 +798,7 @@ useEffect(() => {
               onPress={() => setShowEndDatePicker(true)}
             >
               <Text style={styles.datePickerText}>
-                {endDate ? endDate.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+                {endDate ? endDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
               </Text>
               <Image source={calender} style={styles.calendarIcon} />
             </TouchableOpacity>
@@ -737,16 +842,16 @@ useEffect(() => {
         <Text style={styles.label}>Plan</Text>
         <View style={styles.pickerWrapper}>
           <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
-            {existingSelectPlan 
-              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})` 
+            {existingSelectPlan
+              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})`
               : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
             }
           </Text>
         </View>
 
         <Text style={styles.priceText}>
-          {existingSelectPlan 
-            ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}` 
+          {existingSelectPlan
+            ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}`
             : `${displayPrice || "₹8000/month"}`
           }
         </Text>
@@ -761,7 +866,7 @@ useEffect(() => {
           onPress={() => setShowCheckInPicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {checkInDate.toLocaleDateString()}
+            {checkInDate ? checkInDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
           </Text>
           <Ionicons name="calendar-outline" size={20} color="#666" />
         </TouchableOpacity>
@@ -772,14 +877,14 @@ useEffect(() => {
           onPress={() => setShowCheckOutPicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {checkOutDate.toLocaleDateString()}
+            {checkOutDate ? checkOutDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
           </Text>
           <Ionicons name="calendar-outline" size={20} color="#666" />
         </TouchableOpacity>
 
         {showCheckInPicker && (
           <DateTimePicker
-            value={checkInDate}
+            value={checkInDate || new Date()}
             mode="date"
             display="default"
             onChange={onChangeCheckInDate}
@@ -789,11 +894,11 @@ useEffect(() => {
 
         {showCheckOutPicker && (
           <DateTimePicker
-            value={checkOutDate}
+            value={checkOutDate || new Date(checkInDate || new Date())}
             mode="date"
             display="default"
             onChange={onChangeCheckOutDate}
-            minimumDate={checkInDate}
+            minimumDate={checkInDate || new Date()}
           />
         )}
 
@@ -802,13 +907,30 @@ useEffect(() => {
         <TouchableOpacity
           style={styles.datePickerButton}
           onPress={() => setShowRoomModal(true)}
-          disabled={!hostelId}
+          disabled={!hostelId || roomsData.length === 0}
         >
           <Text style={styles.datePickerText}>
-            {hostelId ? "Tap to Select Rooms & Beds" : "Hostel ID Required"}
+            {hostelId && roomsData.length > 0
+              ? (selectedRooms.length > 0 ? "Edit Selection" : "Tap to Select Rooms & Beds")
+              : "Loading Rooms..."
+            }
           </Text>
           <Ionicons name="bed-outline" size={20} color="#666" />
         </TouchableOpacity>
+
+        {/* Show selected rooms */}
+        {selectedRooms.length > 0 && (
+          <View style={styles.selectedRoomsContainer}>
+            <Text style={styles.label}>Selected Rooms:</Text>
+            {selectedRooms.map((room, index) => (
+              <View key={index} style={styles.selectedRoomItem}>
+                <Text style={styles.selectedRoomText}>
+                  Room {room.roomNumber} - Bed {room.bedNumber}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         <Text style={[styles.label, { marginTop: 15 }]}>
           Message (Optional)
@@ -850,6 +972,11 @@ useEffect(() => {
           visible={showRoomModal}
           onClose={() => setShowRoomModal(false)}
           hostelData={hostelData}
+          roomsData={roomsData} // Pass fetched rooms data
+          isContinueMode={true}
+          selectedRooms={selectedRooms} // Pass pre-selected rooms for continue mode
+          onContinueSelection={handleRoomSelection}
+          token={token} // Pass the token
         />
       )}
     </SafeAreaView>
@@ -1119,5 +1246,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 5,
     fontWeight: "bold",
+  },
+  // New styles for selected rooms
+  selectedRoomsContainer: {
+    marginTop: 10,
+    padding: 12,
+    backgroundColor: "#f0f9ff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0f2fe",
+  },
+  selectedRoomItem: {
+    paddingVertical: 4,
+  },
+  selectedRoomText: {
+    fontSize: 14,
+    color: "#0ea5e9",
+    fontWeight: "500",
   },
 });

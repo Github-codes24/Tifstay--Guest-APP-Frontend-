@@ -11,6 +11,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +23,29 @@ import Buttons from "../Buttons";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+type SelectedRoom = {
+  roomNumber: string;
+  bedNumber: number;
+  roomId?: string;
+  bedId?: string;
+};
+
+type RoomData = Array<{
+  _id: string;
+  roomId: string;
+  roomNumber: string | number;
+  totalBeds: Array<{
+    _id: string;
+    bedId: string;
+    bedNumber: string | number;
+    status: string;
+    Availability: string;
+  }>;
+  selectPlan?: Array<any>;
+  photos?: string[];
+  description?: string;
+}>;
+
 interface RoomSelectionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -31,15 +55,33 @@ interface RoomSelectionModalProps {
     price: string;
     deposit: string;
   };
+  roomsData?: RoomData; // Optional: Pre-fetched rooms data
+  isContinueMode?: boolean;
+  selectedRooms?: SelectedRoom[]; // Pre-selected rooms for continue mode
+  onContinueSelection?: (selectedData: {
+    roomsData: Array<{
+      roomId: string;
+      roomNumber: string | number;
+      beds: Array<{ bedId: string; bedNumber: string | number }>;
+    }>;
+    plan: any;
+    checkInDate: string;
+    checkOutDate: string;
+    userData: any;
+  }) => void;
 }
 
 const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   visible,
   onClose,
   hostelData,
+  roomsData: propRoomsData, // Use prop if provided
+  isContinueMode = false,
+  selectedRooms = [], // Default empty
+  onContinueSelection,
 }) => {
   const router = useRouter();
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<RoomData>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [userLoading, setUserLoading] = useState<boolean>(true);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -53,17 +95,27 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     userPhoto?: string | null;
   } | null>(null);
 
-  // Fetch rooms
+  // Fetch rooms (use prop if available, else API)
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`
-      );
-      const data = await response.json();
-      if (data.success) {
-        setRooms(data.data);
-        if (data.data.length > 0) setSelectedRoomId(data.data[0]._id);
+      let data: RoomData = [];
+      if (propRoomsData && propRoomsData.length > 0) {
+        // Use passed rooms data
+        data = propRoomsData;
+      } else {
+        // Fallback to API
+        const response = await fetch(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`
+        );
+        const apiData = await response.json();
+        if (apiData.success) {
+          data = apiData.data;
+        }
+      }
+      setRooms(data);
+      if (data.length > 0) {
+        setSelectedRoomId(data[0]._id);
       }
     } catch (error) {
       console.error("Error fetching rooms:", error);
@@ -97,12 +149,36 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     }
   };
 
+  // Initialize pre-selections for continue mode
+  useEffect(() => {
+    if (visible && isContinueMode && selectedRooms.length > 0 && rooms.length > 0) {
+      const newSelectedBedsByRoom: Record<string, string[]> = {};
+      selectedRooms.forEach((selRoom) => {
+        const room = rooms.find(r => r._id === selRoom.roomId || r.roomNumber.toString() === selRoom.roomNumber);
+        if (room) {
+          const roomId = room._id;
+          const bed = room.totalBeds.find(b => 
+            (b._id === selRoom.bedId) || 
+            (b.bedNumber.toString() === selRoom.bedNumber.toString())
+          );
+          if (bed && !newSelectedBedsByRoom[roomId]) {
+            newSelectedBedsByRoom[roomId] = [bed._id];
+          } else if (bed) {
+            newSelectedBedsByRoom[roomId] = [...(newSelectedBedsByRoom[roomId] || []), bed._id];
+          }
+        }
+      });
+      setSelectedBedsByRoom(newSelectedBedsByRoom);
+      console.log("Pre-selected beds initialized:", newSelectedBedsByRoom); // Debug
+    }
+  }, [visible, isContinueMode, selectedRooms, rooms]);
+
   useEffect(() => {
     if (visible && hostelData?.id) {
       fetchRooms();
       fetchUserProfile();
     }
-  }, [visible, hostelData]);
+  }, [visible, hostelData, propRoomsData]); // Depend on propRoomsData
 
   const currentRoom = rooms.find((room) => room._id === selectedRoomId);
 
@@ -132,20 +208,11 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     });
   };
 
-  const handleReserve = async () => {
-    console.log("handleReserve called (Reserve button - no API call)");
-
-    if (loading || userLoading || !userData) {
-      Alert.alert("Loading", "Please wait for data to load.");
-      return;
-    }
-
+  // Collect selected data (shared logic)
+  const collectSelectedData = () => {
     // Compute total selected beds across all rooms
     const totalSelectedBeds = Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0);
-    if (totalSelectedBeds === 0) {
-      Alert.alert("Error", "Please select at least one bed.");
-      return;
-    }
+    if (totalSelectedBeds === 0) return null;
 
     // Collect rooms data with selected beds
     const roomsData: Array<{
@@ -173,10 +240,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       }
     });
 
-    if (roomsData.length === 0) {
-      Alert.alert("Error", "No valid rooms with selected beds.");
-      return;
-    }
+    if (roomsData.length === 0) return null;
 
     // Plan info (assuming same for all rooms in hostel)
     let planData = rooms[0].selectPlan?.find((p: any) => p.name === "monthly");
@@ -191,26 +255,61 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       planData.depositAmount = Number(planData.depositAmount);
     }
 
-    // Check-in/out dates
+    // Default check-in/out dates (fallback for non-continue mode)
     const today = new Date();
     const checkInDateObj = new Date(today);
     checkInDateObj.setDate(today.getDate() + 1);
     checkInDateObj.setHours(0, 0, 0, 0);
-    const checkInDate = checkInDateObj.toISOString();
+    const checkInDateStr = checkInDateObj.toISOString();
 
     const checkOutDateObj = new Date(checkInDateObj);
     checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
     checkOutDateObj.setHours(0, 0, 0, 0);
-    const checkOutDate = checkOutDateObj.toISOString();
+    const checkOutDateStr = checkOutDateObj.toISOString();
+
+    return {
+      roomsData,
+      plan: planData,
+      checkInDate: checkInDateStr,
+      checkOutDate: checkOutDateStr,
+      userData,
+    };
+  };
+
+  const handleBook = () => {
+    if (loading || userLoading || !userData) {
+      Alert.alert("Loading", "Please wait for data to load.");
+      return;
+    }
+
+    const selectedData = collectSelectedData();
+    if (!selectedData) {
+      Alert.alert("Error", "Please select at least one bed.");
+      return;
+    }
+
+    onContinueSelection?.(selectedData);
+    onClose();
+  };
+
+  const handleReserve = async () => {
+    console.log("handleReserve called (Reserve button - no API call)");
+
+    if (loading || userLoading || !userData) {
+      Alert.alert("Loading", "Please wait for data to load.");
+      return;
+    }
+
+    const selectedData = collectSelectedData();
+    if (!selectedData) {
+      Alert.alert("Error", "Please select at least one bed.");
+      return;
+    }
 
     // Log params being passed to next screen
     const params = {
       hostelData: JSON.stringify(hostelData),
-      roomsData: JSON.stringify(roomsData),
-      plan: JSON.stringify(planData),
-      checkInDate,
-      checkOutDate,
-      userData: JSON.stringify(userData),
+      ...selectedData,
       bookingType: "reserve", // flag to indicate it's a reserve
     };
     console.log("Params being passed to next screen:", params);
@@ -223,9 +322,9 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   };
 
   const renderBedRow = ({ item }: { item: any }) => {
-    const isAvailable =
-      item.status.toLowerCase() === "unoccupied" &&
-      item.Availability.toLowerCase() === "available";
+    const isAvailable = isContinueMode
+      ? true
+      : item.status.toLowerCase() === "unoccupied" && item.Availability.toLowerCase() === "available";
     const currentRoomBeds = selectedBedsByRoom[selectedRoomId || ''] || [];
     const isSelected = currentRoomBeds.includes(item._id);
 
@@ -278,6 +377,9 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
 
   const isButtonDisabled = totalSelectedBeds === 0 || loading || userLoading || !userData;
 
+  const buttonTitle = isContinueMode ? "Book" : "Reserve";
+  const onButtonPress = isContinueMode ? handleBook : handleReserve;
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <SafeAreaView style={styles.container}>
@@ -310,7 +412,6 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
                         ]}
                         onPress={() => {
                           setSelectedRoomId(room._id);
-                          // No longer clearing selections
                         }}
                       >
                         <Text
@@ -320,6 +421,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
                           ]}
                         >
                           Room {room.roomNumber}
+                          {hasSelections && ` (${roomBeds.length})`}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -383,10 +485,6 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
                       <Text style={styles.selectionText}>
                         You've selected {totalSelectedBeds} bed(s) across {numRoomsWithSelections} room(s)
                       </Text>
-                      {/* <Text style={styles.priceInfo}>
-                        ₹{plan.price} per month per bed
-                        {totalSelectedBeds > 1 && ` (Total: ₹${plan.price * totalSelectedBeds})`}
-                      </Text> */}
                     </View>
                   )}
                 </>
@@ -397,8 +495,8 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
         <View style={styles.bottomContainer}>
           <View style={styles.buttonWrapper}>
             <Buttons
-              title="Reserve"
-              onPress={handleReserve}
+              title={buttonTitle}
+              onPress={onButtonPress}
               disabled={isButtonDisabled}
             />
           </View>
@@ -457,4 +555,5 @@ const styles = StyleSheet.create({
   reserveButton: { backgroundColor: colors.primary },
   disabledButton: { backgroundColor: "#D1D5DB" },
 });
+
 export default RoomSelectionModal;

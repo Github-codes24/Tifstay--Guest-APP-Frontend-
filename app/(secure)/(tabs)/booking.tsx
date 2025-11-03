@@ -35,6 +35,7 @@ interface Order {
   checkInDate?: string;
   checkOutDate?: string;
   price?: string;
+  planPrice?: string; // New: Base plan price (e.g., "₹900")
   image?: string;
   entityId?: string; // Actual _id string for the service/hostel (for reviews/navigation)
 }
@@ -83,6 +84,7 @@ const Booking: React.FC = () => {
           if (tab === "rejected") {
             priceValue = item.AppiledCoupon?.finalprice || 0;
           }
+          const selectPlan = item.selectPlan?.[0] || { name: "monthly", price: 0 };
           return {
             id: item._id,
             bookingId: item.bookingId || item._id, // Use bookingId if available, fallback to _id
@@ -101,12 +103,14 @@ const Booking: React.FC = () => {
             status: item.status.toLowerCase() as Order["status"],
             image: item.userPhoto,
             price: priceValue ? `₹${priceValue}` : undefined,
+            planPrice: selectPlan.price ? `₹${selectPlan.price}` : undefined, // New: Base plan price
+            plan: selectPlan.name || "monthly", // New: Pass plan name (e.g., "monthly", "weekly")
             // FIXED: Extract _id as string; handle object or string input
             entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
           };
         });
         // DEBUG: Log hostel orders statuses
-        console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
+        console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType, plan: o.plan })));
       }
       setHostelOrders(fetchedHostelOrders);
 
@@ -227,6 +231,8 @@ const handleContinueSubscription = (order: Order) => {
       serviceType: order.serviceType,
       serviceName: order.serviceName,
       price: order.price || "₹8000/month",
+      planPrice: order.planPrice || order.price || "₹8000", // Pass base plan price
+      plan: order.plan || "monthly", // New: Pass plan (e.g., "monthly", "weekly")
       orderId: order.id, // _id for API
       bookingId: order.bookingId, // Human-readable fallback
       hostelId: order.entityId || "", // If needed from entity
