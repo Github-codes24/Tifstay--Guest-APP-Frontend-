@@ -62,6 +62,7 @@ export default function ContinueSubscriptionScreen() {
   const plan = params.plan || "monthly"; // New: Plan from params (e.g., "monthly", "weekly")
   const serviceId = params.serviceId || "";
   const hostelId = params.hostelId || ""; // From entityId in Booking screen
+  const bookingId = params.bookingId || (bookingData?._id ? bookingData._id.toString() : ""); // Added: Extract bookingId from params or bookingData
   const bookingData = params.bookingData ? JSON.parse(params.bookingData as string) : null;
   const existingSelectPlan = bookingData?.selectPlan ? bookingData.selectPlan[0] : null;
 
@@ -141,6 +142,7 @@ export default function ContinueSubscriptionScreen() {
     console.log("Plan:", plan);
     console.log("Service ID:", serviceId);
     console.log("Hostel ID:", hostelId);
+    console.log("Booking ID:", bookingId);
     console.log("Booking Data (raw):", params.bookingData);
     console.log("Parsed Booking Data:", bookingData);
     if (bookingData) {
@@ -361,7 +363,7 @@ export default function ContinueSubscriptionScreen() {
     router.back();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (serviceType === "tiffin") {
       console.log("Tiffin subscription renewed:", {
         numberOfTiffin,
@@ -372,21 +374,148 @@ export default function ContinueSubscriptionScreen() {
         selectedPlanType,
         date,
       });
+      // TODO: Implement tiffin continue API call and navigate to check-out if needed
+      // router.push("/(secure)/check-out");
+      return;
     } else {
+      // Hostel continue subscription
+      if (!checkInDate || !checkOutDate || !token || !bookingId) {
+        Alert.alert("Error", "Missing required information. Please fill all fields.");
+        return;
+      }
       if (selectedRooms.length === 0) {
         Alert.alert("Error", "Please select at least one room and bed.");
         return;
       }
-      console.log("Hostel subscription renewed:", {
-        hostelPlan,
-        checkInDate,
-        checkOutDate,
-        message,
-        selectedRooms, // Include selected rooms
-        // Add selected rooms/beds data here if state is updated from modal
+
+      // Compute existing beds map
+      const existingBeds = new Map<string, any>();
+      if (bookingData?.rooms) {
+        bookingData.rooms.forEach((room: any) => {
+          if (room.bedNumber && Array.isArray(room.bedNumber)) {
+            room.bedNumber.forEach((bed: any) => {
+              const key = `${room.roomId}-${bed.bedId}`;
+              existingBeds.set(key, {
+                roomId: room.roomId,
+                roomNumber: room.roomNumber,
+                bedId: bed.bedId,
+                bedNumber: bed.bedNumber,
+                name: bed.name || "",
+              });
+            });
+          }
+        });
+      }
+
+      // New beds set for comparison
+      const newBedsSet = new Set(
+        selectedRooms.map((r) => `${r.roomId || ""}-${r.bedId || ""}`)
+      );
+
+      // Add beds: new selections not in existing
+      const addBeds: any[] = selectedRooms.filter((r) => {
+        const key = `${r.roomId || ""}-${r.bedId || ""}`;
+        return !existingBeds.has(key);
       });
+
+      // Remove beds: existing not in new selections
+      const removeBeds: any[] = Array.from(existingBeds.values()).filter((b) => {
+        const key = `${b.roomId}-${b.bedId}`;
+        return !newBedsSet.has(key);
+      });
+
+      // Group addRooms
+      const addRooms: any[] = [];
+      const addRoomMap = new Map<string, any>();
+      addBeds.forEach((bed) => {
+        const roomId = bed.roomId || "";
+        if (!addRoomMap.has(roomId)) {
+          addRoomMap.set(roomId, {
+            roomId,
+            roomNumber: bed.roomNumber,
+            bedNumber: [],
+          });
+        }
+        const room = addRoomMap.get(roomId);
+        room.bedNumber.push({
+          bedId: bed.bedId || "",
+          bedNumber: bed.bedNumber,
+          name: "", // New bed, name to be set later
+        });
+        addRoomMap.set(roomId, room);
+      });
+      addRooms.push(...Array.from(addRoomMap.values()));
+
+      // Group removeRooms
+      const removeRooms: any[] = [];
+      const removeRoomMap = new Map<string, any>();
+      removeBeds.forEach((bed) => {
+        const roomId = bed.roomId;
+        if (!removeRoomMap.has(roomId)) {
+          removeRoomMap.set(roomId, {
+            roomId,
+            roomNumber: bed.roomNumber,
+            bedNumber: [],
+          });
+        }
+        const room = removeRoomMap.get(roomId);
+        room.bedNumber.push({
+          bedId: bed.bedId,
+          bedNumber: bed.bedNumber,
+          name: bed.name,
+        });
+        removeRoomMap.set(roomId, room);
+      });
+      removeRooms.push(...Array.from(removeRoomMap.values()));
+
+      const requestBody = {
+        checkInDate: checkInDate.toISOString().split("T")[0],
+        checkOutDate: checkOutDate.toISOString().split("T")[0],
+        addRooms,
+        removeRooms,
+      };
+
+      console.log("Continue Subscription API Body:", requestBody);
+
+      try {
+        const response = await axios.post(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${bookingId}`,
+          requestBody,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (response.data.success) {
+          const newBookingData = response.data.data;
+          console.log("Continue subscription success:", newBookingData);
+          // Navigate to check-out screen with new booking ID
+          router.push({
+            pathname: "/(secure)/check-out",
+            params: {
+              bookingId: newBookingData._id,
+              serviceType: "hostel",
+              // Add more params as needed, e.g., totalAmount: newBookingData.totalAmount
+            },
+          });
+        } else {
+          Alert.alert("Error", response.data.message || "Failed to continue subscription.");
+        }
+      } catch (error) {
+        console.error("Continue Subscription API Error:", error);
+        if (axios.isAxiosError(error)) {
+          Alert.alert(
+            "Error",
+            error.response?.data?.message || "Network error occurred."
+          );
+        } else {
+          Alert.alert("Error", "An unexpected error occurred.");
+        }
+      }
     }
-    // router.push("/check-out");
   };
 
   // Auto-set meal preferences based on selected plan type
