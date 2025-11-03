@@ -21,6 +21,7 @@ import Buttons from "@/components/Buttons";
 import { calender, location1, person } from "@/assets/images";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import RoomSelectionModal from "@/components/modals/RoomSelectionModal";// Adjust path as needed to import the RoomSelectionModal
 
 type ServiceType = "tiffin" | "hostel";
 type MealType = "breakfast" | "lunch" | "dinner";
@@ -33,6 +34,9 @@ export default function ContinueSubscriptionScreen() {
   const serviceName = params.serviceName || "";
   const price = params.price || "";
   const serviceId = params.serviceId || "";
+  const hostelId = params.hostelId || ""; // From entityId in Booking screen
+  const bookingData = params.bookingData ? JSON.parse(params.bookingData as string) : null;
+  const existingSelectPlan = bookingData?.selectPlan ? bookingData.selectPlan[0] : null;
 
   // Tiffin-specific states
   const [numberOfTiffin, setNumberOfTiffin] = useState("1");
@@ -84,6 +88,46 @@ export default function ContinueSubscriptionScreen() {
     { label: string; value: string }[]
   >([]);
   const [isFetchingHostelPlans, setIsFetchingHostelPlans] = useState(false);
+  const [displayPrice, setDisplayPrice] = useState(price || "");
+
+  // Room selection modal state (for hostel only)
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const hostelData = {
+    id: hostelId,
+    name: serviceName,
+    price: price,
+    deposit: "0", // Assume 0 for now; can be fetched or passed if needed
+  };
+
+  // Add this useEffect inside the ContinueSubscriptionScreen component, after the state declarations
+useEffect(() => {
+  console.log("=== Continue Subscription Screen Debug ===");
+  console.log("Params:", params);
+  console.log("Service Type:", serviceType);
+  console.log("Service Name:", serviceName);
+  console.log("Price:", price);
+  console.log("Service ID:", serviceId);
+  console.log("Hostel ID:", hostelId);
+  console.log("Booking Data (raw):", params.bookingData);
+  console.log("Parsed Booking Data:", bookingData);
+  if (bookingData) {
+    console.log("Select Plan:", bookingData.selectPlan);
+    console.log("Existing Select Plan:", existingSelectPlan);
+    console.log("Check-in Date:", bookingData.checkInDate);
+    console.log("Check-out Date:", bookingData.checkOutDate);
+    console.log("Total Amount:", bookingData.totalAmount);
+    console.log("Deposit Amount:", bookingData.depositAmount);
+    console.log("Work Type:", bookingData.workType);
+    console.log("Rooms:", bookingData.rooms);
+    console.log("Full Name:", bookingData.fullName);
+    console.log("Phone Number:", bookingData.phoneNumber);
+  }
+  console.log("Current Check-in Date State:", checkInDate);
+  console.log("Current Check-out Date State:", checkOutDate);
+  console.log("Current Hostel Plan State:", hostelPlan);
+  console.log("Display Price:", displayPrice);
+  console.log("=== End Debug ===");
+}, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice]);
 
   // Fetch token on component mount
   useEffect(() => {
@@ -95,12 +139,58 @@ export default function ContinueSubscriptionScreen() {
     fetchToken();
   }, []);
 
-  // Fetch hostel plan types after token is available
+  // Set existing plan if available
   useEffect(() => {
-    if (token && serviceType === "hostel") {
+    if (existingSelectPlan) {
+      setHostelPlan(existingSelectPlan.name);
+      setDisplayPrice(existingSelectPlan.price.toString());
+    }
+  }, [existingSelectPlan]);
+
+  // Set check-in and check-out dates from booking data if available
+  useEffect(() => {
+    if (bookingData) {
+      if (bookingData.checkInDate) {
+        setCheckInDate(new Date(bookingData.checkInDate));
+      }
+      if (bookingData.checkOutDate) {
+        setCheckOutDate(new Date(bookingData.checkOutDate));
+      }
+    }
+  }, [bookingData]);
+
+  // Auto-fill check-out date based on check-in and plan
+  useEffect(() => {
+    if (checkInDate && hostelPlan) {
+      let daysToAdd = 0;
+      switch (hostelPlan) {
+        case "monthly":
+          daysToAdd = 30;
+          break;
+        case "quarterly":
+          daysToAdd = 90;
+          break;
+        case "halfyearly":
+          daysToAdd = 182;
+          break;
+        case "yearly":
+          daysToAdd = 365;
+          break;
+        default:
+          daysToAdd = 30;
+      }
+      const newCheckOutDate = new Date(checkInDate);
+      newCheckOutDate.setDate(newCheckOutDate.getDate() + daysToAdd);
+      setCheckOutDate(newCheckOutDate);
+    }
+  }, [checkInDate, hostelPlan]);
+
+  // Fetch hostel plan types after token is available (skip if existing plan)
+  useEffect(() => {
+    if (token && serviceType === "hostel" && !existingSelectPlan) {
       fetchHostelPlanTypes();
     }
-  }, [token, serviceType]);
+  }, [token, serviceType, existingSelectPlan]);
 
   const fetchHostelPlanTypes = async () => {
     if (!token) return;
@@ -187,8 +277,8 @@ export default function ContinueSubscriptionScreen() {
         hostelPlan,
         checkInDate,
         checkOutDate,
-        purposeType,
         message,
+        // Add selected rooms/beds data here if state is updated from modal
       });
     }
     // router.push("/check-out");
@@ -644,29 +734,22 @@ export default function ContinueSubscriptionScreen() {
           {serviceName || "Scholars Den Boys Hostel"}
         </Text>
 
-        <Text style={styles.label}>Select Plan</Text>
+        <Text style={styles.label}>Plan</Text>
         <View style={styles.pickerWrapper}>
-          {isFetchingHostelPlans ? (
-            <ActivityIndicator
-              size="small"
-              color="#666"
-              style={{ padding: 12 }}
-            />
-          ) : (
-            <RNPickerSelect
-              onValueChange={setHostelPlan}
-              items={hostelPlanTypes}
-              placeholder={{ label: "Select Plan", value: null }}
-              style={{
-                inputIOS: styles.pickerInput,
-                inputAndroid: styles.pickerInput,
-              }}
-              value={hostelPlan}
-            />
-          )}
+          <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
+            {existingSelectPlan 
+              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})` 
+              : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
+            }
+          </Text>
         </View>
 
-        <Text style={styles.priceText}>{price || "₹8000/month"}</Text>
+        <Text style={styles.priceText}>
+          {existingSelectPlan 
+            ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}` 
+            : `${displayPrice || "₹8000/month"}`
+          }
+        </Text>
       </View>
 
       <View style={styles.section}>
@@ -714,6 +797,19 @@ export default function ContinueSubscriptionScreen() {
           />
         )}
 
+        {/* New: Button to open Room Selection Modal */}
+        <Text style={styles.label}>Select Rooms & Beds *</Text>
+        <TouchableOpacity
+          style={styles.datePickerButton}
+          onPress={() => setShowRoomModal(true)}
+          disabled={!hostelId}
+        >
+          <Text style={styles.datePickerText}>
+            {hostelId ? "Tap to Select Rooms & Beds" : "Hostel ID Required"}
+          </Text>
+          <Ionicons name="bed-outline" size={20} color="#666" />
+        </TouchableOpacity>
+
         <Text style={[styles.label, { marginTop: 15 }]}>
           Message (Optional)
         </Text>
@@ -724,48 +820,6 @@ export default function ContinueSubscriptionScreen() {
           value={message}
           onChangeText={setMessage}
         />
-
-        <Text style={styles.subSectionTitle}>User Stay Type</Text>
-        <View style={styles.purposeContainer}>
-          <TouchableOpacity
-            style={styles.radioOption}
-            onPress={() => setPurposeType("work")}
-            activeOpacity={0.7}
-          >
-            <View style={styles.radioButton}>
-              {purposeType === "work" && (
-                <View style={styles.radioButtonSelected} />
-              )}
-            </View>
-            <Text style={styles.radioText}>Work</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.radioOption}
-            onPress={() => setPurposeType("leisure")}
-            activeOpacity={0.7}
-          >
-            <View style={styles.radioButton}>
-              {purposeType === "leisure" && (
-                <View style={styles.radioButtonSelected} />
-              )}
-            </View>
-            <Text style={styles.radioText}>Leisure</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.radioOption}
-            onPress={() => setPurposeType("student")}
-            activeOpacity={0.7}
-          >
-            <View style={styles.radioButton}>
-              {purposeType === "student" && (
-                <View style={styles.radioButtonSelected} />
-              )}
-            </View>
-            <Text style={styles.radioText}>Student</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <Buttons
@@ -789,6 +843,15 @@ export default function ContinueSubscriptionScreen() {
       <View style={styles.content}>
         {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
       </View>
+
+      {/* Room Selection Modal for Hostel */}
+      {serviceType === "hostel" && (
+        <RoomSelectionModal
+          visible={showRoomModal}
+          onClose={() => setShowRoomModal(false)}
+          hostelData={hostelData}
+        />
+      )}
     </SafeAreaView>
   );
 }

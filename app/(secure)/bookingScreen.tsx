@@ -76,6 +76,9 @@ export default function BookingScreen() {
     userPhoto: params.userPhoto,
   });
 
+  // NEW: State for bed names (keyed by `${roomId}-${bedId}`)
+  const [bedNames, setBedNames] = useState<Record<string, string>>({});
+
   // Error states for better UX
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Tiffin plan errors per tiffin
@@ -118,7 +121,7 @@ export default function BookingScreen() {
     return initial;
   });
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
-  const [expandedTiffin, setExpandedTiffin] = useState<number | null>(null);
+  const [expandedTiffin, setExpandedTiffin] = useState<number | null>(bookingType === "hostel" ? 0 : null);
   const [applyToAllFor1, setApplyToAllFor1] = useState(false);
   const [tiffin2Option, setTiffin2Option] = useState<"sameAll" | "same1">("sameAll");
   // NEW: States for copy options
@@ -175,10 +178,26 @@ export default function BookingScreen() {
     [serviceData.rooms]
   );
 
+  // NEW: Helper to get bed key
+  const getBedKey = (roomId: string, bedId: string) => `${roomId}-${bedId}`;
+
+  // NEW: Helper to find and prefill first bed
+  const prefillFirstBedName = (rooms: RoomData[], primaryName: string) => {
+    if (rooms.length > 0 && rooms[0].beds.length > 0) {
+      const firstBedKey = getBedKey(rooms[0].roomId, rooms[0].beds[0].bedId);
+      setBedNames(prev => ({ ...prev, [firstBedKey]: primaryName }));
+      // Sync back to fullName if needed (initial set)
+      setFullName(primaryName);
+    }
+  };
+
   // Helper to clear errors for a field
   const clearError = (field: string) => {
     setErrors(prev => ({ ...prev, [field]: '' }));
   };
+
+  // NEW: Helper for bed name errors (per bed key)
+  const getBedNameError = (bedKey: string) => errors[bedKey] || '';
 
   // NEW: Helper for selected meals summary per tiffin
   const selectedMealsSummaryForNum = (num: number) => {
@@ -240,7 +259,7 @@ export default function BookingScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Validate hostel form
+  // UPDATED: Validate hostel form (add bed names check)
   const validateHostelForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -251,9 +270,20 @@ export default function BookingScreen() {
     if (checkInDate && checkOutDate && checkInDate >= checkOutDate) newErrors.checkOutDate = "Check-out date must be after Check-in date!";
     if (!aadhaarPhoto) newErrors.aadhaarPhoto = "Aadhaar Card Photo is required!";
     if (!userPhoto) newErrors.userPhoto = "User Photo is required!";
-    // NEW: Validate at least one room with beds
+    // UPDATED: Validate at least one room with beds AND all bed names filled
     if (!serviceData.rooms || serviceData.rooms.length === 0 || !serviceData.rooms.some(r => r.beds && r.beds.length > 0)) {
       newErrors.rooms = "Please select at least one bed across rooms!";
+    } else {
+      // Check bed names
+      const allBedKeys = serviceData.rooms.flatMap(room => 
+        room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
+      );
+      const missingNames = allBedKeys.filter(key => !bedNames[key]?.trim());
+      if (missingNames.length > 0) {
+        missingNames.forEach(key => {
+          newErrors[key] = `Name is required for this bed!`;
+        });
+      }
     }
 
     setErrors(newErrors);
@@ -329,6 +359,9 @@ export default function BookingScreen() {
             adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
             userPhoto: userPhotoUrl || prev.userPhoto,
           }));
+
+          // NEW: Prefill first bed name after setting rooms
+          setTimeout(() => prefillFirstBedName(rooms, userName), 0);
 
           console.log("Extracted Hostel ID:", parsedHostelData.id);
           console.log("Total Rooms:", rooms.length);
@@ -836,6 +869,8 @@ const handleTiffinSubmit = async () => {
   }
 };
 
+// UPDATED: Handle hostel submit (add bed names to payload)
+// UPDATED: Handle hostel submit (add bed names to payload)
 const handleHostelSubmit = async () => {
   console.log("=== Hostel Submit Debug ===");
   console.log("serviceData:", serviceData);
@@ -848,141 +883,165 @@ const handleHostelSubmit = async () => {
   console.log("aadhaarPhoto:", aadhaarPhoto);
   console.log("userPhoto:", userPhoto);
   console.log("rooms:", serviceData.rooms);
+  console.log("bedNames:", bedNames);
 
-  if (validateHostelForm()) {
-    setIsLoadingHostel(true);
-    try {
-      if (!serviceData.hostelId) {
-        console.error("Error: Hostel ID is missing!");
-        console.log("hostelId:", serviceData.hostelId);
-        setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
-        return;
-      }
-
-      // NEW: No need for single roomId validation
-
-      if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
-        console.error("Error: No rooms or beds selected!");
-        setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
-        return;
-      }
-
-      const token = await AsyncStorage.getItem("token");
-      const guestId = await AsyncStorage.getItem("guestId");
-
-      console.log("token:", token ? "Present" : "Missing");
-      console.log("guestId:", guestId ? "Present" : "Missing");
-
-      if (!token || !guestId) {
-        console.error("Error: Authentication token or guest ID is missing!");
-        setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
-        return;
-      }
-
-      // FIXED: Use flat price and deposit for the plan (no per-bed division)
-      const selectPlan = [
-        {
-          name: hostelPlan,
-          price: currentPlanPrice,
-          depositAmount: currentDeposit,
-        },
-      ];
-
-      // NEW: Build rooms array from serviceData.rooms
-      const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
-        roomId: room.roomId,
-        roomNumber: String(room.roomNumber || ""), // e.g., "101"
-        bedNumber: room.beds, // Already [{bedId, bedNumber}]
-      }));
-
-      // Create FormData for file uploads
-      const formData = new FormData();
-      formData.append('fullName', fullName);
-      formData.append('phoneNumber', phoneNumber);
-      formData.append('email', serviceData.email || "example@example.com");
-      formData.append('checkInDate', checkInDate.toISOString());
-      formData.append('checkOutDate', checkOutDate.toISOString());
-      formData.append('workType', purposeType);
-      formData.append('guestId', guestId);
-
-      // Append rooms as JSON string
-      formData.append('rooms', JSON.stringify(roomsPayload));
-
-      // Append plan as JSON string
-      formData.append('selectPlan', JSON.stringify(selectPlan));
-
-      // Append images as files (if selected)
-      if (aadhaarPhoto) {
-        formData.append('addharCardPhoto', {
-          uri: aadhaarPhoto,
-          type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
-          name: 'aadhar.jpg',
-        } as any);
-      }
-      if (userPhoto) {
-        formData.append('userPhoto', {
-          uri: userPhoto,
-          type: 'image/jpeg',
-          name: 'user.jpg',
-        } as any);
-      }
-
-      console.log("Full FormData Payload: (logged as object for debug)");
-      console.log({
-        fullName,
-        phoneNumber,
-        email: serviceData.email || "example@example.com",
-        checkInDate: checkInDate.toISOString(),
-        checkOutDate: checkOutDate.toISOString(),
-        workType: purposeType,
-        guestId,
-        rooms: roomsPayload,
-        selectPlan,
-        aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
-        userPhoto: userPhoto ? 'Attached' : 'Null',
-      });
-
-      // NEW: API URL uses only hostelId (remove roomId query param)
-      const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      console.log("API Response:", response.data);
-
-      if (response.data.success) {
-        console.log("Booking successful:", response.data.data);
-        // alert("Hostel booking created successfully!");
-
-        const bookingId = response.data.data._id;
-
-        console.log("Navigating to checkout with booking ID:", bookingId);
-
-        router.push({
-          pathname: "/check-out",
-          params: {
-            serviceType: "hostel",
-            bookingId,
-            serviceId: serviceData.hostelId,
-          },
-        });
-      } else {
-        console.error("Booking failed:", response.data.message || "Unknown error");
-        setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
-      }
-    } catch (error: any) {
-      console.error("Error creating hostel booking:", error.response?.data || error.message);
-      console.error("Full error object:", error);
-      setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
-    } finally {
-      setIsLoadingHostel(false);
+  if (!validateHostelForm()) {
+    // NEW: Auto-expand beds section if bed name errors are present for better UX
+    const allBedKeys = serviceData.rooms.flatMap(room => 
+      room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
+    );
+    const hasMissingBedNames = allBedKeys.some(key => !bedNames[key]?.trim());
+    if (hasMissingBedNames) {
+      setExpandedTiffin(0);
     }
+    return;
+  }
+
+  setIsLoadingHostel(true);
+  try {
+    if (!serviceData.hostelId) {
+      console.error("Error: Hostel ID is missing!");
+      console.log("hostelId:", serviceData.hostelId);
+      setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
+      return;
+    }
+
+    // NEW: No need for single roomId validation
+
+    if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+      console.error("Error: No rooms or beds selected!");
+      setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
+      return;
+    }
+
+    const token = await AsyncStorage.getItem("token");
+    const guestId = await AsyncStorage.getItem("guestId");
+
+    console.log("token:", token ? "Present" : "Missing");
+    console.log("guestId:", guestId ? "Present" : "Missing");
+
+    if (!token || !guestId) {
+      console.error("Error: Authentication token or guest ID is missing!");
+      setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+      return;
+    }
+
+    // FIXED: Use flat price and deposit for the plan (no per-bed division)
+    const selectPlan = [
+      {
+        name: hostelPlan,
+        price: currentPlanPrice,
+        depositAmount: currentDeposit,
+      },
+    ];
+
+    // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
+    const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+      roomId: room.roomId,
+      roomNumber: String(room.roomNumber || ""), // e.g., "101"
+      bedNumber: room.beds.map(bed => ({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+        name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
+      })),
+    }));
+
+    // Create FormData for file uploads
+    const formData = new FormData();
+    formData.append('fullName', fullName);
+    formData.append('phoneNumber', phoneNumber);
+    formData.append('email', serviceData.email || "example@example.com");
+    formData.append('checkInDate', checkInDate.toISOString());
+    formData.append('checkOutDate', checkOutDate.toISOString());
+    formData.append('workType', purposeType);
+    formData.append('guestId', guestId);
+
+    // Append rooms as JSON string (now with names)
+    formData.append('rooms', JSON.stringify(roomsPayload));
+
+    // Append plan as JSON string
+    formData.append('selectPlan', JSON.stringify(selectPlan));
+
+    // Append images as files (if selected)
+    if (aadhaarPhoto) {
+      formData.append('addharCardPhoto', {
+        uri: aadhaarPhoto,
+        type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
+        name: 'aadhar.jpg',
+      } as any);
+    }
+    if (userPhoto) {
+      formData.append('userPhoto', {
+        uri: userPhoto,
+        type: 'image/jpeg',
+        name: 'user.jpg',
+      } as any);
+    }
+
+    console.log("Full FormData Payload: (logged as object for debug)");
+    console.log({
+      fullName,
+      phoneNumber,
+      email: serviceData.email || "example@example.com",
+      checkInDate: checkInDate.toISOString(),
+      checkOutDate: checkOutDate.toISOString(),
+      workType: purposeType,
+      guestId,
+      rooms: roomsPayload,
+      selectPlan,
+      aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
+      userPhoto: userPhoto ? 'Attached' : 'Null',
+    });
+
+    // NEW: API URL uses only hostelId (remove roomId query param)
+    const response = await axios.post(
+      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    console.log("API Response:", response.data);
+
+    if (response.data.success) {
+      console.log("Booking successful:", response.data.data);
+      // alert("Hostel booking created successfully!");
+
+      const bookingId = response.data.data._id;
+
+      console.log("Navigating to checkout with booking ID:", bookingId);
+
+      router.push({
+        pathname: "/check-out",
+        params: {
+          serviceType: "hostel",
+          bookingId,
+          serviceId: serviceData.hostelId,
+        },
+      });
+    } else {
+      console.error("Booking failed:", response.data.message || "Unknown error");
+      setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+    }
+  } catch (error: any) {
+    console.error("Error creating hostel booking:", error.response?.data || error.message);
+    console.error("Full error object:", error);
+    setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+  } finally {
+    setIsLoadingHostel(false);
+  }
+};
+// NEW: Bed name input handler (with sync for first bed)
+const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirstBed: boolean) => {
+  const key = getBedKey(roomId, bedId);
+  setBedNames(prev => ({ ...prev, [key]: text }));
+  clearError(key);
+  if (isFirstBed) {
+    setFullName(text); // Sync back to primary fullName
   }
 };
 
@@ -1020,13 +1079,78 @@ const handleHostelSubmit = async () => {
     </TouchableOpacity>
   );
 
-  // NEW: Helper to render selected rooms summary
-  const selectedRoomsSummary = useMemo(() => {
+  // UPDATED: Helper to render selected rooms summary + bed names UI (flattened: no nested cards, use dividers)
+  const renderBedNamesSection = () => {
     if (serviceData.rooms.length === 0) return null;
-    return serviceData.rooms.map(room => 
-      `${room.roomNumber} (Beds: ${room.beds.map(b => b.bedNumber).join(', ')})`
-    ).join(', ');
-  }, [serviceData.rooms]);
+
+    // Find first bed for prefill logic
+    const firstBedRoom = serviceData.rooms[0];
+    const firstBed = firstBedRoom?.beds[0];
+    const isFirstBed = (room: RoomData, bed: { bedId: string }) => room === firstBedRoom && bed.bedId === firstBed?.bedId;
+
+    return (
+      <View style={styles.bedNamesSection}>
+        <TouchableOpacity 
+          style={styles.sectionHeader} 
+          onPress={() => setExpandedTiffin(prev => prev === 0 ? null : 0)} // Reuse expandedTiffin as toggle (0 for beds)
+        >
+          <View style={styles.sectionHeaderContent}>
+            <Image source={person} style={styles.sectionHeaderIcon} />
+            <Text style={styles.sectionTitle}>Selected Rooms & Guest Names</Text>
+          </View>
+          <Text style={styles.dropdownIcon}>{expandedTiffin === 0 ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+        {expandedTiffin === 0 && (
+          <View style={styles.expandedContent}>
+            <Text style={styles.introText}>
+              Assign names to each guest bed for a smooth booking process.
+            </Text>
+            {serviceData.rooms.map((room, roomIndex) => (
+              <View key={room.roomId} style={styles.roomContainer}>
+                <View style={styles.roomHeader}>
+                  <Text style={styles.roomTitle}>Room {room.roomNumber}</Text>
+                  <Text style={styles.roomSubtitle}>{room.beds.length} Guest(s)</Text>
+                </View>
+                {room.beds.map((bed, bedIndex) => {
+                  const bedKey = getBedKey(room.roomId, bed.bedId);
+                  const bedName = bedNames[bedKey] || '';
+                  const error = getBedNameError(bedKey);
+                  return (
+                    <View key={bed.bedId} style={[styles.bedRow, error && styles.bedRowError]}>
+                      <View style={styles.bedAvatarContainer}>
+                        <View style={styles.bedAvatar}>
+                          <Image source={person} style={styles.bedAvatarIcon} />
+                        </View>
+                        <Text style={styles.bedNumberLabel}>Bed {bed.bedNumber}</Text>
+                      </View>
+                      <View style={styles.bedNameContainer}>
+                        <TextInput
+                          style={[styles.bedNameInput, error && styles.inputError]}
+                          placeholder={`Guest name for Bed ${bed.bedNumber}`}
+                          value={bedName}
+                          onChangeText={(text) => handleBedNameChange(room.roomId, bed.bedId, text, isFirstBed(room, bed))}
+                          onBlur={() => {
+                            if (!bedName.trim()) {
+                              setErrors(prev => ({ ...prev, [bedKey]: "Name is required for this bed!" }));
+                            }
+                          }}
+                        />
+                        {error && <Text style={styles.errorText}>{error}</Text>}
+                      </View>
+                    </View>
+                  );
+                })}
+                {roomIndex < serviceData.rooms.length - 1 && <View style={styles.roomDivider} />}
+              </View>
+            ))}
+            <View style={styles.totalGuestsFooter}>
+              <Text style={styles.totalBedsText}>Total Guests: {totalBedsCount}</Text>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // FIXED: Per-tiffin plan options
   const getPlanOptionsForNum = (num: number) => {
@@ -1062,14 +1186,8 @@ const handleHostelSubmit = async () => {
           {serviceData.hostelName || "Scholars Den Boys Hostel"}
         </Text>
 
-        {/* NEW: Display selected rooms/beds */}
-        {selectedRoomsSummary && (
-          <View style={styles.selectedRoomsContainer}>
-            <Text style={styles.label}>Selected Rooms</Text>
-            <Text style={styles.selectedRoomsText}>{selectedRoomsSummary}</Text>
-            <Text style={styles.totalBedsText}>Total Beds: {totalBedsCount}</Text>
-          </View>
-        )}
+        {/* UPDATED: Render bed names UI instead of simple summary */}
+        {renderBedNamesSection()}
 
         <Text style={styles.label}>Select Plan</Text>
         <View style={styles.pickerWrapper}>
@@ -1109,6 +1227,11 @@ const handleHostelSubmit = async () => {
           onChangeText={(text) => {
             setFullName(text);
             clearError('fullName');
+            // NEW: Sync to first bed if exists
+            const firstRoom = serviceData.rooms[0];
+            if (firstRoom && firstRoom.beds[0]) {
+              handleBedNameChange(firstRoom.roomId, firstRoom.beds[0].bedId, text, true);
+            }
           }}
           onBlur={() => {
             if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: "Full Name is required!" }));
@@ -1958,22 +2081,142 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: "bold",
   },
-  // NEW: Styles for selected rooms
-  selectedRoomsContainer: {
-    backgroundColor: "#f0f8ff",
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 15,
+  // UPDATED: Styles for bed names section (flattened: single cohesive card with dividers, no nested borders/radii)
+  bedNamesSection: {
+    backgroundColor: "#f8f9ff",
+    borderRadius: 12,
+    padding: 0,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e3e8ff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  selectedRoomsText: {
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  sectionHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionHeaderIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
+    tintColor: "#004AAD",
+  },
+  expandedContent: {
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  introText: {
     fontSize: 14,
-    color: "#004AAD",
-    marginBottom: 5,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 8,
+    lineHeight: 20,
   },
-  totalBedsText: {
+  roomContainer: {
+    marginVertical: 0, // No extra margins
+  },
+  roomHeader: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent", // No background
+    borderTopWidth: 0, // No border
+  },
+  roomTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#004AAD",
+    marginBottom: 2,
+  },
+  roomSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  bedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    margin: 0, // No margins
+    backgroundColor: "transparent", // No background
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0", // Light divider on top
+  },
+  bedRowError: {
+    backgroundColor: "#fff5f5", // Subtle error bg
+    borderTopColor: "#ffcccc",
+  },
+  bedAvatarContainer: {
+    alignItems: "center",
+    marginRight: 16,
+    minWidth: 60,
+  },
+  bedAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#e3f2fd",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: "#004AAD",
+  },
+  bedAvatarIcon: {
+    width: 24,
+    height: 24,
+    tintColor: "#004AAD",
+  },
+  bedNumberLabel: {
     fontSize: 12,
     color: "#666",
-    fontWeight: "bold",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  bedNameContainer: {
+    flex: 1,
+  },
+  bedNameInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: "#fff",
+    marginBottom: 4,
+  },
+  roomDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginHorizontal: 16,
+  },
+  totalGuestsFooter: {
+    paddingVertical: 12,
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  totalBedsText: {
+    fontSize: 14,
+    color: "#004AAD",
+    fontWeight: "700",
   },
   // NEW: Styles for tiffin dropdowns
   tiffinSelectorsContainer: {
@@ -1998,14 +2241,6 @@ const styles = StyleSheet.create({
   dropdownIcon: {
     fontSize: 12,
     color: "#666",
-  },
-  expandedContent: {
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    marginTop: 10,
-    backgroundColor: "#fff",
   },
   expandedScroll: {
     maxHeight: 500,

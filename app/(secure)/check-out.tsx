@@ -285,7 +285,7 @@ const Checkout: React.FC = () => {
       : 1;
 
   const totalRent = planPrice * months;
-  const total = totalRent + depositAmount;  // Include deposit in total for hostel
+  const total = totalRent;  // FIXED: Exclude deposit, only total rent
 
     console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
       rawPlanPrice,
@@ -550,7 +550,19 @@ const handleRemoveCoupon = async () => {
     fetchWalletAmount();
   }, []);
 
-  const paymentAmount = finalPricing?.finalPrice ?? transaction.net ?? transaction.total ?? 0;
+  // FIXED: Adjust paymentAmount to exclude deposit from finalPricing (workaround for backend including it)
+  // Use transaction.deposit as primary source for deposit amount
+  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0;
+  const adjustedFinalPrice = finalPricing?.finalPrice ? Math.max(0, finalPricing.finalPrice - depositAmount) : null;
+  const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
+
+  console.log("=== PAYMENT CALC DEBUG ===");
+  console.log("transaction.net/total:", transaction?.net ?? transaction?.total ?? 0);
+  console.log("finalPricing.finalPrice (raw):", finalPricing?.finalPrice ?? 0);
+  console.log("depositAmount (subtracted):", depositAmount);
+  console.log("adjustedFinalPrice:", adjustedFinalPrice);
+  console.log("Final paymentAmount (rent-only):", paymentAmount);
+  console.log("=============================");
 
   // Fetch all coupons - UPDATED: Support both hostel and tiffin APIs
   const fetchCoupons = async () => {
@@ -969,9 +981,9 @@ const handleRemoveCoupon = async () => {
           </View>
         </View>
 
-        {isTiffin ? (
-          // Simple display for Tiffin: discount if >0, else total only
-          discountValueNum > 0 ? (
+        {/* FIXED: Unified simple total display for both tiffin and hostel (no details section, only rent total) */}
+        <View>
+          {discountValueNum > 0 ? (
             <View>
               <View style={styles.discountRow}>
                 <Text style={styles.discountLabel}>Discount</Text>
@@ -987,33 +999,8 @@ const handleRemoveCoupon = async () => {
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
             </View>
-          )
-        ) : (
-          // Detailed display for Hostel: rent, deposit, discount if applied, total
-          <View style={styles.transactionSection}>
-            <Text style={styles.paymentSectionTitle}>Price Details</Text>
-            <View style={styles.transactionDetails}>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>Rent ({transaction.months} {transaction.months > 1 ? 'months' : 'month'})</Text>
-                <Text style={styles.transactionValue}>₹{transaction.totalRent.toFixed(2)}</Text>
-              </View>
-              <View style={styles.transactionRow}>
-                <Text style={styles.transactionLabel}>Deposit</Text>
-                <Text style={styles.transactionValue}>₹{transaction.deposit.toFixed(2)}</Text>
-              </View>
-              {discountValueNum > 0 && (
-                <View style={styles.transactionRow}>
-                  <Text style={styles.transactionLabel}>Discount</Text>
-                  <Text style={styles.transactionValue}>-₹{discountValueNum.toFixed(2)}</Text>
-                </View>
-              )}
-              <View style={styles.netRow}>
-                <Text style={styles.netLabel}>Total</Text>
-                <Text style={styles.netValue}>₹{paymentAmount.toFixed(2)}</Text>
-              </View>
-            </View>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Cancellation Policy */}
         <View style={styles.policySection}>

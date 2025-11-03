@@ -218,19 +218,21 @@ const Booking: React.FC = () => {
     }, 0);
   };
 
-  const handleContinueSubscription = (order: Order) => {
-    console.log("Continue subscription:", order.bookingId);
-    router.push({
-      pathname: "/continueSubscriptionScreen",
-      params: {
-        serviceType: order.serviceType,
-        serviceName: order.serviceName,
-        price: order.price || "₹8000/month",
-        orderId: order.id,
-        bookingId: order.bookingId,
-      },
-    });
-  };
+// Updated handleContinueSubscription in Booking screen
+const handleContinueSubscription = (order: Order) => {
+  console.log("Continue subscription:", order.id); // Use order.id (_id) for API
+  router.push({
+    pathname: "/continueSubscriptionScreen",
+    params: {
+      serviceType: order.serviceType,
+      serviceName: order.serviceName,
+      price: order.price || "₹8000/month",
+      orderId: order.id, // _id for API
+      bookingId: order.bookingId, // Human-readable fallback
+      hostelId: order.entityId || "", // If needed from entity
+    },
+  });
+};
 
   const handleRateNow = (order: Order) => {
     console.log("Rate now:", order.bookingId);
@@ -442,14 +444,14 @@ const Booking: React.FC = () => {
           <>
             {order.status === "confirmed" && !isHistoryOrder(order.status) && (
               <View>
-                {isWithin5DaysOfEnd(order) && (
+              
                   <Button
                     title="Continue Subscription"
                     onPress={() => handleContinueSubscription(order)}
                     style={styles.primaryButtonStyle}
                     height={48}
                   />
-                )}
+               
                 {order.serviceType === "tiffin" ? (
                   <View>
                     <View style={styles.buttonRow}>
