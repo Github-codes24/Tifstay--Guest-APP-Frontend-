@@ -185,12 +185,12 @@ export default function DocumentsScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.orText}>Or</Text>
+        {/* <Text style={styles.orText}>Or</Text> */}
 
         {/* DigiLocker */}
-        <Pressable onPress={onDigiLocker} style={styles.digilockerBtn}>
+        {/* <Pressable onPress={onDigiLocker} style={styles.digilockerBtn}>
           <Text style={styles.digilockerText}>Verify with DigiLocker</Text>
-        </Pressable>
+        </Pressable> */}
       </ScrollView>
     </SafeAreaView>
   );

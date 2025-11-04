@@ -69,6 +69,7 @@ interface RoomSelectionModalProps {
     checkOutDate: string;
     userData: any;
   }) => void;
+  token?: string; // Pass token if needed for API calls
 }
 
 const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
@@ -79,6 +80,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   isContinueMode = false,
   selectedRooms = [], // Default empty
   onContinueSelection,
+  token,
 }) => {
   const router = useRouter();
   const [rooms, setRooms] = useState<RoomData>([]);
@@ -103,10 +105,13 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       if (propRoomsData && propRoomsData.length > 0) {
         // Use passed rooms data
         data = propRoomsData;
-      } else {
+      } else if (token) {
         // Fallback to API
         const response = await fetch(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
         const apiData = await response.json();
         if (apiData.success) {
@@ -161,15 +166,20 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
             (b._id === selRoom.bedId) || 
             (b.bedNumber.toString() === selRoom.bedNumber.toString())
           );
-          if (bed && !newSelectedBedsByRoom[roomId]) {
-            newSelectedBedsByRoom[roomId] = [bed._id];
-          } else if (bed) {
-            newSelectedBedsByRoom[roomId] = [...(newSelectedBedsByRoom[roomId] || []), bed._id];
+          if (bed) {
+            if (!newSelectedBedsByRoom[roomId]) {
+              newSelectedBedsByRoom[roomId] = [];
+            }
+            if (!newSelectedBedsByRoom[roomId].includes(bed._id)) {
+              newSelectedBedsByRoom[roomId].push(bed._id);
+            }
           }
         }
       });
       setSelectedBedsByRoom(newSelectedBedsByRoom);
-      console.log("Pre-selected beds initialized:", newSelectedBedsByRoom); // Debug
+      console.log("Pre-selected beds initialized (continue mode):", newSelectedBedsByRoom); // Debug log for pre-tick status
+      console.log("Rooms data:", rooms);
+      console.log("Selected rooms input:", selectedRooms);
     }
   }, [visible, isContinueMode, selectedRooms, rooms]);
 
@@ -178,7 +188,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       fetchRooms();
       fetchUserProfile();
     }
-  }, [visible, hostelData, propRoomsData]); // Depend on propRoomsData
+  }, [visible, hostelData, propRoomsData, token]); // Depend on propRoomsData and token
 
   const currentRoom = rooms.find((room) => room._id === selectedRoomId);
 
@@ -277,6 +287,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   };
 
   const handleBook = () => {
+    console.log("handleBook called (Continue mode - no API, pass to parent)"); // Debug log
     if (loading || userLoading || !userData) {
       Alert.alert("Loading", "Please wait for data to load.");
       return;
@@ -288,6 +299,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       return;
     }
 
+    console.log("Selected Data for Continue:", selectedData); // Debug log
     onContinueSelection?.(selectedData);
     onClose();
   };

@@ -38,6 +38,15 @@ interface Order {
   planPrice?: string; // New: Base plan price (e.g., "₹900")
   image?: string;
   entityId?: string; // Actual _id string for the service/hostel (for reviews/navigation)
+  rooms?: Array<{
+    roomId: string;
+    roomNumber: string;
+    bedNumber?: Array<{
+      bedId: string;
+      bedNumber: number;
+      name?: string;
+    }>;
+  }>;
 }
 
 const Booking: React.FC = () => {
@@ -107,6 +116,7 @@ const Booking: React.FC = () => {
             plan: selectPlan.name || "monthly", // New: Pass plan name (e.g., "monthly", "weekly")
             // FIXED: Extract _id as string; handle object or string input
             entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
+            rooms: item.rooms || [],
           };
         });
         // DEBUG: Log hostel orders statuses
@@ -225,20 +235,56 @@ const Booking: React.FC = () => {
 // Updated handleContinueSubscription in Booking screen
 const handleContinueSubscription = (order: Order) => {
   console.log("Continue subscription:", order.id); // Use order.id (_id) for API
+
+  // Prepare rooms data (stringify for Expo Router serialization)
+  const roomsData = order.rooms?.map((room) => ({
+    roomId: room.roomId,
+    roomNumber: room.roomNumber,
+    beds: room.bedNumber?.map((bed) => ({
+      bedId: bed.bedId,
+      bedNumber: bed.bedNumber,
+      name: bed.name,
+    })) || [],
+  })) || [];
+
+  const params = {
+    serviceType: order.serviceType,
+    serviceName: order.serviceName,
+    price: order.price || "₹8000/month",
+    planPrice: order.planPrice || order.price || "₹8000",
+    plan: order.plan || "monthly",
+    orderId: order.id,
+    bookingId: order.bookingId,
+    hostelId: order.entityId || "",
+    fullName: order.customer, // Pass available guest name
+    checkInDate: order.checkInDate || "",
+    checkOutDate: order.checkOutDate || "",
+    rooms: JSON.stringify(roomsData), // Stringify nested array for params
+    // Note: Full guest object (phone, etc.) will be fetched in ContinueSubscriptionScreen via userProfile or booking fetch
+  };
+
+  console.log("Continue Subscription Params:", params);
+  console.log("Full Order Details Passed:", {
+    id: order.id,
+    bookingId: order.bookingId,
+    serviceName: order.serviceName,
+    customer: order.customer,
+    checkInDate: order.checkInDate,
+    checkOutDate: order.checkOutDate,
+    rooms: roomsData, // Log before stringify
+    entityId: order.entityId,
+    plan: order.plan,
+    price: order.price,
+    planPrice: order.planPrice,
+  });
+
   router.push({
     pathname: "/continueSubscriptionScreen",
-    params: {
-      serviceType: order.serviceType,
-      serviceName: order.serviceName,
-      price: order.price || "₹8000/month",
-      planPrice: order.planPrice || order.price || "₹8000", // Pass base plan price
-      plan: order.plan || "monthly", // New: Pass plan (e.g., "monthly", "weekly")
-      orderId: order.id, // _id for API
-      bookingId: order.bookingId, // Human-readable fallback
-      hostelId: order.entityId || "", // If needed from entity
-    },
+    params,
   });
 };
+
+
 
   const handleRateNow = (order: Order) => {
     console.log("Rate now:", order.bookingId);

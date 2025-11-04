@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -62,9 +62,33 @@ export default function ContinueSubscriptionScreen() {
   const plan = params.plan || "monthly"; // New: Plan from params (e.g., "monthly", "weekly")
   const serviceId = params.serviceId || "";
   const hostelId = params.hostelId || ""; // From entityId in Booking screen
-  const bookingId = params.bookingId || (bookingData?._id ? bookingData._id.toString() : ""); // Added: Extract bookingId from params or bookingData
-  const bookingData = params.bookingData ? JSON.parse(params.bookingData as string) : null;
-  const existingSelectPlan = bookingData?.selectPlan ? bookingData.selectPlan[0] : null;
+  const orderId = params.orderId || ""; 
+  const bookingId = params.bookingId || ""; // Keep for fallback or custom ID, but prioritize orderId for API
+  const fullName = params.fullName || ""; // New: From params
+  const checkInDateParam = params.checkInDate || "";
+  const checkOutDateParam = params.checkOutDate || "";
+  const roomsParamStr = params.rooms as string; // Stringified rooms from params
+
+  // Memoize parsed values to prevent re-creation on every render
+  const bookingData = useMemo(() => {
+    const rawBookingData = params.bookingData;
+    return rawBookingData ? JSON.parse(rawBookingData as string) : null;
+  }, [params.bookingData]);
+
+  const parsedRooms = useMemo(() => {
+    if (!roomsParamStr) return [];
+    try {
+      return JSON.parse(roomsParamStr);
+    } catch (error) {
+      console.error("Error parsing rooms from params:", error);
+      return [];
+    }
+  }, [roomsParamStr]);
+
+  const existingSelectPlan = useMemo(() => 
+    bookingData?.selectPlan ? bookingData.selectPlan[0] : null, 
+    [bookingData]
+  );
 
   // Tiffin-specific states
   const [numberOfTiffin, setNumberOfTiffin] = useState("1");
@@ -124,6 +148,10 @@ export default function ContinueSubscriptionScreen() {
   // Room selection modal state (for hostel only)
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [selectedRooms, setSelectedRooms] = useState<SelectedRoom[]>([]);
+  const [fullBooking, setFullBooking] = useState<any>(null); // New: Full booking object
+  const [userData, setUserData] = useState<any>(null); // Updated: Full guest object from booking or profile
+  const [parsedRoomsState, setParsedRoomsState] = useState<any[]>(parsedRooms); // Initialize with memoized parsedRooms
+
   const hostelData = {
     id: hostelId,
     name: serviceName,
@@ -134,7 +162,23 @@ export default function ContinueSubscriptionScreen() {
   // Add this useEffect inside the ContinueSubscriptionScreen component, after the state declarations
   useEffect(() => {
     console.log("=== Continue Subscription Screen Debug ===");
-    console.log("Params:", params);
+    console.log("Raw Params:", params);
+    console.log("Parsed Params:", {
+      serviceType,
+      serviceName,
+      price,
+      planPrice,
+      plan,
+      serviceId,
+      hostelId,
+      orderId,
+      bookingId,
+      fullName,
+      checkInDateParam,
+      checkOutDateParam,
+      roomsParamStr,
+      parsedRooms,
+    });
     console.log("Service Type:", serviceType);
     console.log("Service Name:", serviceName);
     console.log("Price:", price);
@@ -142,7 +186,12 @@ export default function ContinueSubscriptionScreen() {
     console.log("Plan:", plan);
     console.log("Service ID:", serviceId);
     console.log("Hostel ID:", hostelId);
+    console.log("Order ID:", orderId);
     console.log("Booking ID:", bookingId);
+    console.log("Full Name from Params:", fullName);
+    console.log("Check-in Date from Params:", checkInDateParam);
+    console.log("Check-out Date from Params:", checkOutDateParam);
+    console.log("Parsed Rooms from Params:", parsedRooms);
     console.log("Booking Data (raw):", params.bookingData);
     console.log("Parsed Booking Data:", bookingData);
     if (bookingData) {
@@ -163,8 +212,10 @@ export default function ContinueSubscriptionScreen() {
     console.log("Display Price:", displayPrice);
     console.log("Fetched Rooms Data:", roomsData);
     console.log("Selected Rooms:", selectedRooms);
+    console.log("Full Booking:", fullBooking);
+    console.log("User Data (Full Guest):", userData);
     console.log("=== End Debug ===");
-  }, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice, selectedRooms, roomsData]);
+  }, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice, selectedRooms, roomsData, fullBooking, userData]);
 
   // Fetch token on component mount
   useEffect(() => {
@@ -175,6 +226,63 @@ export default function ContinueSubscriptionScreen() {
     };
     fetchToken();
   }, []);
+
+  // Update parsedRoomsState when memoized parsedRooms changes (runs once)
+  useEffect(() => {
+    setParsedRoomsState(parsedRooms);
+  }, [parsedRooms]);
+
+  // New: Fetch full booking details using orderId (for full guest object and existing rooms)
+  useEffect(() => {
+    const fetchFullBooking = async () => {
+      if (orderId && token && serviceType === "hostel") {
+        try {
+          console.log("Fetching full booking for ID:", orderId);
+          // Assuming backend has an endpoint like this; adjust if different
+          const response = await axios.get(
+            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelBookingById/${orderId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (response.data.success) {
+            const booking = response.data.data;
+            console.log("Full Booking Fetched:", booking);
+            setFullBooking(booking);
+            // Set userData from full booking (full guest object)
+            setUserData({
+              name: booking.fullName,
+              phoneNumber: booking.phoneNumber,
+              email: booking.email || "", // If available
+              workType: booking.workType || "Student",
+              adharCardPhoto: booking.addharCardPhoto || null,
+              userPhoto: booking.userPhoto || null,
+            });
+            // Override parsedRooms with full booking rooms if available
+            if (booking.rooms && booking.rooms.length > 0) {
+              setParsedRoomsState(booking.rooms); // FIXED: Use setParsedRoomsState
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching full booking:", error);
+          // Fallback to AsyncStorage userProfile for guest details
+          const profileString = await AsyncStorage.getItem("userProfile");
+          if (profileString) {
+            const parsed = JSON.parse(profileString);
+            if (parsed.guest) {
+              setUserData({
+                name: parsed.guest.name || fullName,
+                phoneNumber: parsed.guest.phoneNumber,
+                email: parsed.guest.email || "",
+                workType: parsed.guest.workType || "Student",
+                adharCardPhoto: parsed.guest.adharCardPhoto || null,
+                userPhoto: parsed.guest.userPhoto || null,
+              });
+            }
+          }
+        }
+      }
+    };
+    fetchFullBooking();
+  }, [token, orderId, serviceType, fullName]); // Stable deps
 
   // Set existing plan if available (fallback to params if no bookingData)
   useEffect(() => {
@@ -188,39 +296,58 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [existingSelectPlan, plan, planPrice, serviceType]);
 
-  // Set check-in and check-out dates from booking data if available
+  // Set check-in and check-out dates from booking data, params, or fullBooking if available
   useEffect(() => {
-    if (bookingData) {
-      if (bookingData.checkInDate) {
-        setCheckInDate(new Date(bookingData.checkInDate));
-      }
-      if (bookingData.checkOutDate) {
-        setCheckOutDate(new Date(bookingData.checkOutDate));
-      }
+    let sourceCheckIn = null;
+    let sourceCheckOut = null;
+    if (fullBooking) {
+      sourceCheckIn = fullBooking.checkInDate;
+      sourceCheckOut = fullBooking.checkOutDate;
+    } else if (bookingData) {
+      sourceCheckIn = bookingData.checkInDate;
+      sourceCheckOut = bookingData.checkOutDate;
+    } else {
+      sourceCheckIn = checkInDateParam;
+      sourceCheckOut = checkOutDateParam;
     }
-  }, [bookingData]);
+    if (sourceCheckIn) {
+      setCheckInDate(new Date(sourceCheckIn));
+    }
+    if (sourceCheckOut) {
+      setCheckOutDate(new Date(sourceCheckOut));
+    }
+  }, [bookingData, fullBooking, checkInDateParam, checkOutDateParam]);
 
-  // Set selected rooms from booking data if available (for continue mode)
+  // Set selected rooms from fullBooking, booking data, or params if available (for continue mode)
   useEffect(() => {
-    if (bookingData && bookingData.rooms && Array.isArray(bookingData.rooms) && bookingData.rooms.length > 0) {
-      // Flatten rooms with their selected beds (bedNumber is an array in bookingData)
-      const restoredRooms: SelectedRoom[] = bookingData.rooms.flatMap((room: any) =>
-        (room.bedNumber || []).map((bed: any) => ({
+    let sourceRooms: any[] | null = null;
+    if (fullBooking && fullBooking.rooms && Array.isArray(fullBooking.rooms) && fullBooking.rooms.length > 0) {
+      sourceRooms = fullBooking.rooms;
+    } else if (bookingData && bookingData.rooms && Array.isArray(bookingData.rooms) && bookingData.rooms.length > 0) {
+      sourceRooms = bookingData.rooms;
+    } else if (parsedRoomsState && Array.isArray(parsedRoomsState) && parsedRoomsState.length > 0) {
+      sourceRooms = parsedRoomsState;
+    }
+
+    if (sourceRooms) {
+      // Flatten rooms with their selected beds (beds is an array in source)
+      const restoredRooms: SelectedRoom[] = sourceRooms.flatMap((room: any) =>
+        (room.beds || room.bedNumber || []).map((bed: any) => ({
           roomNumber: room.roomNumber?.toString() || room.roomNum?.toString() || room.room_number?.toString() || '',
           bedNumber: typeof bed === 'number' ? Number(bed) : Number(bed.bedNumber || bed.bedNum || bed || 0),
           roomId: room.roomId || room.room_id,
-          bedId: typeof bed === 'object' ? (bed.bedId || bed.bed_id) : undefined,
+          bedId: typeof bed === 'object' ? (bed.bedId || bed.bed_id || bed._id) : undefined,
         }))
       ).filter(room => room.roomNumber && room.bedNumber > 0); // Filter out invalid rooms/beds
 
       setSelectedRooms(restoredRooms);
-      console.log("Restored selected rooms from bookingData:", restoredRooms); // For debugging
+      console.log("Restored selected rooms from source:", restoredRooms); // For debugging
     }
-  }, [bookingData]);
+  }, [fullBooking, bookingData, parsedRoomsState]);
 
   // Auto-fill check-out date based on check-in and plan
   useEffect(() => {
-    if (checkInDate && hostelPlan && !bookingData?.checkOutDate) { // Only auto-fill if not from existing booking
+    if (checkInDate && hostelPlan && !fullBooking?.checkOutDate) { // Only auto-fill if not from existing booking
       let daysToAdd = 0;
       switch (hostelPlan) {
         case 'weekly':
@@ -246,7 +373,7 @@ export default function ContinueSubscriptionScreen() {
         setCheckOutDate(newCheckOutDate);
       }
     }
-  }, [checkInDate, hostelPlan, bookingData]);
+  }, [checkInDate, hostelPlan, fullBooking]);
 
   // Fetch hostel plan types after token is available (skip if existing plan or params plan available)
   useEffect(() => {
@@ -363,753 +490,824 @@ export default function ContinueSubscriptionScreen() {
     router.back();
   };
 
-  const handleSubmit = async () => {
-    if (serviceType === "tiffin") {
-      console.log("Tiffin subscription renewed:", {
-        numberOfTiffin,
-        selectTiffinNumber,
-        mealPreferences,
-        selectedfood,
-        orderType,
-        selectedPlanType,
-        date,
-      });
-      // TODO: Implement tiffin continue API call and navigate to check-out if needed
-      // router.push("/(secure)/check-out");
+const handleSubmit = async () => {
+  console.log("🔥 handleSubmit called! Service Type:", serviceType);
+  console.log("🔍 Current States - checkInDate:", checkInDate, "checkOutDate:", checkOutDate, "token:", !!token, "orderId:", orderId, "selectedRooms.length:", selectedRooms.length);
+
+  if (serviceType === "tiffin") {
+    console.log("🍱 Entering Tiffin branch - just logging and returning.");
+    console.log("Tiffin subscription renewed:", {
+      numberOfTiffin,
+      selectTiffinNumber,
+      mealPreferences,
+      selectedfood,
+      orderType,
+      selectedPlanType,
+      date,
+    });
+    // TODO: Implement tiffin continue API call and navigate to check-out if needed
+    // router.push("/(secure)/check-out");
+    return;
+  } else {
+    console.log("🏠 Entering Hostel branch.");
+    // Hostel continue subscription
+    if (!checkInDate || !checkOutDate || !token || !orderId) {
+      console.log("❌ Validation failed: Missing required info.");
+      console.log("  - checkInDate valid?", !!checkInDate);
+      console.log("  - checkOutDate valid?", !!checkOutDate);
+      console.log("  - token present?", !!token);
+      console.log("  - orderId present?", !!orderId);
+      Alert.alert("Error", "Missing required information. Please fill all fields.");
       return;
+    }
+
+    console.log("✅ Validation passed for required fields.");
+
+    if (selectedRooms.length === 0) {
+      console.log("❌ No rooms selected.");
+      Alert.alert("Error", "Please select at least one room and bed.");
+      return;
+    }
+
+    console.log("✅ Rooms selected, proceeding to diff logic.");
+
+    // 🧩 Debug logs to understand source data
+    console.log("📦 fullBooking:", fullBooking);
+    console.log("📦 bookingData:", bookingData);
+    console.log("📦 parsedRoomsState:", parsedRoomsState);
+    console.log("🛏️ Selected Rooms:", selectedRooms);
+    console.log("🆔 Order ID Received:", orderId);
+
+    // Compute existing beds map from fullBooking, bookingData, or parsedRooms
+    const existingBeds = new Map<string, any>();
+    let sourceRoomsForExisting: any[] = [];
+
+    if (fullBooking && fullBooking.rooms && Array.isArray(fullBooking.rooms)) {
+      sourceRoomsForExisting = fullBooking.rooms;
+      console.log("✅ Using rooms from fullBooking");
+    } else if (bookingData && bookingData.rooms && Array.isArray(bookingData.rooms)) {
+      sourceRoomsForExisting = bookingData.rooms;
+      console.log("✅ Using rooms from bookingData");
+    } else if (parsedRoomsState && Array.isArray(parsedRoomsState)) {
+      sourceRoomsForExisting = parsedRoomsState;
+      console.log("✅ Using rooms from parsedRoomsState");
     } else {
-      // Hostel continue subscription
-      if (!checkInDate || !checkOutDate || !token || !bookingId) {
-        Alert.alert("Error", "Missing required information. Please fill all fields.");
-        return;
-      }
-      if (selectedRooms.length === 0) {
-        Alert.alert("Error", "Please select at least one room and bed.");
-        return;
-      }
+      console.log("⚠️ No valid room source found for existing beds");
+    }
 
-      // Compute existing beds map
-      const existingBeds = new Map<string, any>();
-      if (bookingData?.rooms) {
-        bookingData.rooms.forEach((room: any) => {
-          if (room.bedNumber && Array.isArray(room.bedNumber)) {
-            room.bedNumber.forEach((bed: any) => {
-              const key = `${room.roomId}-${bed.bedId}`;
-              existingBeds.set(key, {
-                roomId: room.roomId,
-                roomNumber: room.roomNumber,
-                bedId: bed.bedId,
-                bedNumber: bed.bedNumber,
-                name: bed.name || "",
-              });
+    console.log("📊 sourceRoomsForExisting length:", sourceRoomsForExisting.length);
+
+    if (sourceRoomsForExisting.length > 0) {
+      sourceRoomsForExisting.forEach((room: any) => {
+        const beds = room.beds || room.bedNumber || [];
+        if (beds && Array.isArray(beds)) {
+          beds.forEach((bed: any) => {
+            const key = `${room.roomId || room._id}-${bed.bedId || bed._id}`;
+            existingBeds.set(key, {
+              roomId: room.roomId || room._id,
+              roomNumber: room.roomNumber,
+              bedId: bed.bedId || bed._id,
+              bedNumber: bed.bedNumber,
+              name: bed.name || "",
             });
-          }
-        });
-      }
+          });
+        }
+      });
+    }
 
-      // New beds set for comparison
-      const newBedsSet = new Set(
-        selectedRooms.map((r) => `${r.roomId || ""}-${r.bedId || ""}`)
-      );
+    console.log("🗺️ Existing Beds Map:", Array.from(existingBeds.values()));
 
-      // Add beds: new selections not in existing
-      const addBeds: any[] = selectedRooms.filter((r) => {
+    // New beds set for comparison
+    const newBedsSet = new Set(
+      selectedRooms.map((r) => `${r.roomId || ""}-${r.bedId || ""}`)
+    );
+
+    // Add beds: new selections not in existing
+    const addBeds: any[] = selectedRooms
+      .filter((r) => {
         const key = `${r.roomId || ""}-${r.bedId || ""}`;
         return !existingBeds.has(key);
-      });
+      })
+      .map((r) => ({
+        bedId: r.bedId || "",
+        bedNumber: r.bedNumber,
+        name: "", // New bed, name to be set later
+        roomId: r.roomId || "",
+        roomNumber: r.roomNumber || "",
+      }));
 
-      // Remove beds: existing not in new selections
-      const removeBeds: any[] = Array.from(existingBeds.values()).filter((b) => {
-        const key = `${b.roomId}-${b.bedId}`;
-        return !newBedsSet.has(key);
-      });
-
-      // Group addRooms
-      const addRooms: any[] = [];
-      const addRoomMap = new Map<string, any>();
-      addBeds.forEach((bed) => {
-        const roomId = bed.roomId || "";
-        if (!addRoomMap.has(roomId)) {
-          addRoomMap.set(roomId, {
-            roomId,
-            roomNumber: bed.roomNumber,
-            bedNumber: [],
-          });
-        }
-        const room = addRoomMap.get(roomId);
-        room.bedNumber.push({
-          bedId: bed.bedId || "",
-          bedNumber: bed.bedNumber,
-          name: "", // New bed, name to be set later
-        });
-        addRoomMap.set(roomId, room);
-      });
-      addRooms.push(...Array.from(addRoomMap.values()));
-
-      // Group removeRooms
-      const removeRooms: any[] = [];
-      const removeRoomMap = new Map<string, any>();
-      removeBeds.forEach((bed) => {
-        const roomId = bed.roomId;
-        if (!removeRoomMap.has(roomId)) {
-          removeRoomMap.set(roomId, {
-            roomId,
-            roomNumber: bed.roomNumber,
-            bedNumber: [],
-          });
-        }
-        const room = removeRoomMap.get(roomId);
-        room.bedNumber.push({
-          bedId: bed.bedId,
-          bedNumber: bed.bedNumber,
-          name: bed.name,
-        });
-        removeRoomMap.set(roomId, room);
-      });
-      removeRooms.push(...Array.from(removeRoomMap.values()));
-
-      const requestBody = {
-        checkInDate: checkInDate.toISOString().split("T")[0],
-        checkOutDate: checkOutDate.toISOString().split("T")[0],
-        addRooms,
-        removeRooms,
-      };
-
-      console.log("Continue Subscription API Body:", requestBody);
-
-      try {
-        const response = await axios.post(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${bookingId}`,
-          requestBody,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.data.success) {
-          const newBookingData = response.data.data;
-          console.log("Continue subscription success:", newBookingData);
-          // Navigate to check-out screen with new booking ID
-          router.push({
-            pathname: "/(secure)/check-out",
-            params: {
-              bookingId: newBookingData._id,
-              serviceType: "hostel",
-              // Add more params as needed, e.g., totalAmount: newBookingData.totalAmount
-            },
-          });
-        } else {
-          Alert.alert("Error", response.data.message || "Failed to continue subscription.");
-        }
-      } catch (error) {
-        console.error("Continue Subscription API Error:", error);
-        if (axios.isAxiosError(error)) {
-          Alert.alert(
-            "Error",
-            error.response?.data?.message || "Network error occurred."
-          );
-        } else {
-          Alert.alert("Error", "An unexpected error occurred.");
-        }
-      }
-    }
-  };
-
-  // Auto-set meal preferences based on selected plan type
-  useEffect(() => {
-    if (selectedPlanType) {
-      let prefs = { breakfast: false, lunch: false, dinner: false };
-      if (selectedPlanType === "perBreakfast") {
-        prefs.breakfast = true;
-      } else if (selectedPlanType === "perMeal") {
-        prefs.lunch = true;
-      } else if (
-        selectedPlanType === "weekly" ||
-        selectedPlanType === "monthly"
-      ) {
-        prefs = { breakfast: true, lunch: true, dinner: true };
-      }
-      setMealPreferences(prefs);
-      const selectedMeals = Object.entries(prefs)
-        .filter(([_, checked]) => checked)
-        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-      setSelectedMealsSummary(selectedMeals.join(", "));
-    }
-  }, [selectedPlanType]);
-
-  // Auto-fill end date based on start date and plan type
-  useEffect(() => {
-    if (date && ["weekly", "monthly"].includes(selectedPlanType)) {
-      let daysToAdd = 0;
-      if (selectedPlanType === "weekly") {
-        daysToAdd = 7;
-      } else if (selectedPlanType === "monthly") {
-        daysToAdd = 30;
-      }
-      const newEndDate = new Date(date);
-      newEndDate.setDate(newEndDate.getDate() + daysToAdd);
-      setEndDate(newEndDate);
-    } else if (!["weekly", "monthly"].includes(selectedPlanType)) {
-      setEndDate(null);
-    }
-  }, [date, selectedPlanType]);
-
-  // Update price based on selections
-  useEffect(() => {
-    let newPrice = 0;
-    if (selectedPlanType) {
-      let basePrice = 0;
-      const pricingKey = selectedPlanType as keyof typeof fetchedPricing;
-      if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
-        basePrice = fetchedPricing[pricingKey];
-      } else {
-        if (selectedPlanType === "perBreakfast") {
-          basePrice = 120;
-        } else if (selectedPlanType === "perMeal") {
-          basePrice = 120;
-        } else if (selectedPlanType === "weekly") {
-          basePrice = 800;
-        } else if (selectedPlanType === "monthly") {
-          basePrice = 3200;
-        }
-      }
-      const numTiffins = parseInt(numberOfTiffin || "1");
-      newPrice = basePrice * numTiffins;
-    }
-    setCurrentPlanPrice(newPrice);
-  }, [selectedPlanType, numberOfTiffin, fetchedPricing]);
-
-  const onChangeDate = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === "ios");
-    if (selectedDate) setDate(selectedDate);
-  };
-
-  const onChangeEndDate = (event: any, selectedDate?: Date) => {
-    setShowEndDatePicker(Platform.OS === "ios");
-    if (selectedDate) setEndDate(selectedDate);
-  };
-
-  const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
-    setShowCheckInPicker(Platform.OS === "ios");
-    if (selectedDate) setCheckInDate(selectedDate);
-  };
-
-  const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
-    setShowCheckOutPicker(Platform.OS === "ios");
-    if (selectedDate) setCheckOutDate(selectedDate);
-  };
-
-  const toggleMealPreference = (meal: MealType) => {
-    setMealPreferences((prev) => {
-      const newPrefs = { ...prev, [meal]: !prev[meal] };
-      const selectedMeals = Object.entries(newPrefs)
-        .filter(([_, checked]) => checked)
-        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-      setSelectedMealsSummary(selectedMeals.join(", "));
-      return newPrefs;
+    // Remove beds: existing not in new selections
+    const removeBeds: any[] = Array.from(existingBeds.values()).filter((b) => {
+      const key = `${b.roomId}-${b.bedId}`;
+      return !newBedsSet.has(key);
     });
-  };
 
-  const toggleSameAs = (key: keyof typeof sameAsSelections) => {
-    setSameAsSelections((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+    console.log("➕ Add Beds:", addBeds);
+    console.log("➖ Remove Beds:", removeBeds);
 
-  const handleGetPlanDetails = async () => {
-    const selectedMeals: string[] = [];
-    if (mealPreferences.breakfast) selectedMeals.push("Breakfast");
-    if (mealPreferences.lunch) selectedMeals.push("Lunch");
-    if (mealPreferences.dinner) selectedMeals.push("Dinner");
-    const mealPrefStr = selectedMeals.join(",");
-    if (mealPrefStr === "") {
-      setPlanError("Please select at least one meal preference.");
-      return;
-    }
+    // Group addRooms
+    const addRooms: any[] = [];
+    const addRoomMap = new Map<string, any>();
+    addBeds.forEach((bed) => {
+      const roomId = bed.roomId;
+      if (!addRoomMap.has(roomId)) {
+        addRoomMap.set(roomId, {
+          roomId,
+          roomNumber: bed.roomNumber,
+          bedNumber: [], // Use bedNumber as per API example
+        });
+      }
+      const room = addRoomMap.get(roomId);
+      room.bedNumber.push({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+        name: bed.name || "",
+      });
+      addRoomMap.set(roomId, room);
+    });
+    addRooms.push(...Array.from(addRoomMap.values()));
 
-    let foodTypeStr = "";
-    if (selectedfood === "Veg") foodTypeStr = "Veg";
-    else if (selectedfood === "Non-Veg") foodTypeStr = "Non-Veg";
-    else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
+    // Group removeRooms
+    const removeRooms: any[] = [];
+    const removeRoomMap = new Map<string, any>();
+    removeBeds.forEach((bed) => {
+      const roomId = bed.roomId;
+      if (!removeRoomMap.has(roomId)) {
+        removeRoomMap.set(roomId, {
+          roomId,
+          roomNumber: bed.roomNumber,
+          bedNumber: [],
+        });
+      }
+      const room = removeRoomMap.get(roomId);
+      room.bedNumber.push({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+        name: bed.name,
+      });
+      removeRoomMap.set(roomId, room);
+    });
+    removeRooms.push(...Array.from(removeRoomMap.values()));
 
-    const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+    const requestBody = {
+      checkInDate: checkInDate.toISOString().split("T")[0],
+      checkOutDate: checkOutDate.toISOString().split("T")[0],
+      addRooms,
+      removeRooms,
+    };
 
-    if (!token) {
-      setPlanError("Authentication required.");
-      return;
-    }
+    console.log("📤 Continue Subscription API Body:", requestBody);
+    console.log("👤 Full User/Guest Data Used:", userData);
 
-    if (!serviceId) {
-      setPlanError("Service ID not available.");
-      return;
-    }
+    // 🆕 Log exactly what’s being sent
+    console.log("🆔 Order ID being passed to API:", orderId);
+    console.log(
+      "🌐 Continue Subscription API URL:",
+      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`
+    );
 
-    setIsFetchingDetails(true);
-    setPlanError("");
+    console.log("🚀 Making API call...");
     try {
-      const queryParams = new URLSearchParams({
-        mealPreference: mealPrefStr,
-        foodType: foodTypeStr,
-        orderType: orderTypeStr,
-      });
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`,
+        requestBody,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceId}?${queryParams.toString()}`;
-
-      const response = await axios.get(url, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      console.log("📥 API Response:", response.data);
 
       if (response.data.success) {
-        const data = response.data.data;
-        setFetchedPlanType(data.planType);
-        setFetchedPricing({
-          perBreakfast: data.pricing.perBreakfast || 0,
-          perMeal: data.pricing.perMeal || 0,
-          weekly: data.pricing.weekly || 0,
-          monthly: data.pricing.monthly || 0,
-          offers: data.offers || "",
+        const newBookingData = response.data.data;
+        console.log("✅ Continue subscription success:", newBookingData);
+        console.log("📘 Status:", newBookingData.status);
+        console.log("🧭 Attempting navigation to check-out with new bookingId:", newBookingData._id);
+        router.push({
+          pathname: "/(secure)/check-out",
+          params: {
+            bookingId: newBookingData._id,
+            serviceType: "hostel",
+          },
         });
-        const totalPricing =
-          (data.pricing.perBreakfast || 0) +
-          (data.pricing.perMeal || 0) +
-          (data.pricing.weekly || 0) +
-          (data.pricing.monthly || 0);
-        if (totalPricing === 0) {
-          setPlanError(
-            "No plans available for your selected preferences. Please try different options."
-          );
-        } else {
-          setPlanError("");
-        }
+        console.log("✅ Navigation pushed!");
       } else {
-        setPlanError("Failed to fetch plan details: " + response.data.message);
+        console.log("❌ API success false:", response.data.message);
+        Alert.alert("Error", response.data.message || "Failed to continue subscription.");
       }
     } catch (error) {
+      console.error("❌ Continue Subscription API Error:", error);
       if (axios.isAxiosError(error)) {
-        setPlanError(
-          "Failed to fetch plan details: " +
-          (error.response?.data?.message || "Network error")
+        console.log("  - Response status:", error.response?.status);
+        console.log("  - Response data:", error.response?.data);
+        Alert.alert(
+          "Error",
+          error.response?.data?.message || "Network error occurred."
         );
       } else {
-        setPlanError("Failed to fetch plan details.");
+        Alert.alert("Error", "An unexpected error occurred.");
       }
-    } finally {
-      setIsFetchingDetails(false);
     }
-  };
+  }
+};
 
-  // Hardcoded plan options for fallback
-  const hardcodedPlanOptions = [
-    { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
-    { label: "Per Meal (₹120/meal)", value: "perMeal" },
-    { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
-    { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
-  ];
 
-  const getPlanOptions = () => {
-    const options: { label: string; value: string }[] = [];
-    if (fetchedPricing.perBreakfast > 0) {
-      options.push({
-        label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`,
-        value: "perBreakfast",
+
+// Auto-set meal preferences based on selected plan type
+useEffect(() => {
+  if (selectedPlanType) {
+    let prefs = { breakfast: false, lunch: false, dinner: false };
+    if (selectedPlanType === "perBreakfast") {
+      prefs.breakfast = true;
+    } else if (selectedPlanType === "perMeal") {
+      prefs.lunch = true;
+    } else if (
+      selectedPlanType === "weekly" ||
+      selectedPlanType === "monthly"
+    ) {
+      prefs = { breakfast: true, lunch: true, dinner: true };
+    }
+    setMealPreferences(prefs);
+    const selectedMeals = Object.entries(prefs)
+      .filter(([_, checked]) => checked)
+      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+    setSelectedMealsSummary(selectedMeals.join(", "));
+  }
+}, [selectedPlanType]);
+
+// Auto-fill end date based on start date and plan type
+useEffect(() => {
+  if (date && ["weekly", "monthly"].includes(selectedPlanType)) {
+    let daysToAdd = 0;
+    if (selectedPlanType === "weekly") {
+      daysToAdd = 7;
+    } else if (selectedPlanType === "monthly") {
+      daysToAdd = 30;
+    }
+    const newEndDate = new Date(date);
+    newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+    setEndDate(newEndDate);
+  } else if (!["weekly", "monthly"].includes(selectedPlanType)) {
+    setEndDate(null);
+  }
+}, [date, selectedPlanType]);
+
+// Update price based on selections
+useEffect(() => {
+  let newPrice = 0;
+  if (selectedPlanType) {
+    let basePrice = 0;
+    const pricingKey = selectedPlanType as keyof typeof fetchedPricing;
+    if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
+      basePrice = fetchedPricing[pricingKey];
+    } else {
+      if (selectedPlanType === "perBreakfast") {
+        basePrice = 120;
+      } else if (selectedPlanType === "perMeal") {
+        basePrice = 120;
+      } else if (selectedPlanType === "weekly") {
+        basePrice = 800;
+      } else if (selectedPlanType === "monthly") {
+        basePrice = 3200;
+      }
+    }
+    const numTiffins = parseInt(numberOfTiffin || "1");
+    newPrice = basePrice * numTiffins;
+  }
+  setCurrentPlanPrice(newPrice);
+}, [selectedPlanType, numberOfTiffin, fetchedPricing]);
+
+const onChangeDate = (event: any, selectedDate?: Date) => {
+  setShowDatePicker(Platform.OS === "ios");
+  if (selectedDate) setDate(selectedDate);
+};
+
+const onChangeEndDate = (event: any, selectedDate?: Date) => {
+  setShowEndDatePicker(Platform.OS === "ios");
+  if (selectedDate) setEndDate(selectedDate);
+};
+
+const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
+  setShowCheckInPicker(Platform.OS === "ios");
+  if (selectedDate) setCheckInDate(selectedDate);
+};
+
+const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
+  setShowCheckOutPicker(Platform.OS === "ios");
+  if (selectedDate) setCheckOutDate(selectedDate);
+};
+
+const toggleMealPreference = (meal: MealType) => {
+  setMealPreferences((prev) => {
+    const newPrefs = { ...prev, [meal]: !prev[meal] };
+    const selectedMeals = Object.entries(newPrefs)
+      .filter(([_, checked]) => checked)
+      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+    setSelectedMealsSummary(selectedMeals.join(", "));
+    return newPrefs;
+  });
+};
+
+const toggleSameAs = (key: keyof typeof sameAsSelections) => {
+  setSameAsSelections((prev) => ({ ...prev, [key]: !prev[key] }));
+};
+
+const handleGetPlanDetails = async () => {
+  const selectedMeals: string[] = [];
+  if (mealPreferences.breakfast) selectedMeals.push("Breakfast");
+  if (mealPreferences.lunch) selectedMeals.push("Lunch");
+  if (mealPreferences.dinner) selectedMeals.push("Dinner");
+  const mealPrefStr = selectedMeals.join(",");
+  if (mealPrefStr === "") {
+    setPlanError("Please select at least one meal preference.");
+    return;
+  }
+
+  let foodTypeStr = "";
+  if (selectedfood === "Veg") foodTypeStr = "Veg";
+  else if (selectedfood === "Non-Veg") foodTypeStr = "Non-Veg";
+  else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
+
+  const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+
+  if (!token) {
+    setPlanError("Authentication required.");
+    return;
+  }
+
+  if (!serviceId) {
+    setPlanError("Service ID not available.");
+    return;
+  }
+
+  setIsFetchingDetails(true);
+  setPlanError("");
+  try {
+    const queryParams = new URLSearchParams({
+      mealPreference: mealPrefStr,
+      foodType: foodTypeStr,
+      orderType: orderTypeStr,
+    });
+
+    const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceId}?${queryParams.toString()}`;
+
+    const response = await axios.get(url, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.data.success) {
+      const data = response.data.data;
+      setFetchedPlanType(data.planType);
+      setFetchedPricing({
+        perBreakfast: data.pricing.perBreakfast || 0,
+        perMeal: data.pricing.perMeal || 0,
+        weekly: data.pricing.weekly || 0,
+        monthly: data.pricing.monthly || 0,
+        offers: data.offers || "",
       });
+      const totalPricing =
+        (data.pricing.perBreakfast || 0) +
+        (data.pricing.perMeal || 0) +
+        (data.pricing.weekly || 0) +
+        (data.pricing.monthly || 0);
+      if (totalPricing === 0) {
+        setPlanError(
+          "No plans available for your selected preferences. Please try different options."
+        );
+      } else {
+        setPlanError("");
+      }
+    } else {
+      setPlanError("Failed to fetch plan details: " + response.data.message);
     }
-    if (fetchedPricing.perMeal > 0) {
-      options.push({
-        label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`,
-        value: "perMeal",
-      });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      setPlanError(
+        "Failed to fetch plan details: " +
+        (error.response?.data?.message || "Network error")
+      );
+    } else {
+      setPlanError("Failed to fetch plan details.");
     }
-    if (fetchedPricing.weekly > 0) {
-      options.push({
-        label: `Weekly (₹${fetchedPricing.weekly}/weekly)`,
-        value: "weekly",
-      });
-    }
-    if (fetchedPricing.monthly > 0) {
-      options.push({
-        label: `Monthly (₹${fetchedPricing.monthly}/monthly)`,
-        value: "monthly",
-      });
-    }
-    if (options.length === 0) {
-      return hardcodedPlanOptions;
-    }
-    return options;
-  };
+  } finally {
+    setIsFetchingDetails(false);
+  }
+};
 
-  const renderTiffinForm = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={styles.section}>
-        <View style={{ flexDirection: "row" }}>
-          <Image source={calender} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Booking Details</Text>
-        </View>
-        <Text style={styles.label}>Number Of Tiffin *</Text>
-        <TextInput
-          style={styles.input}
-          value={numberOfTiffin}
-          keyboardType="numeric"
-          onChangeText={setNumberOfTiffin}
-        />
-        <Text style={styles.label}>Select Tiffin Number</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setSelectTiffinNumber}
-            items={[
-              { label: "1", value: "1" },
-              { label: "2", value: "2" },
-              { label: "3", value: "3" },
-              { label: "4", value: "4" },
-            ]}
-            placeholder={{ label: "Select Tiffin Number", value: null }}
-            style={{
-              inputIOS: styles.pickerInput,
-              inputAndroid: styles.pickerInput,
-            }}
-            value={selectTiffinNumber}
-          />
-        </View>
+// Hardcoded plan options for fallback
+const hardcodedPlanOptions = [
+  { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
+  { label: "Per Meal (₹120/meal)", value: "perMeal" },
+  { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
+  { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
+];
 
-        {/* <Text style={[styles.subSectionTitle]}>Apply Preferences</Text> */}
-        {Object.entries(sameAsSelections).map(([key, value]) => (
-          <View style={styles.checkboxRow} key={key}>
-            <Checkbox
-              checked={value}
-              onPress={() => toggleSameAs(key as keyof typeof sameAsSelections)}
-            />
-            <Text style={styles.checkboxLabel}>
-              {key === "sameForAll"
-                ? "Same For All"
-                : `Same As ${key.slice(-1)}`}
-            </Text>
-          </View>
-        ))}
+const getPlanOptions = () => {
+  const options: { label: string; value: string }[] = [];
+  if (fetchedPricing.perBreakfast > 0) {
+    options.push({
+      label: `Per Breakfast (₹${fetchedPricing.perBreakfast} / per breakfast)`,
+      value: "perBreakfast",
+    });
+  }
+  if (fetchedPricing.perMeal > 0) {
+    options.push({
+      label: `Per Meal (₹${fetchedPricing.perMeal}/meal)`,
+      value: "perMeal",
+    });
+  }
+  if (fetchedPricing.weekly > 0) {
+    options.push({
+      label: `Weekly (₹${fetchedPricing.weekly}/weekly)`,
+      value: "weekly",
+    });
+  }
+  if (fetchedPricing.monthly > 0) {
+    options.push({
+      label: `Monthly (₹${fetchedPricing.monthly}/monthly)`,
+      value: "monthly",
+    });
+  }
+  if (options.length === 0) {
+    return hardcodedPlanOptions;
+  }
+  return options;
+};
 
-        <Text style={styles.subSectionTitle}>Meal Preference</Text>
-        {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
-          <View style={styles.checkboxRow} key={meal}>
-            <Checkbox
-              checked={mealPreferences[meal]}
-              onPress={() => toggleMealPreference(meal)}
-            />
-            <Text style={styles.checkboxLabel}>
-              {meal === "breakfast" && "Breakfast (7:00 AM - 9:00 AM)"}
-              {meal === "lunch" && "Lunch (12:00 PM - 2:00 PM)"}
-              {meal === "dinner" && "Dinner (8:00 PM - 10:00 PM)"}
-            </Text>
-          </View>
-        ))}
-        {selectedMealsSummary && (
-          <Text
-            style={[
-              styles.label,
-              { fontSize: 12, color: "#666", marginTop: 5 },
-            ]}
-          >
-            Selected: {selectedMealsSummary}
-          </Text>
-        )}
-
-        <Text style={styles.subSectionTitle}>Food Type</Text>
-        <RadioButton
-          label="Veg"
-          value="Veg"
-          selected={selectedfood}
-          onPress={setSelectedfood}
-        />
-        <RadioButton
-          label="Non-Veg"
-          value="Non-Veg"
-          selected={selectedfood}
-          onPress={setSelectedfood}
-        />
-        <RadioButton
-          label="Both Veg & Non-Veg"
-          value="Both"
-          selected={selectedfood}
-          onPress={setSelectedfood}
-        />
-
-        <Text style={styles.subSectionTitle}>Choose Order Type</Text>
-        {["dining", "delivery"].map((type) => (
-          <View style={styles.checkboxRow} key={type}>
-            <TouchableOpacity
-              style={[
-                styles.checkboxBase,
-                orderType === type && styles.checkboxSelected,
-              ]}
-              onPress={() => setOrderType(type as "dining" | "delivery")}
-            >
-              {orderType === type && <Text style={styles.checkMark}>✓</Text>}
-            </TouchableOpacity>
-            <Text style={styles.checkboxLabel}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </Text>
-          </View>
-        ))}
-
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
-          Get Plan Details
-        </Text>
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            (Object.values(mealPreferences).filter(Boolean).length === 0 ||
-              isFetchingDetails) &&
-            styles.disabledButton,
+const renderTiffinForm = () => (
+  <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.section}>
+      <View style={{ flexDirection: "row" }}>
+        <Image source={calender} style={styles.icon} />
+        <Text style={styles.sectionTitle}> Booking Details</Text>
+      </View>
+      <Text style={styles.label}>Number Of Tiffin *</Text>
+      <TextInput
+        style={styles.input}
+        value={numberOfTiffin}
+        keyboardType="numeric"
+        onChangeText={setNumberOfTiffin}
+      />
+      <Text style={styles.label}>Select Tiffin Number</Text>
+      <View style={styles.pickerWrapper}>
+        <RNPickerSelect
+          onValueChange={setSelectTiffinNumber}
+          items={[
+            { label: "1", value: "1" },
+            { label: "2", value: "2" },
+            { label: "3", value: "3" },
+            { label: "4", value: "4" },
           ]}
-          onPress={handleGetPlanDetails}
-          disabled={
-            Object.values(mealPreferences).filter(Boolean).length === 0 ||
-            isFetchingDetails
-          }
-        >
-          {isFetchingDetails ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Get Plan Details</Text>
-          )}
-        </TouchableOpacity>
-        {planError ? (
-          <Text style={styles.errorText}>{planError}</Text>
-        ) : fetchedPricing.offers ? (
-          <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
-        ) : null}
-
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
-          Choose Plan Type
-        </Text>
-        {getPlanOptions().map((option) => (
-          <RadioButton
-            key={option.value}
-            label={option.label}
-            value={option.value}
-            selected={selectedPlanType}
-            onPress={setSelectedPlanType}
-          />
-        ))}
-
-        <View style={styles.priceContainer}>
-          <Text style={styles.priceText}>₹{currentPlanPrice}</Text>
-          <Text style={styles.depositText}>No Deposit</Text>
-        </View>
-
-        <Text style={styles.label}>Select Start Date *</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {date ? date.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
-          </Text>
-          <Image source={calender} style={styles.calendarIcon} />
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date || new Date()}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {["weekly", "monthly"].includes(selectedPlanType) && (
-          <>
-            <Text style={styles.label}>Select End Date *</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setShowEndDatePicker(true)}
-            >
-              <Text style={styles.datePickerText}>
-                {endDate ? endDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
-              </Text>
-              <Image source={calender} style={styles.calendarIcon} />
-            </TouchableOpacity>
-            {showEndDatePicker && (
-              <DateTimePicker
-                value={endDate || new Date(date || new Date())}
-                mode="date"
-                display="default"
-                onChange={onChangeEndDate}
-                minimumDate={date || new Date()}
-              />
-            )}
-          </>
-        )}
-      </View>
-
-      <View style={styles.summarySection}>
-        <Text style={styles.serviceName}>
-          {serviceName || "Maharashtrian Ghar Ka Khana"}
-        </Text>
-        <Text style={styles.priceText}>Price: ₹120/meal</Text>
-      </View>
-
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Submit Booking Request</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.confirmationText}>
-        Provider will reach out within 1 hour to confirm.
-      </Text>
-    </ScrollView>
-  );
-
-  const renderHostelForm = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={styles.section}>
-        <Text style={styles.hostelName}>
-          {serviceName || "Scholars Den Boys Hostel"}
-        </Text>
-
-        <Text style={styles.label}>Plan</Text>
-        <View style={styles.pickerWrapper}>
-          <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
-            {existingSelectPlan
-              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})`
-              : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
-            }
-          </Text>
-        </View>
-
-        <Text style={styles.priceText}>
-          {existingSelectPlan
-            ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}`
-            : `${displayPrice || "₹8000/month"}`
-          }
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📅 Booking Details</Text>
-
-        <Text style={styles.label}>Check-in date *</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowCheckInPicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {checkInDate ? checkInDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
-          </Text>
-          <Ionicons name="calendar-outline" size={20} color="#666" />
-        </TouchableOpacity>
-
-        <Text style={styles.label}>Check-out date *</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowCheckOutPicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {checkOutDate ? checkOutDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
-          </Text>
-          <Ionicons name="calendar-outline" size={20} color="#666" />
-        </TouchableOpacity>
-
-        {showCheckInPicker && (
-          <DateTimePicker
-            value={checkInDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={onChangeCheckInDate}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {showCheckOutPicker && (
-          <DateTimePicker
-            value={checkOutDate || new Date(checkInDate || new Date())}
-            mode="date"
-            display="default"
-            onChange={onChangeCheckOutDate}
-            minimumDate={checkInDate || new Date()}
-          />
-        )}
-
-        {/* New: Button to open Room Selection Modal */}
-        <Text style={styles.label}>Select Rooms & Beds *</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowRoomModal(true)}
-          disabled={!hostelId || roomsData.length === 0}
-        >
-          <Text style={styles.datePickerText}>
-            {hostelId && roomsData.length > 0
-              ? (selectedRooms.length > 0 ? "Edit Selection" : "Tap to Select Rooms & Beds")
-              : "Loading Rooms..."
-            }
-          </Text>
-          <Ionicons name="bed-outline" size={20} color="#666" />
-        </TouchableOpacity>
-
-        {/* Show selected rooms */}
-        {selectedRooms.length > 0 && (
-          <View style={styles.selectedRoomsContainer}>
-            <Text style={styles.label}>Selected Rooms:</Text>
-            {selectedRooms.map((room, index) => (
-              <View key={index} style={styles.selectedRoomItem}>
-                <Text style={styles.selectedRoomText}>
-                  Room {room.roomNumber} - Bed {room.bedNumber}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <Text style={[styles.label, { marginTop: 15 }]}>
-          Message (Optional)
-        </Text>
-        <TextInput
-          style={[styles.input, { height: 80 }]}
-          placeholder="Enter your complete delivery address with landmarks"
-          multiline
-          value={message}
-          onChangeText={setMessage}
+          placeholder={{ label: "Select Tiffin Number", value: null }}
+          style={{
+            inputIOS: styles.pickerInput,
+            inputAndroid: styles.pickerInput,
+          }}
+          value={selectTiffinNumber}
         />
       </View>
 
-      <Buttons
-        title="Check Out"
-        onPress={handleSubmit}
-        style={styles.submitButton}
-        textStyle={styles.submitButtonText}
-      />
-    </ScrollView>
-  );
+      {/* <Text style={[styles.subSectionTitle]}>Apply Preferences</Text> */}
+      {Object.entries(sameAsSelections).map(([key, value]) => (
+        <View style={styles.checkboxRow} key={key}>
+          <Checkbox
+            checked={value}
+            onPress={() => toggleSameAs(key as keyof typeof sameAsSelections)}
+          />
+          <Text style={styles.checkboxLabel}>
+            {key === "sameForAll"
+              ? "Same For All"
+              : `Same As ${key.slice(-1)}`}
+          </Text>
+        </View>
+      ))}
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <Header
-        title="Continue Subscription"
-        onBack={handleBack}
-        showBackButton={true}
+      <Text style={styles.subSectionTitle}>Meal Preference</Text>
+      {(["breakfast", "lunch", "dinner"] as MealType[]).map((meal) => (
+        <View style={styles.checkboxRow} key={meal}>
+          <Checkbox
+            checked={mealPreferences[meal]}
+            onPress={() => toggleMealPreference(meal)}
+          />
+          <Text style={styles.checkboxLabel}>
+            {meal === "breakfast" && "Breakfast (7:00 AM - 9:00 AM)"}
+            {meal === "lunch" && "Lunch (12:00 PM - 2:00 PM)"}
+            {meal === "dinner" && "Dinner (8:00 PM - 10:00 PM)"}
+          </Text>
+        </View>
+      ))}
+      {selectedMealsSummary && (
+        <Text
+          style={[
+            styles.label,
+            { fontSize: 12, color: "#666", marginTop: 5 },
+          ]}
+        >
+          Selected: {selectedMealsSummary}
+        </Text>
+      )}
+
+      <Text style={styles.subSectionTitle}>Food Type</Text>
+      <RadioButton
+        label="Veg"
+        value="Veg"
+        selected={selectedfood}
+        onPress={setSelectedfood}
       />
-      {/* Main Content */}
-      <View style={styles.content}>
-        {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
+      <RadioButton
+        label="Non-Veg"
+        value="Non-Veg"
+        selected={selectedfood}
+        onPress={setSelectedfood}
+      />
+      <RadioButton
+        label="Both Veg & Non-Veg"
+        value="Both"
+        selected={selectedfood}
+        onPress={setSelectedfood}
+      />
+
+      <Text style={styles.subSectionTitle}>Choose Order Type</Text>
+      {["dining", "delivery"].map((type) => (
+        <View style={styles.checkboxRow} key={type}>
+          <TouchableOpacity
+            style={[
+              styles.checkboxBase,
+              orderType === type && styles.checkboxSelected,
+            ]}
+            onPress={() => setOrderType(type as "dining" | "delivery")}
+          >
+            {orderType === type && <Text style={styles.checkMark}>✓</Text>}
+          </TouchableOpacity>
+          <Text style={styles.checkboxLabel}>
+            {type.charAt(0).toUpperCase() + type.slice(1)}
+          </Text>
+        </View>
+      ))}
+
+      <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+        Get Plan Details
+      </Text>
+      <TouchableOpacity
+        style={[
+          styles.submitButton,
+          (Object.values(mealPreferences).filter(Boolean).length === 0 ||
+            isFetchingDetails) &&
+          styles.disabledButton,
+        ]}
+        onPress={handleGetPlanDetails}
+        disabled={
+          Object.values(mealPreferences).filter(Boolean).length === 0 ||
+          isFetchingDetails
+        }
+      >
+        {isFetchingDetails ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.submitButtonText}>Get Plan Details</Text>
+        )}
+      </TouchableOpacity>
+      {planError ? (
+        <Text style={styles.errorText}>{planError}</Text>
+      ) : fetchedPricing.offers ? (
+        <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
+      ) : null}
+
+      <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+        Choose Plan Type
+      </Text>
+      {getPlanOptions().map((option) => (
+        <RadioButton
+          key={option.value}
+          label={option.label}
+          value={option.value}
+          selected={selectedPlanType}
+          onPress={setSelectedPlanType}
+        />
+      ))}
+
+      <View style={styles.priceContainer}>
+        <Text style={styles.priceText}>₹{currentPlanPrice}</Text>
+        <Text style={styles.depositText}>No Deposit</Text>
       </View>
 
-      {/* Room Selection Modal for Hostel */}
-      {serviceType === "hostel" && (
-        <RoomSelectionModal
-          visible={showRoomModal}
-          onClose={() => setShowRoomModal(false)}
-          hostelData={hostelData}
-          roomsData={roomsData} // Pass fetched rooms data
-          isContinueMode={true}
-          selectedRooms={selectedRooms} // Pass pre-selected rooms for continue mode
-          onContinueSelection={handleRoomSelection}
-          token={token} // Pass the token
+      <Text style={styles.label}>Select Start Date *</Text>
+      <TouchableOpacity
+        style={styles.datePickerButton}
+        onPress={() => setShowDatePicker(true)}
+      >
+        <Text style={styles.datePickerText}>
+          {date ? date.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+        </Text>
+        <Image source={calender} style={styles.calendarIcon} />
+      </TouchableOpacity>
+      {showDatePicker && (
+        <DateTimePicker
+          value={date || new Date()}
+          mode="date"
+          display="default"
+          onChange={onChangeDate}
+          minimumDate={new Date()}
         />
       )}
-    </SafeAreaView>
-  );
+
+      {["weekly", "monthly"].includes(selectedPlanType) && (
+        <>
+          <Text style={styles.label}>Select End Date *</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowEndDatePicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {endDate ? endDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+            </Text>
+            <Image source={calender} style={styles.calendarIcon} />
+          </TouchableOpacity>
+          {showEndDatePicker && (
+            <DateTimePicker
+              value={endDate || new Date(date || new Date())}
+              mode="date"
+              display="default"
+              onChange={onChangeEndDate}
+              minimumDate={date || new Date()}
+            />
+          )}
+        </>
+      )}
+    </View>
+
+    <View style={styles.summarySection}>
+      <Text style={styles.serviceName}>
+        {serviceName || "Maharashtrian Ghar Ka Khana"}
+      </Text>
+      <Text style={styles.priceText}>Price: ₹120/meal</Text>
+    </View>
+
+    <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+      <Text style={styles.submitButtonText}>Submit Booking Request</Text>
+    </TouchableOpacity>
+
+    <Text style={styles.confirmationText}>
+      Provider will reach out within 1 hour to confirm.
+    </Text>
+  </ScrollView>
+);
+
+const renderHostelForm = () => (
+  <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={styles.section}>
+      <Text style={styles.hostelName}>
+        {serviceName || "Scholars Den Boys Hostel"}
+      </Text>
+
+      <Text style={styles.label}>Plan</Text>
+      <View style={styles.pickerWrapper}>
+        <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
+          {existingSelectPlan
+            ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})`
+            : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
+          }
+        </Text>
+      </View>
+
+      <Text style={styles.priceText}>
+        {existingSelectPlan
+          ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}`
+          : `${displayPrice || "₹8000/month"}`
+        }
+      </Text>
+    </View>
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>📅 Booking Details</Text>
+
+      <Text style={styles.label}>Check-in date *</Text>
+      <TouchableOpacity
+        style={styles.datePickerButton}
+        onPress={() => setShowCheckInPicker(true)}
+      >
+        <Text style={styles.datePickerText}>
+          {checkInDate ? checkInDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+        </Text>
+        <Ionicons name="calendar-outline" size={20} color="#666" />
+      </TouchableOpacity>
+
+      <Text style={styles.label}>Check-out date *</Text>
+      <TouchableOpacity
+        style={styles.datePickerButton}
+        onPress={() => setShowCheckOutPicker(true)}
+      >
+        <Text style={styles.datePickerText}>
+          {checkOutDate ? checkOutDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+        </Text>
+        <Ionicons name="calendar-outline" size={20} color="#666" />
+      </TouchableOpacity>
+
+      {showCheckInPicker && (
+        <DateTimePicker
+          value={checkInDate || new Date()}
+          mode="date"
+          display="default"
+          onChange={onChangeCheckInDate}
+          minimumDate={new Date()}
+        />
+      )}
+
+      {showCheckOutPicker && (
+        <DateTimePicker
+          value={checkOutDate || new Date(checkInDate || new Date())}
+          mode="date"
+          display="default"
+          onChange={onChangeCheckOutDate}
+          minimumDate={checkInDate || new Date()}
+        />
+      )}
+
+      {/* New: Button to open Room Selection Modal */}
+      <Text style={styles.label}>Select Rooms & Beds *</Text>
+      <TouchableOpacity
+        style={styles.datePickerButton}
+        onPress={() => setShowRoomModal(true)}
+        disabled={!hostelId || roomsData.length === 0}
+      >
+        <Text style={styles.datePickerText}>
+          {hostelId && roomsData.length > 0
+            ? (selectedRooms.length > 0 ? "Edit Selection" : "Tap to Select Rooms & Beds")
+            : "Loading Rooms..."
+          }
+        </Text>
+        <Ionicons name="bed-outline" size={20} color="#666" />
+      </TouchableOpacity>
+
+      {/* Show selected rooms */}
+      {selectedRooms.length > 0 && (
+        <View style={styles.selectedRoomsContainer}>
+          <Text style={styles.label}>Selected Rooms:</Text>
+          {selectedRooms.map((room, index) => (
+            <View key={index} style={styles.selectedRoomItem}>
+              <Text style={styles.selectedRoomText}>
+                Room {room.roomNumber} - Bed {room.bedNumber}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <Text style={[styles.label, { marginTop: 15 }]}>
+        Message (Optional)
+      </Text>
+      <TextInput
+        style={[styles.input, { height: 80 }]}
+        placeholder="Enter your complete delivery address with landmarks"
+        multiline
+        value={message}
+        onChangeText={setMessage}
+      />
+    </View>
+
+    <Buttons
+      title="Check Out"
+      onPress={handleSubmit}
+      style={styles.submitButton}
+      textStyle={styles.submitButtonText}
+    />
+  </ScrollView>
+);
+
+return (
+  <SafeAreaView style={styles.container}>
+    {/* Header */}
+    <Header
+      title="Continue Subscription"
+      onBack={handleBack}
+      showBackButton={true}
+    />
+    {/* Main Content */}
+    <View style={styles.content}>
+      {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
+    </View>
+
+    {/* Room Selection Modal for Hostel */}
+    {serviceType === "hostel" && userData && ( // Ensure userData for modal
+      <RoomSelectionModal
+        visible={showRoomModal}
+        onClose={() => setShowRoomModal(false)}
+        hostelData={hostelData}
+        roomsData={roomsData} // Pass fetched rooms data
+        isContinueMode={true}
+        selectedRooms={selectedRooms} // Pass pre-selected rooms for continue mode
+        onContinueSelection={handleRoomSelection}
+        token={token} // Pass the token
+      />
+    )}
+  </SafeAreaView>
+);
 }
 
 const styles = StyleSheet.create({
