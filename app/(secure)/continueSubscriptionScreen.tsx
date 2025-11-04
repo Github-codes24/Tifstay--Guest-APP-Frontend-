@@ -237,10 +237,10 @@ export default function ContinueSubscriptionScreen() {
     const fetchFullBooking = async () => {
       if (orderId && token && serviceType === "hostel") {
         try {
-          console.log("Fetching full booking for ID:", orderId);
+          console.log("🔍 Fetching full booking details using ID:", orderId); // Log the ID being used for fetch
           // Assuming backend has an endpoint like this; adjust if different
           const response = await axios.get(
-            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelBookingById/${orderId}`,
+            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getBookingById/${orderId}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (response.data.success) {
@@ -310,12 +310,12 @@ export default function ContinueSubscriptionScreen() {
       sourceCheckIn = checkInDateParam;
       sourceCheckOut = checkOutDateParam;
     }
-    if (sourceCheckIn) {
-      setCheckInDate(new Date(sourceCheckIn));
-    }
-    if (sourceCheckOut) {
-      setCheckOutDate(new Date(sourceCheckOut));
-    }
+    if (sourceCheckIn && !isNaN(Date.parse(sourceCheckIn))) {
+  setCheckInDate(new Date(sourceCheckIn));
+}
+   if (sourceCheckOut && !isNaN(Date.parse(sourceCheckOut))) {
+    setCheckOutDate(new Date(sourceCheckOut));
+  }
   }, [bookingData, fullBooking, checkInDateParam, checkOutDateParam]);
 
   // Set selected rooms from fullBooking, booking data, or params if available (for continue mode)
@@ -390,17 +390,30 @@ export default function ContinueSubscriptionScreen() {
   }, [token, serviceType, hostelId]);
 
   // Handle room selection from modal (for continue mode)
-  const handleRoomSelection = (data: ContinueRoomSelectionData) => {
-    const selected = data.roomsData.flatMap((room) =>
-      room.beds.map((bed) => ({
-        roomNumber: room.roomNumber.toString(),
-        bedNumber: Number(bed.bedNumber),
-        roomId: room.roomId,
-        bedId: bed.bedId,
-      }))
-    );
-    setSelectedRooms(selected);
-  };
+const handleRoomSelection = (data: ContinueRoomSelectionData) => {
+  const newSelected = data.roomsData.flatMap((room) =>
+    room.beds.map((bed) => ({
+      roomNumber: room.roomNumber.toString(),
+      bedNumber: Number(bed.bedNumber),
+      roomId: room.roomId,
+      bedId: bed.bedId,
+    }))
+  );
+
+const existingKeys = new Set(
+    selectedRooms.map((r) => `${r.roomId || ""}-${r.bedId || ""}`)
+  );
+  const merged = [...selectedRooms]; // Preserve old
+  newSelected.forEach((ns) => {
+    const key = `${ns.roomId || ""}-${ns.bedId || ""}`;
+    if (!existingKeys.has(key)) {
+      merged.push(ns); // Only add if not already present
+    }
+  });
+
+  setSelectedRooms(merged);
+  console.log("Merged selected rooms (old + new):", merged); // Debug
+};
 
   const fetchHostelPlanTypes = async () => {
     if (!token) return;
