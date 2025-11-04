@@ -31,13 +31,14 @@ type SelectedRoom = {
   bedNumber: number;
   roomId?: string;
   bedId?: string;
+  name?: string;
 };
 
 interface ContinueRoomSelectionData {
   roomsData: Array<{
     roomId: string;
     roomNumber: string | number;
-    beds: Array<{ bedId: string; bedNumber: string | number }>;
+    beds: Array<{ bedId: string; bedNumber: string | number; name?: string }>;
   }>;
   plan: any;
   checkInDate: string;
@@ -353,6 +354,7 @@ export default function ContinueSubscriptionScreen() {
           bedNumber: typeof bed === 'number' ? Number(bed) : Number(bed.bedNumber || bed.bedNum || bed || 0),
           roomId: room.roomId || room.room_id || room._id,
           bedId: typeof bed === 'object' ? (bed.bedId || bed.bed_id || bed._id) : undefined,
+          name: bed?.name || '',
         }));
       }).filter(room => room.roomNumber && room.bedNumber > 0); // Filter out invalid rooms/beds
 
@@ -413,6 +415,7 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
       bedNumber: Number(bed.bedNumber),
       roomId: room.roomId,
       bedId: bed.bedId,
+      name: bed.name || '',
     }))
   );
 
@@ -596,7 +599,7 @@ const handleSubmit = async () => {
     .map((r) => ({
       bedId: r.bedId,
       bedNumber: r.bedNumber,
-      name: "",
+      name: r.name || "",
       roomId: r.roomId,
       roomNumber: r.roomNumber,
     }));
@@ -1140,6 +1143,10 @@ const renderTiffinForm = () => (
   </ScrollView>
 );
 
+const updateBedName = (index: number, newName: string) => {
+  setSelectedRooms(prev => prev.map((room, i) => i === index ? {...room, name: newName} : room));
+};
+
 const renderHostelForm = () => (
   <ScrollView showsVerticalScrollIndicator={false}>
     <View style={styles.section}>
@@ -1235,6 +1242,12 @@ const renderHostelForm = () => (
               <Text style={styles.selectedRoomText}>
                 Room {room.roomNumber} - Bed {room.bedNumber}
               </Text>
+              <TextInput
+                style={styles.nameInput}
+                placeholder="Guest Name *"
+                value={room.name || ''}
+                onChangeText={(text) => updateBedName(index, text)}
+              />
             </View>
           ))}
         </View>
@@ -1571,5 +1584,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#0ea5e9",
     fontWeight: "500",
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 4,
+    fontSize: 12,
+    backgroundColor: "#fff",
   },
 });
