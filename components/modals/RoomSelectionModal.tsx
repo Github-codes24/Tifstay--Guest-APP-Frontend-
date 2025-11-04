@@ -292,34 +292,39 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     onClose();
   };
 
-  const handleReserve = async () => {
-    console.log("handleReserve called (Reserve button - no API call)");
+ const handleReserve = async () => {
+  console.log("handleReserve called (Reserve button - no API call)");
 
-    if (loading || userLoading || !userData) {
-      Alert.alert("Loading", "Please wait for data to load.");
-      return;
-    }
+  if (loading || userLoading || !userData) {
+    Alert.alert("Loading", "Please wait for data to load.");
+    return;
+  }
 
-    const selectedData = collectSelectedData();
-    if (!selectedData) {
-      Alert.alert("Error", "Please select at least one bed.");
-      return;
-    }
+  const selectedData = collectSelectedData();
+  if (!selectedData) {
+    Alert.alert("Error", "Please select at least one bed.");
+    return;
+  }
 
-    // Log params being passed to next screen
-    const params = {
-      hostelData: JSON.stringify(hostelData),
-      ...selectedData,
-      bookingType: "reserve", // flag to indicate it's a reserve
-    };
-    console.log("Params being passed to next screen:", params);
-
-    // Pass data to next screen
-    router.push({
-      pathname: "/bookingScreen",
-      params,
-    });
+  // FIXED: Stringify complex objects/arrays to ensure safe parsing in bookingScreen
+  const params = {
+    hostelData: JSON.stringify(hostelData),
+    roomsData: JSON.stringify(selectedData.roomsData),  // Array → string
+    plan: JSON.stringify(selectedData.plan),            // Object → string
+    checkInDate: selectedData.checkInDate,              // Already string (ISO)
+    checkOutDate: selectedData.checkOutDate,            // Already string (ISO)
+    userData: JSON.stringify(selectedData.userData),    // Object → string
+    bookingType: "reserve",                             // Flag for reserve mode
   };
+
+  console.log("Params being passed to next screen:", params);
+
+  // Pass data to next screen
+  router.push({
+    pathname: "/bookingScreen",
+    params,
+  });
+};
 
   const renderBedRow = ({ item }: { item: any }) => {
     const isAvailable = isContinueMode
