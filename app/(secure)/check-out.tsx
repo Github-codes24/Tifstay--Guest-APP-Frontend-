@@ -280,9 +280,12 @@ const Checkout: React.FC = () => {
     // Check-in / Check-out (optional calculation for multiple months)
     const checkIn = bookingDetails?.checkInDate || checkInDate;
     const checkOut = bookingDetails?.checkOutDate || checkOutDate;
-    const months = (checkIn && checkOut)
-      ? Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24 * 30)))
-      : 1;
+    let months = 1; // Default fallback
+    if (checkIn && checkOut) {
+      const checkInDateObj = new Date(checkIn);
+      const checkOutDateObj = new Date(checkOut);
+      months = Math.max(1, (checkOutDateObj.getFullYear() - checkInDateObj.getFullYear()) * 12 + (checkOutDateObj.getMonth() - checkInDateObj.getMonth()));
+    }
 
   const totalRent = planPrice * months;
   const total = totalRent;  // FIXED: Exclude deposit, only total rent

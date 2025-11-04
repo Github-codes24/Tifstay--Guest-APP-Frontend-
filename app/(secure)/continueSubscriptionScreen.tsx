@@ -159,6 +159,21 @@ export default function ContinueSubscriptionScreen() {
     deposit: "0", // Assume 0 for now; can be fetched or passed if needed
   };
 
+  // Helper to normalize beds array from room data
+  const getBedsArray = (room: any): any[] => {
+    if (Array.isArray(room.beds)) return room.beds;
+    if (Array.isArray(room.bedNumber)) return room.bedNumber;
+    if (typeof room.bedNumber === 'number') return [{ bedNumber: room.bedNumber }];
+    if (room.bedNumber) return [room.bedNumber];
+    return [];
+  };
+
+  // Helper to generate consistent key for room-bed pair
+  const getBedKey = (roomId: string | undefined, bedId: string | undefined | number, bedNumber?: number): string => {
+    const effectiveBedId = bedId || (typeof bedNumber === 'number' ? bedNumber.toString() : '');
+    return `${roomId || ''}-${effectiveBedId}`;
+  };
+
   // Add this useEffect inside the ContinueSubscriptionScreen component, after the state declarations
   useEffect(() => {
     console.log("=== Continue Subscription Screen Debug ===");
@@ -330,15 +345,16 @@ export default function ContinueSubscriptionScreen() {
     }
 
     if (sourceRooms) {
-      // Flatten rooms with their selected beds (beds is an array in source)
-      const restoredRooms: SelectedRoom[] = sourceRooms.flatMap((room: any) =>
-        (room.beds || room.bedNumber || []).map((bed: any) => ({
+      // Flatten rooms with their selected beds using helper
+      const restoredRooms: SelectedRoom[] = sourceRooms.flatMap((room: any) => {
+        const beds = getBedsArray(room);
+        return beds.map((bed: any) => ({
           roomNumber: room.roomNumber?.toString() || room.roomNum?.toString() || room.room_number?.toString() || '',
           bedNumber: typeof bed === 'number' ? Number(bed) : Number(bed.bedNumber || bed.bedNum || bed || 0),
-          roomId: room.roomId || room.room_id,
+          roomId: room.roomId || room.room_id || room._id,
           bedId: typeof bed === 'object' ? (bed.bedId || bed.bed_id || bed._id) : undefined,
-        }))
-      ).filter(room => room.roomNumber && room.bedNumber > 0); // Filter out invalid rooms/beds
+        }));
+      }).filter(room => room.roomNumber && room.bedNumber > 0); // Filter out invalid rooms/beds
 
       setSelectedRooms(restoredRooms);
       console.log("Restored selected rooms from source:", restoredRooms); // For debugging
@@ -389,9 +405,9 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [token, serviceType, hostelId]);
 
-  // Handle room selection from modal (for continue mode)
+  // Handle room selection from modal (for continue mode) - Set full updated selection to support add/remove
 const handleRoomSelection = (data: ContinueRoomSelectionData) => {
-  const newSelected = data.roomsData.flatMap((room) =>
+  const updatedSelected = data.roomsData.flatMap((room) =>
     room.beds.map((bed) => ({
       roomNumber: room.roomNumber.toString(),
       bedNumber: Number(bed.bedNumber),
@@ -400,19 +416,8 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
     }))
   );
 
-const existingKeys = new Set(
-    selectedRooms.map((r) => `${r.roomId || ""}-${r.bedId || ""}`)
-  );
-  const merged = [...selectedRooms]; // Preserve old
-  newSelected.forEach((ns) => {
-    const key = `${ns.roomId || ""}-${ns.bedId || ""}`;
-    if (!existingKeys.has(key)) {
-      merged.push(ns); // Only add if not already present
-    }
-  });
-
-  setSelectedRooms(merged);
-  console.log("Merged selected rooms (old + new):", merged); // Debug
+  setSelectedRooms(updatedSelected); // Set full updated list (supports deselection/removal)
+  console.log("Updated selected rooms from modal:", updatedSelected); // Debug
 };
 
   const fetchHostelPlanTypes = async () => {
@@ -505,7 +510,13 @@ const existingKeys = new Set(
 
 const handleSubmit = async () => {
   console.log("🔥 handleSubmit called! Service Type:", serviceType);
-  console.log("🔍 Current States - checkInDate:", checkInDate, "checkOutDate:", checkOutDate, "token:", !!token, "orderId:", orderId, "selectedRooms.length:", selectedRooms.length);
+  console.log(
+    "🔍 Current States - checkInDate:", checkInDate,
+    "checkOutDate:", checkOutDate,
+    "token:", !!token,
+    "orderId:", orderId,
+    "selectedRooms.length:", selectedRooms.length
+  );
 
   if (serviceType === "tiffin") {
     console.log("🍱 Entering Tiffin branch - just logging and returning.");
@@ -518,214 +529,171 @@ const handleSubmit = async () => {
       selectedPlanType,
       date,
     });
-    // TODO: Implement tiffin continue API call and navigate to check-out if needed
-    // router.push("/(secure)/check-out");
     return;
+  }
+
+  // 🏠 HOSTEL SECTION
+  console.log("🏠 Entering Hostel branch.");
+
+  if (!checkInDate || !checkOutDate || !token || !orderId) {
+    console.log("❌ Validation failed: Missing required info.");
+    Alert.alert("Error", "Missing required information. Please fill all fields.");
+    return;
+  }
+
+  if (selectedRooms.length === 0) {
+    console.log("❌ No rooms selected.");
+    Alert.alert("Error", "Please select at least one room and bed.");
+    return;
+  }
+
+  console.log("✅ Validation passed and rooms selected.");
+
+  // Build existing beds map
+  const existingBeds = new Map();
+  let sourceRoomsForExisting = [];
+
+  if (fullBooking?.rooms?.length) {
+    sourceRoomsForExisting = fullBooking.rooms;
+    console.log("✅ Using rooms from fullBooking");
+  } else if (bookingData?.rooms?.length) {
+    sourceRoomsForExisting = bookingData.rooms;
+    console.log("✅ Using rooms from bookingData");
+  } else if (Array.isArray(parsedRoomsState)) {
+    sourceRoomsForExisting = parsedRoomsState;
+    console.log("✅ Using rooms from parsedRoomsState");
   } else {
-    console.log("🏠 Entering Hostel branch.");
-    // Hostel continue subscription
-    if (!checkInDate || !checkOutDate || !token || !orderId) {
-      console.log("❌ Validation failed: Missing required info.");
-      console.log("  - checkInDate valid?", !!checkInDate);
-      console.log("  - checkOutDate valid?", !!checkOutDate);
-      console.log("  - token present?", !!token);
-      console.log("  - orderId present?", !!orderId);
-      Alert.alert("Error", "Missing required information. Please fill all fields.");
-      return;
-    }
+    console.log("⚠️ No valid room source found for existing beds");
+  }
 
-    console.log("✅ Validation passed for required fields.");
-
-    if (selectedRooms.length === 0) {
-      console.log("❌ No rooms selected.");
-      Alert.alert("Error", "Please select at least one room and bed.");
-      return;
-    }
-
-    console.log("✅ Rooms selected, proceeding to diff logic.");
-
-    // 🧩 Debug logs to understand source data
-    console.log("📦 fullBooking:", fullBooking);
-    console.log("📦 bookingData:", bookingData);
-    console.log("📦 parsedRoomsState:", parsedRoomsState);
-    console.log("🛏️ Selected Rooms:", selectedRooms);
-    console.log("🆔 Order ID Received:", orderId);
-
-    // Compute existing beds map from fullBooking, bookingData, or parsedRooms
-    const existingBeds = new Map<string, any>();
-    let sourceRoomsForExisting: any[] = [];
-
-    if (fullBooking && fullBooking.rooms && Array.isArray(fullBooking.rooms)) {
-      sourceRoomsForExisting = fullBooking.rooms;
-      console.log("✅ Using rooms from fullBooking");
-    } else if (bookingData && bookingData.rooms && Array.isArray(bookingData.rooms)) {
-      sourceRoomsForExisting = bookingData.rooms;
-      console.log("✅ Using rooms from bookingData");
-    } else if (parsedRoomsState && Array.isArray(parsedRoomsState)) {
-      sourceRoomsForExisting = parsedRoomsState;
-      console.log("✅ Using rooms from parsedRoomsState");
-    } else {
-      console.log("⚠️ No valid room source found for existing beds");
-    }
-
-    console.log("📊 sourceRoomsForExisting length:", sourceRoomsForExisting.length);
-
-    if (sourceRoomsForExisting.length > 0) {
-      sourceRoomsForExisting.forEach((room: any) => {
-        const beds = room.beds || room.bedNumber || [];
-        if (beds && Array.isArray(beds)) {
-          beds.forEach((bed: any) => {
-            const key = `${room.roomId || room._id}-${bed.bedId || bed._id}`;
-            existingBeds.set(key, {
-              roomId: room.roomId || room._id,
-              roomNumber: room.roomNumber,
-              bedId: bed.bedId || bed._id,
-              bedNumber: bed.bedNumber,
-              name: bed.name || "",
-            });
-          });
-        }
+  sourceRoomsForExisting.forEach((room) => {
+    const beds = getBedsArray(room);
+    beds.forEach((bed) => {
+      const roomId = room.roomId || room._id || room.room_id;
+      const bedId = bed?.bedId || bed?._id || bed?.bed_id;
+      const bedNumber = bed?.bedNumber || bed?.bedNum || bed || 0;
+      const key = getBedKey(roomId, bedId, bedNumber);
+      existingBeds.set(key, {
+        roomId,
+        roomNumber: room.roomNumber || room.roomNum || room.room_number,
+        bedId,
+        bedNumber,
+        name: bed?.name || "",
       });
-    }
-
-    console.log("🗺️ Existing Beds Map:", Array.from(existingBeds.values()));
-
-    // New beds set for comparison
-    const newBedsSet = new Set(
-      selectedRooms.map((r) => `${r.roomId || ""}-${r.bedId || ""}`)
-    );
-
-    // Add beds: new selections not in existing
-    const addBeds: any[] = selectedRooms
-      .filter((r) => {
-        const key = `${r.roomId || ""}-${r.bedId || ""}`;
-        return !existingBeds.has(key);
-      })
-      .map((r) => ({
-        bedId: r.bedId || "",
-        bedNumber: r.bedNumber,
-        name: "", // New bed, name to be set later
-        roomId: r.roomId || "",
-        roomNumber: r.roomNumber || "",
-      }));
-
-    // Remove beds: existing not in new selections
-    const removeBeds: any[] = Array.from(existingBeds.values()).filter((b) => {
-      const key = `${b.roomId}-${b.bedId}`;
-      return !newBedsSet.has(key);
     });
+  });
 
-    console.log("➕ Add Beds:", addBeds);
-    console.log("➖ Remove Beds:", removeBeds);
+  console.log("🗺️ Existing Beds Map:", Array.from(existingBeds.values()));
 
-    // Group addRooms
-    const addRooms: any[] = [];
-    const addRoomMap = new Map<string, any>();
-    addBeds.forEach((bed) => {
-      const roomId = bed.roomId;
-      if (!addRoomMap.has(roomId)) {
-        addRoomMap.set(roomId, {
-          roomId,
-          roomNumber: bed.roomNumber,
-          bedNumber: [], // Use bedNumber as per API example
-        });
-      }
-      const room = addRoomMap.get(roomId);
-      room.bedNumber.push({
-        bedId: bed.bedId,
-        bedNumber: bed.bedNumber,
-        name: bed.name || "",
-      });
-      addRoomMap.set(roomId, room);
-    });
-    addRooms.push(...Array.from(addRoomMap.values()));
+  // New selections
+  const newBedsSet = new Set(
+    selectedRooms.map((r) => getBedKey(r.roomId, r.bedId, r.bedNumber))
+  );
 
-    // Group removeRooms
-    const removeRooms: any[] = [];
-    const removeRoomMap = new Map<string, any>();
-    removeBeds.forEach((bed) => {
-      const roomId = bed.roomId;
-      if (!removeRoomMap.has(roomId)) {
-        removeRoomMap.set(roomId, {
-          roomId,
+  // ➕ Add Beds
+  const addBeds = selectedRooms
+    .filter((r) => !existingBeds.has(getBedKey(r.roomId, r.bedId, r.bedNumber)))
+    .map((r) => ({
+      bedId: r.bedId,
+      bedNumber: r.bedNumber,
+      name: "",
+      roomId: r.roomId,
+      roomNumber: r.roomNumber,
+    }));
+
+  // ➖ Remove Beds
+  const removeBeds = Array.from(existingBeds.values()).filter(
+    (b) => !newBedsSet.has(getBedKey(b.roomId, b.bedId, b.bedNumber))
+  );
+
+  console.log("➕ Add Beds:", addBeds);
+  console.log("➖ Remove Beds:", removeBeds);
+
+  // Group into rooms helper
+  const groupByRoom = (bedsArray) => {
+    const map = new Map();
+    bedsArray.forEach((bed) => {
+      if (!map.has(bed.roomId)) {
+        map.set(bed.roomId, {
+          roomId: bed.roomId,
           roomNumber: bed.roomNumber,
           bedNumber: [],
         });
       }
-      const room = removeRoomMap.get(roomId);
+      const room = map.get(bed.roomId);
       room.bedNumber.push({
         bedId: bed.bedId,
         bedNumber: bed.bedNumber,
         name: bed.name,
       });
-      removeRoomMap.set(roomId, room);
     });
-    removeRooms.push(...Array.from(removeRoomMap.values()));
+    return Array.from(map.values());
+  };
 
-    const requestBody = {
-      checkInDate: checkInDate.toISOString().split("T")[0],
-      checkOutDate: checkOutDate.toISOString().split("T")[0],
-      addRooms,
-      removeRooms,
-    };
+  // ✅ Build grouped data from selected and removed beds
+  const addRooms = groupByRoom(selectedRooms); // 👈 fixed here
+  const removeRooms = groupByRoom(removeBeds);
 
-    console.log("📤 Continue Subscription API Body:", requestBody);
-    console.log("👤 Full User/Guest Data Used:", userData);
+  // 🧾 Final Request Body (no mergedRooms now)
+  const requestBody = {
+    checkInDate: checkInDate.toISOString().split("T")[0],
+    checkOutDate: checkOutDate.toISOString().split("T")[0],
+    addRooms, // current final selection (includes old + new, excluding removed)
+  };
 
-    // 🆕 Log exactly what’s being sent
-    console.log("🆔 Order ID being passed to API:", orderId);
-    console.log(
-      "🌐 Continue Subscription API URL:",
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`
+  if (removeRooms.length > 0) requestBody.removeRooms = removeRooms;
+
+  console.log("📤 Final Continue Subscription API Body:", requestBody);
+  console.log("🆔 Order ID being passed to API:", orderId);
+  console.log(
+    "🌐 Continue Subscription API URL:",
+    `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`
+  );
+
+  try {
+    console.log("🚀 Making API call...");
+    const response = await axios.post(
+      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`,
+      requestBody,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
 
-    console.log("🚀 Making API call...");
-    try {
-      const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`,
-        requestBody,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    console.log("📥 API Response:", response.data);
 
-      console.log("📥 API Response:", response.data);
-
-      if (response.data.success) {
-        const newBookingData = response.data.data;
-        console.log("✅ Continue subscription success:", newBookingData);
-        console.log("📘 Status:", newBookingData.status);
-        console.log("🧭 Attempting navigation to check-out with new bookingId:", newBookingData._id);
-        router.push({
-          pathname: "/(secure)/check-out",
-          params: {
-            bookingId: newBookingData._id,
-            serviceType: "hostel",
-          },
-        });
-        console.log("✅ Navigation pushed!");
-      } else {
-        console.log("❌ API success false:", response.data.message);
-        Alert.alert("Error", response.data.message || "Failed to continue subscription.");
-      }
-    } catch (error) {
-      console.error("❌ Continue Subscription API Error:", error);
-      if (axios.isAxiosError(error)) {
-        console.log("  - Response status:", error.response?.status);
-        console.log("  - Response data:", error.response?.data);
-        Alert.alert(
-          "Error",
-          error.response?.data?.message || "Network error occurred."
-        );
-      } else {
-        Alert.alert("Error", "An unexpected error occurred.");
-      }
+    if (response.data.success) {
+      const newBookingData = response.data.data;
+      console.log("✅ Continue subscription success:", newBookingData);
+      router.push({
+        pathname: "/(secure)/check-out",
+        params: {
+          bookingId: newBookingData._id,
+          serviceType: "hostel",
+          rooms: JSON.stringify(selectedRooms),
+          
+        },
+      });
+      console.log("✅ Navigation to checkout complete!");
+    } else {
+      console.log("❌ API success false:", response.data.message);
+      Alert.alert("Error", response.data.message || "Failed to continue subscription.");
+    }
+  } catch (error) {
+    console.error("❌ Continue Subscription API Error:", error);
+    if (axios.isAxiosError(error)) {
+      console.log("  - Response status:", error.response?.status);
+      console.log("  - Response data:", error.response?.data);
+      Alert.alert("Error", error.response?.data?.message || "Network error occurred.");
+    } else {
+      Alert.alert("Error", "An unexpected error occurred.");
     }
   }
 };
+
 
 
 
