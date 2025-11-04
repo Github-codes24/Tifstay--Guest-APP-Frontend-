@@ -97,33 +97,67 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     userPhoto?: string | null;
   } | null>(null);
 
-  // Fetch rooms (use prop if available, else API)
+  // Auth token helper (fetches from AsyncStorage if not provided)
+  const getAuthToken = async (): Promise<string | null> => {
+    try {
+      const storedToken = await AsyncStorage.getItem("token");
+      console.log("Auth token retrieved:", storedToken ? "Valid token" : "No token");
+      return storedToken;
+    } catch (error) {
+      console.error("Error fetching auth token:", error);
+      return null;
+    }
+  };
+
+  // Fetch rooms (use prop if available, else API with internal token fetch)
   const fetchRooms = async () => {
     try {
       setLoading(true);
       let data: RoomData = [];
       if (propRoomsData && propRoomsData.length > 0) {
-        // Use passed rooms data
+        // Use passed rooms data (e.g., for continue mode)
         data = propRoomsData;
-      } else if (token) {
-        // Fallback to API
-        const response = await fetch(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+        console.log("Using pre-fetched rooms data:", data.length, "rooms");
+      } else {
+        // Fetch token if not provided (fallback for first-time mode)
+        let fetchToken = token;
+        if (!fetchToken) {
+          fetchToken = await getAuthToken();
+        }
+        if (fetchToken) {
+          const response = await fetch(
+            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`,
+            {
+              headers: { Authorization: `Bearer ${fetchToken}` },
+            }
+          );
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
-        );
-        const apiData = await response.json();
-        if (apiData.success) {
-          data = apiData.data;
+          const apiData = await response.json();
+          console.log("API Rooms Response:", apiData); // Debug: Log full response
+          if (apiData.success && Array.isArray(apiData.data)) {
+            data = apiData.data;
+          } else {
+            console.warn("API success but no data:", apiData.message || "Unknown error");
+            data = []; // Ensure empty array, not undefined
+          }
+        } else {
+          console.warn("No token available—cannot fetch rooms");
+          Alert.alert("Auth Error", "Please log in to view rooms.");
+          data = [];
         }
       }
       setRooms(data);
       if (data.length > 0) {
         setSelectedRoomId(data[0]._id);
+      } else {
+        console.warn("No rooms loaded—check API response or hostel ID");
       }
     } catch (error) {
       console.error("Error fetching rooms:", error);
+      Alert.alert("Error", "Failed to load rooms. Please try again.");
+      setRooms([]); // Ensure empty on error
     } finally {
       setLoading(false);
     }
@@ -162,8 +196,8 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
         const room = rooms.find(r => r._id === selRoom.roomId || r.roomNumber.toString() === selRoom.roomNumber);
         if (room) {
           const roomId = room._id;
-          const bed = room.totalBeds.find(b => 
-            (b._id === selRoom.bedId) || 
+          const bed = room.totalBeds.find(b =>
+            (b._id === selRoom.bedId) ||
             (b.bedNumber.toString() === selRoom.bedNumber.toString())
           );
           if (bed) {
@@ -211,8 +245,8 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   const toggleBedSelection = (bedId: string) => {
     setSelectedBedsByRoom((prev) => {
       const currentRoomBeds = prev[selectedRoomId || ''] || [];
-      const newRoomBeds = currentRoomBeds.includes(bedId) 
-        ? currentRoomBeds.filter((id) => id !== bedId) 
+      const newRoomBeds = currentRoomBeds.includes(bedId)
+        ? currentRoomBeds.filter((id) => id !== bedId)
         : [...currentRoomBeds, bedId];
       return { ...prev, [selectedRoomId || '']: newRoomBeds };
     });
@@ -321,8 +355,12 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     // Log params being passed to next screen
     const params = {
       hostelData: JSON.stringify(hostelData),
-      ...selectedData,
-      bookingType: "reserve", // flag to indicate it's a reserve
+      roomsData: JSON.stringify(selectedData.roomsData),
+      plan: JSON.stringify(selectedData.plan),
+      checkInDate: selectedData.checkInDate,
+      checkOutDate: selectedData.checkOutDate,
+      userData: JSON.stringify(selectedData.userData),
+      bookingType: "reserve",
     };
     console.log("Params being passed to next screen:", params);
 
@@ -378,12 +416,12 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   };
 
   // Compute total selected
-  const totalSelectedBeds = useMemo(() => 
-    Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0), 
+  const totalSelectedBeds = useMemo(() =>
+    Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0),
     [selectedBedsByRoom]
   );
-  const numRoomsWithSelections = useMemo(() => 
-    Object.values(selectedBedsByRoom).filter(beds => beds.length > 0).length, 
+  const numRoomsWithSelections = useMemo(() =>
+    Object.values(selectedBedsByRoom).filter(beds => beds.length > 0).length,
     [selectedBedsByRoom]
   );
 

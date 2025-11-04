@@ -20,23 +20,19 @@ import Header from "@/components/Header";
 import Buttons from "@/components/Buttons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
-
 type RoomData = {
   roomId: string;
   roomNumber: string | number;
   beds: Array<{ bedId: string; bedNumber: string | number }>;
 };
-
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   // console.log("BookingScreen params:", params);
   const bookingType = (params.bookingType as BookingType) || "tiffin";
   console.log("bookingType:", bookingType);
-
   // Extract primitive strings for stable dependencies
   const serviceDataStr = params.serviceData || '{}'; // For tiffin
   const hostelDataStr = params.hostelData || '{}';
@@ -49,7 +45,6 @@ export default function BookingScreen() {
   const checkOutDateStr = params.checkOutDate || '';
   const defaultDateStr = params.date || ''; // For tiffin default date
   const defaultPlanStr = params.defaultPlan || 'perMeal'; // e.g., 'monthly', 'weekly', 'perMeal'
-
   const [serviceData, setServiceData] = useState({
     serviceId: params.serviceId,
     serviceName: params.serviceName,
@@ -65,7 +60,7 @@ export default function BookingScreen() {
     monthlyPrice: params.monthlyPrice,
     deposit: params.deposit,
     // NEW: Use rooms array instead of single roomId/roomNumber/beds
-    
+  
     rooms: [] as RoomData[],
     defaultPlan: params.defaultPlan,
     defaultPrice: params.defaultPrice,
@@ -75,10 +70,8 @@ export default function BookingScreen() {
     adharCardPhoto: params.adharCardPhoto,
     userPhoto: params.userPhoto,
   });
-
   // NEW: State for bed names (keyed by `${roomId}-${bedId}`)
   const [bedNames, setBedNames] = useState<Record<string, string>>({});
-
   // Error states for better UX
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Tiffin plan errors per tiffin
@@ -89,7 +82,6 @@ export default function BookingScreen() {
     }
     return initial;
   });
-
   // New states for dynamic pricing
   const [pricingData, setPricingData] = useState({
     daily: 0,
@@ -101,7 +93,8 @@ export default function BookingScreen() {
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
   const [currentDeposit, setCurrentDeposit] = useState(0);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-  const [pickerItems, setPickerItems] = useState([]); // For plan types (tiffin) or plans (hostel)
+  // FIXED: Set default picker items for hostel to ensure plans show
+  const [pickerItems, setPickerItems] = useState([{ label: "Monthly", value: "monthly" }]); // Default to monthly
   // Tiffin-specific states
   // FIXED: Fixed to 4 tiffins, no dynamic number
   const [mealLabels, setMealLabels] = useState<Record<MealType, string>>({});
@@ -145,10 +138,8 @@ export default function BookingScreen() {
     }
     return initial;
   });
-
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-
   const [address, setAddress] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [selectedfood, setSelectedfood] = useState("Both");
@@ -157,7 +148,6 @@ export default function BookingScreen() {
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-
   const [hostelPlan, setHostelPlan] = useState("monthly");
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
@@ -167,20 +157,15 @@ export default function BookingScreen() {
   const [purposeType, setPurposeType] = useState<"work" | "leisure" | "student">("work");
   const [aadhaarPhoto, setAadhaarPhoto] = useState<string>("");
   const [userPhoto, setUserPhoto] = useState<string>("");
-
   const [isLoadingHostel, setIsLoadingHostel] = useState(false);
-
   const ranAutofill = useRef(false);
-
   // NEW: Compute total beds across all rooms
-  const totalBedsCount = useMemo(() => 
-    serviceData.rooms.reduce((acc, room) => acc + (room.beds?.length || 0), 0), 
+  const totalBedsCount = useMemo(() =>
+    serviceData.rooms.reduce((acc, room) => acc + (room.beds?.length || 0), 0),
     [serviceData.rooms]
   );
-
   // NEW: Helper to get bed key
   const getBedKey = (roomId: string, bedId: string) => `${roomId}-${bedId}`;
-
   // NEW: Helper to find and prefill first bed
   const prefillFirstBedName = (rooms: RoomData[], primaryName: string) => {
     if (rooms.length > 0 && rooms[0].beds.length > 0) {
@@ -190,15 +175,12 @@ export default function BookingScreen() {
       setFullName(primaryName);
     }
   };
-
   // Helper to clear errors for a field
   const clearError = (field: string) => {
     setErrors(prev => ({ ...prev, [field]: '' }));
   };
-
   // NEW: Helper for bed name errors (per bed key)
   const getBedNameError = (bedKey: string) => errors[bedKey] || '';
-
   // NEW: Helper for selected meals summary per tiffin
   const selectedMealsSummaryForNum = (num: number) => {
     const selectedMeals = Object.entries(tiffinMeals[num] || {})
@@ -206,7 +188,6 @@ export default function BookingScreen() {
       .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
     return selectedMeals.join(", ");
   };
-
   // NEW: Helper to get base price for a plan and tiffin num
   const getBasePriceForPlan = (num: number, plan: string) => {
     const thisPricing = fetchedPricings[num];
@@ -230,11 +211,9 @@ export default function BookingScreen() {
         return 0;
     }
   };
-
   // Validate tiffin form
   const validateTiffinForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
     if (!phoneNumber.trim()) newErrors.phoneNumber = "Phone Number is required!";
     if (orderType === "delivery" && !address.trim()) newErrors.address = "Address is required for delivery!";
@@ -254,15 +233,12 @@ export default function BookingScreen() {
         newErrors[`plan${i}`] = `Plan type is required for Tiffin ${i}!`;
       }
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   // UPDATED: Validate hostel form (add bed names check)
   const validateHostelForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
     if (!phoneNumber.trim()) newErrors.phoneNumber = "Phone Number is required!";
     if (!checkInDate) newErrors.checkInDate = "Check-in date is required!";
@@ -275,7 +251,7 @@ export default function BookingScreen() {
       newErrors.rooms = "Please select at least one bed across rooms!";
     } else {
       // Check bed names
-      const allBedKeys = serviceData.rooms.flatMap(room => 
+      const allBedKeys = serviceData.rooms.flatMap(room =>
         room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
       );
       const missingNames = allBedKeys.filter(key => !bedNames[key]?.trim());
@@ -285,24 +261,29 @@ export default function BookingScreen() {
         });
       }
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
+  // NEW: Safe JSON parse helper to prevent errors
+  const safeParse = (str: string): any => {
+    if (typeof str !== 'string') return {};
+    try {
+      return JSON.parse(str);
+    } catch (error) {
+      console.warn("SafeParse warning - Invalid JSON, returning empty object:", str);
+      return {};
+    }
+  };
   useEffect(() => {
     console.log("=== Autofill useEffect triggered ===");
     console.log("bookingType:", bookingType);
-
     const isHostelBooking = bookingType === "hostel" || bookingType === "reserve";
     const isTiffinBooking = bookingType === "tiffin";
-
     if ((isHostelBooking || isTiffinBooking) && !ranAutofill.current) {
       ranAutofill.current = true;
       try {
-        const parsedUserData = JSON.parse(userDataStr);
+        const parsedUserData = safeParse(userDataStr);
         console.log("Parsed User Data:", parsedUserData);
-
         // Handle user data structure: direct or nested under 'guest'
         const userName = parsedUserData.name || parsedUserData.guest?.name || '';
         const userPhone = parsedUserData.phoneNumber || parsedUserData.guest?.phoneNumber || '';
@@ -310,29 +291,25 @@ export default function BookingScreen() {
         const userWorkType = parsedUserData.workType || parsedUserData.guest?.workType || '';
         const userAdharPhoto = parsedUserData.adharCardPhoto || parsedUserData.guest?.adharCardPhoto || '';
         const userPhotoUrl = parsedUserData.userPhoto || parsedUserData.guest?.userPhoto || '';
-
         // Common user autofill for both
         setFullName(userName);
         setPhoneNumber(userPhone);
-
         if (isHostelBooking) {
-          const parsedHostelData = JSON.parse(hostelDataStr);
-          const parsedPlan = JSON.parse(planStr);
-
+          const parsedHostelData = safeParse(hostelDataStr);
+          const parsedPlan = safeParse(planStr);
           console.log("Parsed Hostel Data:", parsedHostelData);
           console.log("Parsed Plan:", parsedPlan);
-
           // NEW: Handle multiple rooms via roomsData, fallback to single room
           let rooms: RoomData[] = [];
           try {
-            const parsedRoomsData = JSON.parse(roomsDataStr);
+            const parsedRoomsData = safeParse(roomsDataStr);
             if (Array.isArray(parsedRoomsData) && parsedRoomsData.length > 0) {
               rooms = parsedRoomsData;
               console.log("Parsed Multiple Rooms Data:", parsedRoomsData);
             } else {
               // Backward compat: single room
-              const parsedRoomData = JSON.parse(roomDataStr);
-              const parsedSelectedBeds = JSON.parse(selectedBedsStr);
+              const parsedRoomData = safeParse(roomDataStr);
+              const parsedSelectedBeds = safeParse(selectedBedsStr);
               rooms = [{
                 roomId: parsedRoomData._id,
                 roomNumber: parsedRoomData.roomNumber,
@@ -345,7 +322,6 @@ export default function BookingScreen() {
             console.error("Error parsing rooms data:", parseErr);
             rooms = [];
           }
-
           // Update serviceData with minimal data
           setServiceData(prev => ({
             ...prev,
@@ -359,31 +335,26 @@ export default function BookingScreen() {
             adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
             userPhoto: userPhotoUrl || prev.userPhoto,
           }));
-
           // NEW: Prefill first bed name after setting rooms
           setTimeout(() => prefillFirstBedName(rooms, userName), 0);
-
           console.log("Extracted Hostel ID:", parsedHostelData.id);
           console.log("Total Rooms:", rooms.length);
-
           // Autofill other fields (except check-in and check-out dates)
           setHostelPlan(parsedPlan.name || "monthly");
           setAadhaarPhoto(userAdharPhoto || "");
           setUserPhoto(userPhotoUrl || "");
           // Do not pre-fill dates - let user fill them
           // FIXED: Better mapping for purposeType from userWorkType (handles casing and "leisure")
-          const workTypeNormalized = userWorkType.toLowerCase();  // Normalize for matching
-          let purpose = "work";  // default
+          const workTypeNormalized = userWorkType.toLowerCase(); // Normalize for matching
+          let purpose = "work"; // default
           if (workTypeNormalized.includes("student")) purpose = "student";
           else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
           else if (workTypeNormalized.includes("work")) purpose = "work";
           setPurposeType(purpose);
         }
-
         if (isTiffinBooking) {
-          const parsedServiceData = JSON.parse(serviceDataStr);
+          const parsedServiceData = safeParse(serviceDataStr);
           console.log("Parsed Tiffin Service Data:", parsedServiceData);
-
           // Update serviceData for tiffin
           setServiceData(prev => ({
             ...prev,
@@ -397,7 +368,6 @@ export default function BookingScreen() {
             location: parsedServiceData.location || parsedServiceData.fullAddress,
             contactInfo: parsedServiceData.contactInfo,
           }));
-
           // FIXED: No prefill for meals or food type - start blank
           setSelectedfood("Both");
           setOrderType("delivery");
@@ -413,15 +383,12 @@ export default function BookingScreen() {
           // Default date from params - but set to null for user selection
           setDate(null);
         }
-
         console.log("Autofill completed");
       } catch (error) {
-        console.error("Error parsing params for autofill:", error);
+        console.error("Error in autofill useEffect:", error);
       }
     }
   }, [bookingType, serviceDataStr, hostelDataStr, roomDataStr, roomsDataStr, userDataStr, planStr, selectedBedsStr, defaultDateStr, checkInDateStr, checkOutDateStr]);
-
-
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
   useEffect(() => {
     const fetchPricing = async () => {
@@ -433,11 +400,24 @@ export default function BookingScreen() {
       try {
         let response;
         if ((bookingType === "hostel" || bookingType === "reserve") && serviceData.hostelId) {
+          const token = await AsyncStorage.getItem("token"); // Fetch token here (add this line)
+          if (!token) {
+            console.error("No auth token available for pricing fetch");
+            // FIXED: Set defaults if no token
+            setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
+            setSecurityDeposit(5000);
+            setWeeklyDeposit(1000);
+            setPickerItems([{ label: "Monthly", value: "monthly" }]);
+            setCurrentPlanPrice(3200);
+            setCurrentDeposit(5000);
+            return;
+          }
           response = await axios.get(
             `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelPricing/${serviceData.hostelId}`,
             {
               headers: {
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`, // Add this header
               },
             }
           );
@@ -450,7 +430,6 @@ export default function BookingScreen() {
             });
             setSecurityDeposit(data.securityDeposit || 0);
             setWeeklyDeposit(data.weeklyDeposit || 0);
-
             // Dynamically create picker items based on available plans
             const items = [];
             if (data.pricing?.perDay > 0) {
@@ -462,32 +441,59 @@ export default function BookingScreen() {
             if (data.pricing?.monthly > 0) {
               items.push({ label: "Monthly", value: "monthly" });
             }
+            // FIXED: Ensure at least monthly if no items
+            if (items.length === 0) {
+              items.push({ label: "Monthly", value: "monthly" });
+            }
             setPickerItems(items);
-
             // Set initial price for monthly if available (will be multiplied by beds in price useEffect)
             if (data.pricing?.monthly > 0) {
               setCurrentPlanPrice(data.pricing.monthly);
               setCurrentDeposit(data.securityDeposit || 0);
+            } else {
+              // Default fallback
+              setCurrentPlanPrice(3200);
+              setCurrentDeposit(5000);
             }
+          } else {
+            console.error("API returned false success:", response.data.message);
+            // FIXED: Set defaults on API failure
+            setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
+            setSecurityDeposit(5000);
+            setWeeklyDeposit(1000);
+            setPickerItems([{ label: "Monthly", value: "monthly" }]);
+            setCurrentPlanPrice(3200);
+            setCurrentDeposit(5000);
           }
+        } else {
+          // FIXED: Set defaults if no hostelId
+          setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
+          setSecurityDeposit(5000);
+          setWeeklyDeposit(1000);
+          setPickerItems([{ label: "Monthly", value: "monthly" }]);
+          setCurrentPlanPrice(3200);
+          setCurrentDeposit(5000);
         }
       } catch (error) {
         console.error("Error fetching pricing:", error);
+        // FIXED: Set defaults on error
+        setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
+        setSecurityDeposit(5000);
+        setWeeklyDeposit(1000);
+        setPickerItems([{ label: "Monthly", value: "monthly" }]);
+        setCurrentPlanPrice(3200);
+        setCurrentDeposit(5000);
       } finally {
         setIsLoadingPricing(false);
       }
     };
-
     fetchPricing();
   }, [serviceData.hostelId, bookingType]);
-
   // Update price and deposit based on selections
   useEffect(() => {
     let newPrice = 0;
     let newDeposit = 0;
-
     console.log("Price useEffect: orderType", orderType);
-
     if (bookingType === "tiffin") {
       // FIXED: Sum prices across filled tiffins with their specific plans
       for (let i = 1; i <= 4; i++) {
@@ -505,7 +511,6 @@ export default function BookingScreen() {
       newPrice = basePlanPrice;
      newDeposit = hostelPlan === "weekly" ? weeklyDeposit : hostelPlan === "daily" ? 0 : securityDeposit;
     }
-
     console.log(`💰 Updated prices - Total: ₹${newPrice}, Deposit: ₹${newDeposit}`);
     setCurrentPlanPrice(newPrice);
     setCurrentDeposit(newDeposit);
@@ -516,12 +521,11 @@ export default function BookingScreen() {
     pricingData,
     securityDeposit,
     weeklyDeposit,
-    tiffinMeals,  // FIXED: Depend on full tiffinMeals for filled count
+    tiffinMeals, // FIXED: Depend on full tiffinMeals for filled count
     fetchedPricings,
     tiffinPlans, // NEW: Depend on per-tiffin plans
     totalBedsCount, // NEW: For hostel pricing
   ]);
-
   // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
     if (checkInDate && hostelPlan) {
@@ -533,13 +537,11 @@ export default function BookingScreen() {
       } else if (hostelPlan === 'monthly') {
         daysToAdd = 30; // Approximate for a month
       }
-
       const newCheckOut = new Date(checkInDate);
       newCheckOut.setDate(newCheckOut.getDate() + daysToAdd);
       setCheckOutDate(newCheckOut);
     }
   }, [checkInDate, hostelPlan]);
-
   // FIXED: Auto-fill end date based on start date and plans (for tiffin weekly/monthly, if any)
   useEffect(() => {
     const periodicPlans = Object.values(tiffinPlans).filter(p => ['weekly', 'monthly'].includes(p));
@@ -559,7 +561,6 @@ export default function BookingScreen() {
       setEndDate(null); // Clear end date if no periodic plans
     }
   }, [date, tiffinPlans]);
-
   // Helper functions
   const toggleMealPreference = (num: number, meal: MealType) => {
     setTiffinMeals((prev) => ({
@@ -570,17 +571,14 @@ export default function BookingScreen() {
       }
     }));
   };
-
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
     if (selectedDate) setDate(selectedDate);
   };
-
   const onChangeEndDate = (event: any, selectedDate?: Date) => {
     setShowEndDatePicker(Platform.OS === "ios");
     if (selectedDate) setEndDate(selectedDate);
   };
-
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
     setShowCheckInPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -590,7 +588,6 @@ export default function BookingScreen() {
       // Auto-fill check-out will happen via useEffect
     }
   };
-
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
     setShowCheckOutPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -599,7 +596,6 @@ export default function BookingScreen() {
       setCheckOutDate(new Date(selectedDate));
     }
   };
-
   // NEW: Image picker functions for hostel uploads
   const pickAadhaarPhoto = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -607,38 +603,32 @@ export default function BookingScreen() {
       alert('Permission to access media library is required!');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 1,
     });
-
     if (!result.canceled) {
       setAadhaarPhoto(result.assets[0].uri);
       clearError('aadhaarPhoto');
     }
   };
-
   const pickUserPhoto = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       alert('Permission to access media library is required!');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 1,
     });
-
     if (!result.canceled) {
       setUserPhoto(result.assets[0].uri);
       clearError('userPhoto');
     }
   };
-
   // FIXED: Per-tiffin plan details fetch
   const handleGetPlanDetails = async (num: number) => {
     const selectedMeals = Object.entries(tiffinMeals[num] || {})
@@ -649,25 +639,20 @@ export default function BookingScreen() {
       setPlanErrors(prev => ({ ...prev, [num]: 'Please select at least one meal preference.' }));
       return;
     }
-
     let foodTypeStr = '';
     if (selectedfood === 'Veg') foodTypeStr = 'Veg';
     else if (selectedfood === 'Non-Veg') foodTypeStr = 'Non-Veg';
     else if (selectedfood === 'Both') foodTypeStr = 'Both Veg & Non-Veg';
-
     const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
-
     const token = await AsyncStorage.getItem("token");
     if (!token) {
       setPlanErrors(prev => ({ ...prev, [num]: 'Authentication required.' }));
       return;
     }
-
     if (!serviceData.serviceId) {
       setPlanErrors(prev => ({ ...prev, [num]: 'Service ID not available.' }));
       return;
     }
-
     setIsFetchingDetails(true);
     setPlanErrors(prev => ({ ...prev, [num]: '' }));
     try {
@@ -676,16 +661,12 @@ export default function BookingScreen() {
         foodType: foodTypeStr,
         orderType: orderTypeStr,
       });
-
       const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceData.serviceId}?${queryParams.toString()}`;
       console.log("🔗 Full API URL:", url);
-
       const response = await axios.get(url, {
         headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${token}` },
       });
-
       console.log(`📥 Response:`, JSON.stringify(response, null, 2));
-
       if (response.data.success) {
         const data = response.data.data;
         const newPricing = {
@@ -721,37 +702,30 @@ export default function BookingScreen() {
       setIsFetchingDetails(false);
     }
   };
-
   const handleBack = () => {
     router.back();
   };
-
 const handleTiffinSubmit = async () => {
   if (!validateTiffinForm()) {
     return;
   }
-
   try {
     const token = await AsyncStorage.getItem("token");
     if (!token) {
       setErrors(prev => ({ ...prev, general: "Authentication token is missing!" }));
       return;
     }
-
     if (!serviceData.serviceId) {
       setErrors(prev => ({ ...prev, general: "Service ID is missing!" }));
       return;
     }
-
     const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
-
     const foodTypeMap = {
       Veg: "Veg",
       "Non-Veg": "Non-Veg",
       Both: "Both"
     };
     const foodTypeStr = foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
-
     const planNameMap: Record<string, string> = {
       perBreakfast: "Per Breakfast",
       perLunch: "Per Lunch",
@@ -759,20 +733,16 @@ const handleTiffinSubmit = async () => {
       weekly: "Weekly",
       monthly: "Monthly"
     };
-
     const selectTiffinNumberArray = [];
-
     for (let i = 1; i <= 4; i++) {
       const selectedMealsForTiffin = Object.entries(tiffinMeals[i] || {})
         .filter(([_, checked]) => checked)
         .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-
-    
+  
       if (selectedMealsForTiffin.length > 0) {
         const plan = tiffinPlans[i];
         const planName = planNameMap[plan] || plan.charAt(0).toUpperCase() + plan.slice(1);
         const priceForThis = getBasePriceForPlan(i, plan);
-
         const tiffinObj = {
           tiffinNumber: i,
           foodType: foodTypeStr,
@@ -781,22 +751,18 @@ const handleTiffinSubmit = async () => {
             planName,
             price: priceForThis
           },
-          
+        
           mealType: selectedMealsForTiffin
         };
-
         selectTiffinNumberArray.push(tiffinObj);
       }
     }
-
     if (selectTiffinNumberArray.length === 0) {
       setErrors(prev => ({ ...prev, general: "Please fill meal preferences for at least one tiffin!" }));
       return;
     }
-
     const filledNumTiffins = selectTiffinNumberArray.length;
     const startDateISO = date ? new Date(date).toISOString() : '';
-
     const payload: any = {
       fullName,
       phoneNumber,
@@ -806,15 +772,12 @@ const handleTiffinSubmit = async () => {
       selectTiffinNumber: selectTiffinNumberArray,
       date: startDateISO,
     };
-
     const hasPeriodic = Object.values(tiffinPlans).some(p => ['weekly', 'monthly'].includes(p));
     if (hasPeriodic) {
       const endDateISO = endDate ? new Date(endDate).toISOString() : '';
       payload.endDate = endDateISO;
     }
-
     console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
-
     const response = await axios.post(
       `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
       payload,
@@ -825,13 +788,10 @@ const handleTiffinSubmit = async () => {
         },
       }
     );
-
     console.log("API Response:", response.data);
-
     if (response.data.success) {
       console.log("Tiffin booking successful:", response.data.data);
       const bookingId = response.data.data._id;
-
       router.push({
         pathname: "/check-out",
         params: {
@@ -868,7 +828,6 @@ const handleTiffinSubmit = async () => {
     }));
   }
 };
-
 // UPDATED: Handle hostel submit (add bed names to payload)
 // UPDATED: Handle hostel submit (add bed names to payload)
 const handleHostelSubmit = async () => {
@@ -884,10 +843,9 @@ const handleHostelSubmit = async () => {
   console.log("userPhoto:", userPhoto);
   console.log("rooms:", serviceData.rooms);
   console.log("bedNames:", bedNames);
-
   if (!validateHostelForm()) {
     // NEW: Auto-expand beds section if bed name errors are present for better UX
-    const allBedKeys = serviceData.rooms.flatMap(room => 
+    const allBedKeys = serviceData.rooms.flatMap(room =>
       room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
     );
     const hasMissingBedNames = allBedKeys.some(key => !bedNames[key]?.trim());
@@ -896,7 +854,6 @@ const handleHostelSubmit = async () => {
     }
     return;
   }
-
   setIsLoadingHostel(true);
   try {
     if (!serviceData.hostelId) {
@@ -905,27 +862,21 @@ const handleHostelSubmit = async () => {
       setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
       return;
     }
-
     // NEW: No need for single roomId validation
-
     if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
       console.error("Error: No rooms or beds selected!");
       setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
       return;
     }
-
     const token = await AsyncStorage.getItem("token");
     const guestId = await AsyncStorage.getItem("guestId");
-
     console.log("token:", token ? "Present" : "Missing");
     console.log("guestId:", guestId ? "Present" : "Missing");
-
     if (!token || !guestId) {
       console.error("Error: Authentication token or guest ID is missing!");
       setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
       return;
     }
-
     // FIXED: Use flat price and deposit for the plan (no per-bed division)
     const selectPlan = [
       {
@@ -934,7 +885,6 @@ const handleHostelSubmit = async () => {
         depositAmount: currentDeposit,
       },
     ];
-
     // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
     const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
       roomId: room.roomId,
@@ -945,7 +895,6 @@ const handleHostelSubmit = async () => {
         name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
       })),
     }));
-
     // Create FormData for file uploads
     const formData = new FormData();
     formData.append('fullName', fullName);
@@ -955,13 +904,10 @@ const handleHostelSubmit = async () => {
     formData.append('checkOutDate', checkOutDate.toISOString());
     formData.append('workType', purposeType);
     formData.append('guestId', guestId);
-
     // Append rooms as JSON string (now with names)
     formData.append('rooms', JSON.stringify(roomsPayload));
-
     // Append plan as JSON string
     formData.append('selectPlan', JSON.stringify(selectPlan));
-
     // Append images as files (if selected)
     if (aadhaarPhoto) {
       formData.append('addharCardPhoto', {
@@ -977,7 +923,6 @@ const handleHostelSubmit = async () => {
         name: 'user.jpg',
       } as any);
     }
-
     console.log("Full FormData Payload: (logged as object for debug)");
     console.log({
       fullName,
@@ -992,7 +937,6 @@ const handleHostelSubmit = async () => {
       aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
       userPhoto: userPhoto ? 'Attached' : 'Null',
     });
-
     // NEW: API URL uses only hostelId (remove roomId query param)
     const response = await axios.post(
       `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
@@ -1004,17 +948,12 @@ const handleHostelSubmit = async () => {
         },
       }
     );
-
     console.log("API Response:", response.data);
-
     if (response.data.success) {
       console.log("Booking successful:", response.data.data);
       // alert("Hostel booking created successfully!");
-
       const bookingId = response.data.data._id;
-
       console.log("Navigating to checkout with booking ID:", bookingId);
-
       router.push({
         pathname: "/check-out",
         params: {
@@ -1044,7 +983,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
     setFullName(text); // Sync back to primary fullName
   }
 };
-
   const Checkbox = ({
     checked,
     onPress,
@@ -1059,7 +997,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
       {checked && <Text style={styles.checkMark}>✓</Text>}
     </TouchableOpacity>
   );
-
   const RadioButton = ({
     label,
     value,
@@ -1078,20 +1015,17 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
       <Text style={styles.radioLabel}>{label}</Text>
     </TouchableOpacity>
   );
-
   // UPDATED: Helper to render selected rooms summary + bed names UI (flattened: no nested cards, use dividers)
   const renderBedNamesSection = () => {
     if (serviceData.rooms.length === 0) return null;
-
     // Find first bed for prefill logic
     const firstBedRoom = serviceData.rooms[0];
     const firstBed = firstBedRoom?.beds[0];
     const isFirstBed = (room: RoomData, bed: { bedId: string }) => room === firstBedRoom && bed.bedId === firstBed?.bedId;
-
     return (
       <View style={styles.bedNamesSection}>
-        <TouchableOpacity 
-          style={styles.sectionHeader} 
+        <TouchableOpacity
+          style={styles.sectionHeader}
           onPress={() => setExpandedTiffin(prev => prev === 0 ? null : 0)} // Reuse expandedTiffin as toggle (0 for beds)
         >
           <View style={styles.sectionHeaderContent}>
@@ -1151,7 +1085,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
       </View>
     );
   };
-
   // FIXED: Per-tiffin plan options
   const getPlanOptionsForNum = (num: number) => {
     const thisPricing = fetchedPricings[num];
@@ -1177,7 +1110,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
     }
     return options;
   };
-
   const renderHostelBooking = () => (
     <>
       <View style={styles.section}>
@@ -1185,10 +1117,8 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
         <Text style={styles.hostelName}>
           {serviceData.hostelName || "Scholars Den Boys Hostel"}
         </Text>
-
         {/* UPDATED: Render bed names UI instead of simple summary */}
         {renderBedNamesSection()}
-
         <Text style={styles.label}>Select Plan</Text>
         <View style={styles.pickerWrapper}>
           <RNPickerSelect
@@ -1211,9 +1141,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           </Text>
         </View>
       </View>
-
       {/* Personal Info */}
-
       <View style={styles.section}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image source={person} style={styles.icon} />
@@ -1254,7 +1182,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
         />
         {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
       </View>
-
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo *</Text>
         {aadhaarPhoto ? (
@@ -1280,7 +1207,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
         )}
         {errors.aadhaarPhoto && <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>}
       </View>
-
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Your Photo *</Text>
         {userPhoto ? (
@@ -1306,10 +1232,8 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
         )}
         {errors.userPhoto && <Text style={styles.errorText}>{errors.userPhoto}</Text>}
       </View>
-
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📅 Booking Details</Text>
-
         <Text style={styles.label}>Check-in date *</Text>
         <TouchableOpacity
           style={[styles.datePickerButton, errors.checkInDate && styles.inputError]}
@@ -1321,7 +1245,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
         {errors.checkInDate && <Text style={styles.errorText}>{errors.checkInDate}</Text>}
-
         <Text style={styles.label}>Check-out date *</Text>
         <TouchableOpacity
           style={[styles.datePickerButton, errors.checkOutDate && styles.inputError]}
@@ -1333,7 +1256,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
         {errors.checkOutDate && <Text style={styles.errorText}>{errors.checkOutDate}</Text>}
-
         {showCheckInPicker && (
           <DateTimePicker
             value={checkInDate || new Date()}
@@ -1343,7 +1265,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             minimumDate={new Date()}
           />
         )}
-
         {showCheckOutPicker && (
           <DateTimePicker
             value={checkOutDate || new Date(checkInDate || new Date())}
@@ -1353,7 +1274,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             minimumDate={checkInDate || new Date()}
           />
         )}
-
         <Text style={[styles.label, { marginTop: 15 }]}>
           Special Instructions (Optional)
         </Text>
@@ -1364,7 +1284,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           value={message}
           onChangeText={setMessage}
         />
-
         <View style={styles.section}>
           <Text style={styles.label}>User Stay Type</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-around", marginTop: 10 }}>
@@ -1378,7 +1297,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
               </View>
               <Text style={styles.radioLabel}>Work</Text>
             </TouchableOpacity>
-
             {/* Leisure */}
             <TouchableOpacity
               style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
@@ -1389,7 +1307,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
               </View>
               <Text style={styles.radioLabel}>Leisure</Text>
             </TouchableOpacity>
-
             {/* Student */}
             <TouchableOpacity
               style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
@@ -1402,12 +1319,9 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             </TouchableOpacity>
           </View>
         </View>
-
       </View>
-
       {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
       {errors.rooms && <Text style={styles.errorText}>{errors.rooms}</Text>}
-
       <TouchableOpacity
         style={[styles.submitButton, isLoadingHostel && styles.disabledButton]}
         onPress={handleHostelSubmit}
@@ -1421,7 +1335,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
       </TouchableOpacity>
     </>
   );
-
   // Hardcoded plan options for fallback
   const hardcodedPlanOptions = [
     { label: "Per Breakfast (₹120 / per breakfast)", value: "perBreakfast" },
@@ -1430,7 +1343,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
     { label: "Weekly (₹800/weekly) save 15%", value: "weekly" },
     { label: "Monthly (₹3200/monthly) save 15%", value: "monthly" },
   ];
-
   const renderTiffinBooking = () => {
     const hasPeriodic = Object.values(tiffinPlans).some(p => ['weekly', 'monthly'].includes(p));
     return (
@@ -1470,7 +1382,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           />
           {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
         </View>
-
         <View style={styles.section}>
           <View style={{ flexDirection: "row" }}>
             <Image source={location1} style={styles.icon} />
@@ -1509,7 +1420,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             editable={orderType === "delivery"}
           />
         </View>
-
         <View style={styles.section}>
           <View style={{ flexDirection: "row" }}>
             <Image source={calender} style={styles.icon} />
@@ -1659,7 +1569,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                         </Text>
                       )}
                       {num === 1 && errors.mealPreferences && <Text style={styles.errorText}>{errors.mealPreferences}</Text>}
-                      
+                    
                       {/* FIXED: Other options now shown for ALL tiffins (global state, but visible everywhere) */}
                       <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Food Type</Text>
                       <RadioButton
@@ -1690,7 +1600,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                         }}
                       />
                       {errors.selectedfood && <Text style={styles.errorText}>{errors.selectedfood}</Text>}
-
                       <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Choose Order Type</Text>
                       {["dining", "delivery"].map((type) => (
                         <View style={styles.checkboxRow} key={type}>
@@ -1708,7 +1617,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                           </Text>
                         </View>
                       ))}
-
                       <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Get Plan Details</Text>
                       <TouchableOpacity
                         style={[
@@ -1729,7 +1637,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                       ) : fetchedPricings[num].offers ? (
                         <Text style={styles.offersText}>{fetchedPricings[num].offers}</Text>
                       ) : null}
-
                       <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Choose Plan Type</Text>
                       {getPlanOptionsForNum(num).map((option) => (
                         <RadioButton
@@ -1744,7 +1651,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                         />
                       ))}
                       {errors[`plan${num}`] && <Text style={styles.errorText}>{errors[`plan${num}`]}</Text>}
-
                       {/* FIXED: Show per-tiffin price under each tiffin (dynamic) */}
                       {tiffinPlans[num] && (
                         <View style={styles.priceContainer}>
@@ -1756,7 +1662,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                           </Text>
                         </View>
                       )}
-
                       <Text style={styles.label}>Select Start Date *</Text>
                       <TouchableOpacity
                         style={[styles.datePickerButton, errors.date && styles.inputError]}
@@ -1777,7 +1682,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                           minimumDate={new Date()}
                         />
                       )}
-
                       {hasPeriodic && (
                         <>
                           <Text style={styles.label}>Select End Date *</Text>
@@ -1821,7 +1725,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
       </>
     );
   };
-
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -1838,7 +1741,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#fff",
@@ -1954,7 +1856,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
   },
-
   datePickerButton: {
     borderWidth: 1,
     borderColor: "#aaa",
@@ -1994,7 +1895,6 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-
   hostelName: {
     fontSize: 18,
     fontWeight: "600",
