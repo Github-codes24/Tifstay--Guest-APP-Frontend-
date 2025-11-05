@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { AppStateProvider } from "../context/AppStateProvider";
 import { FavoritesProvider } from "../context/FavoritesContext";
 import { useAuthStore } from "@/store/authStore";
+import CustomToast from "@/components/CustomToast";
 
 const Navigation = () => {
   const { isAuthenticated } = useAuthStore();
@@ -20,6 +21,7 @@ export default function RootLayout() {
     <AppStateProvider>
       <FavoritesProvider>
         <Navigation />
+        <CustomToast />
       </FavoritesProvider>
     </AppStateProvider>
   );

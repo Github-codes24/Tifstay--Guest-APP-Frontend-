@@ -117,6 +117,8 @@ export default function DashboardScreen() {
   const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
   const [isLoadingPlanTypes, setIsLoadingPlanTypes] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [searchVisibleCount, setSearchVisibleCount] = useState(10);
   const hostelTypeOptions = useMemo(() => ["All", ...hostelTypes], [hostelTypes]);
   const areaOptions = useMemo(() => ["All", ...cities], [cities]);
   const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
@@ -700,6 +702,15 @@ export default function DashboardScreen() {
       }
     }
   }, [isHostel, appliedFilters.cost, appliedFilters.rating, vegFilter, isSearchFocused, searchQuery]);
+  // --- Reset visible count on mode/filter/search changes ---
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [isHostel, appliedFilters, searchQuery, isSearchFocused]);
+  useEffect(() => {
+    if (isSearchFocused && searchQuery) {
+      setSearchVisibleCount(10);
+    }
+  }, [isSearchFocused, searchQuery]);
   // --- Unified Search Debounce Effect (FIX: Combined for both modes to avoid duplication) ---
   useEffect(() => {
     if (!isSearchFocused || !searchQuery.trim()) {
@@ -916,6 +927,27 @@ export default function DashboardScreen() {
     return filtered;
   }, [allHostels, searchedHostels, searchQuery, isSearchFocused, hostelType, area, maxRent, appliedFilters]);
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
+  const visibleItems = useMemo(() => displayedItems.slice(0, visibleCount), [displayedItems, visibleCount]);
+  const searchVisibleItems = useMemo(() => {
+    if (isHostel) {
+      return searchedHostels.slice(0, searchVisibleCount);
+    } else {
+      return filteredTiffinServices.slice(0, searchVisibleCount);
+    }
+  }, [isHostel, searchedHostels, filteredTiffinServices, searchVisibleCount]);
+  const handleLoadMore = useCallback(() => {
+    const increment = 10;
+    if (visibleCount < displayedItems.length) {
+      setVisibleCount(prev => Math.min(prev + increment, displayedItems.length));
+    }
+  }, [visibleCount, displayedItems.length]);
+  const handleLoadMoreSearch = useCallback(() => {
+    const increment = 10;
+    const currentData = isHostel ? searchedHostels : filteredTiffinServices;
+    if (searchVisibleCount < currentData.length) {
+      setSearchVisibleCount(prev => Math.min(prev + increment, currentData.length));
+    }
+  }, [searchVisibleCount, isHostel, searchedHostels, filteredTiffinServices]);
   // --- Handlers --- (unchanged)
   const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
@@ -1091,11 +1123,13 @@ export default function DashboardScreen() {
             ) : isHostel ? (
               searchedHostels.length > 0 ? (
                 <FlatList
-                  data={searchedHostels}
+                  data={searchVisibleItems}
                   renderItem={renderHostelItem}
                   keyExtractor={keyExtractor}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ paddingBottom: 20 }}
+                  onEndReached={handleLoadMoreSearch}
+                  onEndReachedThreshold={0.5}
                   refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                   }
@@ -1111,11 +1145,13 @@ export default function DashboardScreen() {
               )
             ) : filteredTiffinServices.length > 0 ? (
               <FlatList
-                data={filteredTiffinServices}
+                data={searchVisibleItems}
                 renderItem={renderTiffinItem}
                 keyExtractor={keyExtractor}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
+                onEndReached={handleLoadMoreSearch}
+                onEndReachedThreshold={0.5}
                 refreshControl={
                   <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                 }
@@ -1308,11 +1344,13 @@ export default function DashboardScreen() {
             </View>
           ) : displayedItems.length > 0 ? (
             <FlatList
-              data={displayedItems}
+              data={visibleItems}
               renderItem={isHostel ? renderHostelItem : renderTiffinItem}
               keyExtractor={keyExtractor}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 20 }}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.5}
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
               }
@@ -1399,10 +1437,12 @@ export default function DashboardScreen() {
         </View>
       </SafeAreaView>
       <FlatList
-        data={displayedItems}
+        data={visibleItems}
         renderItem={isHostel ? renderHostelItem : renderTiffinItem}
         keyExtractor={keyExtractor}
         showsVerticalScrollIndicator={false}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }

@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import colors from "@/constants/colors";
-import mapBanner from "@/assets/images/image/mapBanner.png";
+// import mapBanner from "@/assets/images/image/mapBanner.png";
 import Buttons from "@/components/Buttons";
 import Dropdown from "@/components/Dropdown";
 
@@ -191,20 +191,18 @@ const FilterModal: React.FC<FilterModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        <View style={styles.mapContainer}>
-          <Image style={styles.mapImage} source={mapBanner} resizeMode="cover" />
-          <View style={[styles.headerSafeArea, { paddingTop: top }]}>
-            <View style={styles.headerContainer}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <TouchableOpacity style={styles.backButton} onPress={onClose}>
-                  <Ionicons name="chevron-back" size={24} color="#000" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Filter</Text>
-              </View>
-              <TouchableOpacity onPress={handleReset}>
-                <Text style={styles.resetText}>Reset</Text>
+        {/* Header directly in container */}
+        <View style={[styles.headerSafeArea, { paddingTop: top }]}>
+          <View style={styles.headerContainer}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity style={styles.backButton} onPress={onClose}>
+                <Ionicons name="chevron-back" size={24} color="#000" />
               </TouchableOpacity>
+              <Text style={styles.headerTitle}>Filter</Text>
             </View>
+            <TouchableOpacity onPress={handleReset}>
+              <Text style={styles.resetText}>Reset</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -536,14 +534,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  mapImage: {
-    ...StyleSheet.absoluteFillObject,
+  // mapImage: {
+  //   ...StyleSheet.absoluteFillObject,
+  // },
+  // mapContainer: {
+  //   width: screenWidth,
+  //   height: 337,
+  // },
+  headerSafeArea: {
+    backgroundColor: "#fff",
   },
-  mapContainer: {
-    width: screenWidth,
-    height: 337,
-  },
-  headerSafeArea: {},
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",

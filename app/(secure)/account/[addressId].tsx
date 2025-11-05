@@ -11,12 +11,12 @@ import {
     TouchableOpacity,
     StyleSheet,
     ActivityIndicator,
-    Alert,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import Toast from "react-native-toast-message";
 
 const AddressScreen = () => {
     const { addressId } = useLocalSearchParams(); // Get addressId from route
@@ -25,23 +25,27 @@ const AddressScreen = () => {
     const [street, setStreet] = useState("");
     const [postCode, setPostCode] = useState("");
     const [loading, setLoading] = useState(true);
-
     useEffect(() => {
         if (addressId) fetchAddressById();
         else setLoading(false);
     }, [addressId]);
-
     // Fetch address by ID
     const fetchAddressById = async () => {
         try {
             const token = await AsyncStorage.getItem("token");
-            if (!token) return Alert.alert("Error", "No token found!");
-
+            if (!token) {
+                Toast.show({
+                    type: "error",
+                    text1: "Error",
+                    text2: "No token found!",
+                });
+                setLoading(false);
+                return;
+            }
             const response = await axios.get(
                 `https://tifstay-project-be.onrender.com/api/guest/address/getAddress/${addressId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
             if (response.data.success) {
                 const data = response.data.data.address;
                 setAddress(data.address);
@@ -49,23 +53,43 @@ const AddressScreen = () => {
                 setPostCode(data.postCode);
                 setIsHome(data.label === "Home");
             } else {
-                Alert.alert("Error", "Failed to fetch address");
+                Toast.show({
+                    type: "error",
+                    text1: "Error",
+                    text2: "Failed to fetch address",
+                });
             }
         } catch (error) {
             console.log(error);
-            Alert.alert("Error", "Failed to fetch address");
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "Failed to fetch address",
+            });
         } finally {
             setLoading(false);
         }
     };
-
     // Update address by ID
     const updateAddress = async () => {
-        if (!address || !street || !postCode) return Alert.alert("Error", "All fields are required!");
+        if (!address || !street || !postCode) {
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "All fields are required!",
+            });
+            return;
+        }
         try {
             const token = await AsyncStorage.getItem("token");
-            if (!token) return Alert.alert("Error", "No token found!");
-
+            if (!token) {
+                Toast.show({
+                    type: "error",
+                    text1: "Error",
+                    text2: "No token found!",
+                });
+                return;
+            }
             const response = await axios.put(
                 `https://tifstay-project-be.onrender.com/api/guest/address/editAddress/${addressId}`,
                 {
@@ -76,20 +100,29 @@ const AddressScreen = () => {
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
             if (response.data.success) {
-                Alert.alert("Success", "Address updated successfully", [
-                    { text: "OK", onPress: () => router.back() },
-                ]);
+                Toast.show({
+                    type: "success",
+                    text1: "Success",
+                    text2: "Address updated successfully",
+                });
+                router.back();
             } else {
-                Alert.alert("Error", "Failed to update address");
+                Toast.show({
+                    type: "error",
+                    text1: "Error",
+                    text2: "Failed to update address",
+                });
             }
         } catch (error) {
             console.log(error);
-            Alert.alert("Error", "Failed to update address");
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "Failed to update address",
+            });
         }
     };
-
     if (loading) {
         return (
             <SafeAreaView style={[styles.safeArea, { justifyContent: "center", alignItems: "center" }]}>
@@ -97,7 +130,6 @@ const AddressScreen = () => {
             </SafeAreaView>
         );
     }
-
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
@@ -118,7 +150,6 @@ const AddressScreen = () => {
                     <Image source={require('../../../assets/images/basil.png')} style={{ height: 20, width: 20, marginLeft: 12 }} />
                     <Text style={{ fontSize: 14, fontWeight: "400", color: colors.primary }}>Use my current location</Text>
                 </View>
-
                 <LabeledInput
                     label="Address"
                     containerStyle={styles.inputMargin}
@@ -128,7 +159,6 @@ const AddressScreen = () => {
                     multiline
                     labelStyle={styles.label}
                 />
-
                 <View style={styles.row}>
                     <LabeledInput
                         label="Street"
@@ -149,7 +179,6 @@ const AddressScreen = () => {
                         labelStyle={styles.label}
                     />
                 </View>
-
                 <View style={styles.labelSection}>
                     <Text style={styles.labelTitle}>Label as</Text>
                     <View style={styles.labelRow}>
@@ -178,9 +207,7 @@ const AddressScreen = () => {
         </SafeAreaView>
     );
 };
-
 export default AddressScreen;
-
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,

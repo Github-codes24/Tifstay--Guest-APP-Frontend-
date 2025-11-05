@@ -10,34 +10,36 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
+import CustomToast from "@/components/CustomToast"; // Adjust the import path as needed for your CustomToast component
 
 const AddressScreen = () => {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigation = useRouter();
-
   const fetchAddresses = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert("Error", "No token found!");
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "No token found!",
+        });
         setLoading(false);
         return;
       }
-
       const response = await axios.get(
         "https://tifstay-project-be.onrender.com/api/guest/address/getAllAddresses",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       if (response.data.success) {
         setAddresses(response.data.data.addresses || []);
       } else {
@@ -45,54 +47,60 @@ const AddressScreen = () => {
       }
     } catch (error) {
       console.log("Error fetching addresses:", error);
-      Alert.alert("Error", "Failed to fetch addresses");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to fetch addresses",
+      });
     } finally {
       setLoading(false);
     }
   };
-
   useFocusEffect(
     useCallback(() => {
       fetchAddresses();
     }, [])
   );
-
   const deleteAddress = async (addressId) => {
-    Alert.alert("Confirm Delete", "Are you sure you want to delete this address?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem("token");
-            if (!token) {
-              Alert.alert("Error", "No token found!");
-              return;
-            }
-
-            const response = await axios.delete(
-              `https://tifstay-project-be.onrender.com/api/guest/address/deleteAddress/${addressId}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            );
-
-            if (response.data.success) {
-              Alert.alert("Success", "Address deleted successfully");
-              fetchAddresses();
-            } else {
-              Alert.alert("Error", "Failed to delete address");
-            }
-          } catch (error) {
-            console.log("Error deleting address:", error);
-            Alert.alert("Error", "Failed to delete address");
-          }
-        },
-      },
-    ]);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "No token found!",
+        });
+        return;
+      }
+      const response = await axios.delete(
+        `https://tifstay-project-be.onrender.com/api/guest/address/deleteAddress/${addressId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (response.data.success) {
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: "Address deleted successfully",
+        });
+        fetchAddresses();
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Failed to delete address",
+        });
+      }
+    } catch (error) {
+      console.log("Error deleting address:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to delete address",
+      });
+    }
   };
-
   const renderAddress = ({ item }) => (
     <View style={styles.card}>
       <Image
@@ -114,7 +122,6 @@ const AddressScreen = () => {
             resizeMode="contain"
           />
         </TouchableOpacity>
-
         <TouchableOpacity onPress={() => deleteAddress(item._id)}>
           <Image
             source={require("../../../assets/images/delete.png")}
@@ -125,17 +132,6 @@ const AddressScreen = () => {
       </View>
     </View>
   );
-
-  if (loading) {
-    return (
-      <SafeAreaView
-        style={[styles.container, { justifyContent: "center", alignItems: "center" }]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -145,22 +141,46 @@ const AddressScreen = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Address</Text>
       </View>
-
-      <Text style={styles.locationLabel}>Location</Text>
-
-      {addresses.length > 0 ? (
-        <FlatList
-          data={addresses}
-          keyExtractor={(item) => item._id}
-          renderItem={renderAddress}
-          ListFooterComponent={() => (
-            <>
-              <Text style={{ textAlign: "center", paddingVertical: 8, color: "#A5A5A5" }}>
-                or
-              </Text>
-              {/* Always show add new address */}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <>
+          <Text style={styles.locationLabel}>Location</Text>
+          {addresses.length > 0 ? (
+            <FlatList
+              data={addresses}
+              keyExtractor={(item) => item._id}
+              renderItem={renderAddress}
+              ListFooterComponent={() => (
+                <>
+                  <Text style={{ textAlign: "center", paddingVertical: 8, color: "#A5A5A5" }}>
+                    or
+                  </Text>
+                  {/* Always show add new address */}
+                  <TouchableOpacity
+                    style={styles.addCard}
+                    onPress={() => navigation.push("/(secure)/account/addAddress")}
+                  >
+                    <Image
+                      source={require("../../../assets/images/add.png")}
+                      style={styles.image}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.textContainer}>
+                      <Text style={styles.title}>Add a new address</Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
+            />
+          ) : (
+            <View style={{ marginTop: 20 }}>
+              <Text style={{ textAlign: "center", color: "#A5A5A5" }}>No addresses found.</Text>
+              {/* Add button even if no address */}
               <TouchableOpacity
-                style={styles.addCard}
+                style={[styles.addCard, { marginTop: 20 }]}
                 onPress={() => navigation.push("/(secure)/account/addAddress")}
               >
                 <Image
@@ -172,35 +192,15 @@ const AddressScreen = () => {
                   <Text style={styles.title}>Add a new address</Text>
                 </View>
               </TouchableOpacity>
-            </>
-          )}
-        />
-      ) : (
-        <View style={{ marginTop: 20 }}>
-          <Text style={{ textAlign: "center", color: "#A5A5A5" }}>No addresses found.</Text>
-
-          {/* Add button even if no address */}
-          <TouchableOpacity
-            style={[styles.addCard, { marginTop: 20 }]}
-            onPress={() => navigation.push("/(secure)/account/addAddress")}
-          >
-            <Image
-              source={require("../../../assets/images/add.png")}
-              style={styles.image}
-              resizeMode="contain"
-            />
-            <View style={styles.textContainer}>
-              <Text style={styles.title}>Add a new address</Text>
             </View>
-          </TouchableOpacity>
-        </View>
+          )}
+        </>
       )}
+      <CustomToast />
     </SafeAreaView>
   );
 };
-
 export default AddressScreen;
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   locationLabel: { marginHorizontal: 16, fontSize: 14 },

@@ -10,12 +10,12 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 
 const AddAddressScreen = () => {
   const [isHome, setIsHome] = useState(true);
@@ -26,15 +26,23 @@ const AddAddressScreen = () => {
 
   const saveAddress = async () => {
     if (!address || !street || !postCode) {
-      Alert.alert("Error", "Please fill all fields");
+      Toast.show({
+        type: "error",
+        text1: "Missing Fields",
+        text2: "Please fill all fields before saving.",
+      });
       return;
     }
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token"); // get token from AsyncStorage
+      const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert("Error", "User not logged in");
+        Toast.show({
+          type: "error",
+          text1: "Authentication Error",
+          text2: "User not logged in.",
+        });
         setLoading(false);
         return;
       }
@@ -54,17 +62,29 @@ const AddAddressScreen = () => {
         }
       );
 
-      console.log("API Response:", response.data); // log full response
+      console.log("API Response:", response.data);
 
       if (response.data.success) {
-        Alert.alert("Success", response.data.message || "Address added successfully ✅");
+        Toast.show({
+          type: "success",
+          text1: "Address Added",
+          text2: response.data.message || "Your address was added successfully.",
+        });
         router.back();
       } else {
-        Alert.alert("Error", response.data.message || "Something went wrong ❌");
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: response.data.message || "Something went wrong.",
+        });
       }
     } catch (error) {
       console.log("Error response:", error.response?.data || error.message);
-      Alert.alert("Error", error.response?.data?.message || "Failed to add address ❌");
+      Toast.show({
+        type: "error",
+        text1: "Request Failed",
+        text2: error.response?.data?.message || "Failed to add address.",
+      });
     } finally {
       setLoading(false);
     }
@@ -137,24 +157,62 @@ const AddAddressScreen = () => {
         <View style={styles.labelSection}>
           <Text style={styles.labelTitle}>Label as</Text>
           <View style={styles.labelRow}>
+            {/* Home */}
             <TouchableOpacity
+              style={styles.iconContainer}
               onPress={() => setIsHome(true)}
-              style={[styles.iconWrapper, isHome ? styles.activeBg : styles.inactiveBg]}
             >
-              <Image
-                source={require("../../../assets/images/home1.png")}
-                style={[styles.icon, { tintColor: isHome ? colors.white : colors.primary }]}
-              />
+              <View
+                style={[
+                  styles.iconWrapper,
+                  isHome ? styles.activeBg : styles.inactiveBg,
+                ]}
+              >
+                <Image
+                  source={require("../../../assets/images/home1.png")}
+                  style={[
+                    styles.icon,
+                    { tintColor: isHome ? colors.white : colors.primary },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.iconLabel,
+                  { color: isHome ? colors.primary : colors.title },
+                ]}
+              >
+                Home
+              </Text>
             </TouchableOpacity>
 
+            {/* Work */}
             <TouchableOpacity
+              style={styles.iconContainer}
               onPress={() => setIsHome(false)}
-              style={[styles.iconWrapper, !isHome ? styles.activeBg : styles.inactiveBg]}
             >
-              <Image
-                source={require("../../../assets/images/work.png")}
-                style={[styles.icon, { tintColor: !isHome ? colors.white : colors.primary }]}
-              />
+              <View
+                style={[
+                  styles.iconWrapper,
+                  !isHome ? styles.activeBg : styles.inactiveBg,
+                ]}
+              >
+                <Image
+                  source={require("../../../assets/images/work.png")}
+                  style={[
+                    styles.icon,
+                    { tintColor: !isHome ? colors.white : colors.primary },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.iconLabel,
+                  { color: !isHome ? colors.primary : colors.title },
+                ]}
+              >
+                Work
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -198,12 +256,40 @@ const styles = StyleSheet.create({
   flexInput: { flex: 1 },
   labelSection: { marginTop: 24, paddingHorizontal: 16 },
   labelTitle: { fontSize: 14, marginBottom: 8, color: colors.title },
-  labelRow: { flexDirection: "row", gap: 12 },
-  iconWrapper: { height: 52, width: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    gap: 32,
+  },
+  iconContainer: {
+    alignItems: "center",
+  },
+  iconWrapper: {
+    height: 50,
+    width: 50,
+    borderRadius: 35, // ✅ perfect circle
+    alignItems: "center",
+    justifyContent: "center",
+  },
   activeBg: { backgroundColor: colors.primary },
   inactiveBg: { backgroundColor: colors.inputColor },
-  icon: { height: 24, width: 24 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
-  backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
+  icon: { height: 28, width: 28 },
+  iconLabel: { fontSize: 14, fontWeight: "500", marginTop: 6 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.title,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
 });
