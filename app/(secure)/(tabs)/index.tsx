@@ -31,6 +31,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { hostellogo, tiffinlogo } from "@/assets/images";
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
+import { BackHandler } from 'react-native';
 interface Hostel {
   id: string;
   name: string;
@@ -154,7 +155,7 @@ export default function DashboardScreen() {
     }
   };
   // --- Add Favorite Tiffin Service API (returns full result for toggle) ---
-  const addTiffinFavoriteAPI = async (tiffinId: string): Promise<{success: boolean; message: string}> => {
+  const addTiffinFavoriteAPI = async (tiffinId: string): Promise<{ success: boolean; message: string }> => {
     console.log("Adding tiffin favorite API called for ID:", tiffinId);
     const token = await getAuthToken();
     if (!token) {
@@ -183,7 +184,7 @@ export default function DashboardScreen() {
     }
   };
   // --- Add Favorite Hostel Service API (returns full result for toggle) ---
-  const addHostelFavoriteAPI = async (hostelId: string): Promise<{success: boolean; message: string}> => {
+  const addHostelFavoriteAPI = async (hostelId: string): Promise<{ success: boolean; message: string }> => {
     console.log("Adding hostel favorite API called for ID:", hostelId);
     const token = await getAuthToken();
     if (!token) {
@@ -683,6 +684,18 @@ export default function DashboardScreen() {
       isMounted = false;
     };
   }, [isHostel]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isSearchFocused) {
+        handleSearchBack();  // Call your existing back handler
+        return true;  // "true" = "I handled it, don't exit app"
+      }
+      return false;  // Let normal back happen elsewhere
+    });
+
+    return () => backHandler.remove();  // Cleanup when unmount
+  }, [isSearchFocused]);  // Re-run if search mode changes
   // --- Fetch tiffin data when switching to tiffin mode ---
   useEffect(() => {
     if (!isHostel) {
@@ -995,23 +1008,23 @@ export default function DashboardScreen() {
     });
   };
   const handleBookPress = (item: Hostel | TiffinService) => {
-  if ("amenities" in item) {
-    router.push({
-      pathname: "/hostel-details/[id]",
-      params: { id: item.id, type: "hostel" },
-    });
-  } else {
-    // For tiffin, navigate to details (or handle booking logic)
-    router.push({
-      pathname: "/tiffin-details/[id]",
-      params: {
-        id: item.id,
-        type: "tiffin",
-        fullServiceData: JSON.stringify(item)
-      },
-    });
-  }
-};
+    if ("amenities" in item) {
+      router.push({
+        pathname: "/hostel-details/[id]",
+        params: { id: item.id, type: "hostel" },
+      });
+    } else {
+      // For tiffin, navigate to details (or handle booking logic)
+      router.push({
+        pathname: "/tiffin-details/[id]",
+        params: {
+          id: item.id,
+          type: "tiffin",
+          fullServiceData: JSON.stringify(item)
+        },
+      });
+    }
+  };
   const handleClearSearch = () => setSearchQuery("");
   const handleProfilePress = () => router.push("/account");
   const handleSearchBack = () => {
@@ -1324,7 +1337,7 @@ export default function DashboardScreen() {
                         opacity: vegToggleAnimated,
                         transform: [
                           {
-                            scale: vegToggleAnimated.interpolate({ inputRange: [0,1], outputRange: [0.8, 1] }),
+                            scale: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
                           }
                         ],
                       }
@@ -1638,7 +1651,7 @@ export default function DashboardScreen() {
                               opacity: vegToggleAnimated,
                               transform: [
                                 {
-                                  scale: vegToggleAnimated.interpolate({ inputRange: [0,1], outputRange: [0.8, 1] }),
+                                  scale: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
                                 }
                               ],
                             },

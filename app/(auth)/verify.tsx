@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   View,
   TextInput,
-  Alert,
+  Image,
+  Dimensions,
+  Keyboard,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/store/authStore";
@@ -15,6 +17,10 @@ import CustomButton from "../../components/CustomButton";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
 import axios from "axios";
+import Toast from "react-native-toast-message";
+import CustomToast from "../../components/CustomToast";
+
+const { width, height } = Dimensions.get("window");
 
 export default function VerifyScreen() {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -49,62 +55,88 @@ export default function VerifyScreen() {
     if (!value && index > 0) inputRefs.current[index - 1]?.focus();
   };
 
-const handleVerifyOTP = async () => {
-  const otpCode = otp.join("");
-  if (otpCode.length !== 4) {
-    Alert.alert("Invalid OTP", "Please enter a 4-digit OTP");
-    return;
-  }
-  try {
-    const response = await axios.post(
-      "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
-      { phoneNumber, otp: otpCode }
-    );
-
-    if (response.data.success) {
-      const token = response.data.token; // JWT token
-      const guest = response.data.data.guest; // guest object
-      const guestId = guest._id;
-
-      console.log("User Token:", token);
-      console.log("Guest Info:", { name: guest.name, phoneNumber: guest.phoneNumber });
-
-      // Save in AsyncStorage
-      await AsyncStorage.setItem("token", token);
-      await AsyncStorage.setItem("guestId", guestId);
-      await AsyncStorage.setItem("userProfile", JSON.stringify({ guest }));
-
-      // Save in Zustand store
-      login(response.data.data, token);
-
-      router.replace("/(secure)/(tabs)");
-    } else {
-      Alert.alert(
-        "Failed",
-        response.data.message || "OTP verification failed"
-      );
+  const handleVerifyOTP = async () => {
+    Keyboard.dismiss();
+    const otpCode = otp.join("");
+    if (otpCode.length !== 4) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid OTP",
+        text2: "Please enter a 4-digit OTP.",
+      });
+      return;
     }
-  } catch (error: any) {
-    Alert.alert(
-      "Error",
-      error?.response?.data?.message || "Something went wrong"
-    );
-  }
-};
+    try {
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
+        { phoneNumber, otp: otpCode }
+      );
 
+      if (response.data.success) {
+        const token = response.data.token;
+        const guest = response.data.data.guest;
+        const guestId = guest._id;
+
+        await AsyncStorage.setItem("token", token);
+        await AsyncStorage.setItem("guestId", guestId);
+        await AsyncStorage.setItem("userProfile", JSON.stringify({ guest }));
+        login(response.data.data, token);
+
+        Toast.show({
+          type: "success",
+          text1: "OTP Verified",
+          text2: "Login successful! Redirecting...",
+        });
+
+        setTimeout(() => {
+          router.replace("/(secure)/(tabs)");
+        }, 2000);
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Verification Failed",
+          text2: response.data.message || "Invalid OTP. Please try again.",
+        });
+      }
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error?.response?.data?.message || "Something went wrong.",
+      });
+    }
+  };
 
   const handleResend = () => {
     if (isResendDisabled) return;
     setOtp(["", "", "", ""]);
     setTimer(30);
     setIsResendDisabled(true);
+    Toast.show({
+      type: "info",
+      text1: "OTP Resent",
+      text2: "A new OTP has been sent to your number.",
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      {/* 🔹 Top Background Image */}
+      <View style={styles.imageWrapper}>
+        <Image
+          source={require("../../assets/images/loginlogo.png")}
+          style={styles.topImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* 🔹 Bottom White Card Section */}
+      <View style={styles.bottomCard}>
         <Logo showText={false} />
-        <Text style={styles.title}>Verify OTP</Text>
+        <Text style={styles.title}>Verify Your OTP</Text>
+        <Text style={styles.subtitle}>Enter the 4-digit code sent to your number</Text>
+
+        {/* 🔹 OTP Inputs */}
         <View style={styles.otpContainer}>
           {otp.map((digit, index) => (
             <TextInput
@@ -121,8 +153,10 @@ const handleVerifyOTP = async () => {
             />
           ))}
         </View>
+
+        {/* 🔹 Resend OTP Section */}
         <View style={styles.resendContainer}>
-          <Text style={styles.resendPrompt}>Didn't receive the code?</Text>
+          <Text style={styles.resendPrompt}>Didn’t receive the code?</Text>
           {isResendDisabled ? (
             <Text style={styles.timerText}> Resend in {timer}s</Text>
           ) : (
@@ -131,23 +165,63 @@ const handleVerifyOTP = async () => {
             </TouchableOpacity>
           )}
         </View>
-        <CustomButton title="Verify" onPress={handleVerifyOTP} />
+
+        {/* 🔹 Verify Button */}
+        <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
       </View>
+
+      {/* 🔹 Custom Toast */}
+      <CustomToast />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.white },
-  container: { flex: 1, paddingHorizontal: 24, backgroundColor: colors.white },
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  imageWrapper: {
+    height: height * 0.35,
+    width: "100%",
+  },
+  topImage: {
+    width: "100%",
+    height: "100%",
+  },
+  bottomCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: -2 },
+  },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 10,
+    marginTop: 16,
     color: colors.textPrimary,
   },
-  otpContainer: { flexDirection: "row", justifyContent: "center", marginBottom: 24, gap: 12 },
+  subtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    color: colors.textSecondary,
+    marginBottom: 20,
+  },
+  otpContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 24,
+    gap: 12,
+  },
   otpInput: {
     width: 60,
     height: 60,
@@ -158,10 +232,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     color: colors.textPrimary,
-    backgroundColor: "#EDEDED",
+    backgroundColor: "#F2F2F2",
   },
-  resendContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 12 },
-  resendPrompt: { fontSize: 14, fontWeight: "500", color: "#333333" },
-  resendText: { fontSize: 14, color: "#FF6B00", fontWeight: "500" },
-  timerText: { fontSize: 14, color: colors.textSecondary, marginLeft: 4 },
+  resendContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  resendPrompt: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333333",
+  },
+  resendText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  timerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 4,
+  },
 });

@@ -6,42 +6,44 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Alert,
+  Image,
+  Dimensions,
+  Keyboard,
 } from "react-native";
 import axios from "axios";
+import Toast from "react-native-toast-message";
 import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
+import CustomToast from "../../components/CustomToast"; // ✅ make sure path matches your structure
+
+const { width, height } = Dimensions.get("window");
 
 export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
 
-  const phoneRegex = {
-    tenDigits: /^[0-9]{10}$/,
-    indianMobile: /^[6-9][0-9]{9}$/,
-    usFormat: /^($[0-9]{3}$|[0-9]{3})[-\s]?[0-9]{3}[-\s]?[0-9]{4}$/,
-    international:
-      /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,4}$/,
-  };
+  const phoneRegex = /^[0-9]{10}$/;
 
-  const validatePhoneNumber = (phoneNum: string) => {
-    const digitsOnly = phoneNum.replace(/\D/g, "");
-    return phoneRegex.tenDigits.test(digitsOnly);
+  const handlePhoneNumberChange = (inputText: string) => {
+    const digitsOnly = inputText.replace(/[^0-9]/g, "").substring(0, 10);
+    setPhoneNumber(digitsOnly);
+    setError("");
   };
 
   const handleGetOTP = async () => {
-    if (!validatePhoneNumber(phoneNumber)) {
-      setError("Please enter a valid 10-digit phone number");
-      Alert.alert(
-        "Invalid Phone Number",
-        "Please enter a valid 10-digit phone number"
-      );
+    Keyboard.dismiss(); // ✅ ensures toast appears above keyboard
+
+    if (!phoneRegex.test(phoneNumber)) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Number",
+        text2: "Please enter a valid 10-digit phone number.",
+      });
       return;
     }
 
-    setError("");
     try {
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/login",
@@ -52,61 +54,58 @@ export default function LoginScreen() {
       if (response.data.success) {
         const otpCode = response.data.data?.guest?.otpCode;
 
-        Alert.alert(
-          "OTP Sent",
-          `Your OTP is ${otpCode}`, // only show OTP
-          [
-            {
-              text: "OK",
-              onPress: () =>
-                router.push({
-                  pathname: "/verify",
-                  params: { phoneNumber }, // pass only phone number
-                }),
-            },
-          ]
-        );
+        Toast.show({
+          type: "success",
+          text1: "OTP Sent Successfully",
+          text2: `Your OTP is ${otpCode}`,
+        });
+
+        setTimeout(() => {
+          router.push({
+            pathname: "/verify",
+            params: { phoneNumber },
+          });
+        }, 3000);
       } else {
-        Alert.alert("Login Failed", response.data.message || "Unknown error");
+        Toast.show({
+          type: "error",
+          text1: "Guest Not Found",
+          text2: "Please register to continue.",
+        });
       }
     } catch (error: any) {
-if (error.response) {
-  const serverMessage = error.response.data?.message || "Something went wrong";
-  Alert.alert("Login Failed", serverMessage);
-} else if (error.request) {
-  Alert.alert(
-    "Network Error",
-    "No response from server. Please check your connection."
-  );
-} else {
-  Alert.alert("Error", error.message);
-}
-
-    }
-  };
-
-  const handlePhoneNumberChange = (inputText: string) => {
-    const digitsOnly = inputText.replace(/[^0-9]/g, "");
-    const limitedInput = digitsOnly.substring(0, 10);
-    setPhoneNumber(limitedInput);
-
-    if (limitedInput.length === 10) {
-      if (!phoneRegex.tenDigits.test(limitedInput)) {
-        setError("Invalid phone number format");
+      if (error.response?.status === 404) {
+        Toast.show({
+          type: "error",
+          text1: "Guest Not Registered",
+          text2: "Please register before logging in.",
+        });
       } else {
-        setError("");
+        Toast.show({
+          type: "error",
+          text1: "Server Error",
+          text2: "Something went wrong. Please try again later.",
+        });
       }
-    } else {
-      setError("");
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      {/* 🔹 Top Background Image */}
+      <View style={styles.imageWrapper}>
+        <Image
+          source={require("../../assets/images/loginlogo.png")}
+          style={styles.topImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* 🔹 Bottom White Card Section */}
+      <View style={styles.bottomCard}>
         <Logo showText={false} />
         <Text style={styles.title}>Get started with Tifstay</Text>
-        <Text style={styles.Subtitle}>Guest</Text>
+        <Text style={styles.subtitle}>Guest</Text>
 
         <InputField
           placeholder="Phone Number"
@@ -122,12 +121,15 @@ if (error.response) {
         <CustomButton title="Get OTP" onPress={handleGetOTP} />
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>{"Don't have an account?"} </Text>
+          <Text style={styles.footerText}>Don’t have an account? </Text>
           <TouchableOpacity onPress={() => router.navigate("/register")}>
             <Text style={styles.footerLink}>Register</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* 🔹 Custom Toast */}
+      <CustomToast />
     </SafeAreaView>
   );
 }
@@ -137,39 +139,53 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  container: {
+  imageWrapper: {
+    height: height * 0.35,
+    width: "100%",
+  },
+  topImage: {
+    width: "100%",
+    height: "100%",
+  },
+  bottomCard: {
     flex: 1,
-    paddingHorizontal: 24,
     backgroundColor: colors.white,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: -2 },
   },
   title: {
     fontSize: 20,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 24,
     marginTop: 16,
     color: colors.textPrimary,
   },
-   Subtitle:{
-   fontSize: 20,
-    fontWeight: "600",
+  subtitle: {
+    fontSize: 18,
+    fontWeight: "500",
     textAlign: "center",
     marginBottom: 24,
-    marginTop: -16,
-    color: '#000000ff',
+    color: "#000",
   },
   errorText: {
     color: "red",
     fontSize: 12,
-    marginTop: 5,
+    marginTop: 6,
     marginBottom: 10,
-    paddingHorizontal: 12,
+    textAlign: "center",
   },
   footer: {
-    marginTop: "auto",
+    marginTop: 20,
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 40,
   },
   footerText: {
     color: colors.textSecondary,

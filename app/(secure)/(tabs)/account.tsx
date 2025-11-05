@@ -165,10 +165,10 @@ const AccountScreen = () => {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.sectionRow}>
+        {/* <View style={styles.sectionRow}>
           <Text style={styles.languageText}>Dark Mode</Text>
           <Switch value={darkMode} onValueChange={setDarkMode} />
-        </View>
+        </View> */}
 
         <MenuItem
           label="Log Out"

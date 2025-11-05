@@ -496,14 +496,6 @@ const handleContinueSubscription = (order: Order) => {
           <>
             {order.status === "confirmed" && !isHistoryOrder(order.status) && (
               <View>
-              
-                  <Button
-                    title="Continue Subscription"
-                    onPress={() => handleContinueSubscription(order)}
-                    style={styles.primaryButtonStyle}
-                    height={48}
-                  />
-               
                 {order.serviceType === "tiffin" ? (
                   <View>
                     <View style={styles.buttonRow}>
@@ -534,15 +526,29 @@ const handleContinueSubscription = (order: Order) => {
                       style={styles.primaryButtonStyle}
                       height={48}
                     />
+                    <Button
+                      title="Continue Subscription"
+                      onPress={() => handleContinueSubscription(order)}
+                      style={styles.primaryButtonStyle}
+                      height={48}
+                    />
                   </View>
                 ) : (
-                  <Button
-    title="Rate Now"
-    onPress={() => handleRateNow(order)}
-    textStyle={styles.secondaryButtonTextStyle}
-    style={[styles.rateButtonStyle, { width: 430, marginTop:10 }]}
-    height={48}
-  />
+                  <View>
+                    <Button
+                      title="Continue Subscription"
+                      onPress={() => handleContinueSubscription(order)}
+                      style={styles.primaryButtonStyle}
+                      height={48}
+                    />
+                    <Button
+                      title="Rate Now"
+                      onPress={() => handleRateNow(order)}
+                      textStyle={styles.secondaryButtonTextStyle}
+                      style={[styles.rateButtonStyle, { width: 430, marginTop:10 }]}
+                      height={48}
+                    />
+                  </View>
                 )}
               </View>
             )}

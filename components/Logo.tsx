@@ -12,7 +12,7 @@ const Logo: React.FC<LogoProps> = ({ showText = true, subtitle }) => {
     <View style={styles.logoSection}>
       <View style={styles.logoContainer}>
         <Image
-          source={require("../assets/images/logoSub.png")}
+          source={require("../assets/images/newlogo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -49,9 +49,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logo: {
-    width: 67,
-    height: 46,
-    tintColor: colors.primary,
+    width: 87,
+    height: 86,
+    // tintColor: colors.primary,
   },
   brandName: {
     fontSize: 24,
