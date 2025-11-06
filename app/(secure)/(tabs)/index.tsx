@@ -28,6 +28,7 @@ import colors from "@/constants/colors";
 import { useAppState } from "@/context/AppStateProvider";
 import { useAuthStore } from "@/store/authStore";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { hostellogo, tiffinlogo } from "@/assets/images";
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
@@ -76,6 +77,7 @@ interface Filters {
 }
 export default function DashboardScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     isFilterApplied,
     setIsFilterApplied,
@@ -90,6 +92,8 @@ export default function DashboardScreen() {
     setUserLocation,
     hasSelectedLocation,
     setHasSelectedLocation,
+    profileData,
+    fetchProfile,
   } = useAuthStore();
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -101,32 +105,13 @@ export default function DashboardScreen() {
   const [area, setArea] = useState("");
   const [maxRent, setMaxRent] = useState("");
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [allHostels, setAllHostels] = useState<Hostel[]>([]);
-  const [allTiffinServices, setAllTiffinServices] = useState<TiffinService[]>([]);
-  const [searchedHostels, setSearchedHostels] = useState<Hostel[]>([]);
-  const [searchedTiffins, setSearchedTiffins] = useState<TiffinService[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingHostels, setIsLoadingHostels] = useState(false);
-  const [isLoadingTiffins, setIsLoadingTiffins] = useState(false);
-  const [cities, setCities] = useState<string[]>([]);
-  const [hostelTypes, setHostelTypes] = useState<string[]>([]);
-  const [roomTypes, setRoomTypes] = useState<string[]>([]);
-  const [planTypes, setPlanTypes] = useState<string[]>([]);
-  const [isLoadingCities, setIsLoadingCities] = useState(false);
-  const [isLoadingHostelTypes, setIsLoadingHostelTypes] = useState(false);
-  const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
-  const [isLoadingPlanTypes, setIsLoadingPlanTypes] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [searchVisibleCount, setSearchVisibleCount] = useState(10);
-  const hostelTypeOptions = useMemo(() => ["All", ...hostelTypes], [hostelTypes]);
-  const areaOptions = useMemo(() => ["All", ...cities], [cities]);
-  const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
-  const hasFilters = Object.keys(appliedFilters).length > 0;
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const vegToggleAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
-  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const imageMapping: { [key: string]: any } = {
     food1,
     hostel1,
@@ -240,9 +225,8 @@ export default function DashboardScreen() {
       Alert.alert("Error", "Failed to update favorites. Please try again.");
     }
   }, [isFavorite, addToFavorites, removeFromFavorites]);
-  // --- Fetch all hostels ---
-  const fetchAllHostels = async () => {
-    setIsLoadingHostels(true);
+  // --- React Query Functions ---
+  const fetchAllHostelsQuery = async (): Promise<Hostel[]> => {
     const token = await getAuthToken();
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -267,51 +251,21 @@ export default function DashboardScreen() {
           roomType: hostel.roomType || "",
           acNonAc: hostel.acNonAc || "",
         }));
-        setAllHostels(mappedHostels);
-        await AsyncStorage.setItem("cachedHostels", JSON.stringify(mappedHostels));
+        return mappedHostels;
       } else {
         console.warn("getAllHostelServices failed:", result.message);
-        const cachedHostels = await AsyncStorage.getItem("cachedHostels");
-        if (cachedHostels) {
-          setAllHostels(JSON.parse(cachedHostels));
-        } else {
-          setAllHostels([]);
-          Alert.alert("No Hostels Found", result.message || "No hostels available at the moment.");
-        }
+        return [];
       }
     } catch (error) {
       console.error("Failed to fetch hostels:", error);
-      const cachedHostels = await AsyncStorage.getItem("cachedHostels");
-      if (cachedHostels) {
-        setAllHostels(JSON.parse(cachedHostels));
-      } else {
-        setAllHostels([]);
-        Alert.alert("Error", "Failed to fetch hostels. Please check your connection and try again.");
-      }
-    } finally {
-      setIsLoadingHostels(false);
+      return [];
     }
   };
-  // --- Fetch tiffin services (FIX: Always append foodType if present) ---
-  const fetchTiffinServices = async (search = "", priceSort = "", minRating = 0, foodType?: string) => {
-    setIsLoadingTiffins(true);
+  const fetchTiffinServicesQuery = async (): Promise<TiffinService[]> => {
     const token = await getAuthToken();
-    if (!token) {
-      setIsLoadingTiffins(false);
-      return;
-    }
+    if (!token) return [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-    const params = new URLSearchParams({
-      search,
-      priceSort,
-    });
-    if (minRating > 0) {
-      params.append("rating", `${minRating} & above`);
-    }
-    // FIX: Always append foodType if present (consistent with search; backend handles "Both")
-    if (foodType) {
-      params.append("foodType", foodType);
-    }
+    const params = new URLSearchParams();
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     try {
       const response = await fetch(url, { headers });
@@ -353,44 +307,29 @@ export default function DashboardScreen() {
             foodType: tiffin.foodType,
           };
         });
-        setAllTiffinServices(mapped);
-        await AsyncStorage.setItem("cachedTiffins", JSON.stringify(mapped));
+        return mapped;
       } else {
-        const cached = await AsyncStorage.getItem("cachedTiffins");
-        if (cached) {
-          setAllTiffinServices(JSON.parse(cached));
-        } else {
-          setAllTiffinServices([]);
-        }
+        return [];
       }
     } catch (error) {
       console.error("Failed to fetch tiffins:", error);
-      const cached = await AsyncStorage.getItem("cachedTiffins");
-      if (cached) {
-        setAllTiffinServices(JSON.parse(cached));
-      } else {
-        setAllTiffinServices([]);
-      }
-    } finally {
-      setIsLoadingTiffins(false);
+      return [];
     }
   };
-  // --- Fetch tiffin recent search (enhanced with filters) ---
   const fetchTiffinRecentSearch = async (
     query: string,
     priceSort = "",
     minRating = 0,
     foodTypeParam?: string
-  ) => {
+  ): Promise<TiffinService[]> => {
     if (!query.trim()) {
-      setSearchedTiffins([]);
-      return;
+      return [];
     }
     const token = await getAuthToken();
     const headers: any = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const params = new URLSearchParams({
-      search: query.trim(), // 🔥 Already correct: using 'search' param
+      search: query.trim(),
       ...(priceSort && { priceSort }),
       ...(minRating > 0 && { rating: `${minRating} & above` }),
     });
@@ -399,7 +338,6 @@ export default function DashboardScreen() {
     }
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     console.log("🔍 Tiffin Search URL:", url);
-    setIsSearching(true);
     try {
       const response = await fetch(url, { headers });
       const result = await response.json();
@@ -426,22 +364,19 @@ export default function DashboardScreen() {
               : food1,
           };
         });
-        setSearchedTiffins(mapped);
+        return mapped;
       } else {
-        setSearchedTiffins([]);
+        return [];
       }
     } catch (err) {
       console.error("❌ Tiffin Search Error:", err);
-      setSearchedTiffins([]);
-    } finally {
-      setIsSearching(false);
+      return [];
     }
   };
-  // --- Fetch hostel search (FIX: Use 'search' param; add fallback filtering on allHostels if backend fails; fix encoding) ---
-  const fetchHostelSearch = useCallback(async (query: string) => {
+  // --- Fetch hostel search (FIX: Use 'search' param; add fallback filtering on allHostelsData if backend fails; fix encoding) ---
+  const fetchHostelSearch = useCallback(async (query: string): Promise<Hostel[]> => {
     if (!query.trim()) {
-      setSearchedHostels([]);
-      return;
+      return [];
     }
     setIsSearching(true);
     const trimmedQuery = query.trim().toLowerCase(); // FIX: Normalize query
@@ -492,37 +427,28 @@ export default function DashboardScreen() {
           roomType: hostel.roomType || "",
           acNonAc: hostel.acNonAc || "",
         }));
-        setSearchedHostels(mappedHostels);
+        return mappedHostels;
       } else {
-        // FIX: Backend failed? Fallback to client-side filter on allHostels
+        // FIX: Backend failed? Fallback to client-side filter on allHostelsData
         console.warn("Backend search failed, falling back to client-side filter:", result.message);
-        const clientFiltered = allHostels.filter((hostel) =>
+        const clientFiltered = allHostelsData.filter((hostel) =>
           hostel.name.toLowerCase().includes(trimmedQuery)
         );
-        setSearchedHostels(clientFiltered);
-        if (clientFiltered.length === 0) {
-          Alert.alert("Search Tip", "Try broader keywords – searching locally now.");
-        }
+        return clientFiltered;
       }
     } catch (error) {
       console.error("Failed to fetch recent search:", error);
       // FIX: Fallback on error too
-      const clientFiltered = allHostels.filter((hostel) =>
+      const clientFiltered = allHostelsData.filter((hostel) =>
         hostel.name.toLowerCase().includes(trimmedQuery)
       );
-      setSearchedHostels(clientFiltered);
-      Alert.alert(
-        "Error",
-        "Search failed. Showing local results. Retry?",
-        [{ text: "Retry", onPress: () => fetchHostelSearch(query) }]
-      );
+      return clientFiltered;
     } finally {
       setIsSearching(false);
     }
-  }, [appliedFilters, allHostels]); // FIX: Added allHostels dep for fallback
+  }, [appliedFilters, allHostelsData]);
   // --- Fetch cities ---
-  const fetchCities = async () => {
-    setIsLoadingCities(true);
+  const fetchCitiesQuery = async (): Promise<string[]> => {
     const token = await getAuthToken();
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -534,23 +460,18 @@ export default function DashboardScreen() {
       const result = await response.json();
       console.log("getCitiesFromHostelServices response:", JSON.stringify(result, null, 2));
       if (result.success && result.data && Array.isArray(result.data)) {
-        setCities(result.data);
+        return result.data;
       } else {
         console.warn("getCitiesFromHostelServices failed:", result.message || "No data returned");
-        setCities([]);
-        Alert.alert("Error", result.message || "Failed to fetch cities.");
+        return [];
       }
     } catch (error) {
       console.error("Failed to fetch cities:", error);
-      setCities([]);
-      Alert.alert("Error", "Failed to fetch cities. Please check your connection and try again.");
-    } finally {
-      setIsLoadingCities(false);
+      return [];
     }
   };
   // --- Fetch hostel types ---
-  const fetchHostelTypes = async () => {
-    setIsLoadingHostelTypes(true);
+  const fetchHostelTypesQuery = async (): Promise<string[]> => {
     const token = await getAuthToken();
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -562,23 +483,18 @@ export default function DashboardScreen() {
       const result = await response.json();
       console.log("getHostelTypes response:", JSON.stringify(result, null, 2));
       if (result.success && result.data && Array.isArray(result.data)) {
-        setHostelTypes(result.data);
+        return result.data;
       } else {
         console.warn("getHostelTypes failed:", result.message || "No data returned");
-        setHostelTypes([]);
-        Alert.alert("Error", result.message || "Failed to fetch hostel types.");
+        return [];
       }
     } catch (error) {
       console.error("Failed to fetch hostel types:", error);
-      setHostelTypes([]);
-      Alert.alert("Error", "Failed to fetch hostel types. Please check your connection and try again.");
-    } finally {
-      setIsLoadingHostelTypes(false);
+      return [];
     }
   };
   // --- Fetch room types ---
-  const fetchRoomTypes = async () => {
-    setIsLoadingRoomTypes(true);
+  const fetchRoomTypesQuery = async (): Promise<string[]> => {
     const token = await getAuthToken();
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -590,23 +506,18 @@ export default function DashboardScreen() {
       const result = await response.json();
       console.log("getRoomTypes response:", JSON.stringify(result, null, 2));
       if (result.success && result.data && Array.isArray(result.data)) {
-        setRoomTypes(result.data.map(String));
+        return result.data.map(String);
       } else {
         console.warn("getRoomTypes failed:", result.message || "No data returned");
-        setRoomTypes([]);
-        Alert.alert("Error", result.message || "Failed to fetch room types.");
+        return [];
       }
     } catch (error) {
       console.error("Failed to fetch room types:", error);
-      setRoomTypes([]);
-      Alert.alert("Error", "Failed to fetch room types. Please check your connection and try again.");
-    } finally {
-      setIsLoadingRoomTypes(false);
+      return [];
     }
   };
   // --- Fetch plan types ---
-  const fetchPlanTypes = async () => {
-    setIsLoadingPlanTypes(true);
+  const fetchPlanTypesQuery = async (): Promise<string[]> => {
     const token = await getAuthToken();
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -618,103 +529,104 @@ export default function DashboardScreen() {
       const result = await response.json();
       console.log("getPlanTypes response:", JSON.stringify(result, null, 2));
       if (result.success && result.data && Array.isArray(result.data)) {
-        setPlanTypes(result.data);
+        return result.data;
       } else {
         console.warn("getPlanTypes failed:", result.message || "No data returned");
-        setPlanTypes([]);
-        Alert.alert("Error", result.message || "Failed to fetch plan types.");
+        return [];
       }
     } catch (error) {
       console.error("Failed to fetch plan types:", error);
-      setPlanTypes([]);
-      Alert.alert("Error", "Failed to fetch plan types. Please check your connection and try again.");
-    } finally {
-      setIsLoadingPlanTypes(false);
+      return [];
     }
   };
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const fetchSuggestionsQuery = useCallback(async (): Promise<string[]> => {
+    const token = await getAuthToken();
+    if (!token) return [];
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     try {
-      if (isHostel) {
-        if (isSearchFocused && searchQuery.trim()) {
-          await fetchHostelSearch(searchQuery);
-        } else {
-          await fetchAllHostels();
-        }
+      const url = isHostel
+        ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelSuggestions"
+        : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinSuggestions";
+      const response = await fetch(url, { headers });
+      const result = await response.json();
+      console.log(`${isHostel ? "getHostel" : "getTiffin"}Suggestions response:`, JSON.stringify(result, null, 2));
+      if (result.success && result.data && Array.isArray(result.data)) {
+        let suggs = (isHostel
+          ? result.data.map((item: any) => String(item.hostelName || "Unknown Hostel"))
+          : result.data.map((item: any) => String(item.tiffinName || "Unknown"))
+        ).filter((s: string) => s.trim());
+        // LIMIT: Slice to first 6 suggestions
+        suggs = suggs.slice(0, 6);
+        console.log("🔍 Limited Suggestions Count:", suggs.length); // Debug log
+        return suggs;
       } else {
-        const priceSort = appliedFilters.cost || "";
-        const minRating = appliedFilters.rating || 0;
-        const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
-        if (isSearchFocused && searchQuery.trim()) {
-          await fetchTiffinRecentSearch(searchQuery, priceSort, minRating, vegValue);
-        } else {
-          await fetchTiffinServices(searchQuery || "", priceSort, minRating, vegValue);
-        }
+        return [];
       }
     } catch (error) {
-      console.error("Refresh error:", error);
-      Alert.alert("Error", "Failed to refresh data. Please try again.");
-    } finally {
-      setRefreshing(false);
+      console.error(`Failed to fetch ${isHostel ? "hostel" : "tiffin"} suggestions:`, error);
+      return [];
     }
-  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, vegFilter, fetchHostelSearch]);
+  }, [isHostel]);
+  // --- React Query Hooks ---
+  const { data: allHostelsData = [], isLoading: isLoadingHostels, refetch: refetchHostels } = useQuery({
+    queryKey: ['allHostels'],
+    queryFn: fetchAllHostelsQuery,
+  });
+  const { data: allTiffinServicesData = [], isLoading: isLoadingTiffins, refetch: refetchTiffins } = useQuery({
+    queryKey: ['allTiffins'],
+    queryFn: fetchTiffinServicesQuery,
+  });
+  const { data: citiesData = [], isLoading: isLoadingCities } = useQuery({
+    queryKey: ['cities'],
+    queryFn: fetchCitiesQuery,
+    enabled: isHostel,
+  });
+  const { data: hostelTypesData = [], isLoading: isLoadingHostelTypes } = useQuery({
+    queryKey: ['hostelTypes'],
+    queryFn: fetchHostelTypesQuery,
+    enabled: isHostel,
+  });
+  const { data: roomTypesData = [], isLoading: isLoadingRoomTypes } = useQuery({
+    queryKey: ['roomTypes'],
+    queryFn: fetchRoomTypesQuery,
+    enabled: isHostel,
+  });
+  const { data: planTypesData = [], isLoading: isLoadingPlanTypes } = useQuery({
+    queryKey: ['planTypes'],
+    queryFn: fetchPlanTypesQuery,
+    enabled: isHostel,
+  });
+  const { data: suggestionsData = [] } = useQuery({
+    queryKey: ['suggestions', isHostel],
+    queryFn: fetchSuggestionsQuery,
+    enabled: isSearchFocused && !searchQuery.trim(),
+  });
+  // --- Fixed: Replace useQuery with manual getQueryData to avoid missing queryFn error and support debounced/manual setQueryData ---
+  const searchedHostelsData = queryClient.getQueryData<Hostel[]>(['searchedItems', 'hostels', searchQuery]) || [];
+  const searchedTiffinsData = queryClient.getQueryData<TiffinService[]>(['searchedItems', 'tiffins', searchQuery]) || [];
+  const hostelTypeOptions = useMemo(() => ["All", ...hostelTypesData], [hostelTypesData]);
+  const areaOptions = useMemo(() => ["All", ...citiesData], [citiesData]);
+  const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
+  const hasFilters = Object.keys(appliedFilters).length > 0;
   // --- Refetch data when FilterModal opens if data is missing ---
   useEffect(() => {
     if (showFilterModal && isHostel) {
-      if (cities.length === 0 && !isLoadingCities) fetchCities();
-      if (hostelTypes.length === 0 && !isLoadingHostelTypes) fetchHostelTypes();
-      if (roomTypes.length === 0 && !isLoadingRoomTypes) fetchRoomTypes();
-      if (planTypes.length === 0 && !isLoadingPlanTypes) fetchPlanTypes();
+      if (citiesData.length === 0 && !isLoadingCities) refetchHostels();
+      if (hostelTypesData.length === 0 && !isLoadingHostelTypes) refetchHostels();
+      if (roomTypesData.length === 0 && !isLoadingRoomTypes) refetchHostels();
+      if (planTypesData.length === 0 && !isLoadingPlanTypes) refetchHostels();
     }
-  }, [showFilterModal, isHostel, cities.length, hostelTypes.length, roomTypes.length, planTypes.length]); // FIX: Use .length to avoid re-fetch on same array ref
-  // --- Fetch data when switching to hostel mode ---
-  useEffect(() => {
-    if (!isHostel) {
-      setCities([]);
-      setHostelTypes([]);
-      setRoomTypes([]);
-      setPlanTypes([]);
-      return;
-    }
-    let isMounted = true;
-    Promise.all([fetchAllHostels(), fetchCities(), fetchHostelTypes(), fetchRoomTypes(), fetchPlanTypes()]).then(() => {
-      if (!isMounted) return;
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [isHostel]);
-
+  }, [showFilterModal, isHostel, citiesData.length, hostelTypesData.length, roomTypesData.length, planTypesData.length, isLoadingCities, isLoadingHostelTypes, isLoadingRoomTypes, isLoadingPlanTypes, refetchHostels]); // FIX: Use .length to avoid re-fetch on same array ref
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isSearchFocused) {
-        handleSearchBack();  // Call your existing back handler
-        return true;  // "true" = "I handled it, don't exit app"
+        handleSearchBack(); // Call your existing back handler
+        return true; // "true" = "I handled it, don't exit app"
       }
-      return false;  // Let normal back happen elsewhere
+      return false; // Let normal back happen elsewhere
     });
-
-    return () => backHandler.remove();  // Cleanup when unmount
-  }, [isSearchFocused]);  // Re-run if search mode changes
-  // --- Fetch tiffin data when switching to tiffin mode ---
-  useEffect(() => {
-    if (!isHostel) {
-      fetchTiffinServices();
-    } else {
-      setAllTiffinServices([]);
-    }
-  }, [isHostel]);
-  // --- Fetch based on filters for tiffin ---
-  useEffect(() => {
-    if (!isHostel) {
-      const priceSort = appliedFilters.cost || "";
-      const minRating = appliedFilters.rating || 0;
-      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
-      if (!isSearchFocused) {
-        fetchTiffinServices(searchQuery, priceSort, minRating, vegValue);
-      }
-    }
-  }, [isHostel, appliedFilters.cost, appliedFilters.rating, vegFilter, isSearchFocused, searchQuery]);
+    return () => backHandler.remove(); // Cleanup when unmount
+  }, [isSearchFocused]); // Re-run if search mode changes
   // --- Reset visible count on mode/filter/search changes ---
   useEffect(() => {
     setVisibleCount(10);
@@ -724,25 +636,27 @@ export default function DashboardScreen() {
       setSearchVisibleCount(10);
     }
   }, [isSearchFocused, searchQuery]);
-  // --- Unified Search Debounce Effect (FIX: Combined for both modes to avoid duplication) ---
+  // --- Unified Search Debounce Effect (FIX: Added appliedFilters.vegNonVeg to deps for complete coverage; combined for both modes to avoid duplication) ---
   useEffect(() => {
     if (!isSearchFocused || !searchQuery.trim()) {
-      if (isHostel) setSearchedHostels([]);
-      else setSearchedTiffins([]);
       setIsSearching(false);
       return;
     }
     const trimmedQuery = searchQuery.trim();
     const fetchSearch = async () => {
       setIsSearching(true);
+      const priceSort = appliedFilters.cost || "";
+      const minRating = appliedFilters.rating || 0;
+      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+      let data: TiffinService[] | Hostel[];
       if (isHostel) {
-        await fetchHostelSearch(trimmedQuery);
+        data = await fetchHostelSearch(trimmedQuery);
       } else {
-        const priceSort = appliedFilters.cost || "";
-        const minRating = appliedFilters.rating || 0;
-        const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
-        await fetchTiffinRecentSearch(trimmedQuery, priceSort, minRating, vegValue);
+        data = await fetchTiffinRecentSearch(trimmedQuery, priceSort, minRating, vegValue);
       }
+      const type = isHostel ? "hostels" : "tiffins";
+      const key = ["searchedItems", type, trimmedQuery];
+      queryClient.setQueryData(key, data);
       setIsSearching(false);
     };
     if (searchDebounceRef.current) {
@@ -754,41 +668,7 @@ export default function DashboardScreen() {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, vegFilter, fetchHostelSearch]);
-  // --- Fetch suggestions (FIX: Ensure strings only; add String() wrapper; LIMIT TO 6) ---
-  useEffect(() => {
-    if (!isSearchFocused || searchQuery.length > 0) return;
-    const fetchSugg = async () => {
-      const token = await getAuthToken();
-      if (!token) return;
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-      try {
-        const url = isHostel
-          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelSuggestions"
-          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinSuggestions";
-        const response = await fetch(url, { headers });
-        const result = await response.json();
-        console.log(`${isHostel ? "getHostel" : "getTiffin"}Suggestions response:`, JSON.stringify(result, null, 2));
-        if (result.success && result.data && Array.isArray(result.data)) {
-          // FIX: Explicit String() to prevent object rendering; filter empty
-          let suggs = (isHostel
-            ? result.data.map((item: any) => String(item.hostelName || "Unknown Hostel"))
-            : result.data.map((item: any) => String(item.tiffinName || "Unknown"))
-          ).filter((s: string) => s.trim());
-          // LIMIT: Slice to first 6 suggestions
-          suggs = suggs.slice(0, 6);
-          console.log("🔍 Limited Suggestions Count:", suggs.length); // Debug log
-          setSuggestions(suggs);
-        } else {
-          setSuggestions([]);
-        }
-      } catch (error) {
-        console.error(`Failed to fetch ${isHostel ? "hostel" : "tiffin"} suggestions:`, error);
-        setSuggestions([]);
-      }
-    };
-    fetchSugg();
-  }, [isHostel, isSearchFocused]); // FIX: Removed searchQuery dep (only fetch when empty)
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, vegFilter, fetchHostelSearch]);
   // --- Location Modal ---
   useEffect(() => {
     if (!hasSelectedLocation) setShowLocationModal(true);
@@ -801,12 +681,18 @@ export default function DashboardScreen() {
       useNativeDriver: false, // color & layout animations require JS driver
     }).start();
   }, [vegFilter]);
+  // --- Fetch profile if not loaded ---
+  useEffect(() => {
+    if (!profileData) {
+      fetchProfile();
+    }
+  }, [profileData, fetchProfile]);
   // --- Data mappings ---
-  const tiffinServices = allTiffinServices;
+  const tiffinServices = allTiffinServicesData;
   // --- Filtering logic (Tiffin & Hostels) --- (FIX: Enhanced veg filtering for Veg/Non-Veg/Both; added debug log)
   const filteredTiffinServices = useMemo(() => {
     console.log("🔍 Client Filtering Tiffins - Applied:", appliedFilters, "VegFilter:", vegFilter); // Debug
-    const baseTiffins = isSearchFocused && searchQuery ? searchedTiffins : tiffinServices;
+    const baseTiffins = isSearchFocused ? searchedTiffinsData : allTiffinServicesData;
     let filtered = [...baseTiffins];
     const query = searchQuery.toLowerCase().trim();
     if (query && !(isSearchFocused && searchQuery)) {
@@ -876,9 +762,9 @@ export default function DashboardScreen() {
     }
     console.log("🔍 Filtered Tiffins Count:", filtered.length, "VegValue:", vegFilterValue); // Debug
     return filtered;
-  }, [tiffinServices, searchedTiffins, searchQuery, isSearchFocused, appliedFilters, vegFilter]);
+  }, [allTiffinServicesData, searchedTiffinsData, searchQuery, isSearchFocused, appliedFilters, vegFilter]);
   const filteredHostels = useMemo(() => {
-    const baseHostels = isSearchFocused && searchQuery ? searchedHostels : allHostels;
+    const baseHostels = isSearchFocused ? searchedHostelsData : allHostelsData;
     let filtered = [...baseHostels];
     if (!isSearchFocused && searchQuery) {
       const query = searchQuery.toLowerCase().trim();
@@ -938,16 +824,16 @@ export default function DashboardScreen() {
       filtered = filtered.filter((h) => h.acNonAc === appliedFilters.acNonAc);
     }
     return filtered;
-  }, [allHostels, searchedHostels, searchQuery, isSearchFocused, hostelType, area, maxRent, appliedFilters]);
+  }, [allHostelsData, searchedHostelsData, searchQuery, isSearchFocused, hostelType, area, maxRent, appliedFilters]);
   const displayedItems = isHostel ? filteredHostels : filteredTiffinServices;
   const visibleItems = useMemo(() => displayedItems.slice(0, visibleCount), [displayedItems, visibleCount]);
   const searchVisibleItems = useMemo(() => {
     if (isHostel) {
-      return searchedHostels.slice(0, searchVisibleCount);
+      return searchedHostelsData.slice(0, searchVisibleCount);
     } else {
       return filteredTiffinServices.slice(0, searchVisibleCount);
     }
-  }, [isHostel, searchedHostels, filteredTiffinServices, searchVisibleCount]);
+  }, [isHostel, searchedHostelsData, filteredTiffinServices, searchVisibleCount]);
   const handleLoadMore = useCallback(() => {
     const increment = 10;
     if (visibleCount < displayedItems.length) {
@@ -956,11 +842,41 @@ export default function DashboardScreen() {
   }, [visibleCount, displayedItems.length]);
   const handleLoadMoreSearch = useCallback(() => {
     const increment = 10;
-    const currentData = isHostel ? searchedHostels : filteredTiffinServices;
+    const currentData = isHostel ? searchedHostelsData : filteredTiffinServices;
     if (searchVisibleCount < currentData.length) {
       setSearchVisibleCount(prev => Math.min(prev + increment, currentData.length));
     }
-  }, [searchVisibleCount, isHostel, searchedHostels, filteredTiffinServices]);
+  }, [searchVisibleCount, isHostel, searchedHostelsData, filteredTiffinServices]);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (isHostel) {
+        await refetchHostels();
+        if (isSearchFocused && searchQuery.trim()) {
+          const trimmed = searchQuery.trim();
+          const data = await fetchHostelSearch(trimmed);
+          const key = ["searchedItems", "hostels", trimmed];
+          queryClient.setQueryData(key, data);
+        }
+      } else {
+        await refetchTiffins();
+        const priceSort = appliedFilters.cost || "";
+        const minRating = appliedFilters.rating || 0;
+        const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+        if (isSearchFocused && searchQuery.trim()) {
+          const trimmed = searchQuery.trim();
+          const data = await fetchTiffinRecentSearch(trimmed, priceSort, minRating, vegValue);
+          const key = ["searchedItems", "tiffins", trimmed];
+          queryClient.setQueryData(key, data);
+        }
+      }
+    } catch (error) {
+      console.error("Refresh error:", error);
+      Alert.alert("Error", "Failed to refresh data. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, vegFilter, refetchHostels, refetchTiffins, fetchHostelSearch]);
   // --- Handlers --- (unchanged)
   const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
@@ -1030,31 +946,12 @@ export default function DashboardScreen() {
   const handleSearchBack = () => {
     setSearchQuery("");
     setIsSearchFocused(false);
-    setSearchedHostels([]);
     searchInputRef.current?.blur();
     Keyboard.dismiss();
-    if (isHostel) {
-      fetchAllHostels();
-    }
   };
   const handleApplyFilters = (filters: Filters) => {
     setAppliedFilters(filters);
     setIsFilterApplied(Object.keys(filters).length > 0);
-    if (isHostel) {
-      fetchAllHostels();
-    } else {
-      // Sync vegFilter with applied vegNonVeg for toggle consistency
-      if (filters.vegNonVeg) {
-        let newVeg: "off" | "veg" = "off";
-        if (filters.vegNonVeg === "Veg") {
-          newVeg = "veg";
-        }
-        setVegFilter(newVeg);
-      }
-      const priceSort = filters.cost || "";
-      const minRating = filters.rating || 0;
-      fetchTiffinServices(searchQuery, priceSort, minRating);
-    }
   };
   const handleVegFilterApply = (filter: "all" | "veg") => {
     const newVeg = filter === "all" ? "off" : "veg";
@@ -1134,7 +1031,7 @@ export default function DashboardScreen() {
                 <Text style={styles.noResultsSubtext}>Searching...</Text>
               </View>
             ) : isHostel ? (
-              searchedHostels.length > 0 ? (
+              searchedHostelsData.length > 0 ? (
                 <FlatList
                   data={searchVisibleItems}
                   renderItem={renderHostelItem}
@@ -1156,7 +1053,7 @@ export default function DashboardScreen() {
                   <Text style={styles.noResultsSubtext}>Try searching with different keywords</Text>
                 </View>
               )
-            ) : filteredTiffinServices.length > 0 ? (
+            ) : searchedTiffinsData.length > 0 ? (
               <FlatList
                 data={searchVisibleItems}
                 renderItem={renderTiffinItem}
@@ -1182,8 +1079,8 @@ export default function DashboardScreen() {
             <View style={styles.recentSearchesContainer}>
               <View style={styles.suggestionTags}>
                 {isHostel ? (
-                  suggestions.length > 0 ? (
-                    suggestions.slice(0, 6).map((suggestion, index) => (
+                  suggestionsData.length > 0 ? (
+                    suggestionsData.map((suggestion, index) => (
                       <TouchableOpacity
                         key={index}
                         style={styles.suggestionTag}
@@ -1213,8 +1110,8 @@ export default function DashboardScreen() {
                     </>
                   )
                 ) : (
-                  suggestions.length > 0 ? (
-                    suggestions.slice(0, 6).map((suggestion, index) => (
+                  suggestionsData.length > 0 ? (
+                    suggestionsData.map((suggestion, index) => (
                       <TouchableOpacity
                         key={index}
                         style={styles.suggestionTag}
@@ -1262,11 +1159,6 @@ export default function DashboardScreen() {
               onPress={() => {
                 setIsFilterApplied(false);
                 setAppliedFilters({});
-                if (isHostel) {
-                  fetchAllHostels();
-                } else {
-                  fetchTiffinServices();
-                }
               }}
             >
               <Ionicons name="chevron-back" size={24} color="#000" />
@@ -1373,11 +1265,6 @@ export default function DashboardScreen() {
                   onPress={() => {
                     setIsFilterApplied(false);
                     setAppliedFilters({});
-                    if (isHostel) {
-                      fetchAllHostels();
-                    } else {
-                      fetchTiffinServices();
-                    }
                   }}
                 >
                   <Text style={styles.backToHomeText}>Back to Home</Text>
@@ -1398,11 +1285,6 @@ export default function DashboardScreen() {
                 onPress={() => {
                   setIsFilterApplied(false);
                   setAppliedFilters({});
-                  if (isHostel) {
-                    fetchAllHostels();
-                  } else {
-                    fetchTiffinServices();
-                  }
                 }}
               >
                 <Text style={styles.backToHomeText}>Back to Home</Text>
@@ -1416,13 +1298,13 @@ export default function DashboardScreen() {
           onApplyFilters={handleApplyFilters}
           isHostel={isHostel}
           currentFilters={appliedFilters}
-          cities={cities}
+          cities={citiesData}
           isLoadingCities={isLoadingCities}
-          hostelTypes={hostelTypes}
+          hostelTypes={hostelTypesData}
           isLoadingHostelTypes={isLoadingHostelTypes}
-          roomTypes={roomTypes}
+          roomTypes={roomTypesData}
           isLoadingRoomTypes={isLoadingRoomTypes}
-          planTypes={planTypes}
+          planTypes={planTypesData}
           isLoadingPlanTypes={isLoadingPlanTypes}
         />
       </View>
@@ -1443,7 +1325,7 @@ export default function DashboardScreen() {
           </View>
           <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
             <Image
-              source={{ uri: "https://i.pravatar.cc/100" }}
+              source={{ uri: profileData?.profileImage || "https://i.pravatar.cc/100" }}
               style={styles.profileImage}
             />
           </TouchableOpacity>
@@ -1524,12 +1406,6 @@ export default function DashboardScreen() {
                     setArea("");
                     setMaxRent("");
                     setVegFilter("off");
-                    setSearchedHostels([]);
-                    setCities([]);
-                    setHostelTypes([]);
-                    setRoomTypes([]);
-                    setPlanTypes([]);
-                    fetchTiffinServices();
                   }}
                 >
                   <Image
@@ -1548,12 +1424,10 @@ export default function DashboardScreen() {
                     setSearchQuery("");
                     setAppliedFilters({});
                     setIsFilterApplied(false);
-                    setSearchedHostels([]);
-                    fetchAllHostels();
-                    fetchCities();
-                    fetchHostelTypes();
-                    fetchRoomTypes();
-                    fetchPlanTypes();
+                    setHostelType("");
+                    setArea("");
+                    setMaxRent("");
+                    setVegFilter("off");
                   }}
                 >
                   <Image
@@ -1724,13 +1598,13 @@ export default function DashboardScreen() {
         onApplyFilters={handleApplyFilters}
         isHostel={isHostel}
         currentFilters={appliedFilters}
-        cities={cities}
+        cities={citiesData}
         isLoadingCities={isLoadingCities}
-        hostelTypes={hostelTypes}
+        hostelTypes={hostelTypesData}
         isLoadingHostelTypes={isLoadingHostelTypes}
-        roomTypes={roomTypes}
+        roomTypes={roomTypesData}
         isLoadingRoomTypes={isLoadingRoomTypes}
-        planTypes={planTypes}
+        planTypes={planTypesData}
         isLoadingPlanTypes={isLoadingPlanTypes}
       />
       <VegFilterModal

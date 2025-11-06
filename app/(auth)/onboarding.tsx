@@ -7,12 +7,8 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  withTiming,
-  FadeIn,
-  FadeOut,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, withTiming, FadeIn, FadeOut } from "react-native-reanimated";
+import { useAuthStore } from "@/store/authStore";
 
 const { width } = Dimensions.get("window");
 
@@ -20,11 +16,28 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const fadeAnim = useSharedValue(1);
 
+  const { hasSeenOnboarding, isAuthenticated, rehydrated, setHasSeenOnboarding } = useAuthStore();
+
+  // Wait for auth store rehydration
+  if (!rehydrated) return null; // show nothing until store is loaded
+
+  // Redirect if user has already seen onboarding or is authenticated
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.replace("/login");
-    }, 2000); // ⏱ show splash for 2 seconds
-    return () => clearTimeout(timer);
+    if (hasSeenOnboarding || isAuthenticated) {
+      router.replace("/(secure)/(tabs)");
+    }
+  }, [hasSeenOnboarding, isAuthenticated]);
+
+  // Handle "Get Started" or splash auto-navigation
+  useEffect(() => {
+    // Only run if first-time user
+    if (!hasSeenOnboarding && !isAuthenticated) {
+      const timer = setTimeout(() => {
+        setHasSeenOnboarding(true); // mark onboarding as seen
+        router.replace("/login"); // navigate to login
+      }, 2000); // 2 seconds splash
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const renderSplash = () => (
@@ -47,6 +60,9 @@ export default function OnboardingScreen() {
       </Animated.View>
     </ImageBackground>
   );
+
+  // Render nothing if already seen onboarding or authenticated
+  if (hasSeenOnboarding || isAuthenticated) return null;
 
   return <View style={styles.mainContainer}>{renderSplash()}</View>;
 }
