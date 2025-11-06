@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   Image,
+  ImageBackground,
   Dimensions,
   Keyboard,
 } from "react-native";
@@ -16,13 +17,14 @@ import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
-import CustomToast from "../../components/CustomToast"; // ✅ make sure path matches your structure
+import CustomToast from "../../components/CustomToast";
 
 const { width, height } = Dimensions.get("window");
 
 export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false); // ✅ checkbox state
 
   const phoneRegex = /^[0-9]{10}$/;
 
@@ -33,7 +35,16 @@ export default function LoginScreen() {
   };
 
   const handleGetOTP = async () => {
-    Keyboard.dismiss(); // ✅ ensures toast appears above keyboard
+    Keyboard.dismiss();
+
+    if (!acceptedTerms) {
+      Toast.show({
+        type: "error",
+        text1: "Terms Not Accepted",
+        text2: "Please accept our Terms of Service to continue.",
+      });
+      return;
+    }
 
     if (!phoneRegex.test(phoneNumber)) {
       Toast.show({
@@ -92,7 +103,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 🔹 Top Background Image */}
+      {/* 🔹 Top Logo */}
       <View style={styles.imageWrapper}>
         <Image
           source={require("../../assets/images/loginlogo.png")}
@@ -101,34 +112,55 @@ export default function LoginScreen() {
         />
       </View>
 
-      {/* 🔹 Bottom White Card Section */}
+      {/* 🔹 Bottom Card Section with Background */}
       <View style={styles.bottomCard}>
-        <Logo showText={false} />
-        <Text style={styles.title}>Get started with Tifstay</Text>
-        <Text style={styles.subtitle}>Guest</Text>
+       <ImageBackground
+  source={require("../../assets/images/background.png")}
+  style={styles.cardBackground}
+  imageStyle={{ borderTopLeftRadius: 30, borderTopRightRadius: 30, width: '110%', height: '110%' }} // enlarge image
+  resizeMode="cover"
+>
 
-        <InputField
-          placeholder="Phone Number"
-          icon="phone-portrait"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={handlePhoneNumberChange}
-          maxLength={10}
-        />
+          <Logo showText={false} />
+          <Text style={styles.title}>Comfortable Food, Comfortable Stay</Text>
+          <Text style={styles.subtitle}>Get started with Tifstay</Text>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <InputField
+            placeholder="Phone Number"
+            icon="phone-portrait"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={handlePhoneNumberChange}
+            maxLength={10}
+          />
 
-        <CustomButton title="Get OTP" onPress={handleGetOTP} />
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don’t have an account? </Text>
-          <TouchableOpacity onPress={() => router.navigate("/register")}>
-            <Text style={styles.footerLink}>Register</Text>
-          </TouchableOpacity>
-        </View>
+          {/* ✅ Terms Checkbox */}
+          <View style={styles.termsContainer}>
+            <TouchableOpacity
+              style={styles.checkbox}
+              onPress={() => setAcceptedTerms(!acceptedTerms)}
+            >
+              {acceptedTerms && <View style={styles.checkedBox} />}
+            </TouchableOpacity>
+            <Text style={styles.termsText}>
+              By continuing, you agree to our{" "}
+              <Text style={{ color: colors.primary }}>Terms of Service</Text>
+            </Text>
+          </View>
+
+          <CustomButton title="Get OTP" onPress={handleGetOTP} />
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don’t have an account? </Text>
+            <TouchableOpacity onPress={() => router.navigate("/register")}>
+              <Text style={styles.footerLink}>Register</Text>
+            </TouchableOpacity>
+          </View>
+        </ImageBackground>
       </View>
 
-      {/* 🔹 Custom Toast */}
       <CustomToast />
     </SafeAreaView>
   );
@@ -149,18 +181,23 @@ const styles = StyleSheet.create({
   },
   bottomCard: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
     marginTop: -30,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: -2 },
   },
+  cardBackground: {
+  flex: 1,
+  paddingHorizontal: 24,
+  paddingTop: 32,
+  backgroundColor: "rgba(255,255,255,0.95)",
+  borderTopLeftRadius: 30,
+  borderTopRightRadius: 30,
+  elevation: 10,
+  shadowColor: "#000",
+  shadowOpacity: 0.15,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: -2 },
+  overflow: "hidden", // ensures rounded corners clip the background image
+},
+
   title: {
     fontSize: 20,
     fontWeight: "600",
@@ -182,8 +219,36 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: colors.textSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+    borderRadius: 4,
+     marginLeft:10
+  },
+  checkedBox: {
+    width: 12,
+    height: 12,
+    backgroundColor: colors.primary,
+   
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginLeft:10
+  },
   footer: {
-    marginTop: 20,
+    marginTop: 10,
     flexDirection: "row",
     justifyContent: "center",
   },

@@ -8,6 +8,7 @@ import {
   View,
   TextInput,
   Image,
+  ImageBackground,
   Dimensions,
   Keyboard,
 } from "react-native";
@@ -121,7 +122,7 @@ export default function VerifyScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 🔹 Top Background Image */}
+      {/* 🔹 Top Logo Section */}
       <View style={styles.imageWrapper}>
         <Image
           source={require("../../assets/images/loginlogo.png")}
@@ -130,44 +131,50 @@ export default function VerifyScreen() {
         />
       </View>
 
-      {/* 🔹 Bottom White Card Section */}
+      {/* 🔹 Bottom Card Section with Background */}
       <View style={styles.bottomCard}>
-        <Logo showText={false} />
-        <Text style={styles.title}>Verify Your OTP</Text>
-        <Text style={styles.subtitle}>Enter the 4-digit code sent to your number</Text>
+        <ImageBackground
+          source={require("../../assets/images/background.png")}
+          style={styles.cardBackground}
+          imageStyle={{ borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
+        >
+          <Logo showText={false} />
+          <Text style={styles.title}>Verify Your OTP</Text>
+          <Text style={styles.subtitle}>Enter the 4-digit code sent to your number</Text>
 
-        {/* 🔹 OTP Inputs */}
-        <View style={styles.otpContainer}>
-          {otp.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {
-                if (ref) inputRefs.current[index] = ref;
-              }}
-              style={styles.otpInput}
-              value={digit}
-              onChangeText={(value) => handleOtpChange(value, index)}
-              keyboardType="numeric"
-              maxLength={1}
-              selectTextOnFocus
-            />
-          ))}
-        </View>
+          {/* 🔹 OTP Inputs */}
+          <View style={styles.otpContainer}>
+            {otp.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => {
+                  if (ref) inputRefs.current[index] = ref;
+                }}
+                style={styles.otpInput}
+                value={digit}
+                onChangeText={(value) => handleOtpChange(value, index)}
+                keyboardType="numeric"
+                maxLength={1}
+                selectTextOnFocus
+              />
+            ))}
+          </View>
 
-        {/* 🔹 Resend OTP Section */}
-        <View style={styles.resendContainer}>
-          <Text style={styles.resendPrompt}>Didn’t receive the code?</Text>
-          {isResendDisabled ? (
-            <Text style={styles.timerText}> Resend in {timer}s</Text>
-          ) : (
-            <TouchableOpacity onPress={handleResend}>
-              <Text style={styles.resendText}> Resend</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          {/* 🔹 Resend OTP Section */}
+          <View style={styles.resendContainer}>
+            <Text style={styles.resendPrompt}>Didn’t receive the code?</Text>
+            {isResendDisabled ? (
+              <Text style={styles.timerText}> Resend in {timer}s</Text>
+            ) : (
+              <TouchableOpacity onPress={handleResend}>
+                <Text style={styles.resendText}> Resend</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* 🔹 Verify Button */}
-        <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
+          {/* 🔹 Verify Button */}
+          <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
+        </ImageBackground>
       </View>
 
       {/* 🔹 Custom Toast */}
@@ -191,12 +198,15 @@ const styles = StyleSheet.create({
   },
   bottomCard: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
     marginTop: -30,
+  },
+  cardBackground: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     elevation: 10,
     shadowColor: "#000",
     shadowOpacity: 0.15,
