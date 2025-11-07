@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
@@ -31,13 +32,12 @@ type MealPackage = {
   id: number;
   label: string;
   meals: Record<MealType, boolean>;
+  foodType: string;
 };
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  // console.log("BookingScreen params:", params);
   const bookingType = (params.bookingType as BookingType) || "tiffin";
-  console.log("bookingType:", bookingType);
   // Extract primitive strings for stable dependencies
   const serviceDataStr = params.serviceData || "{}"; // For tiffin
   const hostelDataStr = params.hostelData || "{}";
@@ -106,6 +106,7 @@ export default function BookingScreen() {
     offers: "",
   });
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+  const [tiffinService, setTiffinService] = useState<any>(null);
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [street, setStreet] = useState("");
@@ -143,15 +144,73 @@ export default function BookingScreen() {
   const [tiffinPlan, setTiffinPlan] = useState("");
   // NEW: Meal package selection
   const [selectedMealPackage, setSelectedMealPackage] = useState<number>(0);
-  const mealPackages: MealPackage[] = [
-    { id: 1, label: "Breakfast", meals: { breakfast: true, lunch: false, dinner: false } },
-    { id: 2, label: "Lunch", meals: { breakfast: false, lunch: true, dinner: false } },
-    { id: 3, label: "Dinner", meals: { breakfast: false, lunch: false, dinner: true } },
-    { id: 4, label: "Breakfast + Lunch", meals: { breakfast: true, lunch: true, dinner: false } },
-    { id: 5, label: "Breakfast + Dinner", meals: { breakfast: true, lunch: false, dinner: true } },
-    { id: 6, label: "Lunch + Dinner", meals: { breakfast: false, lunch: true, dinner: true } },
-    { id: 7, label: "Breakfast + Lunch + Dinner", meals: { breakfast: true, lunch: true, dinner: true } },
-  ];
+  const getMealsFromPlanType = (
+    planType: string
+  ): Record<MealType, boolean> => {
+    const lower = planType.toLowerCase();
+    const meals: Record<MealType, boolean> = {
+      breakfast: false,
+      lunch: false,
+      dinner: false,
+    };
+    if (lower.includes("breakfast")) meals.breakfast = true;
+    if (lower.includes("lunch")) meals.lunch = true;
+    if (lower.includes("dinner")) meals.dinner = true;
+    return meals;
+  };
+  const getLabel = (planType: string): string => {
+    const lower = planType.toLowerCase();
+    const mealParts: string[] = [];
+    if (lower.includes("breakfast")) mealParts.push("BF");
+    if (lower.includes("lunch")) mealParts.push("Lunch");
+    if (lower.includes("dinner")) mealParts.push("Dinner");
+    return mealParts.join(", ");
+  };
+  const mealPackages: MealPackage[] = useMemo(() => {
+    console.log('------->', tiffinService);
+    if (!tiffinService?.pricing) return [];
+    return tiffinService.pricing.map((p: any, index: number) => ({
+      id: index + 1,
+      label: getLabel(p.planType),
+      meals: getMealsFromPlanType(p.planType),
+      foodType: p.foodType,
+    }));
+  }, [tiffinService]);
+
+  const getAvailableFoodOptions = (foodType: string) => {
+    if (foodType === "Both Veg & Non-Veg") {
+      return [
+        { label: "Veg", value: "Veg" },
+        { label: "Non-Veg", value: "Non-Veg" },
+        { label: "Both Veg & Non-Veg", value: "Both" },
+      ];
+    } else if (foodType === "Veg") {
+      return [{ label: "Veg", value: "Veg" }];
+    } else if (foodType === "Non-Veg") {
+      return [{ label: "Non-Veg", value: "Non-Veg" }];
+    }
+    return [];
+  };
+  const currentFoodOptions = useMemo(() => {
+    if (selectedMealPackage === 0 || !tiffinService) {
+      return [
+        { label: "Veg", value: "Veg" },
+        { label: "Non-Veg", value: "Non-Veg" },
+        { label: "Both Veg & Non-Veg", value: "Both" },
+      ];
+    }
+    const selectedPkg = mealPackages.find((p) => p.id === selectedMealPackage);
+    if (!selectedPkg) return [];
+    return getAvailableFoodOptions(selectedPkg.foodType);
+  }, [selectedMealPackage, mealPackages, tiffinService]);
+  const orderTypeOptions = useMemo(() => {
+    return (
+      tiffinService?.orderTypes?.map((type: string) => ({
+        label: type,
+        value: type.toLowerCase().replace(" ", ""),
+      })) || []
+    );
+  }, [tiffinService]);
   // NEW: Compute total beds across all rooms
   const totalBedsCount = useMemo(
     () =>
@@ -222,11 +281,6 @@ export default function BookingScreen() {
     if (hasPeriodic && (!endDate || endDate <= date))
       newErrors.endDate = "End date is required and must be after start date!";
     if (!selectedfood) newErrors.selectedfood = "Food Type is required!";
-    if (selectedMealPackage === 0)
-      newErrors.mealPreferences = "Please select a meal package!";
-    if (selectedMealPackage > 0 && !tiffinPlan) {
-      newErrors.plan = "Plan type is required!";
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -279,8 +333,6 @@ export default function BookingScreen() {
     }
   };
   useEffect(() => {
-    console.log("=== Autofill useEffect triggered ===");
-    console.log("bookingType:", bookingType);
     const isHostelBooking =
       bookingType === "hostel" || bookingType === "reserve";
     const isTiffinBooking = bookingType === "tiffin";
@@ -288,7 +340,6 @@ export default function BookingScreen() {
       ranAutofill.current = true;
       try {
         const parsedUserData = safeParse(userDataStr);
-        console.log("Parsed User Data:", parsedUserData);
         // Handle user data structure: direct or nested under 'guest'
         const userName =
           parsedUserData.name || parsedUserData.guest?.name || "";
@@ -310,15 +361,12 @@ export default function BookingScreen() {
         if (isHostelBooking) {
           const parsedHostelData = safeParse(hostelDataStr);
           const parsedPlan = safeParse(planStr);
-          console.log("Parsed Hostel Data:", parsedHostelData);
-          console.log("Parsed Plan:", parsedPlan);
           // NEW: Handle multiple rooms via roomsData, fallback to single room
           let rooms: RoomData[] = [];
           try {
             const parsedRoomsData = safeParse(roomsDataStr);
             if (Array.isArray(parsedRoomsData) && parsedRoomsData.length > 0) {
               rooms = parsedRoomsData;
-              console.log("Parsed Multiple Rooms Data:", parsedRoomsData);
             } else {
               // Backward compat: single room
               const parsedRoomData = safeParse(roomDataStr);
@@ -330,8 +378,6 @@ export default function BookingScreen() {
                   beds: parsedSelectedBeds, // [{bedId, bedNumber}]
                 },
               ];
-              console.log("Parsed Single Room Data:", parsedRoomData);
-              console.log("Parsed Selected Beds:", parsedSelectedBeds);
             }
           } catch (parseErr) {
             console.error("Error parsing rooms data:", parseErr);
@@ -350,17 +396,11 @@ export default function BookingScreen() {
             adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
             userPhoto: userPhotoUrl || prev.userPhoto,
           }));
-          // NEW: Prefill first bed name after setting rooms
           setTimeout(() => prefillFirstBedName(rooms, userName), 0);
-          console.log("Extracted Hostel ID:", parsedHostelData.id);
-          console.log("Total Rooms:", rooms.length);
-          // Autofill other fields (except check-in and check-out dates)
           setHostelPlan(parsedPlan.name || "monthly");
           setAadhaarPhoto(userAdharPhoto || "");
           setUserPhoto(userPhotoUrl || "");
-          // Do not pre-fill dates - let user fill them
-          // FIXED: Better mapping for purposeType from userWorkType (handles casing and "leisure")
-          const workTypeNormalized = userWorkType.toLowerCase(); // Normalize for matching
+          const workTypeNormalized = userWorkType.toLowerCase();
           let purpose = "work"; // default
           if (workTypeNormalized.includes("student")) purpose = "student";
           else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
@@ -369,7 +409,6 @@ export default function BookingScreen() {
         }
         if (isTiffinBooking) {
           const parsedServiceData = safeParse(serviceDataStr);
-          console.log("Parsed Tiffin Service Data:", parsedServiceData);
           // Update serviceData for tiffin
           setServiceData((prev) => ({
             ...prev,
@@ -383,28 +422,61 @@ export default function BookingScreen() {
             pricing: parsedServiceData.pricing, // This is now used directly
             location:
               parsedServiceData.location || parsedServiceData.fullAddress,
-            contactInfo: parsedServiceData.contactInfo,
-          }));
-          // FIXED: No prefill for meals or food type - start blank
-          setSelectedfood("Both");
-          setOrderType("delivery");
-          // Set meal labels with timings (service info, keep)
-          const mealLabelMap: Record<MealType, string> = {
-            breakfast: "",
-            lunch: "",
-            dinner: "",
-          };
-          parsedServiceData.mealPreferences?.forEach((meal: any) => {
-            const key = meal.type.toLowerCase() as MealType;
-            if (key in mealLabelMap) {
-              mealLabelMap[key] = `${meal.type} ${meal.time}`;
-            }
-          });
-          setMealLabels(mealLabelMap);
+              contactInfo: parsedServiceData.contactInfo,
+            }));
+            // FIXED: No prefill for meals or food type - start blank
+            setSelectedfood("Both");
+            setOrderType("delivery");
+            if (parsedServiceData.serviceId) {
+            
+            const fetchTiffinService = async () => {
+              try {
+                const token = await AsyncStorage.getItem("token");
+                if (!token) return;
+                const response = await axios.get(
+                  `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/690c7562729b720eabfb511a`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  }
+                );
+                if (response.data.success) {
+                  console.log('dattttttaaaa', response.data.data);
+                  setTiffinService(response.data.data);
+                  // Set initial order type
+                  const types = response.data.data.orderTypes || [];
+                  if (types.length > 0) {
+                    const initialType = types.includes("Delivery")
+                      ? "delivery"
+                      : types[0].toLowerCase().replace(" ", "");
+                    setOrderType(initialType as "dining" | "delivery");
+                  }
+                  // Set meal labels from mealTimings
+                  const newMealLabels: Record<MealType, string> = {
+                    breakfast: "",
+                    lunch: "",
+                    dinner: "",
+                  };
+                  response.data.data.mealTimings?.forEach((mt: any) => {
+                    const key = mt.mealType.toLowerCase() as MealType;
+                    if (key in newMealLabels) {
+                      newMealLabels[key] =
+                        `${mt.mealType} (${mt.startTime} - ${mt.endTime})`;
+                    }
+                  });
+                  setMealLabels(newMealLabels);
+                }
+              } catch (error) {
+                console.error("Error fetching tiffin service:", error);
+                
+              }
+            };
+            fetchTiffinService();
+          }
           // Default date from params - but set to null for user selection
           setDate(null);
         }
-        console.log("Autofill completed");
       } catch (error) {
         console.error("Error in autofill useEffect:", error);
       }
@@ -529,7 +601,6 @@ export default function BookingScreen() {
   useEffect(() => {
     let newPrice = 0;
     let newDeposit = 0;
-    console.log("Price useEffect: orderType", orderType);
     if (bookingType === "tiffin") {
       // FIXED: Single price with plan
       const hasMeals = Object.values(tiffinMeals).some(Boolean);
@@ -537,7 +608,6 @@ export default function BookingScreen() {
       if (hasMeals && plan) {
         newPrice = getBasePriceForPlan(plan);
       }
-      console.log("final newPrice:", newPrice);
       newDeposit = 0; // No deposit for tiffin
     } else {
       // FIXED: For hostel, use flat rate (no multiplication by beds)
@@ -555,9 +625,6 @@ export default function BookingScreen() {
             ? 0
             : securityDeposit;
     }
-    console.log(
-      `💰 Updated prices - Total: ₹${newPrice}, Deposit: ₹${newDeposit}`
-    );
     setCurrentPlanPrice(newPrice);
     setCurrentDeposit(newDeposit);
   }, [
@@ -698,14 +765,12 @@ export default function BookingScreen() {
         orderType: orderTypeStr,
       });
       const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceData.serviceId}?${queryParams.toString()}`;
-      console.log("🔗 Full API URL:", url);
       const response = await axios.get(url, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log(`📥 Response:`, JSON.stringify(response, null, 2));
       if (response.data.success) {
         const data = response.data.data;
         const newPricing = {
@@ -727,9 +792,7 @@ export default function BookingScreen() {
         } else {
           setPlanError("");
         }
-        console.log(`✅ Fetched details:`, data);
       } else {
-        console.log(`❌ API false:`, response.data.message);
         setPlanError("Failed to fetch plan details: " + response.data.message);
       }
     } catch (error) {
@@ -787,13 +850,9 @@ export default function BookingScreen() {
         .trim();
       const chooseOrderTypeStr =
         orderType === "delivery" ? "Delivery" : "Dining";
-      const foodTypeMap = {
-        Veg: "Veg",
-        "Non-Veg": "Non-Veg",
-        Both: "Both",
-      };
-      const foodTypeStr =
-        foodTypeMap[selectedfood as keyof typeof foodTypeMap] || "Veg";
+      const getFoodTypeStr = (food: string) =>
+        food === "Both" ? "Both Veg & Non-Veg" : food;
+      const foodTypeStr = getFoodTypeStr(selectedfood);
       const planNameMap: Record<string, string> = {
         perDay: "Per Day",
         weekly: "Weekly",
@@ -841,7 +900,6 @@ export default function BookingScreen() {
         const endDateISO = endDate ? new Date(endDate).toISOString() : "";
         payload.endDate = endDateISO;
       }
-      console.log("Tiffin Booking Payload:", JSON.stringify(payload, null, 2));
       const response = await axios.post(
         `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
         payload,
@@ -852,9 +910,7 @@ export default function BookingScreen() {
           },
         }
       );
-      console.log("API Response:", response.data);
       if (response.data.success) {
-        console.log("Tiffin booking successful:", response.data.data);
         const bookingId = response.data.data._id;
         router.push({
           pathname: "/check-out",
@@ -898,21 +954,7 @@ export default function BookingScreen() {
       }));
     }
   };
-  // UPDATED: Handle hostel submit (add bed names to payload)
-  // UPDATED: Handle hostel submit (add bed names to payload)
   const handleHostelSubmit = async () => {
-    console.log("=== Hostel Submit Debug ===");
-    console.log("serviceData:", serviceData);
-    console.log("hostelPlan:", hostelPlan);
-    console.log("fullName:", fullName);
-    console.log("phoneNumber:", phoneNumber);
-    console.log("checkInDate:", checkInDate);
-    console.log("checkOutDate:", checkOutDate);
-    console.log("purposeType:", purposeType);
-    console.log("aadhaarPhoto:", aadhaarPhoto);
-    console.log("userPhoto:", userPhoto);
-    console.log("rooms:", serviceData.rooms);
-    console.log("bedNames:", bedNames);
     if (!validateHostelForm()) {
       // NEW: Auto-expand beds section if bed name errors are present for better UX
       const allBedKeys = serviceData.rooms.flatMap((room) =>
@@ -930,7 +972,6 @@ export default function BookingScreen() {
     try {
       if (!serviceData.hostelId) {
         console.error("Error: Hostel ID is missing!");
-        console.log("hostelId:", serviceData.hostelId);
         setErrors((prev) => ({ ...prev, general: "Hostel ID is missing!" }));
         return;
       }
@@ -949,8 +990,6 @@ export default function BookingScreen() {
       }
       const token = await AsyncStorage.getItem("token");
       const guestId = await AsyncStorage.getItem("guestId");
-      console.log("token:", token ? "Present" : "Missing");
-      console.log("guestId:", guestId ? "Present" : "Missing");
       if (!token || !guestId) {
         console.error("Error: Authentication token or guest ID is missing!");
         setErrors((prev) => ({
@@ -1005,20 +1044,6 @@ export default function BookingScreen() {
           name: "user.jpg",
         } as any);
       }
-      console.log("Full FormData Payload: (logged as object for debug)");
-      console.log({
-        fullName,
-        phoneNumber,
-        email: serviceData.email || "example@example.com",
-        checkInDate: checkInDate.toISOString(),
-        checkOutDate: checkOutDate.toISOString(),
-        workType: purposeType,
-        guestId,
-        rooms: roomsPayload,
-        selectPlan,
-        aadhaarPhoto: aadhaarPhoto ? "Attached" : "Null",
-        userPhoto: userPhoto ? "Attached" : "Null",
-      });
       // NEW: API URL uses only hostelId (remove roomId query param)
       const response = await axios.post(
         `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
@@ -1030,12 +1055,9 @@ export default function BookingScreen() {
           },
         }
       );
-      console.log("API Response:", response.data);
       if (response.data.success) {
-        console.log("Booking successful:", response.data.data);
         // alert("Hostel booking created successfully!");
         const bookingId = response.data.data._id;
-        console.log("Navigating to checkout with booking ID:", bookingId);
         router.push({
           pathname: "/check-out",
           params: {
@@ -1204,25 +1226,28 @@ export default function BookingScreen() {
     const options: { label: string; value: string }[] = [];
     if (fetchedPricing.perDay > 0) {
       options.push({
-        label: `Per Day (₹${fetchedPricing.perDay})`,
+        label: `Per Day`,
         value: "perDay",
       });
     }
     if (fetchedPricing.weekly > 0) {
       options.push({
-        label: `Weekly (₹${fetchedPricing.weekly})`,
+        label: `Weekly`,
         value: "weekly",
       });
     }
     if (fetchedPricing.monthly > 0) {
       options.push({
-        label: `Monthly (₹${fetchedPricing.monthly})`,
+        label: `Monthly`,
         value: "monthly",
       });
     }
     // If no dynamic options, fallback to hardcoded
     if (options.length === 0) {
-      return hardcodedPlanOptions;
+      return [
+        { label: "Weekly", value: "weekly" },
+        { label: "Monthly", value: "monthly" },
+      ];
     }
     return options;
   };
@@ -1506,12 +1531,6 @@ export default function BookingScreen() {
       </TouchableOpacity>
     </>
   );
-  // Hardcoded plan options for fallback
-  const hardcodedPlanOptions = [
-    { label: "Per Day (₹250)", value: "perDay" },
-    { label: "Weekly (₹1600)", value: "weekly" },
-    { label: "Monthly (₹6400)", value: "monthly" },
-  ];
   const renderTiffinBooking = () => {
     const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
     return (
@@ -1688,63 +1707,43 @@ export default function BookingScreen() {
             <View style={styles.expandedContent}>
               {/* Food Type */}
               <Text style={styles.sectionTitle}>Food Type</Text>
-              <RadioButton
-                label="Veg"
-                value="Veg"
-                selected={selectedfood}
-                onPress={(value) => {
-                  setSelectedfood(value);
-                  clearError("selectedfood");
-                }}
-              />
-              <RadioButton
-                label="Non-Veg"
-                value="Non-Veg"
-                selected={selectedfood}
-                onPress={(value) => {
-                  setSelectedfood(value);
-                  clearError("selectedfood");
-                }}
-              />
-              <RadioButton
-                label="Both Veg & Non-Veg"
-                value="Both"
-                selected={selectedfood}
-                onPress={(value) => {
-                  setSelectedfood(value);
-                  clearError("selectedfood");
-                }}
-              />
+              {currentFoodOptions.map((opt) => (
+                <RadioButton
+                  key={opt.value}
+                  label={opt.label}
+                  value={opt.value}
+                  selected={selectedfood}
+                  onPress={(value) => {
+                    setSelectedfood(value);
+                    clearError("selectedfood");
+                  }}
+                />
+              ))}
               {errors.selectedfood && (
                 <Text style={styles.errorText}>{errors.selectedfood}</Text>
               )}
-             
               <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
                 Choose Order Type
               </Text>
-              <RadioButton
-                label="Dining"
-                value="dining"
-                selected={orderType}
-                onPress={(value) => {
-                  setOrderType(value);
-                }}
-              />
-              <RadioButton
-                label="Delivery"
-                value="delivery"
-                selected={orderType}
-                onPress={(value) => {
-                  setOrderType(value);
-                }}
-              />
-              {planError ? (
+              {orderTypeOptions.map((opt) => (
+                <RadioButton
+                  key={opt.value}
+                  label={opt.label}
+                  value={opt.value}
+                  selected={orderType}
+                  onPress={(value) => {
+                    setOrderType(value as "dining" | "delivery");
+                  }}
+                />
+              ))}
+              {/* {planError ? (
                 <Text style={styles.errorText}>{planError}</Text>
               ) : fetchedPricing.offers ? (
                 <Text style={styles.offersText}>{fetchedPricing.offers}</Text>
-              ) : null}
-              {/* NEW: Meal Package Selection */}
-              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>Select Meal Package *</Text>
+              ) : null} */}
+              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                Select Meal Package *
+              </Text>
               {mealPackages.map((pkg) => (
                 <RadioButton
                   key={pkg.id}
@@ -1754,9 +1753,16 @@ export default function BookingScreen() {
                   onPress={(value) => {
                     const id = parseInt(value);
                     setSelectedMealPackage(id);
-                    const selectedPkg = mealPackages.find(p => p.id === id);
+                    const selectedPkg = mealPackages.find((p) => p.id === id);
                     if (selectedPkg) {
                       setTiffinMeals(selectedPkg.meals);
+                      // Reset food type if not compatible
+                      const availableValues = getAvailableFoodOptions(
+                        selectedPkg.foodType
+                      ).map((o) => o.value);
+                      if (!availableValues.includes(selectedfood)) {
+                        setSelectedfood(availableValues[0] || "Both");
+                      }
                     }
                     clearError("mealPreferences");
                   }}
@@ -1793,7 +1799,9 @@ export default function BookingScreen() {
                   <Text style={styles.depositText}>No Deposit</Text>
                 </View>
               )}
-              <Text style={[styles.label, {marginTop: 10}]}>Select Start Date *</Text>
+              <Text style={[styles.label, { marginTop: 10 }]}>
+                Select Start Date *
+              </Text>
               <TouchableOpacity
                 style={[
                   styles.datePickerButton,
