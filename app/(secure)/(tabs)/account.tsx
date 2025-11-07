@@ -9,67 +9,93 @@ import {
   Privacy,
   profile,
   terms,
-  user,
 } from "../../../assets/images";
 import colors from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Image,
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
   ViewStyle,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useFocusEffect } from "@react-navigation/native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-const AccountScreen = () => {
-  const [darkMode, setDarkMode] = useState(false);
-  const [logoutVisible, setLogoutVisible] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-
-  const { logout } = useAuthStore();
-
-  const fetchProfile = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) return;
-
-      const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/getProfile",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setProfileData(response.data.data.guest);
-    } catch (error: any) {
-      console.log(error.response?.data || error.message);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchProfile();
-    }, [])
+const fetchProfile = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+  const response = await axios.get(
+    "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+    { headers: { Authorization: `Bearer ${token}` } }
   );
-
- const handleLogout = () => {
-  logout();
-  router.replace("/(auth)/login");
+  return response.data.data.guest;
 };
 
+const AccountScreen = () => {
+  const [logoutVisible, setLogoutVisible] = useState(false);
+  const [cachedProfile, setCachedProfile] = useState<any>(null);
+  const { logout } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  // ✅ Load cached profile before API call
+  useEffect(() => {
+    (async () => {
+      const savedProfile = await AsyncStorage.getItem("userProfile");
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        setCachedProfile(parsed.guest);
+      }
+    })();
+  }, []);
+
+  // ✅ React Query - Fetch guest profile with cache preload
+  const {
+    data: profileData,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["guestProfile"],
+    queryFn: fetchProfile,
+    staleTime: 1000 * 60 * 2,
+    initialData: cachedProfile,
+    onSuccess: async (freshData) => {
+      await AsyncStorage.setItem(
+        "userProfile",
+        JSON.stringify({ guest: freshData })
+      );
+    },
+  });
+
+  // ✅ Refetch when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  // ✅ Logout logic
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem("token");
+    await AsyncStorage.removeItem("guestId");
+    await AsyncStorage.removeItem("userProfile");
+    queryClient.clear();
+    logout();
+    router.replace("/(auth)/login");
+  };
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 🔹 Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -80,32 +106,42 @@ const AccountScreen = () => {
         <Text style={styles.headerTitle}>Account</Text>
       </View>
 
+      {/* 🔹 Scroll content */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* 🔹 Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
-            <Image
-              source={
-                profileData?.profileImage
-                  ? { uri: profileData.profileImage }
-                  : user
-              }
-              style={styles.largeImage}
-            />
+            {profileData?.profileImage ? (
+              <Image
+                source={{ uri: profileData.profileImage }}
+                style={styles.largeImage}
+              />
+            ) : (
+              <View style={styles.emptyCircle} />
+            )}
           </View>
-          <Text style={styles.title}>{profileData?.name || "Loading..."}</Text>
+          {profileData?.name ? (
+            <Text style={styles.title}>{profileData.name}</Text>
+          ) : null}
         </View>
 
+        {/* 🔹 Menu Items */}
         <MenuItem
           label="Profile"
-          image={profileData?.profileImage ? { uri: profileData.profileImage } : profile}
+          image={profile}
           backgroundColor="#004AAD"
           textColor="#fff"
           iconTint="#fff"
           customStyle={{ borderRadius: 10 }}
-          onpress={() => router.push("/(secure)/account/profile")}
+          onpress={() => {
+            router.push({
+              pathname: "/(secure)/account/profile",
+              params: { refetchKey: Date.now().toString() },
+            });
+          }}
         />
 
         <MenuItem
@@ -113,11 +149,6 @@ const AccountScreen = () => {
           image={require("../../../assets/images/icon/wallet.png")}
           onpress={() => router.push("/(secure)/account/wallet")}
         />
-        {/* <MenuItem
-          label="Payment Method"
-          image={require("../../../assets/images/payment.png")}
-          onpress={() => router.push("/(secure)/account/method")}
-        /> */}
         <MenuItem
           label="Deposit"
           image={deposit}
@@ -154,22 +185,22 @@ const AccountScreen = () => {
           onpress={() => router.push("/(secure)/account/contactUs")}
         />
 
+        {/* 🔹 Language Section */}
         <View style={styles.sectionRow}>
           <Text style={styles.languageText}>Language</Text>
           <TouchableOpacity style={styles.dropdownContainer} activeOpacity={0.7}>
             <Text style={styles.dropdownText}>English</Text>
             <Image
               source={arrow}
-              style={[styles.arrowIcon, { tintColor: "grey", transform: [{ rotate: "90deg" }] }]}
+              style={[
+                styles.arrowIcon,
+                { tintColor: "grey", transform: [{ rotate: "90deg" }] },
+              ]}
             />
           </TouchableOpacity>
         </View>
 
-        {/* <View style={styles.sectionRow}>
-          <Text style={styles.languageText}>Dark Mode</Text>
-          <Switch value={darkMode} onValueChange={setDarkMode} />
-        </View> */}
-
+        {/* 🔹 Logout */}
         <MenuItem
           label="Log Out"
           image={logout}
@@ -177,6 +208,7 @@ const AccountScreen = () => {
         />
       </ScrollView>
 
+      {/* 🔹 Logout Modal */}
       <Modal
         transparent
         visible={logoutVisible}
@@ -209,6 +241,7 @@ const AccountScreen = () => {
   );
 };
 
+/* 🔹 MenuItem Component */
 const MenuItem = ({
   label,
   image,
@@ -244,28 +277,108 @@ const styles = StyleSheet.create({
   profileHeader: { alignItems: "center", marginVertical: 20 },
   profileImageContainer: { position: "relative", width: 86, height: 86 },
   largeImage: { width: 86, height: 86, borderRadius: 43 },
+  emptyCircle: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    backgroundColor: "#f0f0f0",
+  },
   title: { marginTop: 10, fontSize: 18, textAlign: "center", color: "#0A051F" },
-  menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, marginHorizontal: 28, marginVertical: 5, borderRadius: 8, justifyContent: "space-between" },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginHorizontal: 28,
+    marginVertical: 5,
+    borderRadius: 8,
+    justifyContent: "space-between",
+  },
   menuLeft: { flexDirection: "row", alignItems: "center" },
   smallIcon: { width: 24, height: 24, marginRight: 12 },
   menuText: { fontSize: 16 },
   arrowIcon: { width: 18, height: 18 },
-  sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginHorizontal: 28, paddingVertical: 16, paddingHorizontal: 16, borderTopWidth: 0.5, borderTopColor: "lightGrey" },
+  sectionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 28,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: "lightGrey",
+  },
   languageText: { fontSize: 16, color: "grey" },
-  dropdownContainer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#C4C4C4", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, minWidth: 120 },
+  dropdownContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#C4C4C4",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 120,
+  },
   dropdownText: { fontSize: 16, color: "#0A0A23" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-  modalContainer: { width: "80%", backgroundColor: "#fff", borderRadius: 12, paddingVertical: 64, alignItems: "center", paddingHorizontal: 30 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 64,
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
   modalTitle: { fontSize: 24, color: "orange", marginBottom: 8 },
   divider: { width: "100%", height: 1, backgroundColor: "lightGrey", marginVertical: 8 },
   modalMessage: { fontSize: 24, color: "#0A051F", marginVertical: 12 },
-  modalActions: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 10 },
-  cancelButton: { flex: 1, marginRight: 10, borderWidth: 1, borderColor: "#004AAD", borderRadius: 25, paddingVertical: 10, alignItems: "center" },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#004AAD",
+    borderRadius: 25,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
   cancelText: { fontSize: 16, color: "#004AAD" },
-  logoutButton: { flex: 1, backgroundColor: "#004AAD", borderRadius: 25, paddingVertical: 10, alignItems: "center" },
+  logoutButton: {
+    flex: 1,
+    backgroundColor: "#004AAD",
+    borderRadius: 25,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
   logoutText: { fontSize: 16, color: "white" },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
-  backButton: { width: 28, height: 28, borderRadius: 18, borderWidth: 1, borderColor: colors.title, justifyContent: "center", alignItems: "center" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.title,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
 });
 

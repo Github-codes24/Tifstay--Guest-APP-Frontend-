@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -16,42 +16,49 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+const fetchProfile = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+
+  const res = await fetch(
+    "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message || "Failed to load profile");
+  return data.data.guest;
+};
 
 const EditProfile = () => {
+  const queryClient = useQueryClient();
+
+  const { data: guest } = useQuery({
+    queryKey: ["guestProfile"],
+    queryFn: fetchProfile,
+    staleTime: 1000 * 60 * 5, // ✅ cache for 5 mins
+  });
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [profileImage, setProfileImage] = useState<any>(null);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No token found");
-
-      const res = await fetch(
-        "https://tifstay-project-be.onrender.com/api/guest/getProfile",
-        {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = await res.json();
-      if (data.success) {
-        const guest = data.data.guest;
-        setName(guest.name || "");
-        setEmail(guest.email || "");
-        setPhone(guest.phoneNumber || "");
-        setDob(guest.dob || "");
-      }
-    } catch (err: any) {
-      console.log(err.message);
+  React.useEffect(() => {
+    if (guest) {
+      setName(guest.name || "");
+      setEmail(guest.email || "");
+      setPhone(guest.phoneNumber || "");
+      setDob(guest.dob || "");
+      if (guest.profileImage) setProfileImage({ uri: guest.profileImage });
     }
-  };
+  }, [guest]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -72,13 +79,12 @@ const EditProfile = () => {
 
       const formData = new FormData();
 
-      // Only append fields if they are not empty
       if (name.trim()) formData.append("name", name.trim());
       if (email.trim()) formData.append("email", email.trim());
       if (phone.trim()) formData.append("phoneNumber", phone.trim());
       if (dob.trim()) formData.append("dob", dob.trim());
 
-      if (profileImage) {
+      if (profileImage && profileImage.uri) {
         formData.append("profileImage", {
           uri: profileImage.uri,
           name: "profile.jpg",
@@ -92,7 +98,6 @@ const EditProfile = () => {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
-            // remove Content-Type, fetch will set it automatically for FormData
           },
           body: formData,
         }
@@ -102,6 +107,10 @@ const EditProfile = () => {
 
       if (data.success) {
         Alert.alert("Success", "Profile updated successfully");
+
+        // ✅ update cached data instantly (no refetch)
+        queryClient.setQueryData(["guestProfile"], data.data.guest);
+
         router.back();
       } else {
         Alert.alert("Error", data.message || "Failed to update profile");
@@ -133,16 +142,11 @@ const EditProfile = () => {
       >
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={pickImage}>
-            <Image
-              source={
-                profileImage
-                  ? { uri: profileImage.uri }
-                  : require("../../../assets/images/user.png")
-              }
-              style={styles.profileImage}
-            />
+            {profileImage?.uri ? (
+              <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
+            ) : null}
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{name || "Guest"}</Text>
+          <Text style={styles.headerTitle}>{name}</Text>
         </View>
 
         <View style={{ gap: 8 }}>

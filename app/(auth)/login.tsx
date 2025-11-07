@@ -44,10 +44,12 @@ export default function LoginScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingDialCode, setLoadingDialCode] = useState(false);
 
-  const phoneRegex = /^[0-9]{7,15}$/;
+  // ✅ only allow 10-digit numbers
+  const phoneRegex = /^[0-9]{10}$/;
 
   const handlePhoneNumberChange = (inputText: string) => {
-    const digitsOnly = inputText.replace(/[^0-9]/g, "").slice(0, 15);
+    // remove non-numeric chars and limit to 10 digits
+    const digitsOnly = inputText.replace(/[^0-9]/g, "").slice(0, 10);
     setPhoneNumber(digitsOnly);
   };
 
@@ -119,6 +121,8 @@ export default function LoginScreen() {
   const handleGetOTP = async () => {
     Keyboard.dismiss();
 
+    const trimmedNumber = phoneNumber.trim();
+
     if (!acceptedTerms) {
       Toast.show({
         type: "error",
@@ -128,16 +132,17 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!phoneRegex.test(phoneNumber)) {
+    // ✅ Improved validation (only 10 digits allowed)
+    if (!phoneRegex.test(trimmedNumber)) {
       Toast.show({
         type: "error",
         text1: "Invalid Number",
-        text2: "Please enter a valid phone number (7-15 digits).",
+        text2: "Please enter a valid 10-digit phone number.",
       });
       return;
     }
 
-    const payload = { phoneNumber };
+    const payload = { phoneNumber: trimmedNumber };
 
     try {
       const response = await axios.post(
@@ -156,7 +161,7 @@ export default function LoginScreen() {
         setTimeout(() => {
           router.push({
             pathname: "/verify",
-            params: { phoneNumber },
+            params: { phoneNumber: trimmedNumber },
           });
         }, 3000);
       } else {
@@ -235,7 +240,7 @@ export default function LoginScreen() {
                   keyboardType="phone-pad"
                   value={phoneNumber}
                   onChangeText={handlePhoneNumberChange}
-                  maxLength={15}
+                  maxLength={10}
                 />
               </View>
 
@@ -323,20 +328,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-     backgroundColor: "#fff",
+    backgroundColor: "#fff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     elevation: 10,
   },
   title: { fontSize: 20, fontWeight: "600", textAlign: "center", marginTop: 16 },
   subtitle: { fontSize: 18, fontWeight: "500", textAlign: "center", marginBottom: 24 },
-
-  // ✅ Updated phone input style
   phoneInputContainer: {
     flexDirection: "row",
     height: 50,
     borderRadius: 8,
-    backgroundColor: "#f5f6fa", // same as register
+    backgroundColor: "#f5f6fa",
     alignItems: "center",
     marginBottom: 16,
   },
@@ -345,7 +348,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     height: "100%",
-    backgroundColor: "transparent",
   },
   flagImage: { width: 28, height: 20, resizeMode: "contain" },
   dialCodeText: { fontSize: 16, fontWeight: "500", marginLeft: 8, marginRight: 4 },
@@ -354,18 +356,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 12,
     height: "100%",
-    backgroundColor: "transparent",
     color: "#000",
   },
-
-  // ✅ Centered Terms & Conditions
   termsContainer: {
     flexDirection: "row",
-    // justifyContent: "center",
-    // alignItems: "center",
     marginBottom: 20,
     paddingHorizontal: 8,
-    marginTop:10
+    marginTop: 10,
   },
   checkbox: {
     width: 20,
@@ -379,7 +376,6 @@ const styles = StyleSheet.create({
   },
   checkedBox: { width: 12, height: 12, backgroundColor: colors.primary },
   termsText: { fontSize: 13, color: colors.textSecondary, textAlign: "center" },
-
   footer: { marginTop: 10, flexDirection: "row", justifyContent: "center" },
   footerText: { color: colors.textSecondary, fontSize: 14 },
   footerLink: { color: colors.primary, fontWeight: "600", fontSize: 14 },
