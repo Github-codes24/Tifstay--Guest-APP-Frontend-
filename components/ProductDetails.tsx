@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import * as Linking from 'expo-linking';
 import * as Clipboard from 'expo-clipboard';
 // import * as Sharing from 'expo-sharing'; // Commented out due to missing module
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery } from "@tanstack/react-query"; // Add this import
 import Button from "./Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
@@ -39,9 +40,7 @@ export default function ProductDetails() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
-  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [reviews, setReviews] = useState([]);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
@@ -113,71 +112,90 @@ export default function ProductDetails() {
     }
   };
 
-  useEffect(() => {
-    if (!mappedData?.id || activeTab !== "Reviews") {
-      console.log("Skipping fetch: ", { paramType, id: mappedData?.id, activeTab });
-      return;
-    }
+  // Extracted fetchReviews logic for useQuery (returns mapped data for caching)
+  const fetchReviews = useCallback(async () => {
+    const token = await getAuthToken();
+    console.log("Token:", token);
 
-    const fetchReviews = async () => {
-      setIsLoadingReviews(true);
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const token = await getAuthToken();
-      console.log("Token:", token);
+    try {
+      // Note: For tiffin, this endpoint looks incorrect (using hostelServices). 
+      // Assuming it's intentional or backend handles it; otherwise, change to /tiffinServices/getRatingsandReviews
+      const url = paramType === "hostel"
+        ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${paramId}`
+        : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${paramId}`;
+      console.log("Fetching reviews from:", url);
 
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const response = await fetch(url, { headers });
+      console.log("Fetch status:", response.status);
 
-      try {
-        // Use the same endpoint structure as hostel for tiffin reviews
-        const url = paramType === "hostel"
-          ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${mappedData.id}`
-          : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${mappedData.id}`;
-        console.log("Fetching reviews from:", url);
-
-        const response = await fetch(url, { headers });
-        console.log("Fetch status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log(`${paramType}Review response:`, result);
-
-        if (result.success) {
-          const mappedReviews = result.data.map((review: any) => {
-            const [d, m, y] = review.reviewDate.split('/'); 
-            return {
-              id: review._id,
-              name: review.guest?.name || review.user?.name || "Anonymous",
-              avatar: review.guest?.profileImage || review.user?.profileImage || null,
-              rating: review.rating,
-              comment: review.review,
-              date: new Date(y, m - 1, d).toLocaleDateString(), 
-            };
-          });
-          console.log("Mapped reviews:", mappedReviews);
-          setReviews(mappedReviews);
-          setMappedData((prev: any) => ({
-            ...prev,
-            userReviews: mappedReviews,
-            rating: parseFloat(result.averageRating) || 0,
-            reviewCount: result.totalReviews || 0
-          }));
-        } else {
-          setReviews([]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch reviews:", error);
-        setReviews([]);
-      } finally {
-        setIsLoadingReviews(false);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
 
-    fetchReviews();
-  }, [paramType, mappedData?.id, activeTab]);
+      const result = await response.json();
+      console.log(`${paramType} Review response:`, result);
+
+      if (result.success) {
+        const mappedReviews = result.data.map((review: any) => {
+          const [d, m, y] = review.reviewDate.split('/'); 
+          return {
+            id: review._id,
+            name: review.guest?.name || review.user?.name || "Anonymous",
+            avatar: review.guest?.profileImage || review.user?.profileImage || null,
+            rating: review.rating,
+            comment: review.review,
+            date: new Date(y, m - 1, d).toLocaleDateString(), 
+          };
+        });
+        console.log("Mapped reviews:", mappedReviews);
+        return {
+          reviews: mappedReviews,
+          averageRating: parseFloat(result.averageRating) || 0,
+          totalReviews: result.totalReviews || 0
+        };
+      } else {
+        return {
+          reviews: [],
+          averageRating: 0,
+          totalReviews: 0
+        };
+      }
+    } catch (error) {
+      console.error("Failed to fetch reviews:", error);
+      return {
+        reviews: [],
+        averageRating: 0,
+        totalReviews: 0
+      };
+    }
+  }, [paramType, paramId]);
+
+  // React Query hook for reviews (caches for 5min by default from QueryClient)
+  const { 
+    data: reviewsResult, 
+    isLoading: isLoadingReviews 
+  } = useQuery({
+    queryKey: ['reviews', paramType, paramId],
+    queryFn: fetchReviews,
+    enabled: activeTab === 'Reviews' && !!paramId, // Only fetch when tab is active (matches current behavior)
+    staleTime: 5 * 60 * 1000, // Inherit 5min from QueryClient, but explicit for clarity
+  });
+
+  // Update local state when query data is available
+  useEffect(() => {
+    if (reviewsResult) {
+      setReviews(reviewsResult.reviews);
+      setMappedData((prev: any) => ({
+        ...prev,
+        userReviews: reviewsResult.reviews,
+        rating: reviewsResult.averageRating,
+        reviewCount: reviewsResult.totalReviews
+      }));
+    }
+  }, [reviewsResult]);
 
   // Map full API data to component-expected structure
   useEffect(() => {
@@ -189,7 +207,7 @@ export default function ProductDetails() {
         return;
       }
 
-      setIsLoadingDetails(true);
+      // Note: Removed setIsLoadingDetails here; handle in render if needed
       try {
         let fullApiData = null;
 
@@ -346,8 +364,6 @@ export default function ProductDetails() {
         setMappedData(processedData);
       } catch (error) {
         console.error("Error processing data:", error);
-      } finally {
-        setIsLoadingDetails(false);
       }
     };
 
@@ -499,22 +515,7 @@ export default function ProductDetails() {
   };
 
   // Early return if data not ready
-  if (!mappedData && !isLoadingDetails) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Header
-          title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
-          backIconName="chevron-back"
-          onBack={() => router.back()}
-        />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Loading details...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (isLoadingDetails) {
+  if (!mappedData) {
     return (
       <SafeAreaView style={styles.container}>
         <Header
@@ -926,13 +927,12 @@ export default function ProductDetails() {
           <ActivityIndicator size="large" color="#6B7280" />
           <Text style={styles.loadingText}>Loading reviews...</Text>
         </View>
+      ) : reviews.length === 0 ? (
+        <Text style={styles.emptyText}>No reviews available yet.</Text>
       ) : (
         <FlatList
-          data={reviews} // Use the fetched reviews for both types now
+          data={reviews}
           scrollEnabled={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No reviews available yet.</Text>
-          }
           renderItem={({ item }) => (
             <View style={styles.reviewItem}>
               <View style={styles.reviewHeader}>
@@ -1097,7 +1097,6 @@ export default function ProductDetails() {
   );
 }
 
-// ==================== STYLES ====================
 const styles = StyleSheet.create({
   container: {
     flex: 1,

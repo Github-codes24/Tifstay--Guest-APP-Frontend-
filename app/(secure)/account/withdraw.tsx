@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // ← Added
 import colors from "@/constants/colors";
 
 const COLORS = {
@@ -30,68 +31,32 @@ const COLORS = {
 };
 
 export default function DocumentsScreen() {
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // ← Removed imageUri & loading states (now from React Query)
 
-  // ✅ Fetch existing uploaded Aadhaar
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("token");
-        if (!token) return;
+  const queryClient = useQueryClient();
 
-        const res = await axios.get(
-          "https://tifstay-project-be.onrender.com/api/guest/documents/documents",
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (res.data?.documents?.aadhaarCard) {
-          setImageUri(res.data.documents.aadhaarCard);
-        }
-      } catch (err) {
-        console.log("Error fetching documents:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDocuments();
-  }, []);
-
-  // ✅ Pick and upload image directly
-  const pickAndUploadImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Allow photo library access to upload.");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.9,
-        allowsEditing: true,
-      });
-
-      if (result.canceled || !result.assets?.length) return;
-
-      const uri = result.assets[0].uri;
-      await handleUpload(uri); // upload immediately
-    } catch (err) {
-      console.log("Image pick error:", err);
-    }
-  };
-
-  // ✅ Upload Aadhaar (used for both upload & update)
-  const handleUpload = async (uri: string) => {
-    try {
-      setLoading(true);
+  // ── Cached fetch of existing Aadhaar ───────────────────────────────
+  const { data: aadhaarUrl, isLoading: fetchLoading } = useQuery<string | null>({
+    queryKey: ["aadhaar"],
+    queryFn: async () => {
       const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        Alert.alert("Error", "You must be logged in to upload documents.");
-        return;
-      }
+      if (!token) return null;
+
+      const res = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/documents/documents",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      return res.data?.documents?.aadhaarCard || null;
+    },
+    staleTime: 5 * 60 * 1000, // Same as your global default
+  });
+
+  // ── Upload / Update mutation (invalidates cache on success) ───────
+  const uploadMutation = useMutation({
+    mutationFn: async (uri: string) => {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("You must be logged in");
 
       const formData = new FormData();
       formData.append("aadhaarCard", {
@@ -111,17 +76,43 @@ export default function DocumentsScreen() {
         }
       );
 
-      if (res.data.success) {
-        Alert.alert("Success", imageUri ? "Aadhaar updated!" : "Aadhaar uploaded!");
-        setImageUri(res.data.data?.aadhaarUrl || uri);
-      } else {
-        Alert.alert("Error", "Upload failed. Try again.");
+      if (!res.data.success) throw new Error("Upload failed");
+
+      return res.data.data?.aadhaarUrl || uri;
+    },
+    onSuccess: (newUrl) => {
+      const previousUrl = queryClient.getQueryData<string | null>(["aadhaar"]);
+      queryClient.setQueryData(["aadhaar"], newUrl); // Instant optimistic update (no extra API call)
+      Alert.alert("Success", previousUrl ? "Aadhaar updated!" : "Aadhaar uploaded!");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to upload Aadhaar. Please try again.");
+    },
+  });
+
+  const loading = fetchLoading || uploadMutation.isPending;
+
+  // ── Pick image → trigger mutation ─────────────────────────────────
+  const pickAndUploadImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Allow photo library access to upload.");
+        return;
       }
-    } catch (error: any) {
-      console.log("Upload error:", error.response?.data || error.message);
-      Alert.alert("Error", "Failed to upload Aadhaar. Please try again.");
-    } finally {
-      setLoading(false);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+        allowsEditing: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const uri = result.assets[0].uri;
+      uploadMutation.mutate(uri); // ← Triggers cached update
+    } catch (err) {
+      console.log("Image pick error:", err);
     }
   };
 
@@ -162,8 +153,8 @@ export default function DocumentsScreen() {
             </View>
           ) : (
             <View style={styles.dashedArea}>
-              {imageUri ? (
-                <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+              {aadhaarUrl ? (
+                <Image source={{ uri: aadhaarUrl }} style={styles.preview} resizeMode="cover" />
               ) : (
                 <View style={{ alignItems: "center" }}>
                   <Text style={styles.uploadTitle}>No Aadhaar uploaded</Text>
@@ -180,7 +171,7 @@ export default function DocumentsScreen() {
             disabled={loading}
           >
             <Text style={styles.primaryBtnText}>
-              {imageUri ? "Update Aadhaar" : "Upload Aadhaar"}
+              {aadhaarUrl ? "Update Aadhaar" : "Upload Aadhaar"}
             </Text>
           </Pressable>
         </View>

@@ -1,7 +1,7 @@
 import colors from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
-import React, { useState, useCallback } from "react";
+import { useRouter } from "expo-router";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -10,98 +10,138 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import CustomToast from "@/components/CustomToast"; // Adjust the import path as needed for your CustomToast component
+import CustomToast from "@/components/CustomToast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native"; // ← Added for screen-focus refetch
 
 const AddressScreen = () => {
-  const [addresses, setAddresses] = useState([]);
-  const [loading, setLoading] = useState(true);
   const navigation = useRouter();
-  const fetchAddresses = async () => {
-    setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
+  const queryClient = useQueryClient();
+
+  // Track initial mount so we don't force-refetch on first load (useQuery already handles it)
+  const isInitialMount = useRef(true);
+
+  // Manual pull-to-refresh state (background refetches will be silent)
+  const [refreshing, setRefreshing] = useState(false);
+
+  // ── Cached fetch of addresses ─────────────────────────────────────
+  const { data: addresses = [], isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["addresses"],
+    queryFn: async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "No token found!",
+          });
+          return [];
+        }
+        const response = await axios.get(
+          "https://tifstay-project-be.onrender.com/api/guest/address/getAllAddresses",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (response.data.success) {
+          return response.data.data.addresses || [];
+        } else {
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "Failed to fetch addresses",
+          });
+          return [];
+        }
+      } catch (error) {
+        console.log("Error fetching addresses:", error);
         Toast.show({
           type: "error",
           text1: "Error",
-          text2: "No token found!",
+          text2: "Failed to fetch addresses",
         });
-        setLoading(false);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Refetch automatically when screen comes into focus (e.g. after adding/editing) ──
+  useFocusEffect(
+    useCallback(() => {
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
         return;
       }
-      const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/address/getAllAddresses",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (response.data.success) {
-        setAddresses(response.data.data.addresses || []);
-      } else {
-        setAddresses([]);
-      }
+      // Silent background refetch – no spinner unless user pulls
+      refetch();
+    }, [refetch])
+  );
+
+  // ── Manual pull-to-refresh handler ───────────────────────────────
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
     } catch (error) {
-      console.log("Error fetching addresses:", error);
+      // Optional: show toast on refresh failure
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: "Failed to fetch addresses",
+        text2: "Failed to refresh addresses",
       });
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
-  useFocusEffect(
-    useCallback(() => {
-      fetchAddresses();
-    }, [])
-  );
-  const deleteAddress = async (addressId) => {
-    try {
+  }, [refetch]);
+
+  // ── Delete mutation (invalidates cache → auto-refetch) ───────────
+  const deleteMutation = useMutation({
+    mutationFn: async (addressId: string) => {
       const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        Toast.show({
-          type: "error",
-          text1: "Error",
-          text2: "No token found!",
-        });
-        return;
-      }
+      if (!token) throw new Error("No token found");
+
       const response = await axios.delete(
         `https://tifstay-project-be.onrender.com/api/guest/address/deleteAddress/${addressId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      if (response.data.success) {
-        Toast.show({
-          type: "success",
-          text1: "Success",
-          text2: "Address deleted successfully",
-        });
-        fetchAddresses();
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Error",
-          text2: "Failed to delete address",
-        });
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to delete");
       }
-    } catch (error) {
-      console.log("Error deleting address:", error);
+      return response.data;
+    },
+    onSuccess: () => {
+      Toast.show({
+        type: "success",
+        text1: "Success",
+        text2: "Address deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["addresses"] });
+    },
+    onError: () => {
       Toast.show({
         type: "error",
         text1: "Error",
         text2: "Failed to delete address",
       });
-    }
+    },
+  });
+
+  const handleDelete = (addressId: string) => {
+    deleteMutation.mutate(addressId);
   };
-  const renderAddress = ({ item }) => (
+
+  const renderAddress = ({ item }: { item: any }) => (
     <View style={styles.card}>
       <Image
         source={require("../../../assets/images/home.png")}
@@ -122,7 +162,7 @@ const AddressScreen = () => {
             resizeMode="contain"
           />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => deleteAddress(item._id)}>
+        <TouchableOpacity onPress={() => handleDelete(item._id)}>
           <Image
             source={require("../../../assets/images/delete.png")}
             style={styles.actionIcon}
@@ -132,6 +172,23 @@ const AddressScreen = () => {
       </View>
     </View>
   );
+
+  const AddAddressCard = () => (
+    <TouchableOpacity
+      style={styles.addCard}
+      onPress={() => navigation.push("/(secure)/account/addAddress")}
+    >
+      <Image
+        source={require("../../../assets/images/add.png")}
+        style={styles.image}
+        resizeMode="contain"
+      />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>Add a new address</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -141,59 +198,44 @@ const AddressScreen = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Address</Text>
       </View>
-      {loading ? (
+
+      {isLoading ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <>
           <Text style={styles.locationLabel}>Location</Text>
-          {addresses.length > 0 ? (
-            <FlatList
-              data={addresses}
-              keyExtractor={(item) => item._id}
-              renderItem={renderAddress}
-              ListFooterComponent={() => (
+
+          <FlatList
+            data={addresses}
+            keyExtractor={(item) => item._id}
+            renderItem={renderAddress}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={{ marginTop: 20, alignItems: "center" }}>
+                <Text style={{ textAlign: "center", color: "#A5A5A5" }}>
+                  No addresses found.
+                </Text>
+                <View style={{ marginTop: 20 }}>
+                  <AddAddressCard />
+                </View>
+              </View>
+            }
+            ListFooterComponent={
+              addresses.length > 0 ? (
                 <>
                   <Text style={{ textAlign: "center", paddingVertical: 8, color: "#A5A5A5" }}>
                     or
                   </Text>
-                  {/* Always show add new address */}
-                  <TouchableOpacity
-                    style={styles.addCard}
-                    onPress={() => navigation.push("/(secure)/account/addAddress")}
-                  >
-                    <Image
-                      source={require("../../../assets/images/add.png")}
-                      style={styles.image}
-                      resizeMode="contain"
-                    />
-                    <View style={styles.textContainer}>
-                      <Text style={styles.title}>Add a new address</Text>
-                    </View>
-                  </TouchableOpacity>
+                  <AddAddressCard />
                 </>
-              )}
-            />
-          ) : (
-            <View style={{ marginTop: 20 }}>
-              <Text style={{ textAlign: "center", color: "#A5A5A5" }}>No addresses found.</Text>
-              {/* Add button even if no address */}
-              <TouchableOpacity
-                style={[styles.addCard, { marginTop: 20 }]}
-                onPress={() => navigation.push("/(secure)/account/addAddress")}
-              >
-                <Image
-                  source={require("../../../assets/images/add.png")}
-                  style={styles.image}
-                  resizeMode="contain"
-                />
-                <View style={styles.textContainer}>
-                  <Text style={styles.title}>Add a new address</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
+              ) : null
+            }
+            showsVerticalScrollIndicator={false}
+          />
         </>
       )}
       <CustomToast />
@@ -201,6 +243,7 @@ const AddressScreen = () => {
   );
 };
 export default AddressScreen;
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   locationLabel: { marginHorizontal: 16, fontSize: 14 },
