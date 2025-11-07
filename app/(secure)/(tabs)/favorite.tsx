@@ -3,7 +3,7 @@
 // ✅ Auto refresh on screen focus
 // ✅ React Query caching + Expo Router navigation
 
-import React, { useCallback } from "react";
+import React, { useCallback ,useEffect} from "react";
 import {
   View,
   Text,
@@ -120,6 +120,11 @@ export default function FavoritesScreen() {
       queryClient.invalidateQueries(["favoriteHostels"]);
     }, [queryClient])
   );
+  useEffect(() => {
+  queryClient.invalidateQueries(["favoriteTiffins"]);
+  queryClient.invalidateQueries(["favoriteHostels"]);
+}, [favoritesUpdated, queryClient]);
+
 
   // ==================== MUTATIONS ====================
 
