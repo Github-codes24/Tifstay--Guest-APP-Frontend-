@@ -560,7 +560,7 @@ const handleContinueSubscription = (order: Order) => {
                       title="Rate Now"
                       onPress={() => handleRateNow(order)}
                       textStyle={styles.secondaryButtonTextStyle}
-                      style={[styles.rateButtonStyle, { width: 430, marginTop:10 }]}
+                      style={[styles.rateButtonStyle, { width: '100%' ,marginTop:10 }]}
                       height={48}
                     />
                   </View>
