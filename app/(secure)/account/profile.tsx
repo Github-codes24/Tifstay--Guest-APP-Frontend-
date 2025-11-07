@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,47 +6,69 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from "react-native";
-
 import { router } from "expo-router";
 import colors from "@/constants/colors";
 import { arrow } from "@/assets/images";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+const fetchProfile = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+
+  const response = await axios.get(
+    "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  return response.data.data.guest;
+};
 
 const MyProfileScreen = () => {
-  const [profile, setProfile] = useState<any>(null);
+  const queryClient = useQueryClient();
+  const [cachedProfile, setCachedProfile] = useState<any>(null);
 
-  const fetchProfile = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No token found");
+  // ✅ Load cached profile from AsyncStorage first
+  useEffect(() => {
+    (async () => {
+      const savedProfile = await AsyncStorage.getItem("userProfile");
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        setCachedProfile(parsed.guest);
+      }
+    })();
+  }, []);
 
-      const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/getProfile",
-        { headers: { Authorization: `Bearer ${token}` } }
+  // ✅ Fetch with React Query
+  const {
+    data: profile,
+    refetch,
+  } = useQuery({
+    queryKey: ["guestProfile"],
+    queryFn: fetchProfile,
+    staleTime: 1000 * 60 * 2, // 2 minutes cache
+    initialData: cachedProfile,
+    onSuccess: async (freshData) => {
+      await AsyncStorage.setItem(
+        "userProfile",
+        JSON.stringify({ guest: freshData })
       );
+    },
+  });
 
-      setProfile(response.data.data.guest);
-    } catch (error: any) {
-      console.log(error.response?.data || error.message);
-    }
-  };
-
+  // ✅ Refetch when screen comes into focus
   useFocusEffect(
-    useCallback(() => {
-      fetchProfile();
-    }, [])
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
   );
 
   const displayValue = (value: string | undefined) => value || "";
-
-
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,20 +88,26 @@ const MyProfileScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Content */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
-          <Image
-            source={
-              profile?.profileImage
-                ? { uri: profile.profileImage }
-                : require("@/assets/images/user.png")
-            }
-            style={styles.profileImage}
-          />
+          {/* ✅ If no image, show empty circle */}
+          {profile?.profileImage ? (
+            <Image
+              source={{ uri: profile.profileImage }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <View style={styles.emptyCircle} />
+          )}
 
-          <Text style={styles.profileName}>{displayValue(profile?.name) || "Loading..."}</Text>
+          {/* ✅ Only show name if available */}
+          {profile?.name ? (
+            <Text style={styles.profileName}>{profile.name}</Text>
+          ) : null}
         </View>
 
+        {/* Info section */}
         <View style={styles.infoCard}>
           <InfoRow
             icon={require("@/assets/images/name.png")}
@@ -103,6 +131,7 @@ const MyProfileScreen = () => {
           />
         </View>
 
+        {/* Menu Items */}
         <MenuItem
           label="Manage Profile"
           icon={require("@/assets/images/manage.png")}
@@ -118,13 +147,20 @@ const MyProfileScreen = () => {
           icon={require("@/assets/images/del.png")}
           onPress={() => router.push("/(secure)/account/deleteAccount")}
         />
-
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const InfoRow = ({ icon, label, value }: { icon: any; label: string; value: string }) => (
+const InfoRow = ({
+  icon,
+  label,
+  value,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+}) => (
   <View style={styles.infoRow}>
     <Image source={icon} style={styles.infoIcon} />
     <View style={styles.infoTextContainer}>
@@ -134,7 +170,15 @@ const InfoRow = ({ icon, label, value }: { icon: any; label: string; value: stri
   </View>
 );
 
-const MenuItem = ({ label, icon, onPress }: { label: string; icon: any; onPress?: () => void }) => (
+const MenuItem = ({
+  label,
+  icon,
+  onPress,
+}: {
+  label: string;
+  icon: any;
+  onPress?: () => void;
+}) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress}>
     <View style={styles.menuLeft}>
       <Image source={icon} style={styles.menuIcon} />
@@ -165,6 +209,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
   profileSection: { alignItems: "center", marginTop: 24, marginBottom: 16 },
   profileImage: { width: 86, height: 86, borderRadius: 43 },
+  emptyCircle: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    backgroundColor: "#f0f0f0",
+  },
   profileName: { fontSize: 18, marginTop: 12 },
   infoCard: {
     backgroundColor: "#F8F5FF",

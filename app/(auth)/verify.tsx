@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-    backgroundColor: "rgba(255,255,255,0.95)",
+backgroundColor: "#fff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     elevation: 10,
