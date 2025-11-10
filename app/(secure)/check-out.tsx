@@ -138,10 +138,10 @@ const Checkout: React.FC = () => {
         imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
         mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
         foodType: tiffinOrderDetails.foodType || "Veg",
-        startDate: tiffinOrderDetails.date ? new Date(tiffinOrderDetails.date).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
-        plan: tiffinOrderDetails.choosePlanType?.planName || planType || "Per meal",
-        orderType: tiffinOrderDetails.chooseOrderType || orderType || "Delivery",
-        price: `₹${(tiffinOrderDetails.choosePlanType?.price || parseInt(firstParam(totalPrice) || '120') || 120).toFixed(0)}/meal`,
+        startDate: tiffinOrderDetails.startDate ? new Date(tiffinOrderDetails.startDate).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+        plan: tiffinOrderDetails.planType || planType || "Per meal",
+        orderType: tiffinOrderDetails.orderType || orderType || "Delivery",
+        price: `₹${(tiffinOrderDetails.price || tiffinOrderDetails.choosePlanType?.price || parseInt(firstParam(totalPrice) || '120') || 120).toFixed(0)}/meal`,
       };
     }
     // Fallback to service details + params
@@ -204,24 +204,24 @@ const Checkout: React.FC = () => {
   if (isTiffin) {
     // TIFFIN LOGIC — Price based on plan (daily/weekly/monthly), no deposit
     // Extract price from various possible sources - FIXED for tiffin
-    const rawPrice = tiffinOrderDetails?.choosePlanType?.price
-      ?? tiffinOrderDetails?.price
+    const rawPrice = tiffinOrderDetails?.price
+      ?? tiffinOrderDetails?.choosePlanType?.price
       ?? parsedPlan?.price
       ?? Number((tiffinData?.price || '').replace(/[^0-9.]/g, ''))
       ?? 120;
 
     // Plan type for multiplier (if duration-based; for now, assume price is for full plan unit)
-    const plan = tiffinOrderDetails?.choosePlanType?.planName || tiffinData?.plan || 'per meal';
+    const plan = tiffinOrderDetails?.planType || tiffinOrderDetails?.choosePlanType?.planName || tiffinData?.plan || 'per meal';
     let multiplier = 1; // Default: 1 unit (week/month)
 
     // Number of tiffins
-    const numTiffin = parseInt(firstParam(numberOfTiffin) || (tiffinOrderDetails?.numberOfTiffin?.toString() || '1'));
+    const numTiffin = parseInt(tiffinOrderDetails?.numberOfTiffin?.toString() || firstParam(numberOfTiffin) || '1');
 
     if (plan === 'per meal') {
       multiplier = numTiffin;
     } else {
       // For duration-based plans
-      const start = tiffinOrderDetails?.date || startDate || checkInDate;
+      const start = tiffinOrderDetails?.startDate || tiffinOrderDetails?.date || startDate || checkInDate;
       const end = tiffinOrderDetails?.endDate || endDate || checkOutDate;
       if (start && end) {
         const daysDiff = Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)) + 1; // Inclusive
@@ -477,8 +477,10 @@ const handleRemoveCoupon = async () => {
         );
 
         if (response.data?.success) {
-          setTiffinOrderDetails(response.data.data);
-          console.log("Fetched tiffin booking details:", response.data.data);
+          const details = response.data.data;
+          setTiffinOrderDetails(details);
+          console.log("Fetched tiffin booking details:", details);
+          console.log("Key Check - startDate:", details.startDate, "planType:", details.planType);
         }
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 404) {

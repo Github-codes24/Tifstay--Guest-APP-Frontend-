@@ -381,12 +381,12 @@ const Confirmation: React.FC = () => {
                   {tiffinBookingDetails.startDate}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
+              {/* <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Meal Type:</Text>
                 <Text style={styles.detailValue}>
                   {tiffinBookingDetails.mealType}
                 </Text>
-              </View>
+              </View> */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Food Type:</Text>
                 <Text style={styles.detailValue}>
