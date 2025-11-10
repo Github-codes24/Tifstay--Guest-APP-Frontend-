@@ -114,14 +114,15 @@ const AccountScreen = () => {
         {/* 🔹 Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
-            {profileData?.profileImage ? (
-              <Image
-                source={{ uri: profileData.profileImage }}
-                style={styles.largeImage}
-              />
-            ) : (
-              <View style={styles.emptyCircle} />
-            )}
+           <Image
+  source={
+    profileData?.profileImage
+      ? { uri: profileData.profileImage }
+      : require("../../../assets/images/fallbackdp.png")
+  }
+  style={styles.largeImage}
+/>
+
           </View>
           {profileData?.name ? (
             <Text style={styles.title}>{profileData.name}</Text>

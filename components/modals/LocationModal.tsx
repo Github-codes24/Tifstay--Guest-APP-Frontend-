@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  TextInput,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import colors from "../../constants/colors";
 import Header from "../Header";
+import { router } from "expo-router";
 
 interface LocationModalProps {
   visible: boolean;
@@ -24,32 +28,77 @@ export default function LocationModal({
   onClose,
   onLocationSelected,
 }: LocationModalProps) {
-  const [manualLocation, setManualLocation] = useState("");
   const [locationEnabled, setLocationEnabled] = useState(false);
+  const [isGranting, setIsGranting] = useState(false);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+
+  // ✅ Fetch saved addresses when modal opens
+  useEffect(() => {
+    if (visible) {
+      fetchAddresses();
+    }
+  }, [visible]);
+
+  const fetchAddresses = async () => {
+    try {
+      setLoadingAddresses(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/address/getAllAddresses",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // ✅ Fix: access actual array
+      if (response?.data?.data?.addresses) {
+        setAddresses(response.data.data.addresses);
+      } else {
+        setAddresses([]);
+      }
+    } catch (error) {
+      console.log("Error fetching addresses:", error);
+      setAddresses([]);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
 
   const handleLocationPermission = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      alert("Permission to access location was denied");
-      return;
-    }
+    try {
+      setIsGranting(true);
+      let { status } = await Location.requestForegroundPermissionsAsync();
 
-    let location = await Location.getCurrentPositionAsync({});
-    onLocationSelected(location);
-    setLocationEnabled(true);
-    onClose();
-  };
+      if (status !== "granted") {
+        setIsGranting(false);
+        setLocationEnabled(false);
+        alert("Permission to access location was denied");
+        return;
+      }
 
-  const handleSelectPreset = (type: string) => {
-    onLocationSelected({ type });
-    onClose();
-  };
-
-  const handleManualSubmit = () => {
-    if (manualLocation.trim()) {
-      onLocationSelected(manualLocation);
+      let location = await Location.getCurrentPositionAsync({});
+      onLocationSelected(location);
+      setLocationEnabled(true);
+    } catch (error) {
+      console.log("Location error:", error);
+      setLocationEnabled(false);
+    } finally {
+      setIsGranting(false);
       onClose();
     }
+  };
+
+  const handleAddressSelect = (address: any) => {
+    onLocationSelected(address);
+    onClose();
+  };
+
+  const handleAddLocation = () => {
+    onClose();
+    router.push("/(secure)/account/address");
   };
 
   return (
@@ -60,24 +109,41 @@ export default function LocationModal({
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.container}>
+        {/* ===== Header ===== */}
         <View style={styles.header}>
           <Header title="Allow location access" onBack={onClose} />
         </View>
 
+        {/* ===== Content ===== */}
         <View style={styles.content}>
+          {/* ===== Location Permission Section ===== */}
           <View style={styles.locationSection}>
             <View style={styles.locationCard}>
               <Ionicons name="location" size={24} color={colors.primary} />
+
               <Text style={styles.locationText}>
-                Location permission is off
+                {isGranting
+                  ? "Using location..."
+                  : locationEnabled
+                  ? "Location access granted"
+                  : "Location permission is off"}
               </Text>
 
-              {/* Replacing Toggle with Button */}
               <TouchableOpacity
-                style={styles.allowButton}
+                style={[
+                  styles.allowButton,
+                  locationEnabled && { backgroundColor: "#A5A5A5" },
+                ]}
                 onPress={handleLocationPermission}
+                disabled={locationEnabled || isGranting}
               >
-                <Text style={styles.allowButtonText}>GRANT</Text>
+                {isGranting ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.allowButtonText}>
+                    {locationEnabled ? "GRANTED" : "GRANT"}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -87,40 +153,69 @@ export default function LocationModal({
             </Text>
           </View>
 
+          {/* ===== Address List Section ===== */}
           <View style={styles.addressSection}>
             <Text style={styles.sectionTitle}>Select Address</Text>
             <Text style={styles.sectionSubtitle}>
               Select your preferred address for this service
             </Text>
 
-            <TouchableOpacity
-              style={styles.addressOption}
-              onPress={() => handleSelectPreset("home")}
-            >
-              <Ionicons name="home" size={20} color={colors.primary} />
-              <Text style={styles.addressText}>Home</Text>
-            </TouchableOpacity>
+            {loadingAddresses ? (
+              <ActivityIndicator size="large" color={colors.primary} />
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
+                {addresses.length > 0 ? (
+                  <>
+                    {addresses.map((addr, index) => (
+                      <TouchableOpacity
+                        key={addr._id || index}
+                        style={styles.addressOption}
+                        onPress={() => handleAddressSelect(addr)}
+                      >
+                        <Ionicons
+                          name="location-outline"
+                          size={20}
+                          color={colors.primary}
+                        />
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                          <Text style={styles.addressText}>
+                            {addr.label || "Unnamed"}
+                          </Text>
+                          <Text
+                            style={styles.addressDetails}
+                            numberOfLines={1}
+                          >
+                            {addr.addressLine || addr.address || ""}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                ) : (
+                  <Text
+                    style={{
+                      color: "#6B7280",
+                      marginBottom: 12,
+                      textAlign: "center",
+                    }}
+                  >
+                    No saved addresses found.
+                  </Text>
+                )}
 
-            <TouchableOpacity
-              style={styles.addressOption}
-              onPress={() => handleSelectPreset("work")}
-            >
-              <Ionicons name="briefcase" size={20} color={colors.primary} />
-              <Text style={styles.addressText}>Work</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.manualInput}>
-              <Ionicons name="search" size={20} color={colors.textSecondary} />
-              <TextInput
-                placeholder="Enter Location Manually"
-                style={styles.input}
-                placeholderTextColor={colors.textSecondary}
-                value={manualLocation}
-                onChangeText={setManualLocation}
-                onSubmitEditing={handleManualSubmit}
-                returnKeyType="done"
-              />
-            </TouchableOpacity>
+                {/* Add new address button inside scroll */}
+                <TouchableOpacity
+                  style={styles.addLocationButton}
+                  onPress={handleAddLocation}
+                >
+                  <Ionicons name="add" size={20} color={colors.primary} />
+                  <Text style={styles.addLocationText}>Add Location</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
           </View>
         </View>
       </SafeAreaView>
@@ -182,40 +277,44 @@ const styles = StyleSheet.create({
   addressOption: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
+    backgroundColor: "#F9F9F9",
+    borderRadius: 10,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
     marginBottom: 12,
-   
   },
   addressText: {
-    marginLeft: 12,
     fontSize: 16,
     fontWeight: "500",
+    color: "#111827",
   },
-  manualInput: {
+  addressDetails: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  addLocationButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    justifyContent: "center",
     backgroundColor: "#F2EFFD",
-    borderRadius: 8,
-    height: 50,
+    borderRadius: 10,
+    paddingVertical: 14,
+    marginTop: 12,
   },
-  input: {
-    flex: 1,
-    marginLeft: 12,
+  addLocationText: {
     fontSize: 16,
+    fontWeight: "600",
+    color: colors.primary,
+    marginLeft: 8,
   },
-
   allowButton: {
-  backgroundColor: colors.primary,
-  borderRadius: 10,
-  height: 30,
-  width: 78,
-  justifyContent: "center",
-  alignItems: "center",
-},
-
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    height: 30,
+    width: 78,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   allowButtonText: {
     color: colors.white,
     fontWeight: "500",

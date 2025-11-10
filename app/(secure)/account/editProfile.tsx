@@ -147,12 +147,18 @@ const EditProfile = () => {
       >
         <View style={styles.profileContainer}>
           <TouchableOpacity onPress={pickImage}>
-            {profileImage?.uri ? (
-              <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
-            ) : null}
+            <Image
+              source={
+                profileImage?.uri
+                  ? { uri: profileImage.uri }
+                  : require("../../../assets/images/fallbackdp.png")
+              }
+              style={styles.profileImage}
+            />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{name}</Text>
+          <Text style={styles.headerTitle}>{name || "Your Name"}</Text>
         </View>
+
 
         <View style={{ gap: 8 }}>
           <LabeledInput

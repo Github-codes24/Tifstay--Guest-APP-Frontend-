@@ -266,6 +266,7 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: "row",
     alignItems: "center",
+    width:470
   },
   image: { height: 52, width: 52 },
   textContainer: { flex: 1, marginLeft: 12 },
