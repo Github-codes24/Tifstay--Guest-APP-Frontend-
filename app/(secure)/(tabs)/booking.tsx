@@ -157,17 +157,10 @@ const Booking: React.FC = () => {
     let fetchedTiffinOrders: Order[] = [];
     if (tiffinResponse.data.success) {
       fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
-        const tiffins = item.tiffins || [];
-        const mealType = [...new Set(tiffins.map((t: any) => t.mealType))].join(", ");
-        const foodType = [...new Set(tiffins.map((t: any) => t.foodType))].join(", ");
-        const plan = [...new Set(tiffins.map((t: any) => t.planName))].join(", ");
-        const orderType = [...new Set(tiffins.map((t: any) => t.orderType))].join(", ");
-        const totalPrice = tiffins.reduce((sum: number, t: any) => sum + (t.price || 0), 0);
-
-        // FIXED: Handle serviceName to prioritize valid names, skip "N/A" or empty
+        // FIXED: Use direct fields from API (no tiffins array assumption)
         const serviceName = (item.tiffinServiceName && item.tiffinServiceName !== "N/A" && item.tiffinServiceName.trim() !== "")
           ? item.tiffinServiceName
-          : (item.tiffinServiceId?.tiffinName || "Unknown Tiffin Service");
+          : "Unknown Tiffin Service";
 
         return {
           id: item._id,
@@ -176,15 +169,15 @@ const Booking: React.FC = () => {
           serviceName,
           customer: "You",
           startDate: item.startDate ? new Date(item.startDate).toLocaleDateString() : "",
-          endDate: "", // Not provided by backend
-          mealType,
-          foodType,
-          plan,
-          orderType,
+          endDate: item.endDate ? new Date(item.endDate).toLocaleDateString() : "", // FIXED: Use endDate from API
+          mealType: item.planType || "", // FIXED: Direct from planType (e.g., "Lunch & dinner")
+          foodType: item.foodType || "", // FIXED: Direct from API (e.g., "Veg")
+          plan: item.planType || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
+          orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
           status: (item.status || "").toLowerCase() as Order["status"],
-          price: `₹${totalPrice}`,
+          price: item.price ? `₹${item.price}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
           image: undefined,
-          // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string
+          // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
           entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
         };
       });
