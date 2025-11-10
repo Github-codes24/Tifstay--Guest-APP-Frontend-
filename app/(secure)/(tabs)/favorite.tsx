@@ -1,9 +1,9 @@
 // 📁 components/FavoritesScreen.tsx
 // ✅ Instant optimistic add + remove updates
-// ✅ Auto refresh on screen focus
+// ✅ Auto refresh on screen focus + Pull to Refresh
 // ✅ React Query caching + Expo Router navigation
 
-import React, { useCallback ,useEffect} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,10 +26,12 @@ export default function FavoritesScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { favoritesUpdated, removeFromFavorites } = useFavorites();
+  const [refreshing, setRefreshing] = useState(false);
 
   const getToken = async () => await AsyncStorage.getItem("token");
 
   // ==================== FETCH QUERIES ====================
+  // Hostel favorites query (cached via React Query)
   const {
     data: hostelFavorites = [],
     isLoading: hostelLoading,
@@ -59,6 +62,7 @@ export default function FavoritesScreen() {
     },
   });
 
+  // Tiffin favorites query (cached via React Query)
   const {
     data: tiffinFavorites = [],
     isLoading: tiffinLoading,
@@ -113,18 +117,28 @@ export default function FavoritesScreen() {
   const loading = hostelLoading || tiffinLoading;
   const hasFavorites = tiffinFavorites.length > 0 || hostelFavorites.length > 0;
 
+  // ==================== PULL TO REFRESH ====================
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["favoriteHostels"] }),
+      queryClient.invalidateQueries({ queryKey: ["favoriteTiffins"] }),
+    ]);
+    setRefreshing(false);
+  }, [queryClient]);
+
   // ==================== AUTO REFRESH ON FOCUS ====================
   useFocusEffect(
     useCallback(() => {
-      queryClient.invalidateQueries(["favoriteTiffins"]);
-      queryClient.invalidateQueries(["favoriteHostels"]);
+      queryClient.invalidateQueries({ queryKey: ["favoriteTiffins"] });
+      queryClient.invalidateQueries({ queryKey: ["favoriteHostels"] });
     }, [queryClient])
   );
-  useEffect(() => {
-  queryClient.invalidateQueries(["favoriteTiffins"]);
-  queryClient.invalidateQueries(["favoriteHostels"]);
-}, [favoritesUpdated, queryClient]);
 
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["favoriteTiffins"] });
+    queryClient.invalidateQueries({ queryKey: ["favoriteHostels"] });
+  }, [favoritesUpdated, queryClient]);
 
   // ==================== MUTATIONS ====================
 
@@ -371,7 +385,7 @@ export default function FavoritesScreen() {
   });
 
   // ==================== RENDER ====================
-  if (loading) {
+  if (loading && !hasFavorites) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -392,7 +406,13 @@ export default function FavoritesScreen() {
         <Text style={styles.headerSubtitle}>Your saved tiffin services and hostels</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         {!hasFavorites ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="heart-outline" size={80} color="#E0E0E0" />

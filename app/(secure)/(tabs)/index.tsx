@@ -33,6 +33,8 @@ import { hostellogo, tiffinlogo } from "@/assets/images";
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
 import { BackHandler } from 'react-native';
+import { useFocusEffect } from "@react-navigation/native";
+
 interface Hostel {
   id: string;
   name: string;
@@ -746,6 +748,11 @@ const fetchTiffinRecentSearch = async (
       fetchProfile();
     }
   }, [profileData, fetchProfile]);
+  useFocusEffect(
+  React.useCallback(() => {
+    fetchProfile(); // Refetch on focus to ensure fresh data
+  }, [fetchProfile])
+);
   // --- Data mappings ---
   const tiffinServices = allTiffinServicesData;
   // --- Filtering logic (Tiffin & Hostels) --- (FIX: Enhanced veg filtering for Veg/Non-Veg/Both; added debug log)

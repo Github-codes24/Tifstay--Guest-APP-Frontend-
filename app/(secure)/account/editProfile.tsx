@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/store/authStore"; // ✅ Import store
 
 const fetchProfile = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -37,6 +38,7 @@ const fetchProfile = async () => {
 
 const EditProfile = () => {
   const queryClient = useQueryClient();
+  const { fetchProfile: refetchStoreProfile } = useAuthStore(); // ✅ Get store's fetchProfile
 
   const { data: guest } = useQuery({
     queryKey: ["guestProfile"],
@@ -108,8 +110,11 @@ const EditProfile = () => {
       if (data.success) {
         Alert.alert("Success", "Profile updated successfully");
 
-        // ✅ update cached data instantly (no refetch)
+        // ✅ update cached data instantly (no refetch) - for local MyProfile query
         queryClient.setQueryData(["guestProfile"], data.data.guest);
+
+        // ✅ Refetch global store profile to update Dashboard header immediately
+        await refetchStoreProfile();
 
         router.back();
       } else {
