@@ -48,6 +48,9 @@ interface Order {
       name?: string;
     }>;
   }>;
+  tiffinServiceId?: string;  // Tiffin-specific: Service ID
+  guestId?: string;          // Tiffin-specific: Guest ID
+  guestName?: string;        // Tiffin-specific: Guest full name
 }
 
 const Booking: React.FC = () => {
@@ -179,6 +182,10 @@ const Booking: React.FC = () => {
           image: undefined,
           // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
           entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
+          // NEW: Tiffin-specific fields
+          tiffinServiceId: item.tiffinServiceId || "",
+          guestId: item.guestId || "",
+          guestName: item.guestName || "",
         };
       });
       // DEBUG: Log tiffin orders statuses (especially for "confirmed" tab)
@@ -242,48 +249,86 @@ const Booking: React.FC = () => {
 
 // Updated handleContinueSubscription in Booking screen
 const handleContinueSubscription = (order: Order) => {
-  console.log("Continue subscription:", order.id); // Use order.id (_id) for API
+  if (!order.id) {  // Enforce _id as mandatory for all orders (esp. tiffin)
+    console.error("Missing _id (orderId) – cannot continue subscription");
+    return;  // Early exit; handle UI error as needed
+  }
 
-  // Prepare rooms data (stringify for Expo Router serialization)
-  const roomsData = order.rooms?.map((room) => ({
-    roomId: room.roomId,
-    roomNumber: room.roomNumber,
-    beds: room.bedNumber?.map((bed) => ({
-      bedId: bed.bedId,
-      bedNumber: bed.bedNumber,
-      name: bed.name,
-    })) || [],
-  })) || [];
+  console.log("Continue subscription:", order.id);
 
-  const params = {
-    serviceType: order.serviceType,
-    serviceName: order.serviceName,
-    price: order.price || "₹8000/month",
-    planPrice: order.planPrice || order.price || "₹8000",
-    plan: order.plan || "monthly",
-    orderId: order.id,
-    bookingId: order.bookingId,
-    hostelId: order.entityId || "",
-    fullName: order.customer, // Pass available guest name
-    checkInDate: order.checkInDate || "",
-    checkOutDate: order.checkOutDate || "",
-    rooms: JSON.stringify(roomsData), // Stringify nested array for params
-    // Note: Full guest object (phone, etc.) will be fetched in ContinueSubscriptionScreen via userProfile or booking fetch
+  // Helper to clean and format price (reusable for price/planPrice)
+  const formatPrice = (rawPrice?: string): string => {
+    if (!rawPrice) return "₹8000";
+    const cleaned = rawPrice.replace('₹', '').trim();
+    return `₹${cleaned}`;
   };
+
+  let params: any = {
+    serviceType: order.serviceType,
+    serviceName: order.serviceName || order.tiffinServiceName || "",  // Fallback for tiffin
+    price: formatPrice(order.price),  // FIXED: No double ₹
+    planPrice: formatPrice(order.planPrice || order.price),  // FIXED: No double ₹
+    plan: order.plan || order.planType || "monthly",  // Use planType for tiffin
+    orderId: order.id,  // _id is now mandatory
+    bookingId: order.bookingId || "",
+    fullName: order.customer || "You",  // Keep fallback; fetch full guest in screen via guestId
+  };
+
+  // Branch for tiffin-specific params (no rooms/hostelId, use dates from tiffin response)
+  if (order.serviceType === 'tiffin') {
+    // Tiffin-specific details including service ID and guest info
+    params.tiffinServiceId = order.tiffinServiceId || "";  // <-- This line already passes tiffinServiceId to the next screen
+    params.guestId = order.guestId || "";
+    params.fullName = order.guestName || params.fullName;  // Prioritize guestName for tiffin
+    params.orderType = order.orderType || "";
+    params.foodType = order.foodType || "";
+    params.status = order.status || "";
+    
+    params.checkInDate = order.startDate || "";  // Map startDate to checkInDate for UI consistency
+    params.checkOutDate = order.endDate || "";   // Map endDate to checkOutDate
+    // Skip rooms and hostelId – they remain undefined (not passed)
+    console.log("Tiffin-specific params applied");
+  } else {
+    // Hostel/default: Existing rooms/hostel logic
+    const roomsData = order.rooms?.map((room) => ({
+      roomId: room.roomId,
+      roomNumber: room.roomNumber,
+      beds: room.bedNumber?.map((bed) => ({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+        name: bed.name,
+      })) || [],
+    })) || [];
+
+    params.hostelId = order.entityId || "";
+    params.checkInDate = order.checkInDate || "";
+    params.checkOutDate = order.checkOutDate || "";
+    params.rooms = JSON.stringify(roomsData);  // Stringify for params
+  }
 
   console.log("Continue Subscription Params:", params);
   console.log("Full Order Details Passed:", {
     id: order.id,
     bookingId: order.bookingId,
-    serviceName: order.serviceName,
-    customer: order.customer,
-    checkInDate: order.checkInDate,
-    checkOutDate: order.checkOutDate,
-    rooms: roomsData, // Log before stringify
-    entityId: order.entityId,
-    plan: order.plan,
+    serviceName: order.serviceName || order.tiffinServiceName,
+    customer: order.serviceType === 'tiffin' ? order.guestName : order.customer,  // Use guestName for tiffin
+    checkInDate: params.checkInDate,  // Log mapped dates
+    checkOutDate: params.checkOutDate,
+    rooms: params.rooms || "N/A (tiffin)",
+    entityId: order.entityId || "N/A",
+    plan: params.plan,
     price: order.price,
     planPrice: order.planPrice,
+    startDate: order.startDate,  // Log raw for tiffin
+    endDate: order.endDate,
+    // Additional tiffin details for logging
+    ...(order.serviceType === 'tiffin' && {
+      tiffinServiceId: order.tiffinServiceId,
+      guestId: order.guestId,
+      orderType: order.orderType,
+      foodType: order.foodType,
+      status: order.status,
+    }),
   });
 
   router.push({
@@ -475,8 +520,12 @@ const handleContinueSubscription = (order: Order) => {
                 <Text style={styles.detailValue}>{order.customer}</Text>
               </View> */}
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Start Date:</Text>
+                <Text style={styles.detailLabel}>Check-in date:</Text>
                 <Text style={styles.detailValue}>{order.startDate}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Check-out date:</Text>
+                <Text style={styles.detailValue}>{order.endDate}</Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Meal Type:</Text>
