@@ -434,7 +434,7 @@ export default function BookingScreen() {
                 const token = await AsyncStorage.getItem("token");
                 if (!token) return;
                 const response = await axios.get(
-                  `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/690c7562729b720eabfb511a`,
+                  `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${parsedServiceData.serviceId}`,
                   {
                     headers: {
                       Authorization: `Bearer ${token}`,
