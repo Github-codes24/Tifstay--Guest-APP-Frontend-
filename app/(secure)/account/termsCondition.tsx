@@ -9,19 +9,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 
 const TermsAndConditionsScreen = () => {
   const [loading, setLoading] = useState(true);
-  const [terms, setTerms] = useState<{ title: string; description: string } | null>(null);
+  const [terms, setTerms] = useState<{ title?: string; description?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    
-
     fetchTerms();
   }, []);
 
@@ -30,8 +27,14 @@ const TermsAndConditionsScreen = () => {
       const res = await axios.get(
         "https://tifstay-project-be.onrender.com/api/guest/staticPage/get-terms-and-conditions"
       );
+
       if (res.data.success) {
-        setTerms(res.data.data);
+        // ✅ If data is empty or null, handle gracefully
+        if (res.data.data && Object.keys(res.data.data).length > 0) {
+          setTerms(res.data.data);
+        } else {
+          setTerms(null);
+        }
       } else {
         setError("Failed to fetch terms.");
       }
@@ -64,9 +67,15 @@ const TermsAndConditionsScreen = () => {
         <View style={styles.loader}>
           <Text style={{ color: "red" }}>{error}</Text>
         </View>
+      ) : !terms ? (
+        <View style={styles.loader}>
+          <Text style={{ color: colors.title }}>
+            No Terms and Conditions available at the moment.
+          </Text>
+        </View>
       ) : (
         <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.paragraph}>{terms?.description}</Text>
+          <Text style={styles.paragraph}>{terms.description}</Text>
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
@@ -115,5 +124,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 16,
   },
 });

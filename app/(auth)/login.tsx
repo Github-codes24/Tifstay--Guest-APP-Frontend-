@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -43,20 +43,31 @@ export default function LoginScreen() {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingDialCode, setLoadingDialCode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ only allow 10-digit numbers
   const phoneRegex = /^[0-9]{10}$/;
+  const scrollRef = useRef<ScrollView>(null); // ✅ added ref
+
+  // ✅ FIX: Reset scroll when keyboard hides
+  useEffect(() => {
+    const keyboardDidHideListener = Keyboard.addListener("keyboardDidHide", () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => {
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const handlePhoneNumberChange = (inputText: string) => {
-    // remove non-numeric chars and limit to 10 digits
     const digitsOnly = inputText.replace(/[^0-9]/g, "").slice(0, 10);
     setPhoneNumber(digitsOnly);
   };
 
   const filteredCountries = useMemo(() => {
-    let filtered = countries.filter((country) =>
-      country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      country.countryCode.toLowerCase().includes(searchQuery.toLowerCase())
+    let filtered = countries.filter(
+      (country) =>
+        country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        country.countryCode.toLowerCase().includes(searchQuery.toLowerCase())
     );
     filtered.sort((a, b) => a.name.localeCompare(b.name));
     return filtered;
@@ -119,6 +130,8 @@ export default function LoginScreen() {
   };
 
   const handleGetOTP = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
     Keyboard.dismiss();
 
     const trimmedNumber = phoneNumber.trim();
@@ -129,16 +142,17 @@ export default function LoginScreen() {
         text1: "Terms Not Accepted",
         text2: "Please accept our Terms of Service to continue.",
       });
+      setIsLoading(false);
       return;
     }
 
-    // ✅ Improved validation (only 10 digits allowed)
     if (!phoneRegex.test(trimmedNumber)) {
       Toast.show({
         type: "error",
         text1: "Invalid Number",
         text2: "Please enter a valid 10-digit phone number.",
       });
+      setIsLoading(false);
       return;
     }
 
@@ -158,18 +172,21 @@ export default function LoginScreen() {
           text1: "OTP Sent Successfully",
           text2: `Your OTP is ${otpCode}`,
         });
+
         setTimeout(() => {
           router.push({
             pathname: "/verify",
             params: { phoneNumber: trimmedNumber },
           });
-        }, 3000);
+          setIsLoading(false);
+        }, 2500);
       } else {
         Toast.show({
           type: "error",
           text1: "Guest Not Found",
           text2: "Please register to continue.",
         });
+        setIsLoading(false);
       }
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -185,6 +202,7 @@ export default function LoginScreen() {
           text2: "Something went wrong. Please try again later.",
         });
       }
+      setIsLoading(false);
     }
   };
 
@@ -195,6 +213,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
+          ref={scrollRef} // ✅ added ref
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -223,13 +242,17 @@ export default function LoginScreen() {
               <Text style={styles.title}>Comfortable Food, Comfortable Stay</Text>
               <Text style={styles.subtitle}>Get started with Tifstay</Text>
 
-              {/* Phone Number Input */}
+              {/* Phone Input */}
               <View style={styles.phoneInputContainer}>
                 <TouchableOpacity
                   style={styles.countrySelector}
                   onPress={() => setIsPickerOpen(true)}
+                  disabled={isLoading}
                 >
-                  <Image source={{ uri: selectedCountry.flag }} style={styles.flagImage} />
+                  <Image
+                    source={{ uri: selectedCountry.flag }}
+                    style={styles.flagImage}
+                  />
                   <Text style={styles.dialCodeText}>
                     {loadingDialCode ? "..." : selectedCountry.dialCode}
                   </Text>
@@ -240,6 +263,7 @@ export default function LoginScreen() {
                   keyboardType="phone-pad"
                   value={phoneNumber}
                   onChangeText={handlePhoneNumberChange}
+                  editable={!isLoading}
                   maxLength={10}
                 />
               </View>
@@ -248,7 +272,7 @@ export default function LoginScreen() {
               <View style={styles.termsContainer}>
                 <TouchableOpacity
                   style={styles.checkbox}
-                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                  onPress={() => !isLoading && setAcceptedTerms(!acceptedTerms)}
                 >
                   {acceptedTerms && <View style={styles.checkedBox} />}
                 </TouchableOpacity>
@@ -258,11 +282,25 @@ export default function LoginScreen() {
                 </Text>
               </View>
 
-              <CustomButton title="Get OTP" onPress={handleGetOTP} />
+              {/* Get OTP button with loader */}
+           <TouchableOpacity
+  style={[styles.verifyButton, { opacity: isLoading ? 0.7 : 1 }]}
+  onPress={handleGetOTP}
+  disabled={isLoading}
+>
+  {isLoading ? (
+    <ActivityIndicator color="#fff" />
+  ) : (
+    <Text style={styles.verifyText}>Get OTP</Text>
+  )}
+</TouchableOpacity>
+
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Don’t have an account? </Text>
-                <TouchableOpacity onPress={() => router.replace("/register")}>
+                <TouchableOpacity
+                  onPress={() => !isLoading && router.replace("/register")}
+                >
                   <Text style={styles.footerLink}>Register</Text>
                 </TouchableOpacity>
               </View>
@@ -334,7 +372,12 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   title: { fontSize: 20, fontWeight: "600", textAlign: "center", marginTop: 16 },
-  subtitle: { fontSize: 18, fontWeight: "500", textAlign: "center", marginBottom: 24 },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 24,
+  },
   phoneInputContainer: {
     flexDirection: "row",
     height: 50,
@@ -379,6 +422,14 @@ const styles = StyleSheet.create({
   footer: { marginTop: 10, flexDirection: "row", justifyContent: "center" },
   footerText: { color: colors.textSecondary, fontSize: 14 },
   footerLink: { color: colors.primary, fontWeight: "600", fontSize: 14 },
+  button: {
+    height: 50,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -398,4 +449,23 @@ const styles = StyleSheet.create({
   },
   flagInList: { width: 30, height: 20, marginRight: 12, resizeMode: "contain" },
   countryNameText: { flex: 1, fontSize: 16 },
+  verifyButton: {
+  backgroundColor: colors.primary,
+  borderRadius: 12,
+  paddingVertical: 14,
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: 10,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 4,
+},
+verifyText: {
+  color: "#fff",
+  fontSize: 16,
+  fontWeight: "600",
+},
+
 });

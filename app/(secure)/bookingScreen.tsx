@@ -21,6 +21,7 @@ import Header from "@/components/Header";
 import Buttons from "@/components/Buttons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
 type RoomData = {
@@ -35,6 +36,7 @@ type MealPackage = {
   foodType: string;
   planType: string;
 };
+
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -143,8 +145,11 @@ export default function BookingScreen() {
   });
   // NEW: Single tiffin plan type
   const [tiffinPlan, setTiffinPlan] = useState("");
+  // FIXED: NEW: Exact planType from selected package (to match API exactly)
+  const [selectedPlanType, setSelectedPlanType] = useState(""); // e.g., "Lunch & dinner"
   // NEW: Meal package selection
   const [selectedMealPackage, setSelectedMealPackage] = useState<number>(0);
+
   const getMealsFromPlanType = (
     planType: string
   ): Record<MealType, boolean> => {
@@ -159,14 +164,16 @@ export default function BookingScreen() {
     if (lower.includes("dinner")) meals.dinner = true;
     return meals;
   };
+
   const getLabel = (planType: string): string => {
     const lower = planType.toLowerCase();
     const mealParts: string[] = [];
     if (lower.includes("breakfast")) mealParts.push("BF");
     if (lower.includes("lunch")) mealParts.push("Lunch");
-    if (lower.includes("dinner")) mealParts.push("Dinner");
+    if (lower.includes("dinner")) mealParts.push("dinner");
     return mealParts.join(", ");
   };
+
   const mealPackages: MealPackage[] = useMemo(() => {
     console.log('------->', tiffinService);
     if (!tiffinService?.pricing) return [];
@@ -178,6 +185,7 @@ export default function BookingScreen() {
       planType: p.planType,
     }));
   }, [tiffinService]);
+
   const getAvailableFoodOptions = (foodType: string) => {
     if (foodType === "Both Veg & Non-Veg") {
       return [
@@ -192,6 +200,7 @@ export default function BookingScreen() {
     }
     return [];
   };
+
   const currentFoodOptions = useMemo(() => {
     if (selectedMealPackage === 0 || !tiffinService) {
       return [
@@ -204,6 +213,7 @@ export default function BookingScreen() {
     if (!selectedPkg) return [];
     return getAvailableFoodOptions(selectedPkg.foodType);
   }, [selectedMealPackage, mealPackages, tiffinService]);
+
   const orderTypeOptions = useMemo(() => {
     return (
       tiffinService?.orderTypes?.map((type: string) => ({
@@ -212,6 +222,7 @@ export default function BookingScreen() {
       })) || []
     );
   }, [tiffinService]);
+
   // NEW: Compute total beds across all rooms
   const totalBedsCount = useMemo(
     () =>
@@ -221,8 +232,10 @@ export default function BookingScreen() {
       ),
     [serviceData.rooms]
   );
+
   // NEW: Helper to get bed key
   const getBedKey = (roomId: string, bedId: string) => `${roomId}-${bedId}`;
+
   // NEW: Helper to find and prefill first bed
   const prefillFirstBedName = (rooms: RoomData[], primaryName: string) => {
     if (rooms.length > 0 && rooms[0].beds.length > 0) {
@@ -232,12 +245,15 @@ export default function BookingScreen() {
       setFullName(primaryName);
     }
   };
+
   // Helper to clear errors for a field
   const clearError = (field: string) => {
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
+
   // NEW: Helper for bed name errors (per bed key)
   const getBedNameError = (bedKey: string) => errors[bedKey] || "";
+
   // NEW: Helper for selected meals summary (single)
   const selectedMealsSummary = () => {
     const selectedMeals = Object.entries(tiffinMeals)
@@ -245,12 +261,14 @@ export default function BookingScreen() {
       .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
     return selectedMeals.join(", ");
   };
+
   // NEW: Helper to get base price for a plan
   const getBasePriceForPlan = (plan: string) => {
     const pricingKey = plan as keyof typeof fetchedPricing;
     return fetchedPricing[pricingKey] || 0;
   };
-  // Validate tiffin form (single)
+
+  // FIXED: Validate tiffin form (add selectedPlanType check)
   const validateTiffinForm = () => {
     const newErrors: Record<string, string> = {};
     if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
@@ -271,9 +289,11 @@ export default function BookingScreen() {
     if (!selectedfood) newErrors.selectedfood = "Food Type is required!";
     if (selectedMealPackage === 0) newErrors.mealPackage = "Meal package is required!";
     if (!tiffinPlan) newErrors.tiffinPlan = "Subscription type is required!";
+    if (!selectedPlanType) newErrors.selectedPlanType = "Selected meal package invalid!"; // FIXED: New check
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
   // UPDATED: Validate hostel form (add bed names check)
   const validateHostelForm = () => {
     const newErrors: Record<string, string> = {};
@@ -309,6 +329,7 @@ export default function BookingScreen() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
   // NEW: Safe JSON parse helper to prevent errors
   const safeParse = (str: string): any => {
     if (typeof str !== "string") return {};
@@ -322,6 +343,7 @@ export default function BookingScreen() {
       return {};
     }
   };
+
   useEffect(() => {
     const isHostelBooking =
       bookingType === "hostel" || bookingType === "reserve";
@@ -399,10 +421,11 @@ export default function BookingScreen() {
         }
         if (isTiffinBooking) {
           const parsedServiceData = safeParse(serviceDataStr);
+          console.log('Parsed service data for tiffin:', parsedServiceData); // FIXED: Debug log for ID
           // Update serviceData for tiffin
           setServiceData((prev) => ({
             ...prev,
-            serviceId: parsedServiceData.serviceId || parsedServiceData.id,
+            serviceId: parsedServiceData.serviceId || parsedServiceData.id || params.serviceId, // FIXED: Fallback to params.serviceId
             serviceName:
               parsedServiceData.serviceName || parsedServiceData.name,
             price: parsedServiceData.price,
@@ -412,19 +435,20 @@ export default function BookingScreen() {
             pricing: parsedServiceData.pricing, // This is now used directly
             location:
               parsedServiceData.location || parsedServiceData.fullAddress,
-              contactInfo: parsedServiceData.contactInfo,
-            }));
-            // FIXED: No prefill for meals or food type - start blank
-            setSelectedfood("Both");
-            setOrderType("delivery");
-            if (parsedServiceData.serviceId) {
-          
+            contactInfo: parsedServiceData.contactInfo,
+          }));
+          // FIXED: No prefill for meals or food type - start blank
+          setSelectedfood("Both");
+          setOrderType("delivery");
+          if (parsedServiceData.serviceId || parsedServiceData.id) {
             const fetchTiffinService = async () => {
               try {
                 const token = await AsyncStorage.getItem("token");
                 if (!token) return;
+                const serviceIdToUse = parsedServiceData.serviceId || parsedServiceData.id;
+                console.log('Fetching tiffin with ID:', serviceIdToUse); // FIXED: Debug log
                 const response = await axios.get(
-                  `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${parsedServiceData.serviceId}`,
+                  `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceIdToUse}`,
                   {
                     headers: {
                       Authorization: `Bearer ${token}`,
@@ -459,10 +483,11 @@ export default function BookingScreen() {
                 }
               } catch (error) {
                 console.error("Error fetching tiffin service:", error);
-              
               }
             };
             fetchTiffinService();
+          } else {
+            console.warn('No service ID found for tiffin fetch'); // FIXED: Warn if no ID
           }
           // Default date from params - but set to null for user selection
           setDate(null);
@@ -484,6 +509,7 @@ export default function BookingScreen() {
     checkInDateStr,
     checkOutDateStr,
   ]);
+
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
   useEffect(() => {
     const fetchPricing = async () => {
@@ -587,6 +613,7 @@ export default function BookingScreen() {
     };
     fetchPricing();
   }, [serviceData.hostelId, bookingType]);
+
   // Update price and deposit based on selections
   useEffect(() => {
     let newPrice = 0;
@@ -629,6 +656,7 @@ export default function BookingScreen() {
     tiffinPlan, // NEW: Depend on single plan
     totalBedsCount, // NEW: For hostel pricing
   ]);
+
   // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
     if (checkInDate && hostelPlan) {
@@ -645,6 +673,7 @@ export default function BookingScreen() {
       setCheckOutDate(newCheckOut);
     }
   }, [checkInDate, hostelPlan]);
+
   // FIXED: Auto-fill end date based on start date and plan (for tiffin weekly/monthly)
   useEffect(() => {
     if (date && ["weekly", "monthly"].includes(tiffinPlan)) {
@@ -661,15 +690,18 @@ export default function BookingScreen() {
       setEndDate(null); // Clear end date if no periodic plans
     }
   }, [date, tiffinPlan]);
+
   // Helper functions
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
     if (selectedDate) setDate(selectedDate);
   };
+
   const onChangeEndDate = (event: any, selectedDate?: Date) => {
     setShowEndDatePicker(Platform.OS === "ios");
     if (selectedDate) setEndDate(selectedDate);
   };
+
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
     setShowCheckInPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -679,6 +711,7 @@ export default function BookingScreen() {
       // Auto-fill check-out will happen via useEffect
     }
   };
+
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
     setShowCheckOutPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -687,6 +720,7 @@ export default function BookingScreen() {
       setCheckOutDate(new Date(selectedDate));
     }
   };
+
   // NEW: Image picker functions for hostel uploads
   const pickAadhaarPhoto = async () => {
     const permissionResult =
@@ -705,6 +739,7 @@ export default function BookingScreen() {
       clearError("aadhaarPhoto");
     }
   };
+
   const pickUserPhoto = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -722,221 +757,224 @@ export default function BookingScreen() {
       clearError("userPhoto");
     }
   };
+
   // FIXED: Single plan details fetch
- const handleGetPlanDetails = async () => {
-  const selectedMeals = Object.entries(tiffinMeals)
-    .filter(([_, checked]) => checked)
-    .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-  const planTypeStr = selectedMeals.join(" & ");
-  if (planTypeStr === "") {
-    setPlanError("Please select a meal package.");
-    return;
-  }
-  if (!tiffinPlan) {
-    setPlanError("Please select subscription type.");
-    return;
-  }
-  let foodTypeStr = "";
-  if (selectedfood === "Veg") foodTypeStr = "Veg";
-  else if (selectedfood === "Non-Veg") foodTypeStr = "Non-Veg";
-  else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
-  const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
-  const planStr = tiffinPlan;
-  const token = await AsyncStorage.getItem("token");
-  if (!token) {
-    setPlanError("Authentication required.");
-    return;
-  }
-  if (!serviceData.serviceId) {
-    setPlanError("Service ID not available.");
-    return;
-  }
-  setIsFetchingDetails(true);
-  setPlanError("");
-  try {
-    const queryParams = new URLSearchParams({
-      foodType: foodTypeStr,
-      orderType: orderTypeStr,
-      planType: planTypeStr,
-      plan: planStr,
-    });
-    const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceData.serviceId}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (response.data.success) {
-      const data = response.data.data;
-      if (data.price > 0) {
-        const newPricing = {
-          ...fetchedPricing,
-          [planStr]: data.price,
-          offers: data.offers || "",
-        };
-        setFetchedPricing(newPricing);
-        setPlanError("");
-      } else {
-        setPlanError("No pricing available for this selection.");
-      }
-    } else {
-      setPlanError("Failed to fetch plan details: " + response.data.message);
+  const handleGetPlanDetails = async () => {
+    // FIXED: Use selectedPlanType for exact match in query
+    if (!selectedPlanType) {
+      setPlanError("Please select a meal package.");
+      return;
     }
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error(
-        `❌ Error: Status ${error.response?.status}, Data:`,
-        error.response?.data
-      );
-      setPlanError(
-        "Failed to fetch plan details: " +
-          (error.response?.data?.message || "Network error")
-      );
-    } else {
-      console.error(`❌ Non-Axios error:`, error);
-      setPlanError("Failed to fetch plan details.");
+    if (!tiffinPlan) {
+      setPlanError("Please select subscription type.");
+      return;
     }
-  } finally {
-    setIsFetchingDetails(false);
-  }
-};
-  // NEW: Auto-fetch plan details when meal package is selected or relevant inputs change
-  useEffect(() => {
-    if (selectedMealPackage > 0 && selectedfood && orderType && tiffinPlan) {
-      handleGetPlanDetails();
-    } else {
-      setFetchedPricing({ perDay: 0, weekly: 0, monthly: 0, offers: "" });
-    }
-  }, [selectedMealPackage, selectedfood, orderType, tiffinPlan]);
-  const handleBack = () => {
-    router.back();
-  };
-const handleTiffinSubmit = async () => {
-  if (!validateTiffinForm()) {
-    return;
-  }
-  try {
+    let foodTypeStr = "";
+    if (selectedfood === "Veg") foodTypeStr = "Veg";
+    else if (selectedfood === "Non-Veg") foodTypeStr = "Non-Veg";
+    else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
+    const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+    const planStr = tiffinPlan;
     const token = await AsyncStorage.getItem("token");
     if (!token) {
-      setErrors((prev) => ({
-        ...prev,
-        general: "Authentication token is missing!",
-      }));
+      setPlanError("Authentication required.");
       return;
     }
     if (!serviceData.serviceId) {
-      setErrors((prev) => ({ ...prev, general: "Service ID is missing!" }));
+      setPlanError("Service ID not available.");
       return;
     }
-    // Build combined address for fullAddress
-    const combinedAddress = [
-      street,
-      landmark ? `${landmark},` : "",
-      locality,
-      `- ${pincode}`,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
-    const getFoodTypeStr = (food: string) => food === "Both" ? "Both Veg & Non-Veg" : food;
- const foodTypeStr = selectedfood; // Directly use "Veg", "Non-Veg", or "Both" from stateC
-    const selectedMealsForTiffin = Object.entries(tiffinMeals)
-      .filter(([_, checked]) => checked)
-      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-    // Ensure meals are selected
-    if (selectedMealsForTiffin.length === 0) {
-      setErrors((prev) => ({
-        ...prev,
-        general: "Please select meal preferences!",
-      }));
-      return;
-    }
-    const planTypeStr = selectedMealsForTiffin.join(" & "); // e.g., "Lunch & Dinner"
-    const subscribtionType = {
-      subscribtion: tiffinPlan, // e.g., "perDay", "weekly", "monthly"
-      price: getBasePriceForPlan(tiffinPlan),
-    };
-    const startDateStr = date ? date.toISOString().split("T")[0] : ""; // YYYY-MM-DD
-    const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
-    const endDateStr = hasPeriodic && endDate ? endDate.toISOString().split("T")[0] : undefined;
-    const payload: any = {
-      fullName,
-      phoneNumber,
-      address: {
-        fullAddress: combinedAddress,
-        street: street || "",
-        pinCode: parseInt(pincode) || 0,
-      },
-      deliveryInstructions: specialInstructions, // Renamed to match API
-      foodType: foodTypeStr,
-      chooseOrderType: chooseOrderTypeStr,
-      planType: planTypeStr,
-      subscribtionType,
-      date: startDateStr,
-    };
-    // Add endDate conditionally
-    if (endDateStr) {
-      payload.endDate = endDateStr;
-    }
-    const response = await axios.post(
-      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
-      payload,
-      {
+    setIsFetchingDetails(true);
+    setPlanError("");
+    try {
+      const queryParams = new URLSearchParams({
+        foodType: foodTypeStr,
+        orderType: orderTypeStr,
+        planType: selectedPlanType, // FIXED: Use exact selectedPlanType
+        plan: planStr,
+      });
+      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${serviceData.serviceId}?${queryParams.toString()}`;
+      const response = await axios.get(url, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      }
-    );
-    if (response.data.success) {
-      const bookingId = response.data.data._id;
-      // For consistency in checkout params, use " & " for mealPreference
-      const mealPreferenceStr = selectedMealsForTiffin.join(" & ");
-      router.push({
-        pathname: "/check-out",
-        params: {
-          serviceType: "tiffin",
-          bookingId,
-          serviceId: serviceData.serviceId,
-          totalPrice: currentPlanPrice.toString(),
-          planType: planTypeStr, // Updated to match API
-          startDate: startDateStr,
-          endDate: endDateStr || "",
-          mealPreference: mealPreferenceStr,
-          foodType: selectedfood,
-          orderType,
-          // Removed numberOfTiffin as it's not needed for single tiffin
-          fullName,
-        },
       });
+      if (response.data.success) {
+        const data = response.data.data;
+        if (data.price > 0) {
+          const newPricing = {
+            ...fetchedPricing,
+            [planStr]: data.price,
+            offers: data.offers || "",
+          };
+          setFetchedPricing(newPricing);
+          setPlanError("");
+        } else {
+          setPlanError("No pricing available for this selection.");
+        }
+      } else {
+        setPlanError("Failed to fetch plan details: " + response.data.message);
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          `❌ Error: Status ${error.response?.status}, Data:`,
+          error.response?.data
+        );
+        setPlanError(
+          "Failed to fetch plan details: " +
+            (error.response?.data?.message || "Network error")
+        );
+      } else {
+        console.error(`❌ Non-Axios error:`, error);
+        setPlanError("Failed to fetch plan details.");
+      }
+    } finally {
+      setIsFetchingDetails(false);
+    }
+  };
+
+  // NEW: Auto-fetch plan details when meal package is selected or relevant inputs change
+  useEffect(() => {
+    if (selectedMealPackage > 0 && selectedfood && orderType && tiffinPlan && selectedPlanType) {
+      handleGetPlanDetails();
     } else {
-      console.error(
-        "Booking failed:",
-        response.data.message || "Unknown error"
+      setFetchedPricing({ perDay: 0, weekly: 0, monthly: 0, offers: "" });
+    }
+  }, [selectedMealPackage, selectedfood, orderType, tiffinPlan, selectedPlanType]); // FIXED: Add selectedPlanType dep
+
+  const handleBack = () => {
+    router.back();
+  };
+
+  // FIXED: Updated handleTiffinSubmit with exact planName, removed redundant meal check, added ID log
+  const handleTiffinSubmit = async () => {
+    if (!validateTiffinForm()) {
+      return;
+    }
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setErrors((prev) => ({
+          ...prev,
+          general: "Authentication token is missing!",
+        }));
+        return;
+      }
+      if (!serviceData.serviceId) {
+        console.error('Service ID is falsy:', serviceData.serviceId); // FIXED: Debug log for ID issue
+        setErrors((prev) => ({ ...prev, general: "Service ID is missing! Check navigation params." }));
+        return;
+      }
+      console.log('Service ID confirmed:', serviceData.serviceId); // FIXED: Confirm ID
+      // Build combined address for fullAddress
+      const combinedAddress = [
+        street,
+        landmark ? `${landmark},` : "",
+        locality,
+        `- ${pincode}`,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
+      const foodTypeStr = selectedfood; // Directly use "Veg", "Non-Veg", or "Both" from state
+      // FIXED: Removed redundant meal check - rely on selectedMealPackage > 0 and selectedPlanType
+      if (selectedMealPackage === 0 || !selectedPlanType) {
+        setErrors((prev) => ({
+          ...prev,
+          general: "Please select a valid meal package!",
+        }));
+        return;
+      }
+      const subscribtionType = {
+        subscribtion: tiffinPlan, // e.g., "perDay", "weekly", "monthly"
+        price: getBasePriceForPlan(tiffinPlan),
+      };
+      const startDateStr = date ? date.toISOString().split("T")[0] : ""; // YYYY-MM-DD
+      const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
+      const endDateStr = hasPeriodic && endDate ? endDate.toISOString().split("T")[0] : undefined;
+      const payload: any = {
+        fullName,
+        phoneNumber,
+        address: {
+          fullAddress: combinedAddress,
+          street: street || "",
+          pinCode: parseInt(pincode) || 0,
+        },
+        deliveryInstructions: specialInstructions, // Renamed to match API
+        foodType: foodTypeStr,
+        chooseOrderType: chooseOrderTypeStr,
+        // FIXED: Use 'planName' with exact selectedPlanType (e.g., "Lunch & dinner")
+        planType: selectedPlanType,
+        subscribtionType,
+        date: startDateStr,
+      };
+      // Add endDate conditionally
+      if (endDateStr) {
+        payload.endDate = endDateStr;
+      }
+      // FIXED: Log payload for debugging
+      console.log("Sending tiffin payload:", JSON.stringify(payload, null, 2));
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
+      if (response.data.success) {
+        const bookingId = response.data.data._id;
+        // For consistency in checkout params, use exact selectedPlanType
+        const mealPreferenceStr = selectedPlanType;
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "tiffin",
+            bookingId,
+            serviceId: serviceData.serviceId,
+            totalPrice: currentPlanPrice.toString(),
+            planType: selectedPlanType, // FIXED: Exact match
+            startDate: startDateStr,
+            endDate: endDateStr || "",
+            mealPreference: mealPreferenceStr,
+            foodType: selectedfood,
+            orderType,
+            // Removed numberOfTiffin as it's not needed for single tiffin
+            fullName,
+          },
+        });
+      } else {
+        console.error(
+          "Booking failed:",
+          response.data.message || "Unknown error"
+        );
+        setErrors((prev) => ({
+          ...prev,
+          general: "Booking failed: " + (response.data.message || "Unknown error"),
+        }));
+      }
+    } catch (error: any) {
+      console.error(
+        "Error creating tiffin booking:",
+        error.response?.data || error.message
+      );
+      console.error("Full error object:", error);
+      // Optional: Specific handling for 400 (structure errors)
+      const errorMsg = error.response?.status === 400
+        ? "Invalid booking details. Please check your selections and try again."
+        : "Something went wrong while booking. Please try again.";
       setErrors((prev) => ({
         ...prev,
-        general: "Booking failed: " + (response.data.message || "Unknown error"),
+        general: errorMsg,
       }));
     }
-  } catch (error: any) {
-    console.error(
-      "Error creating tiffin booking:",
-      error.response?.data || error.message
-    );
-    console.error("Full error object:", error);
-    // Optional: Specific handling for 400 (structure errors)
-    const errorMsg = error.response?.status === 400
-      ? "Invalid booking details. Please check your selections and try again."
-      : "Something went wrong while booking. Please try again.";
-    setErrors((prev) => ({
-      ...prev,
-      general: errorMsg,
-    }));
-  }
-};
+  };
+
   const handleHostelSubmit = async () => {
     if (!validateHostelForm()) {
       // NEW: Auto-expand beds section if bed name errors are present for better UX
@@ -1074,6 +1112,7 @@ const handleTiffinSubmit = async () => {
       setIsLoadingHostel(false);
     }
   };
+
   // NEW: Bed name input handler (with sync for first bed)
   const handleBedNameChange = (
     roomId: string,
@@ -1088,6 +1127,7 @@ const handleTiffinSubmit = async () => {
       setFullName(text); // Sync back to primary fullName
     }
   };
+
   const RadioButton = ({
     label,
     value,
@@ -1106,6 +1146,7 @@ const handleTiffinSubmit = async () => {
       <Text style={styles.radioLabel}>{label}</Text>
     </TouchableOpacity>
   );
+
   // UPDATED: Helper to render selected rooms summary + bed names UI (flattened: no nested cards, use dividers)
   const renderBedNamesSection = () => {
     if (serviceData.rooms.length === 0) return null;
@@ -1204,6 +1245,7 @@ const handleTiffinSubmit = async () => {
       </View>
     );
   };
+
   // FIXED: Single plan options - Always show all options
   const getPlanOptions = () => {
     return [
@@ -1212,119 +1254,14 @@ const handleTiffinSubmit = async () => {
       { label: "Monthly", value: "monthly" },
     ];
   };
+
   const renderHostelBooking = () => (
     <>
-     <View style={styles.section}>
-  <View style={{ flexDirection: "row" }}>
-    <Image source={location1} style={styles.icon} />
-    <Text style={styles.sectionTitle}> Delivery Address</Text>
-  </View>
-  <Text style={styles.label}>
-    Street Address {orderType === "delivery" && "*"}
-  </Text>
-  <TextInput
-    style={[
-      styles.input,
-      errors.street && styles.inputError,
-    ]}
-    placeholder="Enter your street address"
-    value={street}
-    onChangeText={(text) => {
-      setStreet(text);
-      clearError("street");
-    }}
-    onBlur={() => {
-      if (orderType === "delivery" && !street.trim())
-        setErrors((prev) => ({
-          ...prev,
-          street: "Street address is required for delivery!",
-        }));
-    }}
-    editable={orderType === "delivery"}
-  />
-  {errors.street && (
-    <Text style={styles.errorText}>{errors.street}</Text>
-  )}
-  <Text style={styles.label}>Landmark (Optional)</Text>
-  <TextInput
-    style={[styles.input]}
-    placeholder="Enter nearby landmark"
-    value={landmark}
-    onChangeText={(text) => {
-      setLandmark(text);
-      clearError("landmark");
-    }}
-    editable={orderType === "delivery"}
-  />
-  <Text style={styles.label}>
-    Locality / Area {orderType === "delivery" && "*"}
-  </Text>
-  <TextInput
-    style={[
-      styles.input,
-      errors.locality && styles.inputError,
-    ]}
-    placeholder="Enter locality or area"
-    value={locality}
-    onChangeText={(text) => {
-      setLocality(text);
-      clearError("locality");
-    }}
-    onBlur={() => {
-      if (orderType === "delivery" && !locality.trim())
-        setErrors((prev) => ({
-          ...prev,
-          locality: "Locality is required for delivery!",
-        }));
-    }}
-    editable={orderType === "delivery"}
-  />
-  {errors.locality && (
-    <Text style={styles.errorText}>{errors.locality}</Text>
-  )}
-  <Text style={styles.label}>
-    Pincode {orderType === "delivery" && "*"}
-  </Text>
-  <TextInput
-    style={[
-      styles.input,
-      errors.pincode && styles.inputError,
-    ]}
-    placeholder="Enter pincode (6 digits)"
-    value={pincode}
-    onChangeText={(text) => {
-      setPincode(text.replace(/[^0-9]/g, "").slice(0, 6));
-      clearError("pincode");
-    }}
-    onBlur={() => {
-      if (orderType === "delivery" && !pincode.trim())
-        setErrors((prev) => ({
-          ...prev,
-          pincode: "Pincode is required for delivery!",
-        }));
-    }}
-    keyboardType="number-pad"
-    maxLength={6}
-    editable={orderType === "delivery"}
-  />
-  {errors.pincode && (
-    <Text style={styles.errorText}>{errors.pincode}</Text>
-  )}
-  <Text style={styles.label}>Delivery Instructions (Optional)</Text>
-  <TextInput
-    style={[styles.input, { height: 80 }]}
-    placeholder="Any dietary preferences, spice level, or special requests"
-    multiline
-    value={specialInstructions}
-    onChangeText={setSpecialInstructions}
-    editable={orderType === "delivery"}
-  />
-</View>
-      {/* Personal Info */}
+      {/* FIXED: Moved delivery address to tiffin-only; hostel doesn't need it */}
       <View style={styles.section}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image source={person} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Personal Information</Text>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
         </View>
         <Text style={styles.label}>Full Name *</Text>
         <TextInput
@@ -1380,6 +1317,8 @@ const handleTiffinSubmit = async () => {
           <Text style={styles.errorText}>{errors.phoneNumber}</Text>
         )}
       </View>
+      {/* Bed Names Section */}
+      {renderBedNamesSection()}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo *</Text>
         {aadhaarPhoto ? (
@@ -1571,6 +1510,8 @@ const handleTiffinSubmit = async () => {
       </TouchableOpacity>
     </>
   );
+
+  // FIXED: In meal package onPress - Set selectedPlanType to exact API value
   const renderTiffinBooking = () => {
     const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
     return (
@@ -1578,7 +1519,7 @@ const handleTiffinSubmit = async () => {
         <View style={styles.section}>
           <View style={{ flexDirection: "row" }}>
             <Image source={person} style={styles.icon} />
-            <Text style={styles.sectionTitle}> Personal Information</Text>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
           </View>
           <Text style={styles.label}>Full Name *</Text>
           <TextInput
@@ -1627,7 +1568,7 @@ const handleTiffinSubmit = async () => {
         <View style={styles.section}>
           <View style={{ flexDirection: "row" }}>
             <Image source={location1} style={styles.icon} />
-            <Text style={styles.sectionTitle}> Delivery Address</Text>
+            <Text style={styles.sectionTitle}>Delivery Address</Text>
           </View>
           <Text style={styles.label}>
             Street Address {orderType === "delivery" && "*"}
@@ -1743,7 +1684,7 @@ const handleTiffinSubmit = async () => {
         <View style={styles.section}>
           <View style={{ flexDirection: "row" }}>
             <Image source={calender} style={styles.icon} />
-            <Text style={styles.sectionTitle}> Booking Details</Text>
+            <Text style={styles.sectionTitle}>Booking Details</Text>
           </View>
           <View style={styles.tiffinSelectorsContainer}>
             <View style={styles.expandedContent}>
@@ -1805,6 +1746,8 @@ const handleTiffinSubmit = async () => {
                     const selectedPkg = mealPackages.find((p) => p.id === id);
                     if (selectedPkg) {
                       setTiffinMeals(selectedPkg.meals);
+                      // FIXED: Set exact planType for backend match
+                      setSelectedPlanType(selectedPkg.planType);
                       // Reset food type if not compatible
                       const availableValues = getAvailableFoodOptions(
                         selectedPkg.foodType
@@ -1819,6 +1762,9 @@ const handleTiffinSubmit = async () => {
               ))}
               {errors.mealPackage && (
                 <Text style={styles.errorText}>{errors.mealPackage}</Text>
+              )}
+              {errors.selectedPlanType && (
+                <Text style={styles.errorText}>{errors.selectedPlanType}</Text>
               )}
               <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
                 Subscription Type *
@@ -1935,6 +1881,7 @@ const handleTiffinSubmit = async () => {
       </>
     );
   };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -1942,8 +1889,8 @@ const handleTiffinSubmit = async () => {
         style={styles.header}
       />
       <View style={styles.container}>
-        <ScrollView 
-          scrollEnabled={true} 
+        <ScrollView
+          scrollEnabled={true}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -1955,6 +1902,7 @@ const handleTiffinSubmit = async () => {
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#fff",

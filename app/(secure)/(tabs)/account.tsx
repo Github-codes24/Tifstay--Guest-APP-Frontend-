@@ -5,7 +5,6 @@ import {
   customerService,
   deposit,
   documents,
-  logout,
   Privacy,
   profile,
   terms,
@@ -47,7 +46,6 @@ const AccountScreen = () => {
   const { logout } = useAuthStore();
   const queryClient = useQueryClient();
 
-  // ✅ Load cached profile before API call
   useEffect(() => {
     (async () => {
       const savedProfile = await AsyncStorage.getItem("userProfile");
@@ -58,10 +56,8 @@ const AccountScreen = () => {
     })();
   }, []);
 
-  // ✅ React Query - Fetch guest profile with cache preload
   const {
     data: profileData,
-    isLoading,
     refetch,
   } = useQuery({
     queryKey: ["guestProfile"],
@@ -76,14 +72,12 @@ const AccountScreen = () => {
     },
   });
 
-  // ✅ Refetch when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       refetch();
     }, [refetch])
   );
 
-  // ✅ Logout logic
   const handleLogout = async () => {
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("guestId");
@@ -95,7 +89,6 @@ const AccountScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🔹 Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -106,12 +99,10 @@ const AccountScreen = () => {
         <Text style={styles.headerTitle}>Account</Text>
       </View>
 
-      {/* 🔹 Scroll content */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 🔹 Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
             {profileData?.profileImage ? (
@@ -128,7 +119,6 @@ const AccountScreen = () => {
           ) : null}
         </View>
 
-        {/* 🔹 Menu Items */}
         <MenuItem
           label="Profile"
           image={profile}
@@ -185,27 +175,25 @@ const AccountScreen = () => {
           onpress={() => router.push("/(secure)/account/contactUs")}
         />
 
-        {/* 🔹 Language Section */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.languageText}>Language</Text>
-          <TouchableOpacity style={styles.dropdownContainer} activeOpacity={0.7}>
-            <Text style={styles.dropdownText}>English</Text>
-            <Image
-              source={arrow}
-              style={[
-                styles.arrowIcon,
-                { tintColor: "grey", transform: [{ rotate: "90deg" }] },
-              ]}
+        {/* 🔹 Logout (Icon + Text same as others) */}
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => setLogoutVisible(true)}
+        >
+          <View style={styles.menuLeft}>
+            <Ionicons
+              name="log-out-outline"
+              size={26}
+              color="grey"
+              style={{ marginRight: 12 }}
             />
-          </TouchableOpacity>
-        </View>
-
-        {/* 🔹 Logout */}
-        <MenuItem
-          label="Log Out"
-          image={logout}
-          onpress={() => setLogoutVisible(true)}
-        />
+            <Text style={[styles.menuText, { color: "grey", fontSize:16 }]}>Log Out</Text>
+          </View>
+          <Image
+            source={arrow}
+            style={[styles.arrowIcon, { tintColor: "grey" }]}
+          />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* 🔹 Logout Modal */}
@@ -300,29 +288,6 @@ const styles = StyleSheet.create({
   smallIcon: { width: 24, height: 24, marginRight: 12 },
   menuText: { fontSize: 16 },
   arrowIcon: { width: 18, height: 18 },
-  sectionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginHorizontal: 28,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderTopWidth: 0.5,
-    borderTopColor: "lightGrey",
-  },
-  languageText: { fontSize: 16, color: "grey" },
-  dropdownContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#C4C4C4",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 120,
-  },
-  dropdownText: { fontSize: 16, color: "#0A0A23" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

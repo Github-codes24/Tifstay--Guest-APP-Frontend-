@@ -11,6 +11,10 @@ import {
   ImageBackground,
   Dimensions,
   Keyboard,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/store/authStore";
@@ -21,7 +25,7 @@ import axios from "axios";
 import Toast from "react-native-toast-message";
 import CustomToast from "../../components/CustomToast";
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
 
 export default function VerifyScreen() {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -30,7 +34,18 @@ export default function VerifyScreen() {
   const { phoneNumber } = useLocalSearchParams();
   const [timer, setTimer] = useState(30);
   const [isResendDisabled, setIsResendDisabled] = useState(true);
+  const [loading, setLoading] = useState(false);
 
+  // ✅ Keyboard fix
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    const keyboardHideListener = Keyboard.addListener("keyboardDidHide", () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => keyboardHideListener.remove();
+  }, []);
+
+  // Countdown timer
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (isResendDisabled) {
@@ -57,6 +72,8 @@ export default function VerifyScreen() {
   };
 
   const handleVerifyOTP = async () => {
+    if (loading) return;
+
     Keyboard.dismiss();
     const otpCode = otp.join("");
     if (otpCode.length !== 4) {
@@ -67,6 +84,8 @@ export default function VerifyScreen() {
       });
       return;
     }
+
+    setLoading(true);
     try {
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
@@ -105,106 +124,141 @@ export default function VerifyScreen() {
         text1: "Error",
         text2: error?.response?.data?.message || "Something went wrong.",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (isResendDisabled) return;
-    setOtp(["", "", "", ""]);
-    setTimer(30);
-    setIsResendDisabled(true);
-    Toast.show({
-      type: "info",
-      text1: "OTP Resent",
-      text2: "A new OTP has been sent to your number.",
-    });
+
+    try {
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/login",
+        { phoneNumber }
+      );
+
+      if (response.data.success) {
+        const otpCode = response.data.data?.guest?.otpCode;
+
+        Toast.show({
+          type: "success",
+          text1: "OTP Resent Successfully",
+          text2: otpCode
+            ? `Your new OTP is ${otpCode}`
+            : "A new OTP has been sent to your number.",
+        });
+
+        setOtp(["", "", "", ""]);
+        setTimer(30);
+        setIsResendDisabled(true);
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Failed to resend",
+          text2: response.data.message || "Please try again.",
+        });
+      }
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error?.response?.data?.message || "Something went wrong.",
+      });
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 🔹 Top Logo Section */}
-      <View style={styles.imageWrapper}>
-        <Image
-          source={require("../../assets/images/loginlogo.png")}
-          style={styles.topImage}
-          resizeMode="cover"
-        />
-      </View>
-
-      {/* 🔹 Bottom Card Section with Background */}
-      <View style={styles.bottomCard}>
-        <ImageBackground
-          source={require("../../assets/images/background.png")}
-          style={styles.cardBackground}
-          imageStyle={{ borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Logo showText={false} />
-          <Text style={styles.title}>Verify Your OTP</Text>
-          <Text style={styles.subtitle}>Enter the 4-digit code sent to your number</Text>
-
-          {/* 🔹 OTP Inputs */}
-          <View style={styles.otpContainer}>
-            {otp.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => {
-                  if (ref) inputRefs.current[index] = ref;
-                }}
-                style={styles.otpInput}
-                value={digit}
-                onChangeText={(value) => handleOtpChange(value, index)}
-                keyboardType="numeric"
-                maxLength={1}
-                selectTextOnFocus
-              />
-            ))}
+          <View style={styles.imageWrapper}>
+            <Image
+              source={require("../../assets/images/loginlogo.png")}
+              style={styles.topImage}
+              resizeMode="cover"
+            />
           </View>
 
-          {/* 🔹 Resend OTP Section */}
-          <View style={styles.resendContainer}>
-            <Text style={styles.resendPrompt}>Didn’t receive the code?</Text>
-            {isResendDisabled ? (
-              <Text style={styles.timerText}> Resend in {timer}s</Text>
-            ) : (
-              <TouchableOpacity onPress={handleResend}>
-                <Text style={styles.resendText}> Resend</Text>
+          <View style={styles.bottomCard}>
+            <ImageBackground
+              source={require("../../assets/images/background.png")}
+              style={styles.cardBackground}
+              imageStyle={{ borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
+            >
+              <Logo showText={false} />
+              <Text style={styles.title}>Verify Your OTP</Text>
+              <Text style={styles.subtitle}>
+                Enter the 4-digit code sent to your number
+              </Text>
+
+              <View style={styles.otpContainer}>
+                {otp.map((digit, index) => (
+                  <TextInput
+                    key={index}
+                    ref={(ref) => {
+                      if (ref) inputRefs.current[index] = ref;
+                    }}
+                    style={styles.otpInput}
+                    value={digit}
+                    onChangeText={(value) => handleOtpChange(value, index)}
+                    keyboardType="numeric"
+                    maxLength={1}
+                    selectTextOnFocus
+                  />
+                ))}
+              </View>
+
+              <View style={styles.resendContainer}>
+                <Text style={styles.resendPrompt}>Didn’t receive the code?</Text>
+                {isResendDisabled ? (
+                  <Text style={styles.timerText}> Resend in {timer}s</Text>
+                ) : (
+                  <TouchableOpacity onPress={handleResend}>
+                    <Text style={styles.resendText}> Resend</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.verifyButton, { opacity: loading ? 0.7 : 1 }]}
+                onPress={handleVerifyOTP}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.verifyText}>Verify OTP</Text>
+                )}
               </TouchableOpacity>
-            )}
+            </ImageBackground>
           </View>
 
-          {/* 🔹 Verify Button */}
-          <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
-        </ImageBackground>
-      </View>
-
-      {/* 🔹 Custom Toast */}
-      <CustomToast />
+          <CustomToast />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
-  imageWrapper: {
-    height: height * 0.35,
-    width: "100%",
-  },
-  topImage: {
-    width: "100%",
-    height: "100%",
-  },
-  bottomCard: {
-    flex: 1,
-    marginTop: -30,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.white },
+  imageWrapper: { height: height * 0.35, width: "100%" },
+  topImage: { width: "100%", height: "100%" },
+  bottomCard: { flex: 1, marginTop: -30 },
   cardBackground: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-backgroundColor: "#fff",
+    backgroundColor: "#fff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     elevation: 10,
@@ -250,19 +304,20 @@ backgroundColor: "#fff",
     alignItems: "center",
     marginBottom: 20,
   },
-  resendPrompt: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333333",
+  resendPrompt: { fontSize: 14, fontWeight: "500", color: "#333" },
+  resendText: { fontSize: 14, color: colors.primary, fontWeight: "600" },
+  timerText: { fontSize: 14, color: colors.textSecondary, marginLeft: 4 },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
   },
-  resendText: {
-    fontSize: 14,
-    color: colors.primary,
+  verifyText: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "600",
-  },
-  timerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginLeft: 4,
   },
 });
