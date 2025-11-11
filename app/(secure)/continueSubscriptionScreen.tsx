@@ -161,6 +161,23 @@ export default function ContinueSubscriptionScreen() {
     const effectiveBedId = bedId || (typeof bedNumber === 'number' ? bedNumber.toString() : '');
     return `${roomId || ''}-${effectiveBedId}`;
   };
+  // Helper to normalize stored/DB foodType (full label) to short UI/backend value
+  const normalizeFoodType = (storedType: string): string => {
+    const lower = storedType.toLowerCase().trim();
+    if (lower.includes('veg') && !lower.includes('non')) return 'Veg';
+    if (lower.includes('non') && !lower.includes('veg')) return 'Non-Veg';
+    if (lower.includes('both')) return 'Both';
+    return 'Both'; // Default fallback
+  };
+  // Helper to map short to full for endpoints that expect it (e.g., getPlanDetails)
+  const getFullFoodType = (shortType: string): string => {
+    switch (shortType) {
+      case 'Both': return 'Both Veg & Non-Veg';
+      case 'Veg': return 'Veg';
+      case 'Non-Veg': return 'Non-Veg';
+      default: return 'Both Veg & Non-Veg';
+    }
+  };
   // Add this useEffect inside the ContinueSubscriptionScreen component, after the state declarations
   useEffect(() => {
     console.log("=== Continue Subscription Screen Debug ===");
@@ -314,11 +331,11 @@ export default function ContinueSubscriptionScreen() {
       sourceCheckOut = checkOutDateParam;
     }
     if (sourceCheckIn && !isNaN(Date.parse(sourceCheckIn))) {
-  setCheckInDate(new Date(sourceCheckIn));
-}
-   if (sourceCheckOut && !isNaN(Date.parse(sourceCheckOut))) {
-    setCheckOutDate(new Date(sourceCheckOut));
-  }
+      setCheckInDate(new Date(sourceCheckIn));
+    }
+    if (sourceCheckOut && !isNaN(Date.parse(sourceCheckOut))) {
+      setCheckOutDate(new Date(sourceCheckOut));
+    }
   }, [bookingData, fullBooking, checkInDateParam, checkOutDateParam]);
   // Set selected rooms from fullBooking, booking data, or params if available (for continue mode)
   useEffect(() => {
@@ -451,7 +468,7 @@ export default function ContinueSubscriptionScreen() {
             console.log("Fetched Tiffin Order Details:", orderData);
             setTiffinOrder(orderData);
             // Pre-fill states
-            setSelectedfood(orderData.foodType || "Both");
+            setSelectedfood(normalizeFoodType(orderData.foodType || params.foodType || "Both Veg & Non-Veg"));
             const orderTypeStr = orderData.orderType || "Delivery";
             setOrderType(orderTypeStr.toLowerCase() === "delivery" ? "delivery" : "dining");
             // Dates
@@ -481,27 +498,52 @@ export default function ContinueSubscriptionScreen() {
             if (orderData.deliveryInstructions) {
               setDeliveryInstructions(orderData.deliveryInstructions);
             }
+          } else {
+            // Fallback: Use params if fetch fails (normalize full to short)
+            console.warn("Order fetch failed, using params fallback");
+            setSelectedfood(normalizeFoodType(params.foodType as string || "Both Veg & Non-Veg"));
+            if (params.checkInDate) setDate(new Date(params.checkInDate as string));
+            if (params.checkOutDate) setEndDate(new Date(params.checkOutDate as string));
           }
         } catch (error) {
           console.error("Error fetching tiffin order details:", error);
+          // Fallback to params on error
+          setSelectedfood(normalizeFoodType(params.foodType as string || "Both Veg & Non-Veg"));
         }
+      } else {
+        // No orderId: Pure fallback to params
+        setSelectedfood(normalizeFoodType(params.foodType as string || "Both Veg & Non-Veg"));
       }
     };
     fetchTiffinOrderDetails();
-  }, [serviceType, token, orderId]);
+  }, [serviceType, token, orderId, params.foodType, params.checkInDate, params.checkOutDate]);
   // Match and set selected meal package once order and service are loaded
   useEffect(() => {
     if (tiffinOrder && tiffinService && mealPackages.length > 0) {
-      const orderPlanType = tiffinOrder.planType || "";
-      const matchingPkg = mealPackages.find(pkg =>
-        pkg.planType.toLowerCase().includes(orderPlanType.toLowerCase()) ||
-        orderPlanType.toLowerCase().includes(pkg.planType.toLowerCase())
+      const orderPlanType = tiffinOrder.planType || (params.plan as string) || ""; // Fallback to params
+      // IMPROVED: Exact match first, then partial
+      let matchingPkg = mealPackages.find(pkg =>
+        pkg.planType.toLowerCase() === orderPlanType.toLowerCase() // Exact
       );
+      if (!matchingPkg) {
+        matchingPkg = mealPackages.find(pkg =>
+          pkg.planType.toLowerCase().includes(orderPlanType.toLowerCase()) ||
+          orderPlanType.toLowerCase().includes(pkg.planType.toLowerCase())
+        );
+      }
       if (matchingPkg) {
         setSelectedMealPackage(matchingPkg.id);
+        console.log(`Matched package for planType "${orderPlanType}":`, matchingPkg.planType);
+      } else {
+        console.warn(`No matching package for order/params planType: "${orderPlanType}"`);
+        // Fallback: Use params.plan if available
+        const paramMatching = mealPackages.find(pkg =>
+          pkg.planType.toLowerCase().includes((params.plan as string || '').toLowerCase())
+        );
+        if (paramMatching) setSelectedMealPackage(paramMatching.id);
       }
     }
-  }, [tiffinOrder, tiffinService, mealPackages]);
+  }, [tiffinOrder, tiffinService, mealPackages, params.plan]);
   // Fallback: Set dates from params if no order fetched
   useEffect(() => {
     if (checkInDateParam && serviceType === 'tiffin' && !date) {
@@ -512,19 +554,19 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [checkInDateParam, checkOutDateParam, serviceType, date, endDate]);
   // Handle room selection from modal (for continue mode) - Set full updated selection to support add/remove
-const handleRoomSelection = (data: ContinueRoomSelectionData) => {
-  const updatedSelected = data.roomsData.flatMap((room) =>
-    room.beds.map((bed) => ({
-      roomNumber: room.roomNumber.toString(),
-      bedNumber: Number(bed.bedNumber),
-      roomId: room.roomId,
-      bedId: bed.bedId,
-      name: bed.name || '',
-    }))
-  );
-  setSelectedRooms(updatedSelected); // Set full updated list (supports deselection/removal)
-  console.log("Updated selected rooms from modal:", updatedSelected); // Debug
-};
+  const handleRoomSelection = (data: ContinueRoomSelectionData) => {
+    const updatedSelected = data.roomsData.flatMap((room) =>
+      room.beds.map((bed) => ({
+        roomNumber: room.roomNumber.toString(),
+        bedNumber: Number(bed.bedNumber),
+        roomId: room.roomId,
+        bedId: bed.bedId,
+        name: bed.name || '',
+      }))
+    );
+    setSelectedRooms(updatedSelected); // Set full updated list (supports deselection/removal)
+    console.log("Updated selected rooms from modal:", updatedSelected); // Debug
+  };
   const fetchHostelPlanTypes = async () => {
     if (!token) return;
     setIsFetchingHostelPlans(true);
@@ -608,78 +650,221 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
   const handleBack = () => {
     router.back();
   };
-const handleSubmit = async () => {
-  console.log("🔥 handleSubmit called! Service Type:", serviceType);
-  console.log(
-    "🔍 Current States - checkInDate:", checkInDate,
-    "checkOutDate:", checkOutDate,
-    "token:", !!token,
-    "orderId:", orderId,
-    "selectedRooms.length:", selectedRooms.length
-  );
-  if (serviceType === "tiffin") {
-    console.log("🍱 Entering Tiffin branch.");
-    // Tiffin validations
-    if (!date) {
-      Alert.alert("Error", "Please select a start date.");
+  const handleSubmit = async () => {
+    console.log("🔥 handleSubmit called! Service Type:", serviceType);
+    console.log(
+      "🔍 Current States - checkInDate:", checkInDate,
+      "checkOutDate:", checkOutDate,
+      "token:", !!token,
+      "orderId:", orderId,
+      "selectedRooms.length:", selectedRooms.length
+    );
+    if (serviceType === "tiffin") {
+      console.log("🍱 Entering Tiffin branch.");
+      // Tiffin validations
+      if (!date) {
+        Alert.alert("Error", "Please select a start date.");
+        return;
+      }
+      if (!tiffinPlan) {
+        Alert.alert("Error", "Please select a subscription type.");
+        return;
+      }
+      if (selectedMealPackage === 0) {
+        Alert.alert("Error", "Please select a meal package.");
+        return;
+      }
+      const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
+      if (hasPeriodic && !endDate) {
+        Alert.alert("Error", "Please select an end date.");
+        return;
+      }
+      if (currentPlanPrice === 0) {
+        Alert.alert("Error", "No pricing available for this selection. Please try different options.");
+        return;
+      }
+      if (!token) {
+        Alert.alert("Error", "Authentication required.");
+        return;
+      }
+      if (!effectiveServiceId && !orderId) {
+        Alert.alert("Error", "Service ID or Order ID not available.");
+        return;
+      }
+      // Build payload
+      const selectedMeals = Object.entries(tiffinMeals)
+        .filter(([_, checked]) => checked)
+        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+      const planTypeStr = selectedMeals.join(" & ");
+      // FIXED: Send short foodType for subscribe (matches backend expectation)
+      const foodTypeStr = selectedfood;
+
+      const chooseOrderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+      const dateStr = date.toISOString().split("T")[0];
+      const endDateStr = endDate ? endDate.toISOString().split("T")[0] : dateStr;
+      const payload = {
+        deliveryInstructions: deliveryInstructions || "",
+        foodType: foodTypeStr, // Short
+        chooseOrderType: chooseOrderTypeStr,
+        planType: planTypeStr,
+        subscribtionType: {  // FIXED: Match booking's typo 'subscribtionType'
+          subscribtion: tiffinPlan,
+          price: currentPlanPrice,
+        },
+        date: dateStr,
+        endDate: endDateStr,
+        ...(orderId && { remarks: "Continue Subscription" }),
+      };
+      console.log("📤 Tiffin Subscription API Payload:", payload);
+      // Determine URL based on whether it's create or update
+      const tiffinUrl = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinSubscription/${orderId}`;
+      console.log("🌐 Tiffin API URL:", tiffinUrl);
+      try {
+        console.log("🚀 Making Tiffin Subscription API call...");
+        const response = await axios.post(
+          tiffinUrl,
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("📥 Tiffin API Response:", response.data);
+        if (response.data.success) {
+          const newBookingData = response.data.data;
+          console.log("✅ Tiffin subscription success:", newBookingData);
+          router.push({
+            pathname: "/(secure)/check-out",
+            params: {
+              bookingId: newBookingData._id,
+              serviceType: "tiffin",
+            },
+          });
+          console.log("✅ Navigation to checkout complete!");
+        } else {
+          console.log("❌ API success false:", response.data.message);
+          Alert.alert("Error", response.data.message || "Failed to create tiffin subscription.");
+        }
+      } catch (error) {
+        console.error("❌ Tiffin Subscription API Error:", error);
+        if (axios.isAxiosError(error)) {
+          console.log(" - Response status:", error.response?.status);
+          console.log(" - Response data:", error.response?.data);
+          Alert.alert("Error", error.response?.data?.message || "Network error occurred.");
+        } else {
+          Alert.alert("Error", "An unexpected error occurred.");
+        }
+      }
       return;
     }
-    if (!tiffinPlan) {
-      Alert.alert("Error", "Please select a subscription type.");
+    // 🏠 HOSTEL SECTION
+    console.log("🏠 Entering Hostel branch.");
+    if (!checkInDate || !checkOutDate || !token || !orderId) {
+      console.log("❌ Validation failed: Missing required info.");
+      Alert.alert("Error", "Missing required information. Please fill all fields.");
       return;
     }
-    if (selectedMealPackage === 0) {
-      Alert.alert("Error", "Please select a meal package.");
+    if (selectedRooms.length === 0) {
+      console.log("❌ No rooms selected.");
+      Alert.alert("Error", "Please select at least one room and bed.");
       return;
     }
-    const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
-    if (hasPeriodic && !endDate) {
-      Alert.alert("Error", "Please select an end date.");
-      return;
+    console.log("✅ Validation passed and rooms selected.");
+    // Build existing beds map
+    const existingBeds = new Map();
+    let sourceRoomsForExisting = [];
+    if (fullBooking?.rooms?.length) {
+      sourceRoomsForExisting = fullBooking.rooms;
+      console.log("✅ Using rooms from fullBooking");
+    } else if (bookingData?.rooms?.length) {
+      sourceRoomsForExisting = bookingData.rooms;
+      console.log("✅ Using rooms from bookingData");
+    } else if (Array.isArray(parsedRoomsState)) {
+      sourceRoomsForExisting = parsedRoomsState;
+      console.log("✅ Using rooms from parsedRoomsState");
+    } else {
+      console.log("⚠️ No valid room source found for existing beds");
     }
-    if (currentPlanPrice === 0) {
-      Alert.alert("Error", "No pricing available for this selection. Please try different options.");
-      return;
-    }
-    if (!token) {
-      Alert.alert("Error", "Authentication required.");
-      return;
-    }
-    if (!effectiveServiceId && !orderId) {
-      Alert.alert("Error", "Service ID or Order ID not available.");
-      return;
-    }
-    // Build payload
-    const selectedMeals = Object.entries(tiffinMeals)
-      .filter(([_, checked]) => checked)
-      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-    const planTypeStr = selectedMeals.join(" & ");
-    const foodTypeStr = selectedfood === "Both" ? "Both Veg & Non-Veg" : selectedfood;
-    const chooseOrderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
-    const dateStr = date.toISOString().split("T")[0];
-    const endDateStr = endDate ? endDate.toISOString().split("T")[0] : dateStr;
-    const payload = {
-      deliveryInstructions: deliveryInstructions || "",
-      foodType: foodTypeStr,
-      chooseOrderType: chooseOrderTypeStr,
-      planType: planTypeStr,
-      subscriptionType: {
-        subscription: tiffinPlan,
-        price: currentPlanPrice,
-      },
-      date: dateStr,
-      endDate: endDateStr,
-      ...(orderId && { remarks: "Continue Subscription" }),
+    sourceRoomsForExisting.forEach((room) => {
+      const beds = getBedsArray(room);
+      beds.forEach((bed) => {
+        const roomId = room.roomId || room._id || room.room_id;
+        const bedId = bed?.bedId || bed?._id || bed?.bed_id;
+        const bedNumber = bed?.bedNumber || bed?.bedNum || bed || 0;
+        const key = getBedKey(roomId, bedId, bedNumber);
+        existingBeds.set(key, {
+          roomId,
+          roomNumber: room.roomNumber || room.roomNum || room.room_number,
+          bedId,
+          bedNumber,
+          name: bed?.name || "",
+        });
+      });
+    });
+    console.log("🗺️ Existing Beds Map:", Array.from(existingBeds.values()));
+    // New selections
+    const newBedsSet = new Set(
+      selectedRooms.map((r) => getBedKey(r.roomId, r.bedId, r.bedNumber))
+    );
+    // ➕ Add Beds
+    const addBeds = selectedRooms
+      .filter((r) => !existingBeds.has(getBedKey(r.roomId, r.bedId, r.bedNumber)))
+      .map((r) => ({
+        bedId: r.bedId,
+        bedNumber: r.bedNumber,
+        name: r.name || "",
+        roomId: r.roomId,
+        roomNumber: r.roomNumber,
+      }));
+    // ➖ Remove Beds
+    const removeBeds = Array.from(existingBeds.values()).filter(
+      (b) => !newBedsSet.has(getBedKey(b.roomId, b.bedId, b.bedNumber))
+    );
+    console.log("➕ Add Beds:", addBeds);
+    console.log("➖ Remove Beds:", removeBeds);
+    // Group into rooms helper
+    const groupByRoom = (bedsArray) => {
+      const map = new Map();
+      bedsArray.forEach((bed) => {
+        if (!map.has(bed.roomId)) {
+          map.set(bed.roomId, {
+            roomId: bed.roomId,
+            roomNumber: bed.roomNumber,
+            bedNumber: [],
+          });
+        }
+        const room = map.get(bed.roomId);
+        room.bedNumber.push({
+          bedId: bed.bedId,
+          bedNumber: bed.bedNumber,
+          name: bed.name,
+        });
+      });
+      return Array.from(map.values());
     };
-    console.log("📤 Tiffin Subscription API Payload:", payload);
-    // Determine URL based on whether it's create or update
- const tiffinUrl = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinSubscription/${orderId}`;
-    console.log("🌐 Tiffin API URL:", tiffinUrl);
+    // ✅ Build grouped data from selected and removed beds
+    const addRooms = groupByRoom(selectedRooms); // 👈 fixed here
+    const removeRooms = groupByRoom(removeBeds);
+    // 🧾 Final Request Body (no mergedRooms now)
+    const requestBody = {
+      checkInDate: checkInDate.toISOString().split("T")[0],
+      checkOutDate: checkOutDate.toISOString().split("T")[0],
+      addRooms, // current final selection (includes old + new, excluding removed)
+    };
+    if (removeRooms.length > 0) requestBody.removeRooms = removeRooms;
+    console.log("📤 Final Continue Subscription API Body:", requestBody);
+    console.log("🆔 Order ID being passed to API:", orderId);
+    console.log(
+      "🌐 Continue Subscription API URL:",
+      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`
+    );
     try {
-      console.log("🚀 Making Tiffin Subscription API call...");
+      console.log("🚀 Making API call...");
       const response = await axios.post(
-        tiffinUrl,
-        payload,
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`,
+        requestBody,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -687,24 +872,26 @@ const handleSubmit = async () => {
           },
         }
       );
-      console.log("📥 Tiffin API Response:", response.data);
+      console.log("📥 API Response:", response.data);
       if (response.data.success) {
         const newBookingData = response.data.data;
-        console.log("✅ Tiffin subscription success:", newBookingData);
+        console.log("✅ Continue subscription success:", newBookingData);
         router.push({
           pathname: "/(secure)/check-out",
           params: {
             bookingId: newBookingData._id,
-            serviceType: "tiffin",
+            serviceType: "hostel",
+            rooms: JSON.stringify(selectedRooms),
+
           },
         });
         console.log("✅ Navigation to checkout complete!");
       } else {
         console.log("❌ API success false:", response.data.message);
-        Alert.alert("Error", response.data.message || "Failed to create tiffin subscription.");
+        Alert.alert("Error", response.data.message || "Failed to continue subscription.");
       }
     } catch (error) {
-      console.error("❌ Tiffin Subscription API Error:", error);
+      console.error("❌ Continue Subscription API Error:", error);
       if (axios.isAxiosError(error)) {
         console.log(" - Response status:", error.response?.status);
         console.log(" - Response data:", error.response?.data);
@@ -713,698 +900,553 @@ const handleSubmit = async () => {
         Alert.alert("Error", "An unexpected error occurred.");
       }
     }
-    return;
-  }
-  // 🏠 HOSTEL SECTION
-  console.log("🏠 Entering Hostel branch.");
-  if (!checkInDate || !checkOutDate || !token || !orderId) {
-    console.log("❌ Validation failed: Missing required info.");
-    Alert.alert("Error", "Missing required information. Please fill all fields.");
-    return;
-  }
-  if (selectedRooms.length === 0) {
-    console.log("❌ No rooms selected.");
-    Alert.alert("Error", "Please select at least one room and bed.");
-    return;
-  }
-  console.log("✅ Validation passed and rooms selected.");
-  // Build existing beds map
-  const existingBeds = new Map();
-  let sourceRoomsForExisting = [];
-  if (fullBooking?.rooms?.length) {
-    sourceRoomsForExisting = fullBooking.rooms;
-    console.log("✅ Using rooms from fullBooking");
-  } else if (bookingData?.rooms?.length) {
-    sourceRoomsForExisting = bookingData.rooms;
-    console.log("✅ Using rooms from bookingData");
-  } else if (Array.isArray(parsedRoomsState)) {
-    sourceRoomsForExisting = parsedRoomsState;
-    console.log("✅ Using rooms from parsedRoomsState");
-  } else {
-    console.log("⚠️ No valid room source found for existing beds");
-  }
-  sourceRoomsForExisting.forEach((room) => {
-    const beds = getBedsArray(room);
-    beds.forEach((bed) => {
-      const roomId = room.roomId || room._id || room.room_id;
-      const bedId = bed?.bedId || bed?._id || bed?.bed_id;
-      const bedNumber = bed?.bedNumber || bed?.bedNum || bed || 0;
-      const key = getBedKey(roomId, bedId, bedNumber);
-      existingBeds.set(key, {
-        roomId,
-        roomNumber: room.roomNumber || room.roomNum || room.room_number,
-        bedId,
-        bedNumber,
-        name: bed?.name || "",
-      });
-    });
-  });
-  console.log("🗺️ Existing Beds Map:", Array.from(existingBeds.values()));
-  // New selections
-  const newBedsSet = new Set(
-    selectedRooms.map((r) => getBedKey(r.roomId, r.bedId, r.bedNumber))
-  );
-  // ➕ Add Beds
-  const addBeds = selectedRooms
-    .filter((r) => !existingBeds.has(getBedKey(r.roomId, r.bedId, r.bedNumber)))
-    .map((r) => ({
-      bedId: r.bedId,
-      bedNumber: r.bedNumber,
-      name: r.name || "",
-      roomId: r.roomId,
-      roomNumber: r.roomNumber,
+  };
+  // Tiffin helpers (restored from BookingScreen)
+  const getMealsFromPlanType = (planType: string): Record<MealType, boolean> => {
+    const lower = planType.toLowerCase();
+    const meals: Record<MealType, boolean> = {
+      breakfast: false,
+      lunch: false,
+      dinner: false,
+    };
+    if (lower.includes("breakfast")) meals.breakfast = true;
+    if (lower.includes("lunch")) meals.lunch = true;
+    if (lower.includes("dinner")) meals.dinner = true;
+    return meals;
+  };
+  const getLabel = (planType: string): string => {
+    const lower = planType.toLowerCase();
+    const mealParts: string[] = [];
+    if (lower.includes("breakfast")) mealParts.push("BF");
+    if (lower.includes("lunch")) mealParts.push("Lunch");
+    if (lower.includes("dinner")) mealParts.push("Dinner");
+    return mealParts.join(", ");
+  };
+  const mealPackages: MealPackage[] = useMemo(() => {
+    console.log('------->', tiffinService);
+    if (!tiffinService?.pricing) return [];
+    return tiffinService.pricing.map((p: any, index: number) => ({
+      id: index + 1,
+      label: getLabel(p.planType),
+      meals: getMealsFromPlanType(p.planType),
+      foodType: p.foodType,
+      planType: p.planType,
     }));
-  // ➖ Remove Beds
-  const removeBeds = Array.from(existingBeds.values()).filter(
-    (b) => !newBedsSet.has(getBedKey(b.roomId, b.bedId, b.bedNumber))
-  );
-  console.log("➕ Add Beds:", addBeds);
-  console.log("➖ Remove Beds:", removeBeds);
-  // Group into rooms helper
-  const groupByRoom = (bedsArray) => {
-    const map = new Map();
-    bedsArray.forEach((bed) => {
-      if (!map.has(bed.roomId)) {
-        map.set(bed.roomId, {
-          roomId: bed.roomId,
-          roomNumber: bed.roomNumber,
-          bedNumber: [],
-        });
-      }
-      const room = map.get(bed.roomId);
-      room.bedNumber.push({
-        bedId: bed.bedId,
-        bedNumber: bed.bedNumber,
-        name: bed.name,
-      });
-    });
-    return Array.from(map.values());
-  };
-  // ✅ Build grouped data from selected and removed beds
-  const addRooms = groupByRoom(selectedRooms); // 👈 fixed here
-  const removeRooms = groupByRoom(removeBeds);
-  // 🧾 Final Request Body (no mergedRooms now)
-  const requestBody = {
-    checkInDate: checkInDate.toISOString().split("T")[0],
-    checkOutDate: checkOutDate.toISOString().split("T")[0],
-    addRooms, // current final selection (includes old + new, excluding removed)
-  };
-  if (removeRooms.length > 0) requestBody.removeRooms = removeRooms;
-  console.log("📤 Final Continue Subscription API Body:", requestBody);
-  console.log("🆔 Order ID being passed to API:", orderId);
-  console.log(
-    "🌐 Continue Subscription API URL:",
-    `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`
-  );
-  try {
-    console.log("🚀 Making API call...");
-    const response = await axios.post(
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`,
-      requestBody,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    console.log("📥 API Response:", response.data);
-    if (response.data.success) {
-      const newBookingData = response.data.data;
-      console.log("✅ Continue subscription success:", newBookingData);
-      router.push({
-        pathname: "/(secure)/check-out",
-        params: {
-          bookingId: newBookingData._id,
-          serviceType: "hostel",
-          rooms: JSON.stringify(selectedRooms),
-         
-        },
-      });
-      console.log("✅ Navigation to checkout complete!");
-    } else {
-      console.log("❌ API success false:", response.data.message);
-      Alert.alert("Error", response.data.message || "Failed to continue subscription.");
+  }, [tiffinService]);
+  const getAvailableFoodOptions = (foodType: string) => {
+    if (foodType === "Both Veg & Non-Veg") {
+      return [
+        { label: "Veg", value: "Veg" },
+        { label: "Non-Veg", value: "Non-Veg" },
+        { label: "Both Veg & Non-Veg", value: "Both" },
+      ];
+    } else if (foodType === "Veg") {
+      return [{ label: "Veg", value: "Veg" }];
+    } else if (foodType === "Non-Veg") {
+      return [{ label: "Non-Veg", value: "Non-Veg" }];
     }
-  } catch (error) {
-    console.error("❌ Continue Subscription API Error:", error);
-    if (axios.isAxiosError(error)) {
-      console.log(" - Response status:", error.response?.status);
-      console.log(" - Response data:", error.response?.data);
-      Alert.alert("Error", error.response?.data?.message || "Network error occurred.");
-    } else {
-      Alert.alert("Error", "An unexpected error occurred.");
-    }
-  }
-};
-// Tiffin helpers (restored from BookingScreen)
-const getMealsFromPlanType = (planType: string): Record<MealType, boolean> => {
-  const lower = planType.toLowerCase();
-  const meals: Record<MealType, boolean> = {
-    breakfast: false,
-    lunch: false,
-    dinner: false,
+    return [];
   };
-  if (lower.includes("breakfast")) meals.breakfast = true;
-  if (lower.includes("lunch")) meals.lunch = true;
-  if (lower.includes("dinner")) meals.dinner = true;
-  return meals;
-};
-const getLabel = (planType: string): string => {
-  const lower = planType.toLowerCase();
-  const mealParts: string[] = [];
-  if (lower.includes("breakfast")) mealParts.push("BF");
-  if (lower.includes("lunch")) mealParts.push("Lunch");
-  if (lower.includes("dinner")) mealParts.push("Dinner");
-  return mealParts.join(", ");
-};
-const mealPackages: MealPackage[] = useMemo(() => {
-  console.log('------->', tiffinService);
-  if (!tiffinService?.pricing) return [];
-  return tiffinService.pricing.map((p: any, index: number) => ({
-    id: index + 1,
-    label: getLabel(p.planType),
-    meals: getMealsFromPlanType(p.planType),
-    foodType: p.foodType,
-    planType: p.planType,
-  }));
-}, [tiffinService]);
-const getAvailableFoodOptions = (foodType: string) => {
-  if (foodType === "Both Veg & Non-Veg") {
-    return [
-      { label: "Veg", value: "Veg" },
-      { label: "Non-Veg", value: "Non-Veg" },
-      { label: "Both Veg & Non-Veg", value: "Both" },
-    ];
-  } else if (foodType === "Veg") {
-    return [{ label: "Veg", value: "Veg" }];
-  } else if (foodType === "Non-Veg") {
-    return [{ label: "Non-Veg", value: "Non-Veg" }];
-  }
-  return [];
-};
-const currentFoodOptions = useMemo(() => {
-  if (selectedMealPackage === 0 || !tiffinService) {
-    return [
-      { label: "Veg", value: "Veg" },
-      { label: "Non-Veg", value: "Non-Veg" },
-      { label: "Both Veg & Non-Veg", value: "Both" },
-    ];
-  }
-  const selectedPkg = mealPackages.find((p) => p.id === selectedMealPackage);
-  if (!selectedPkg) return [];
-  return getAvailableFoodOptions(selectedPkg.foodType);
-}, [selectedMealPackage, mealPackages, tiffinService]);
-const orderTypeOptions = useMemo(() => {
-  return (
-    tiffinService?.orderTypes?.map((type: string) => ({
-      label: type,
-      value: type.toLowerCase().replace(" ", ""),
-    })) || []
-  );
-}, [tiffinService]);
-// Auto-set meal preferences based on selected package
-useEffect(() => {
-  if (selectedMealPackage > 0) {
+  const currentFoodOptions = useMemo(() => {
+    if (selectedMealPackage === 0 || !tiffinService) {
+      return [
+        { label: "Veg", value: "Veg" },
+        { label: "Non-Veg", value: "Non-Veg" },
+        { label: "Both Veg & Non-Veg", value: "Both" },
+      ];
+    }
     const selectedPkg = mealPackages.find((p) => p.id === selectedMealPackage);
-    if (selectedPkg) {
-      setTiffinMeals(selectedPkg.meals);
-      const selectedMeals = Object.entries(selectedPkg.meals)
-        .filter(([_, checked]) => checked)
-        .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-      setSelectedMealsSummary(selectedMeals.join(", "));
+    if (!selectedPkg) return [];
+    return getAvailableFoodOptions(selectedPkg.foodType);
+  }, [selectedMealPackage, mealPackages, tiffinService]);
+  const orderTypeOptions = useMemo(() => {
+    return (
+      tiffinService?.orderTypes?.map((type: string) => ({
+        label: type,
+        value: type.toLowerCase().replace(" ", ""),
+      })) || []
+    );
+  }, [tiffinService]);
+  // Auto-set meal preferences based on selected package
+  useEffect(() => {
+    if (selectedMealPackage > 0) {
+      const selectedPkg = mealPackages.find((p) => p.id === selectedMealPackage);
+      if (selectedPkg) {
+        setTiffinMeals(selectedPkg.meals);
+        const selectedMeals = Object.entries(selectedPkg.meals)
+          .filter(([_, checked]) => checked)
+          .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+        setSelectedMealsSummary(selectedMeals.join(", "));
+      }
     }
-  }
-}, [selectedMealPackage, mealPackages]);
-// Auto-fill end date based on start date and plan type
-useEffect(() => {
-  if (date && ["weekly", "monthly"].includes(tiffinPlan)) {
-    let daysToAdd = 0;
-    if (tiffinPlan === "weekly") {
-      daysToAdd = 7;
-    } else if (tiffinPlan === "monthly") {
-      daysToAdd = 30;
-    }
-    const newEndDate = new Date(date);
-    newEndDate.setDate(newEndDate.getDate() + daysToAdd);
-    setEndDate(newEndDate);
-  } else if (!["weekly", "monthly"].includes(tiffinPlan)) {
-    setEndDate(null);
-  }
-}, [date, tiffinPlan]);
-// Update price based on selections
-useEffect(() => {
-  let newPrice = 0;
-  if (tiffinPlan) {
-    let basePrice = 0;
-    const pricingKey = tiffinPlan as keyof typeof fetchedPricing;
-    if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
-      basePrice = fetchedPricing[pricingKey];
-    } else {
+  }, [selectedMealPackage, mealPackages]);
+  // Auto-fill end date based on start date and plan type
+  useEffect(() => {
+    if (date && ["weekly", "monthly"].includes(tiffinPlan)) {
+      let daysToAdd = 0;
       if (tiffinPlan === "weekly") {
-        basePrice = 800;
+        daysToAdd = 7;
       } else if (tiffinPlan === "monthly") {
-        basePrice = 3200;
+        daysToAdd = 30;
       }
+      const newEndDate = new Date(date);
+      newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+      setEndDate(newEndDate);
+    } else if (!["weekly", "monthly"].includes(tiffinPlan)) {
+      setEndDate(null);
     }
-    newPrice = basePrice;
-  }
-  setCurrentPlanPrice(newPrice);
-}, [tiffinPlan, fetchedPricing]);
-const onChangeDate = (event: any, selectedDate?: Date) => {
-  setShowDatePicker(Platform.OS === "ios");
-  if (selectedDate) setDate(selectedDate);
-};
-const onChangeEndDate = (event: any, selectedDate?: Date) => {
-  setShowEndDatePicker(Platform.OS === "ios");
-  if (selectedDate) setEndDate(selectedDate);
-};
-const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
-  setShowCheckInPicker(Platform.OS === "ios");
-  if (selectedDate) setCheckInDate(selectedDate);
-};
-const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
-  setShowCheckOutPicker(Platform.OS === "ios");
-  if (selectedDate) setCheckOutDate(selectedDate);
-};
-const handleGetPlanDetails = async () => {
-  const selectedMeals = Object.entries(tiffinMeals)
-    .filter(([_, checked]) => checked)
-    .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-  const planTypeStr = selectedMeals.join(" & ");
-  if (planTypeStr === "") {
-    setPlanError("Please select a meal package.");
-    return;
-  }
-  if (!tiffinPlan) {
-    setPlanError("Please select subscription type.");
-    return;
-  }
-  let foodTypeStr = "";
-  if (selectedfood === "Veg") foodTypeStr = "Veg";
-  else if (selectedfood === "Non-Veg") foodTypeStr = "Non-Veg";
-  else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
-  const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
-  const planStr = tiffinPlan;
-  const token = await AsyncStorage.getItem("token");
-  if (!token) {
-    setPlanError("Authentication required.");
-    return;
-  }
-  if (!effectiveServiceId) {
-    setPlanError("Service ID not available.");
-    return;
-  }
-  setIsFetchingDetails(true);
-  setPlanError("");
-  try {
-    const queryParams = new URLSearchParams({
-      foodType: foodTypeStr,
-      orderType: orderTypeStr,
-      planType: planTypeStr,
-      plan: planStr,
-    });
-    const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${effectiveServiceId}?${queryParams.toString()}`;
-    const response = await axios.get(url, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (response.data.success) {
-      const data = response.data.data;
-      if (data.price > 0) {
-        const newPricing = {
-          ...fetchedPricing,
-          [planStr]: data.price,
-          offers: data.offers || "",
-        };
-        setFetchedPricing(newPricing);
-        setPlanError("");
+  }, [date, tiffinPlan]);
+  // Update price based on selections
+  useEffect(() => {
+    let newPrice = 0;
+    if (tiffinPlan) {
+      let basePrice = 0;
+      const pricingKey = tiffinPlan as keyof typeof fetchedPricing;
+      if (fetchedPricing && fetchedPricing[pricingKey] > 0) {
+        basePrice = fetchedPricing[pricingKey];
       } else {
-        setPlanError("No pricing available for this selection.");
+        if (tiffinPlan === "weekly") {
+          basePrice = 800;
+        } else if (tiffinPlan === "monthly") {
+          basePrice = 3200;
+        }
       }
-    } else {
-      setPlanError("Failed to fetch plan details: " + response.data.message);
+      newPrice = basePrice;
     }
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error(
-        `❌ Error: Status ${error.response?.status}, Data:`,
-        error.response?.data
-      );
-      setPlanError(
-        "Failed to fetch plan details: " +
+    setCurrentPlanPrice(newPrice);
+  }, [tiffinPlan, fetchedPricing]);
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === "ios");
+    if (selectedDate) setDate(selectedDate);
+  };
+  const onChangeEndDate = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(Platform.OS === "ios");
+    if (selectedDate) setEndDate(selectedDate);
+  };
+  const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
+    setShowCheckInPicker(Platform.OS === "ios");
+    if (selectedDate) setCheckInDate(selectedDate);
+  };
+  const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
+    setShowCheckOutPicker(Platform.OS === "ios");
+    if (selectedDate) setCheckOutDate(selectedDate);
+  };
+  const handleGetPlanDetails = async () => {
+    const selectedMeals = Object.entries(tiffinMeals)
+      .filter(([_, checked]) => checked)
+      .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
+    const planTypeStr = selectedMeals.join(" & ");
+    if (planTypeStr === "") {
+      setPlanError("Please select a meal package.");
+      return;
+    }
+    if (!tiffinPlan) {
+      setPlanError("Please select subscription type.");
+      return;
+    }
+    // FIXED: Map short selectedfood to full for getPlanDetails (matches booking)
+    const foodTypeStr = getFullFoodType(selectedfood);
+    const orderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
+    const planStr = tiffinPlan;
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      setPlanError("Authentication required.");
+      return;
+    }
+    if (!effectiveServiceId) {
+      setPlanError("Service ID not available.");
+      return;
+    }
+    setIsFetchingDetails(true);
+    setPlanError("");
+    try {
+      const queryParams = new URLSearchParams({
+        foodType: foodTypeStr, // Full
+        orderType: orderTypeStr,
+        planType: planTypeStr,
+        plan: planStr,
+      });
+      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${effectiveServiceId}?${queryParams.toString()}`;
+      const response = await axios.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.data.success) {
+        const data = response.data.data;
+        if (data.price > 0) {
+          const newPricing = {
+            ...fetchedPricing,
+            [planStr]: data.price,
+            offers: data.offers || "",
+          };
+          setFetchedPricing(newPricing);
+          setPlanError("");
+        } else {
+          setPlanError("No pricing available for this selection.");
+        }
+      } else {
+        setPlanError("Failed to fetch plan details: " + response.data.message);
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          `❌ Error: Status ${error.response?.status}, Data:`,
+          error.response?.data
+        );
+        setPlanError(
+          "Failed to fetch plan details: " +
           (error.response?.data?.message || "Network error")
-      );
-    } else {
-      console.error(`❌ Non-Axios error:`, error);
-      setPlanError("Failed to fetch plan details.");
+        );
+      } else {
+        console.error(`❌ Non-Axios error:`, error);
+        setPlanError("Failed to fetch plan details.");
+      }
+    } finally {
+      setIsFetchingDetails(false);
     }
-  } finally {
-    setIsFetchingDetails(false);
-  }
-};
-// Auto-fetch plan details when selections change
-useEffect(() => {
-  if (selectedMealPackage > 0 && selectedfood && orderType && tiffinPlan) {
-    handleGetPlanDetails();
-  } else {
-    setFetchedPricing({ weekly: 0, monthly: 0, offers: "" });
-  }
-}, [selectedMealPackage, selectedfood, orderType, tiffinPlan]);
-const getPlanOptions = () => {
-  const options: { label: string; value: string }[] = [];
-  if (fetchedPricing.weekly > 0) {
-    options.push({
-      label: `Weekly (₹${fetchedPricing.weekly}/weekly)`,
-      value: "weekly",
-    });
-  }
-  if (fetchedPricing.monthly > 0) {
-    options.push({
-      label: `Monthly (₹${fetchedPricing.monthly}/monthly)`,
-      value: "monthly",
-    });
-  }
-  if (options.length === 0) {
-    return [
-      { label: "Weekly (₹800/weekly)", value: "weekly" },
-      { label: "Monthly (₹3200/monthly)", value: "monthly" },
-    ];
-  }
-  return options;
-};
-const renderTiffinForm = () => {
-  const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
-  return (
-    <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={styles.section}>
-        <View style={{ flexDirection: "row" }}>
-          <Image source={calender} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Booking Details</Text>
-        </View>
-        {/* Food Type */}
-        <Text style={styles.subSectionTitle}>Food Type</Text>
-        {currentFoodOptions.map((opt) => (
-          <RadioButton
-            key={opt.value}
-            label={opt.label}
-            value={opt.value}
-            selected={selectedfood}
-            onPress={setSelectedfood}
-          />
-        ))}
-        {/* Choose Order Type */}
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
-          Choose Order Type
-        </Text>
-        {orderTypeOptions.map((opt) => (
-          <RadioButton
-            key={opt.value}
-            label={opt.label}
-            value={opt.value}
-            selected={orderType}
-            onPress={(value) => setOrderType(value as "dining" | "delivery")}
-          />
-        ))}
-        {/* Select Meal Package */}
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
-          Select Meal Package *
-        </Text>
-        {mealPackages.map((pkg) => (
-          <RadioButton
-            key={pkg.id}
-            label={pkg.label}
-            value={pkg.id.toString()}
-            selected={selectedMealPackage.toString()}
-            onPress={(value) => {
-              const id = parseInt(value);
-              setSelectedMealPackage(id);
-              const selectedPkg = mealPackages.find((p) => p.id === id);
-              if (selectedPkg) {
-                setTiffinMeals(selectedPkg.meals);
-                const availableValues = getAvailableFoodOptions(
-                  selectedPkg.foodType
-                ).map((o) => o.value);
-                if (!availableValues.includes(selectedfood)) {
-                  setSelectedfood(availableValues[0] || "Both");
-                }
-              }
-            }}
-          />
-        ))}
-        {/* Subscription Type */}
-        <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
-          Subscription Type *
-        </Text>
-        {getPlanOptions().map((option) => (
-          <RadioButton
-            key={option.value}
-            label={option.label}
-            value={option.value}
-            selected={tiffinPlan}
-            onPress={setTiffinPlan}
-          />
-        ))}
-        {/* Price */}
-        {selectedMealPackage > 0 && tiffinPlan ? (
-          <View style={styles.priceContainer}>
-            {isFetchingDetails ? (
-              <ActivityIndicator color="#004AAD" />
-            ) : currentPlanPrice > 0 ? (
-              <>
-                <Text style={styles.priceText}>
-                  ₹{currentPlanPrice} / {tiffinPlan}
-                </Text>
-                {fetchedPricing.offers && (
-                  <Text style={styles.offersText}>
-                    {fetchedPricing.offers}
-                  </Text>
-                )}
-              </>
-            ) : (
-              planError && <Text style={styles.errorText}>{planError}</Text>
-            )}
+  };
+  // Auto-fetch plan details when selections change
+  useEffect(() => {
+    if (selectedMealPackage > 0 && selectedfood && orderType && tiffinPlan) {
+      handleGetPlanDetails();
+    } else {
+      setFetchedPricing({ weekly: 0, monthly: 0, offers: "" });
+    }
+  }, [selectedMealPackage, selectedfood, orderType, tiffinPlan]);
+  const getPlanOptions = () => {
+    const options: { label: string; value: string }[] = [];
+    if (fetchedPricing.weekly > 0) {
+      options.push({
+        label: `Weekly (₹${fetchedPricing.weekly}/weekly)`,
+        value: "weekly",
+      });
+    }
+    if (fetchedPricing.monthly > 0) {
+      options.push({
+        label: `Monthly (₹${fetchedPricing.monthly}/monthly)`,
+        value: "monthly",
+      });
+    }
+    if (options.length === 0) {
+      return [
+        { label: "Weekly (₹800/weekly)", value: "weekly" },
+        { label: "Monthly (₹3200/monthly)", value: "monthly" },
+      ];
+    }
+    return options;
+  };
+  const renderTiffinForm = () => {
+    const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
+    return (
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row" }}>
+            <Image source={calender} style={styles.icon} />
+            <Text style={styles.sectionTitle}> Booking Details</Text>
           </View>
-        ) : null}
-        {/* Select Start Date */}
-        <Text style={styles.label}>Select Start Date *</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {date ? date.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+          {/* Food Type */}
+          <Text style={styles.subSectionTitle}>Food Type</Text>
+          {currentFoodOptions.map((opt) => (
+            <RadioButton
+              key={opt.value}
+              label={opt.label}
+              value={opt.value}
+              selected={selectedfood}
+              onPress={setSelectedfood}
+            />
+          ))}
+          {/* Choose Order Type */}
+          <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+            Choose Order Type
           </Text>
-          <Image source={calender} style={styles.calendarIcon} />
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date || new Date()}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
-            minimumDate={new Date()}
+          {orderTypeOptions.map((opt) => (
+            <RadioButton
+              key={opt.value}
+              label={opt.label}
+              value={opt.value}
+              selected={orderType}
+              onPress={(value) => setOrderType(value as "dining" | "delivery")}
+            />
+          ))}
+          {/* Select Meal Package */}
+          <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+            Select Meal Package *
+          </Text>
+          {mealPackages.map((pkg) => (
+            <RadioButton
+              key={pkg.id}
+              label={pkg.label}
+              value={pkg.id.toString()}
+              selected={selectedMealPackage.toString()}
+              onPress={(value) => {
+                const id = parseInt(value);
+                setSelectedMealPackage(id);
+                const selectedPkg = mealPackages.find((p) => p.id === id);
+                if (selectedPkg) {
+                  setTiffinMeals(selectedPkg.meals);
+                  const availableValues = getAvailableFoodOptions(
+                    selectedPkg.foodType
+                  ).map((o) => o.value);
+                  if (!availableValues.includes(selectedfood)) {
+                    setSelectedfood(availableValues[0] || "Both");
+                  }
+                }
+              }}
+            />
+          ))}
+          {/* Subscription Type */}
+          <Text style={[styles.subSectionTitle, { marginTop: 15 }]}>
+            Subscription Type *
+          </Text>
+          {getPlanOptions().map((option) => (
+            <RadioButton
+              key={option.value}
+              label={option.label}
+              value={option.value}
+              selected={tiffinPlan}
+              onPress={setTiffinPlan}
+            />
+          ))}
+          {/* Price */}
+          {selectedMealPackage > 0 && tiffinPlan ? (
+            <View style={styles.priceContainer}>
+              {isFetchingDetails ? (
+                <ActivityIndicator color="#004AAD" />
+              ) : currentPlanPrice > 0 ? (
+                <>
+                  <Text style={styles.priceText}>
+                    ₹{currentPlanPrice} / {tiffinPlan}
+                  </Text>
+                  {fetchedPricing.offers && (
+                    <Text style={styles.offersText}>
+                      {fetchedPricing.offers}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                planError && <Text style={styles.errorText}>{planError}</Text>
+              )}
+            </View>
+          ) : null}
+          {/* Select Start Date */}
+          <Text style={styles.label}>Select Start Date *</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {date ? date.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+            </Text>
+            <Image source={calender} style={styles.calendarIcon} />
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date || new Date()}
+              mode="date"
+              display="default"
+              onChange={onChangeDate}
+              minimumDate={new Date()}
+            />
+          )}
+          {/* End Date if periodic */}
+          {hasPeriodic && (
+            <>
+              <Text style={styles.label}>Select End Date *</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowEndDatePicker(true)}
+              >
+                <Text style={styles.datePickerText}>
+                  {endDate ? endDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+                </Text>
+                <Image source={calender} style={styles.calendarIcon} />
+              </TouchableOpacity>
+              {showEndDatePicker && (
+                <DateTimePicker
+                  value={endDate || new Date(date || new Date())}
+                  mode="date"
+                  display="default"
+                  onChange={onChangeEndDate}
+                  minimumDate={date || new Date()}
+                />
+              )}
+            </>
+          )}
+          {/* New: Delivery Instructions */}
+          <Text style={[styles.label, { marginTop: 15 }]}>
+            Delivery Instructions (Optional)
+          </Text>
+          <TextInput
+            style={[styles.input, { height: 80 }]}
+            placeholder="Enter any special instructions (e.g., Call before delivery)"
+            multiline
+            value={deliveryInstructions}
+            onChangeText={setDeliveryInstructions}
           />
-        )}
-        {/* End Date if periodic */}
-        {hasPeriodic && (
-          <>
-            <Text style={styles.label}>Select End Date *</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={() => setShowEndDatePicker(true)}
-            >
-              <Text style={styles.datePickerText}>
-                {endDate ? endDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
-              </Text>
-              <Image source={calender} style={styles.calendarIcon} />
-            </TouchableOpacity>
-            {showEndDatePicker && (
-              <DateTimePicker
-                value={endDate || new Date(date || new Date())}
-                mode="date"
-                display="default"
-                onChange={onChangeEndDate}
-                minimumDate={date || new Date()}
-              />
-            )}
-          </>
-        )}
-        {/* New: Delivery Instructions */}
-        <Text style={[styles.label, { marginTop: 15 }]}>
-          Delivery Instructions (Optional)
-        </Text>
-        <TextInput
-          style={[styles.input, { height: 80 }]}
-          placeholder="Enter any special instructions (e.g., Call before delivery)"
-          multiline
-          value={deliveryInstructions}
-          onChangeText={setDeliveryInstructions}
-        />
-      </View>
-{/*
+        </View>
+        {/*
       <View style={styles.summarySection}>
         <Text style={styles.serviceName}>
           {serviceName || "Maharashtrian Ghar Ka Khana"}
         </Text>
         <Text style={styles.priceText}>Price: ₹120/meal</Text>
       </View> */}
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Submit Booking Request</Text>
-      </TouchableOpacity>
-      {/* <Text style={styles.confirmationText}>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitButtonText}>Submit Booking Request</Text>
+        </TouchableOpacity>
+        {/* <Text style={styles.confirmationText}>
         Provider will reach out within 1 hour to confirm.
       </Text> */}
-    </ScrollView>
-  );
-};
-const updateBedName = (index: number, newName: string) => {
-  setSelectedRooms(prev => prev.map((room, i) => i === index ? {...room, name: newName} : room));
-};
-const renderHostelForm = () => (
-  <ScrollView showsVerticalScrollIndicator={false}>
-    <View style={styles.section}>
-      <Text style={styles.hostelName}>
-        {serviceName || "Scholars Den Boys Hostel"}
-      </Text>
-      <Text style={styles.label}>Plan</Text>
-      <View style={styles.pickerWrapper}>
-        <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
+      </ScrollView>
+    );
+  };
+  const updateBedName = (index: number, newName: string) => {
+    setSelectedRooms(prev => prev.map((room, i) => i === index ? { ...room, name: newName } : room));
+  };
+  const renderHostelForm = () => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <View style={styles.section}>
+        <Text style={styles.hostelName}>
+          {serviceName || "Scholars Den Boys Hostel"}
+        </Text>
+        <Text style={styles.label}>Plan</Text>
+        <View style={styles.pickerWrapper}>
+          <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
+            {existingSelectPlan
+              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})`
+              : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
+            }
+          </Text>
+        </View>
+        <Text style={styles.priceText}>
           {existingSelectPlan
-            ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})`
-            : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
+            ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}`
+            : `${displayPrice || "₹8000/month"}`
           }
         </Text>
       </View>
-      <Text style={styles.priceText}>
-        {existingSelectPlan
-          ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}`
-          : `${displayPrice || "₹8000/month"}`
-        }
-      </Text>
-    </View>
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>📅 Booking Details</Text>
-      <Text style={styles.label}>Check-in date *</Text>
-      <TouchableOpacity
-        style={styles.datePickerButton}
-        onPress={() => setShowCheckInPicker(true)}
-      >
-        <Text style={styles.datePickerText}>
-          {checkInDate ? checkInDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📅 Booking Details</Text>
+        <Text style={styles.label}>Check-in date *</Text>
+        <TouchableOpacity
+          style={styles.datePickerButton}
+          onPress={() => setShowCheckInPicker(true)}
+        >
+          <Text style={styles.datePickerText}>
+            {checkInDate ? checkInDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+          </Text>
+          <Ionicons name="calendar-outline" size={20} color="#666" />
+        </TouchableOpacity>
+        <Text style={styles.label}>Check-out date *</Text>
+        <TouchableOpacity
+          style={styles.datePickerButton}
+          onPress={() => setShowCheckOutPicker(true)}
+        >
+          <Text style={styles.datePickerText}>
+            {checkOutDate ? checkOutDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+          </Text>
+          <Ionicons name="calendar-outline" size={20} color="#666" />
+        </TouchableOpacity>
+        {showCheckInPicker && (
+          <DateTimePicker
+            value={checkInDate || new Date()}
+            mode="date"
+            display="default"
+            onChange={onChangeCheckInDate}
+            minimumDate={new Date()}
+          />
+        )}
+        {showCheckOutPicker && (
+          <DateTimePicker
+            value={checkOutDate || new Date(checkInDate || new Date())}
+            mode="date"
+            display="default"
+            onChange={onChangeCheckOutDate}
+            minimumDate={checkInDate || new Date()}
+          />
+        )}
+        {/* New: Button to open Room Selection Modal */}
+        <Text style={styles.label}>Select Rooms & Beds *</Text>
+        <TouchableOpacity
+          style={styles.datePickerButton}
+          onPress={() => setShowRoomModal(true)}
+          disabled={!hostelId || roomsData.length === 0}
+        >
+          <Text style={styles.datePickerText}>
+            {hostelId && roomsData.length > 0
+              ? (selectedRooms.length > 0 ? "Edit Selection" : "Tap to Select Rooms & Beds")
+              : "Loading Rooms..."
+            }
+          </Text>
+          <Ionicons name="bed-outline" size={20} color="#666" />
+        </TouchableOpacity>
+        {/* Show selected rooms */}
+        {selectedRooms.length > 0 && (
+          <View style={styles.selectedRoomsContainer}>
+            <Text style={styles.label}>Selected Rooms:</Text>
+            {selectedRooms.map((room, index) => (
+              <View key={index} style={styles.selectedRoomItem}>
+                <Text style={styles.selectedRoomText}>
+                  Room {room.roomNumber} - Bed {room.bedNumber}
+                </Text>
+                <TextInput
+                  style={styles.nameInput}
+                  placeholder="Guest Name *"
+                  value={room.name || ''}
+                  onChangeText={(text) => updateBedName(index, text)}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+        <Text style={[styles.label, { marginTop: 15 }]}>
+          Message (Optional)
         </Text>
-        <Ionicons name="calendar-outline" size={20} color="#666" />
-      </TouchableOpacity>
-      <Text style={styles.label}>Check-out date *</Text>
-      <TouchableOpacity
-        style={styles.datePickerButton}
-        onPress={() => setShowCheckOutPicker(true)}
-      >
-        <Text style={styles.datePickerText}>
-          {checkOutDate ? checkOutDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
-        </Text>
-        <Ionicons name="calendar-outline" size={20} color="#666" />
-      </TouchableOpacity>
-      {showCheckInPicker && (
-        <DateTimePicker
-          value={checkInDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={onChangeCheckInDate}
-          minimumDate={new Date()}
+        <TextInput
+          style={[styles.input, { height: 80 }]}
+          placeholder="Enter your complete delivery address with landmarks"
+          multiline
+          value={message}
+          onChangeText={setMessage}
+        />
+      </View>
+      <Buttons
+        title="Check Out"
+        onPress={handleSubmit}
+        style={styles.submitButton}
+        textStyle={styles.submitButtonText}
+      />
+    </ScrollView>
+  );
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <Header
+        title="Continue Subscription"
+        onBack={handleBack}
+        showBackButton={true}
+      />
+      {/* Main Content */}
+      <View style={styles.content}>
+        {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
+      </View>
+      {/* Room Selection Modal for Hostel */}
+      {serviceType === "hostel" && userData && ( // Ensure userData for modal
+        <RoomSelectionModal
+          visible={showRoomModal}
+          onClose={() => setShowRoomModal(false)}
+          hostelData={hostelData}
+          roomsData={roomsData} // Pass fetched rooms data
+          isContinueMode={true}
+          selectedRooms={selectedRooms} // Pass pre-selected rooms for continue mode
+          onContinueSelection={handleRoomSelection}
+          token={token} // Pass the token
         />
       )}
-      {showCheckOutPicker && (
-        <DateTimePicker
-          value={checkOutDate || new Date(checkInDate || new Date())}
-          mode="date"
-          display="default"
-          onChange={onChangeCheckOutDate}
-          minimumDate={checkInDate || new Date()}
-        />
-      )}
-      {/* New: Button to open Room Selection Modal */}
-      <Text style={styles.label}>Select Rooms & Beds *</Text>
-      <TouchableOpacity
-        style={styles.datePickerButton}
-        onPress={() => setShowRoomModal(true)}
-        disabled={!hostelId || roomsData.length === 0}
-      >
-        <Text style={styles.datePickerText}>
-          {hostelId && roomsData.length > 0
-            ? (selectedRooms.length > 0 ? "Edit Selection" : "Tap to Select Rooms & Beds")
-            : "Loading Rooms..."
-          }
-        </Text>
-        <Ionicons name="bed-outline" size={20} color="#666" />
-      </TouchableOpacity>
-      {/* Show selected rooms */}
-      {selectedRooms.length > 0 && (
-        <View style={styles.selectedRoomsContainer}>
-          <Text style={styles.label}>Selected Rooms:</Text>
-          {selectedRooms.map((room, index) => (
-            <View key={index} style={styles.selectedRoomItem}>
-              <Text style={styles.selectedRoomText}>
-                Room {room.roomNumber} - Bed {room.bedNumber}
-              </Text>
-              <TextInput
-                style={styles.nameInput}
-                placeholder="Guest Name *"
-                value={room.name || ''}
-                onChangeText={(text) => updateBedName(index, text)}
-              />
-            </View>
-          ))}
-        </View>
-      )}
-      <Text style={[styles.label, { marginTop: 15 }]}>
-        Message (Optional)
-      </Text>
-      <TextInput
-        style={[styles.input, { height: 80 }]}
-        placeholder="Enter your complete delivery address with landmarks"
-        multiline
-        value={message}
-        onChangeText={setMessage}
-      />
-    </View>
-    <Buttons
-      title="Check Out"
-      onPress={handleSubmit}
-      style={styles.submitButton}
-      textStyle={styles.submitButtonText}
-    />
-  </ScrollView>
-);
-return (
-  <SafeAreaView style={styles.container}>
-    {/* Header */}
-    <Header
-      title="Continue Subscription"
-      onBack={handleBack}
-      showBackButton={true}
-    />
-    {/* Main Content */}
-    <View style={styles.content}>
-      {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
-    </View>
-    {/* Room Selection Modal for Hostel */}
-    {serviceType === "hostel" && userData && ( // Ensure userData for modal
-      <RoomSelectionModal
-        visible={showRoomModal}
-        onClose={() => setShowRoomModal(false)}
-        hostelData={hostelData}
-        roomsData={roomsData} // Pass fetched rooms data
-        isContinueMode={true}
-        selectedRooms={selectedRooms} // Pass pre-selected rooms for continue mode
-        onContinueSelection={handleRoomSelection}
-        token={token} // Pass the token
-      />
-    )}
-  </SafeAreaView>
-);
+    </SafeAreaView>
+  );
 }
 const styles = StyleSheet.create({
   container: {
