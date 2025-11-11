@@ -92,14 +92,18 @@ const MyProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           {/* ✅ If no image, show empty circle */}
-          {profile?.profileImage ? (
-            <Image
-              source={{ uri: profile.profileImage }}
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={styles.emptyCircle} />
-          )}
+        {profile?.profileImage ? (
+  <Image
+    source={{ uri: profile.profileImage }}
+    style={styles.profileImage}
+  />
+) : (
+  <Image
+    source={require("../../../assets/images/fallbackdp.png")}
+    style={styles.profileImage}
+  />
+)}
+
 
           {/* ✅ Only show name if available */}
           {profile?.name ? (

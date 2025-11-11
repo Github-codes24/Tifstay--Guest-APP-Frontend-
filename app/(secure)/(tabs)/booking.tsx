@@ -19,6 +19,7 @@ import colors from "@/constants/colors";
 import { useAuthStore } from "@/store/authStore";
 import Button from "@/components/Buttons";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
+import fallbackDp from "@/assets/images/fallbackdp.png"; // Added import for fallback profile image
 
 interface Order {
   id: string;
@@ -673,6 +674,9 @@ const handleContinueSubscription = (order: Order) => {
     `Rendering ${activeTab} tab - Hostels: ${hostelOrders.length}, Tiffins: ${tiffinOrders.length}`,
   );
 
+  // Added profileSource computation for fallback image handling
+  const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
@@ -685,7 +689,7 @@ const handleContinueSubscription = (order: Order) => {
           onPress={handleProfilePress}
         >
           <Image
-            source={{ uri: profileData?.profileImage || "https://i.pravatar.cc/100" }}
+            source={profileSource} // Updated to use conditional source with local fallback
             style={styles.profileImage}
           />
         </TouchableOpacity>

@@ -145,11 +145,17 @@ const EditProfile = () => {
         extraScrollHeight={20}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.profileContainer}>
+       <View style={styles.profileContainer}>
+          {/* ✅ Profile image with fallback */}
           <TouchableOpacity onPress={pickImage}>
             {profileImage?.uri ? (
               <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
-            ) : null}
+            ) : (
+              <Image
+                source={require("../../../assets/images/fallbackdp.png")}
+                style={styles.profileImage}
+              />
+            )}
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{name}</Text>
         </View>
@@ -210,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
+  headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 5, color: "#000" },
 });
 
 export default EditProfile;

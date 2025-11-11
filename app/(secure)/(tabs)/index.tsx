@@ -30,11 +30,11 @@ import { useAuthStore } from "@/store/authStore";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { hostellogo, tiffinlogo } from "@/assets/images";
+import fallbackDp from "@/assets/images/fallbackdp.png"; // Added import for fallback profile image
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
 import { BackHandler } from 'react-native';
 import { useFocusEffect } from "@react-navigation/native";
-
 interface Hostel {
   id: string;
   name: string;
@@ -327,15 +327,12 @@ const fetchTiffinRecentSearch = async (
   if (!query.trim()) {
     return [];
   }
-
   setIsSearching(true);
   const trimmedQuery = query.trim().toLowerCase();
   const encodedQuery = encodeURIComponent(query.trim());
-
   const token = await getAuthToken();
   const headers: any = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-
   const params = new URLSearchParams({
     search: encodedQuery,
     ...(priceSort && { priceSort }),
@@ -344,16 +341,13 @@ const fetchTiffinRecentSearch = async (
   if (foodTypeParam) {
     params.append("foodType", foodTypeParam);
   }
-
   const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
   console.log("🔍 Tiffin Search URL:", url);
   console.log("🔍 Decoded Query for Debug:", decodeURIComponent(encodedQuery));
-
   try {
     const response = await fetch(url, { headers });
     const result = await response.json();
     console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
-
     if (result.success && result.data && Array.isArray(result.data)) {
       // Backend success → extra client-side partial/case-insensitive filter (name + desc + location)
       const backendFiltered = result.data.filter((tiffin: any) => {
@@ -363,13 +357,11 @@ const fetchTiffinRecentSearch = async (
         const locMatch = (tiffin.location?.fullAddress || "").toLowerCase().includes(lowerQuery);
         return nameMatch || descMatch || locMatch;
       });
-
       // Map with FULL data (offers in desc, pricing array, mealPreferences, etc.) for consistency with allTiffinServicesData
       const mapped = backendFiltered.map((tiffin: any) => {
         const foodTags: string[] = [];
         const offersText = tiffin.pricing?.map((p: any) => p.offers || "").join(" ") || "";
         const fullDesc = `${tiffin.description || ""} ${offersText}`.trim();
-
         tiffin.pricing?.forEach((p: any) => {
           const ft = p.foodType?.toLowerCase();
           if (ft === "veg") foodTags.push("veg");
@@ -380,16 +372,13 @@ const fetchTiffinRecentSearch = async (
           if (ft === "non-veg") foodTags.push("non-veg");
         });
         const uniqueTags = [...new Set(foodTags)];
-
         const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
           type: m.mealType,
           time: `${m.startTime} - ${m.endTime}`,
         })) || [];
-
         const image = tiffin.photos?.[0] ? { uri: tiffin.photos[0] } : food1;
         const firstPrice = tiffin.pricing?.[0];
         const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
-
         return {
           id: tiffin._id,
           name: tiffin.tiffinName,
@@ -404,7 +393,6 @@ const fetchTiffinRecentSearch = async (
           foodType: tiffin.foodType || "",
         };
       });
-
       return mapped;
     } else {
       // Backend empty / failed → fallback to client-side on allTiffinServicesData
@@ -1377,6 +1365,8 @@ const fetchTiffinRecentSearch = async (
     );
   }
   // --- Normal Dashboard View --- (FIX: Ensure banner text is wrapped)
+  // Added profileSource computation for fallback image handling
+  const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -1391,7 +1381,7 @@ const fetchTiffinRecentSearch = async (
           </View>
           <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
             <Image
-              source={{ uri: profileData?.profileImage || "https://i.pravatar.cc/100" }}
+              source={profileSource} // Updated to use conditional source with local fallback
               style={styles.profileImage}
             />
           </TouchableOpacity>
