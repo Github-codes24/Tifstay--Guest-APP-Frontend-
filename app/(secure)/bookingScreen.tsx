@@ -21,7 +21,6 @@ import Header from "@/components/Header";
 import Buttons from "@/components/Buttons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
 type RoomData = {
@@ -36,7 +35,6 @@ type MealPackage = {
   foodType: string;
   planType: string;
 };
-
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -137,6 +135,7 @@ export default function BookingScreen() {
   const [userPhoto, setUserPhoto] = useState<string>("");
   const [isLoadingHostel, setIsLoadingHostel] = useState(false);
   const ranAutofill = useRef(false);
+  const [expandedTiffin, setExpandedTiffin] = useState<number | null>(bookingType === "hostel" ? 0 : null);
   // NEW: Single tiffin meal preferences
   const [tiffinMeals, setTiffinMeals] = useState<Record<MealType, boolean>>({
     breakfast: false,
@@ -149,7 +148,6 @@ export default function BookingScreen() {
   const [selectedPlanType, setSelectedPlanType] = useState(""); // e.g., "Lunch & dinner"
   // NEW: Meal package selection
   const [selectedMealPackage, setSelectedMealPackage] = useState<number>(0);
-
   const getMealsFromPlanType = (
     planType: string
   ): Record<MealType, boolean> => {
@@ -164,7 +162,6 @@ export default function BookingScreen() {
     if (lower.includes("dinner")) meals.dinner = true;
     return meals;
   };
-
   const getLabel = (planType: string): string => {
     const lower = planType.toLowerCase();
     const mealParts: string[] = [];
@@ -173,7 +170,6 @@ export default function BookingScreen() {
     if (lower.includes("dinner")) mealParts.push("dinner");
     return mealParts.join(", ");
   };
-
   const mealPackages: MealPackage[] = useMemo(() => {
     console.log('------->', tiffinService);
     if (!tiffinService?.pricing) return [];
@@ -185,7 +181,6 @@ export default function BookingScreen() {
       planType: p.planType,
     }));
   }, [tiffinService]);
-
   const getAvailableFoodOptions = (foodType: string) => {
     if (foodType === "Both Veg & Non-Veg") {
       return [
@@ -200,7 +195,6 @@ export default function BookingScreen() {
     }
     return [];
   };
-
   const currentFoodOptions = useMemo(() => {
     if (selectedMealPackage === 0 || !tiffinService) {
       return [
@@ -213,7 +207,6 @@ export default function BookingScreen() {
     if (!selectedPkg) return [];
     return getAvailableFoodOptions(selectedPkg.foodType);
   }, [selectedMealPackage, mealPackages, tiffinService]);
-
   const orderTypeOptions = useMemo(() => {
     return (
       tiffinService?.orderTypes?.map((type: string) => ({
@@ -222,7 +215,6 @@ export default function BookingScreen() {
       })) || []
     );
   }, [tiffinService]);
-
   // NEW: Compute total beds across all rooms
   const totalBedsCount = useMemo(
     () =>
@@ -232,10 +224,8 @@ export default function BookingScreen() {
       ),
     [serviceData.rooms]
   );
-
   // NEW: Helper to get bed key
   const getBedKey = (roomId: string, bedId: string) => `${roomId}-${bedId}`;
-
   // NEW: Helper to find and prefill first bed
   const prefillFirstBedName = (rooms: RoomData[], primaryName: string) => {
     if (rooms.length > 0 && rooms[0].beds.length > 0) {
@@ -245,15 +235,12 @@ export default function BookingScreen() {
       setFullName(primaryName);
     }
   };
-
   // Helper to clear errors for a field
   const clearError = (field: string) => {
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
-
   // NEW: Helper for bed name errors (per bed key)
   const getBedNameError = (bedKey: string) => errors[bedKey] || "";
-
   // NEW: Helper for selected meals summary (single)
   const selectedMealsSummary = () => {
     const selectedMeals = Object.entries(tiffinMeals)
@@ -261,13 +248,11 @@ export default function BookingScreen() {
       .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
     return selectedMeals.join(", ");
   };
-
   // NEW: Helper to get base price for a plan
   const getBasePriceForPlan = (plan: string) => {
     const pricingKey = plan as keyof typeof fetchedPricing;
     return fetchedPricing[pricingKey] || 0;
   };
-
   // FIXED: Validate tiffin form (add selectedPlanType check)
   const validateTiffinForm = () => {
     const newErrors: Record<string, string> = {};
@@ -293,7 +278,6 @@ export default function BookingScreen() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   // UPDATED: Validate hostel form (add bed names check)
   const validateHostelForm = () => {
     const newErrors: Record<string, string> = {};
@@ -329,7 +313,6 @@ export default function BookingScreen() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   // NEW: Safe JSON parse helper to prevent errors
   const safeParse = (str: string): any => {
     if (typeof str !== "string") return {};
@@ -343,7 +326,6 @@ export default function BookingScreen() {
       return {};
     }
   };
-
   useEffect(() => {
     const isHostelBooking =
       bookingType === "hostel" || bookingType === "reserve";
@@ -509,7 +491,6 @@ export default function BookingScreen() {
     checkInDateStr,
     checkOutDateStr,
   ]);
-
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
   useEffect(() => {
     const fetchPricing = async () => {
@@ -613,7 +594,6 @@ export default function BookingScreen() {
     };
     fetchPricing();
   }, [serviceData.hostelId, bookingType]);
-
   // Update price and deposit based on selections
   useEffect(() => {
     let newPrice = 0;
@@ -656,7 +636,6 @@ export default function BookingScreen() {
     tiffinPlan, // NEW: Depend on single plan
     totalBedsCount, // NEW: For hostel pricing
   ]);
-
   // Auto-fill check-out date based on check-in and plan (for hostel)
   useEffect(() => {
     if (checkInDate && hostelPlan) {
@@ -673,7 +652,6 @@ export default function BookingScreen() {
       setCheckOutDate(newCheckOut);
     }
   }, [checkInDate, hostelPlan]);
-
   // FIXED: Auto-fill end date based on start date and plan (for tiffin weekly/monthly)
   useEffect(() => {
     if (date && ["weekly", "monthly"].includes(tiffinPlan)) {
@@ -690,18 +668,15 @@ export default function BookingScreen() {
       setEndDate(null); // Clear end date if no periodic plans
     }
   }, [date, tiffinPlan]);
-
   // Helper functions
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
     if (selectedDate) setDate(selectedDate);
   };
-
   const onChangeEndDate = (event: any, selectedDate?: Date) => {
     setShowEndDatePicker(Platform.OS === "ios");
     if (selectedDate) setEndDate(selectedDate);
   };
-
   const onChangeCheckInDate = (event: any, selectedDate?: Date) => {
     setShowCheckInPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -711,7 +686,6 @@ export default function BookingScreen() {
       // Auto-fill check-out will happen via useEffect
     }
   };
-
   const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
     setShowCheckOutPicker(Platform.OS === "ios");
     if (selectedDate) {
@@ -720,7 +694,6 @@ export default function BookingScreen() {
       setCheckOutDate(new Date(selectedDate));
     }
   };
-
   // NEW: Image picker functions for hostel uploads
   const pickAadhaarPhoto = async () => {
     const permissionResult =
@@ -739,7 +712,6 @@ export default function BookingScreen() {
       clearError("aadhaarPhoto");
     }
   };
-
   const pickUserPhoto = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -757,7 +729,6 @@ export default function BookingScreen() {
       clearError("userPhoto");
     }
   };
-
   // FIXED: Single plan details fetch
   const handleGetPlanDetails = async () => {
     // FIXED: Use selectedPlanType for exact match in query
@@ -834,7 +805,6 @@ export default function BookingScreen() {
       setIsFetchingDetails(false);
     }
   };
-
   // NEW: Auto-fetch plan details when meal package is selected or relevant inputs change
   useEffect(() => {
     if (selectedMealPackage > 0 && selectedfood && orderType && tiffinPlan && selectedPlanType) {
@@ -843,11 +813,9 @@ export default function BookingScreen() {
       setFetchedPricing({ perDay: 0, weekly: 0, monthly: 0, offers: "" });
     }
   }, [selectedMealPackage, selectedfood, orderType, tiffinPlan, selectedPlanType]); // FIXED: Add selectedPlanType dep
-
   const handleBack = () => {
     router.back();
   };
-
   // FIXED: Updated handleTiffinSubmit with exact planName, removed redundant meal check, added ID log
   const handleTiffinSubmit = async () => {
     if (!validateTiffinForm()) {
@@ -879,7 +847,7 @@ export default function BookingScreen() {
         .join(" ")
         .trim();
       const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
-      const foodTypeStr = selectedfood; // Directly use "Veg", "Non-Veg", or "Both" from state
+      const foodTypeStr = selectedfood === "Both" ? "Both Veg & Non-Veg" : selectedfood;
       // FIXED: Removed redundant meal check - rely on selectedMealPackage > 0 and selectedPlanType
       if (selectedMealPackage === 0 || !selectedPlanType) {
         setErrors((prev) => ({
@@ -974,160 +942,175 @@ export default function BookingScreen() {
       }));
     }
   };
-
-  const handleHostelSubmit = async () => {
-    if (!validateHostelForm()) {
-      // NEW: Auto-expand beds section if bed name errors are present for better UX
-      const allBedKeys = serviceData.rooms.flatMap((room) =>
-        room.beds.map((bed) => getBedKey(room.roomId, bed.bedId))
-      );
-      const hasMissingBedNames = allBedKeys.some(
-        (key) => !bedNames[key]?.trim()
-      );
-      if (hasMissingBedNames) {
-        // Note: expandedTiffin removed for tiffin, but for hostel we can use a separate state if needed
-      }
+// UPDATED: Handle hostel submit (add bed names to payload)
+// UPDATED: Handle hostel submit (add bed names to payload)
+const handleHostelSubmit = async () => {
+  console.log("=== Hostel Submit Debug ===");
+  console.log("serviceData:", serviceData);
+  console.log("hostelPlan:", hostelPlan);
+  console.log("fullName:", fullName);
+  console.log("phoneNumber:", phoneNumber);
+  console.log("checkInDate:", checkInDate);
+  console.log("checkOutDate:", checkOutDate);
+  console.log("purposeType:", purposeType);
+  console.log("aadhaarPhoto:", aadhaarPhoto);
+  console.log("userPhoto:", userPhoto);
+  console.log("rooms:", serviceData.rooms);
+  console.log("bedNames:", bedNames);
+  if (!validateHostelForm()) {
+    // NEW: Auto-expand beds section if bed name errors are present for better UX
+    const allBedKeys = serviceData.rooms.flatMap(room =>
+      room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
+    );
+    const hasMissingBedNames = allBedKeys.some(key => !bedNames[key]?.trim());
+    if (hasMissingBedNames) {
+      setExpandedTiffin(0);
+    }
+    return;
+  }
+  setIsLoadingHostel(true);
+  try {
+    if (!serviceData.hostelId) {
+      console.error("Error: Hostel ID is missing!");
+      console.log("hostelId:", serviceData.hostelId);
+      setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
       return;
     }
-    setIsLoadingHostel(true);
-    try {
-      if (!serviceData.hostelId) {
-        console.error("Error: Hostel ID is missing!");
-        setErrors((prev) => ({ ...prev, general: "Hostel ID is missing!" }));
-        return;
-      }
-      // NEW: No need for single roomId validation
-      if (
-        !serviceData.rooms ||
-        serviceData.rooms.length === 0 ||
-        totalBedsCount === 0
-      ) {
-        console.error("Error: No rooms or beds selected!");
-        setErrors((prev) => ({
-          ...prev,
-          general: "Please select at least one bed across rooms!",
-        }));
-        return;
-      }
-      const token = await AsyncStorage.getItem("token");
-      const guestId = await AsyncStorage.getItem("guestId");
-      if (!token || !guestId) {
-        console.error("Error: Authentication token or guest ID is missing!");
-        setErrors((prev) => ({
-          ...prev,
-          general: "Authentication token or guest ID is missing!",
-        }));
-        return;
-      }
-      // FIXED: Use flat price and deposit for the plan (no per-bed division)
-      const selectPlan = [
-        {
-          name: hostelPlan,
-          price: currentPlanPrice,
-          depositAmount: currentDeposit,
+    // NEW: No need for single roomId validation
+    if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+      console.error("Error: No rooms or beds selected!");
+      setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
+      return;
+    }
+    const token = await AsyncStorage.getItem("token");
+    const guestId = await AsyncStorage.getItem("guestId");
+    console.log("token:", token ? "Present" : "Missing");
+    console.log("guestId:", guestId ? "Present" : "Missing");
+    if (!token || !guestId) {
+      console.error("Error: Authentication token or guest ID is missing!");
+      setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+      return;
+    }
+    // FIXED: Use flat price and deposit for the plan (no per-bed division)
+    const selectPlan = [
+      {
+        name: hostelPlan,
+        price: currentPlanPrice,
+        depositAmount: currentDeposit,
+      },
+    ];
+    // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
+    const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+      roomId: room.roomId,
+      roomNumber: String(room.roomNumber || ""), // e.g., "101"
+      bedNumber: room.beds.map(bed => ({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+        name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
+      })),
+    }));
+    // Create FormData for file uploads
+    const formData = new FormData();
+    formData.append('fullName', fullName);
+    formData.append('phoneNumber', phoneNumber);
+    formData.append('email', serviceData.email || "example@example.com");
+    formData.append('checkInDate', checkInDate.toISOString());
+    formData.append('checkOutDate', checkOutDate.toISOString());
+    formData.append('workType', purposeType);
+    formData.append('guestId', guestId);
+    // Append rooms as JSON string (now with names)
+    formData.append('rooms', JSON.stringify(roomsPayload));
+    // Append plan as JSON string
+    formData.append('selectPlan', JSON.stringify(selectPlan));
+    // Append images as files (if selected)
+    if (aadhaarPhoto) {
+      formData.append('addharCardPhoto', {
+        uri: aadhaarPhoto,
+        type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
+        name: 'aadhar.jpg',
+      } as any);
+    }
+    if (userPhoto) {
+      formData.append('userPhoto', {
+        uri: userPhoto,
+        type: 'image/jpeg',
+        name: 'user.jpg',
+      } as any);
+    }
+    console.log("Full FormData Payload: (logged as object for debug)");
+    console.log({
+      fullName,
+      phoneNumber,
+      email: serviceData.email || "example@example.com",
+      checkInDate: checkInDate.toISOString(),
+      checkOutDate: checkOutDate.toISOString(),
+      workType: purposeType,
+      guestId,
+      rooms: roomsPayload,
+      selectPlan,
+      aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
+      userPhoto: userPhoto ? 'Attached' : 'Null',
+    });
+    // NEW: API URL uses only hostelId (remove roomId query param)
+    const response = await axios.post(
+      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
         },
-      ];
-      // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
-      const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
-        roomId: room.roomId,
-        roomNumber: String(room.roomNumber || ""), // e.g., "101"
-        bedNumber: room.beds.map((bed) => ({
-          bedId: bed.bedId,
-          bedNumber: bed.bedNumber,
-          name: bedNames[getBedKey(room.roomId, bed.bedId)] || "", // From state
-        })),
-      }));
-      // Create FormData for file uploads
-      const formData = new FormData();
-      formData.append("fullName", fullName);
-      formData.append("phoneNumber", phoneNumber);
-      formData.append("email", serviceData.email || "example@example.com");
-      formData.append("checkInDate", checkInDate.toISOString());
-      formData.append("checkOutDate", checkOutDate.toISOString());
-      formData.append("workType", purposeType);
-      formData.append("guestId", guestId);
-      // Append rooms as JSON string (now with names)
-      formData.append("rooms", JSON.stringify(roomsPayload));
-      // Append plan as JSON string
-      formData.append("selectPlan", JSON.stringify(selectPlan));
-      // Append images as files (if selected)
-      if (aadhaarPhoto) {
-        formData.append("addharCardPhoto", {
-          uri: aadhaarPhoto,
-          type: "image/jpeg", // Adjust based on actual type (e.g., from result.type)
-          name: "aadhar.jpg",
-        } as any);
       }
-      if (userPhoto) {
-        formData.append("userPhoto", {
-          uri: userPhoto,
-          type: "image/jpeg",
-          name: "user.jpg",
-        } as any);
-      }
-      // NEW: API URL uses only hostelId (remove roomId query param)
-      const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (response.data.success) {
-        // alert("Hostel booking created successfully!");
-        const bookingId = response.data.data._id;
-        router.push({
-          pathname: "/check-out",
-          params: {
-            serviceType: "hostel",
-            bookingId,
-            serviceId: serviceData.hostelId,
-          },
-        });
-      } else {
-        console.error(
-          "Booking failed:",
-          response.data.message || "Unknown error"
-        );
-        setErrors((prev) => ({
-          ...prev,
-          general:
-            "Booking failed: " + (response.data.message || "Unknown error"),
-        }));
-      }
-    } catch (error: any) {
-      console.error(
-        "Error creating hostel booking:",
-        error.response?.data || error.message
-      );
-      console.error("Full error object:", error);
-      setErrors((prev) => ({
-        ...prev,
-        general: "Something went wrong while booking. Please try again.",
-      }));
-    } finally {
-      setIsLoadingHostel(false);
+    );
+    console.log("API Response:", response.data);
+    if (response.data.success) {
+      console.log("Booking successful:", response.data.data);
+      // alert("Hostel booking created successfully!");
+      const bookingId = response.data.data._id;
+      console.log("Navigating to checkout with booking ID:", bookingId);
+      router.push({
+        pathname: "/check-out",
+        params: {
+          serviceType: "hostel",
+          bookingId,
+          serviceId: serviceData.hostelId,
+        },
+      });
+    } else {
+      console.error("Booking failed:", response.data.message || "Unknown error");
+      setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
     }
-  };
-
-  // NEW: Bed name input handler (with sync for first bed)
-  const handleBedNameChange = (
-    roomId: string,
-    bedId: string,
-    text: string,
-    isFirstBed: boolean
-  ) => {
-    const key = getBedKey(roomId, bedId);
-    setBedNames((prev) => ({ ...prev, [key]: text }));
-    clearError(key);
-    if (isFirstBed) {
-      setFullName(text); // Sync back to primary fullName
-    }
-  };
-
+  } catch (error: any) {
+    console.error("Error creating hostel booking:", error.response?.data || error.message);
+    console.error("Full error object:", error);
+    setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
+  } finally {
+    setIsLoadingHostel(false);
+  }
+};
+// NEW: Bed name input handler (with sync for first bed)
+const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirstBed: boolean) => {
+  const key = getBedKey(roomId, bedId);
+  setBedNames(prev => ({ ...prev, [key]: text }));
+  clearError(key);
+  if (isFirstBed) {
+    setFullName(text); // Sync back to primary fullName
+  }
+};
+  const Checkbox = ({
+    checked,
+    onPress,
+  }: {
+    checked: boolean;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity
+      style={[styles.checkboxBase, checked && styles.checkboxSelected]}
+      onPress={onPress}
+    >
+      {checked && <Text style={styles.checkMark}>✓</Text>}
+    </TouchableOpacity>
+  );
   const RadioButton = ({
     label,
     value,
@@ -1146,106 +1129,76 @@ export default function BookingScreen() {
       <Text style={styles.radioLabel}>{label}</Text>
     </TouchableOpacity>
   );
-
   // UPDATED: Helper to render selected rooms summary + bed names UI (flattened: no nested cards, use dividers)
   const renderBedNamesSection = () => {
     if (serviceData.rooms.length === 0) return null;
     // Find first bed for prefill logic
     const firstBedRoom = serviceData.rooms[0];
     const firstBed = firstBedRoom?.beds[0];
-    const isFirstBed = (room: RoomData, bed: { bedId: string }) =>
-      room === firstBedRoom && bed.bedId === firstBed?.bedId;
+    const isFirstBed = (room: RoomData, bed: { bedId: string }) => room === firstBedRoom && bed.bedId === firstBed?.bedId;
     return (
       <View style={styles.bedNamesSection}>
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={() => {
-            // Toggle logic without expandedTiffin
-            // You can add a separate state for hostel expansion if needed
-          }}
+          onPress={() => setExpandedTiffin(prev => prev === 0 ? null : 0)} // Reuse expandedTiffin as toggle (0 for beds)
         >
           <View style={styles.sectionHeaderContent}>
             <Image source={person} style={styles.sectionHeaderIcon} />
-            <Text style={styles.sectionTitle}>
-              Selected Rooms & Guest Names
-            </Text>
+            <Text style={styles.sectionTitle}>Selected Rooms & Guest Names</Text>
           </View>
-          <Text style={styles.dropdownIcon}>▼</Text>
+          <Text style={styles.dropdownIcon}>{expandedTiffin === 0 ? '▲' : '▼'}</Text>
         </TouchableOpacity>
-        <View style={styles.expandedContent}>
-          <Text style={styles.introText}>
-            Assign names to each guest bed for a smooth booking process.
-          </Text>
-          {serviceData.rooms.map((room, roomIndex) => (
-            <View key={room.roomId} style={styles.roomContainer}>
-              <View style={styles.roomHeader}>
-                <Text style={styles.roomTitle}>Room {room.roomNumber}</Text>
-                <Text style={styles.roomSubtitle}>
-                  {room.beds.length} Guest(s)
-                </Text>
-              </View>
-              {room.beds.map((bed, bedIndex) => {
-                const bedKey = getBedKey(room.roomId, bed.bedId);
-                const bedName = bedNames[bedKey] || "";
-                const error = getBedNameError(bedKey);
-                return (
-                  <View
-                    key={bed.bedId}
-                    style={[styles.bedRow, error && styles.bedRowError]}
-                  >
-                    <View style={styles.bedAvatarContainer}>
-                      <View style={styles.bedAvatar}>
-                        <Image source={person} style={styles.bedAvatarIcon} />
-                      </View>
-                      <Text style={styles.bedNumberLabel}>
-                        Bed {bed.bedNumber}
-                      </Text>
-                    </View>
-                    <View style={styles.bedNameContainer}>
-                      <TextInput
-                        style={[
-                          styles.bedNameInput,
-                          error && styles.inputError,
-                        ]}
-                        placeholder={`Guest name for Bed ${bed.bedNumber}`}
-                        value={bedName}
-                        onChangeText={(text) =>
-                          handleBedNameChange(
-                            room.roomId,
-                            bed.bedId,
-                            text,
-                            isFirstBed(room, bed)
-                          )
-                        }
-                        onBlur={() => {
-                          if (!bedName.trim()) {
-                            setErrors((prev) => ({
-                              ...prev,
-                              [bedKey]: "Name is required for this bed!",
-                            }));
-                          }
-                        }}
-                      />
-                      {error && <Text style={styles.errorText}>{error}</Text>}
-                    </View>
-                  </View>
-                );
-              })}
-              {roomIndex < serviceData.rooms.length - 1 && (
-                <View style={styles.roomDivider} />
-              )}
-            </View>
-          ))}
-          <View style={styles.totalGuestsFooter}>
-            <Text style={styles.totalBedsText}>
-              Total Guests: {totalBedsCount}
+        {expandedTiffin === 0 && (
+          <View style={styles.expandedContent}>
+            <Text style={styles.introText}>
+              Assign names to each guest bed for a smooth booking process.
             </Text>
+            {serviceData.rooms.map((room, roomIndex) => (
+              <View key={room.roomId} style={styles.roomContainer}>
+                <View style={styles.roomHeader}>
+                  <Text style={styles.roomTitle}>Room {room.roomNumber}</Text>
+                  <Text style={styles.roomSubtitle}>{room.beds.length} Guest(s)</Text>
+                </View>
+                {room.beds.map((bed, bedIndex) => {
+                  const bedKey = getBedKey(room.roomId, bed.bedId);
+                  const bedName = bedNames[bedKey] || '';
+                  const error = getBedNameError(bedKey);
+                  return (
+                    <View key={bed.bedId} style={[styles.bedRow, error && styles.bedRowError]}>
+                      <View style={styles.bedAvatarContainer}>
+                        <View style={styles.bedAvatar}>
+                          <Image source={person} style={styles.bedAvatarIcon} />
+                        </View>
+                        <Text style={styles.bedNumberLabel}>Bed {bed.bedNumber}</Text>
+                      </View>
+                      <View style={styles.bedNameContainer}>
+                        <TextInput
+                          style={[styles.bedNameInput, error && styles.inputError]}
+                          placeholder={`Guest name for Bed ${bed.bedNumber}`}
+                          value={bedName}
+                          onChangeText={(text) => handleBedNameChange(room.roomId, bed.bedId, text, isFirstBed(room, bed))}
+                          onBlur={() => {
+                            if (!bedName.trim()) {
+                              setErrors(prev => ({ ...prev, [bedKey]: "Name is required for this bed!" }));
+                            }
+                          }}
+                        />
+                        {error && <Text style={styles.errorText}>{error}</Text>}
+                      </View>
+                    </View>
+                  );
+                })}
+                {roomIndex < serviceData.rooms.length - 1 && <View style={styles.roomDivider} />}
+              </View>
+            ))}
+            <View style={styles.totalGuestsFooter}>
+              <Text style={styles.totalBedsText}>Total Guests: {totalBedsCount}</Text>
+            </View>
           </View>
-        </View>
+        )}
       </View>
     );
   };
-
   // FIXED: Single plan options - Always show all options
   const getPlanOptions = () => {
     return [
@@ -1254,14 +1207,42 @@ export default function BookingScreen() {
       { label: "Monthly", value: "monthly" },
     ];
   };
-
   const renderHostelBooking = () => (
     <>
-      {/* FIXED: Moved delivery address to tiffin-only; hostel doesn't need it */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Request Booking</Text>
+        <Text style={styles.hostelName}>
+          {serviceData.hostelName || "Scholars Den Boys Hostel"}
+        </Text>
+        {/* UPDATED: Render bed names UI instead of simple summary */}
+        {renderBedNamesSection()}
+        <Text style={styles.label}>Select Plan</Text>
+        <View style={styles.pickerWrapper}>
+          <RNPickerSelect
+            onValueChange={setHostelPlan}
+            items={pickerItems}
+            placeholder={{ label: "Select Plan", value: null }}
+            style={{
+              inputIOS: styles.pickerInput,
+              inputAndroid: styles.pickerInput,
+            }}
+            value={hostelPlan}
+          />
+        </View>
+        <View style={styles.priceContainer}>
+          <Text style={styles.priceText}>
+            ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
+          </Text>
+          <Text style={styles.depositText}>
+            Deposit: ₹{currentDeposit}
+          </Text>
+        </View>
+      </View>
+      {/* Personal Info */}
       <View style={styles.section}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image source={person} style={styles.icon} />
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}> Personal Information</Text>
         </View>
         <Text style={styles.label}>Full Name *</Text>
         <TextInput
@@ -1270,30 +1251,18 @@ export default function BookingScreen() {
           value={fullName}
           onChangeText={(text) => {
             setFullName(text);
-            clearError("fullName");
+            clearError('fullName');
             // NEW: Sync to first bed if exists
             const firstRoom = serviceData.rooms[0];
             if (firstRoom && firstRoom.beds[0]) {
-              handleBedNameChange(
-                firstRoom.roomId,
-                firstRoom.beds[0].bedId,
-                text,
-                true
-              );
+              handleBedNameChange(firstRoom.roomId, firstRoom.beds[0].bedId, text, true);
             }
           }}
           onBlur={() => {
-            if (!fullName.trim())
-              setErrors((prev) => ({
-                ...prev,
-                fullName: "Full Name is required!",
-              }));
+            if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: "Full Name is required!" }));
           }}
-          editable={true}
         />
-        {errors.fullName && (
-          <Text style={styles.errorText}>{errors.fullName}</Text>
-        )}
+        {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
         <Text style={styles.label}>Phone Number *</Text>
         <TextInput
           style={[styles.input, errors.phoneNumber && styles.inputError]}
@@ -1302,69 +1271,49 @@ export default function BookingScreen() {
           value={phoneNumber}
           onChangeText={(text) => {
             setPhoneNumber(text);
-            clearError("phoneNumber");
+            clearError('phoneNumber');
           }}
           onBlur={() => {
-            if (!phoneNumber.trim())
-              setErrors((prev) => ({
-                ...prev,
-                phoneNumber: "Phone Number is required!",
-              }));
+            if (!phoneNumber.trim()) setErrors(prev => ({ ...prev, phoneNumber: "Phone Number is required!" }));
           }}
-          editable={true}
         />
-        {errors.phoneNumber && (
-          <Text style={styles.errorText}>{errors.phoneNumber}</Text>
-        )}
+        {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
       </View>
-      {/* Bed Names Section */}
-      {renderBedNamesSection()}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo *</Text>
         {aadhaarPhoto ? (
-          <View style={{ position: "relative", marginTop: 10 }}>
-            <Image
-              source={{ uri: aadhaarPhoto }}
-              style={{ width: 100, height: 100 }}
-            />
+          <View style={{ position: 'relative', marginTop: 10 }}>
+            <Image source={{ uri: aadhaarPhoto }} style={{ width: 100, height: 100 }} />
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {
-                setAadhaarPhoto("");
-                clearError("aadhaarPhoto");
+                setAadhaarPhoto('');
+                clearError('aadhaarPhoto');
               }}
             >
               <Text style={styles.closeText}>×</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={pickAadhaarPhoto}
-          >
+          <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
             <Text style={styles.uploadButtonText}>Upload photo</Text>
             <Text style={styles.uploadSubtext}>
               Upload clear photo of your Aadhaar card
             </Text>
           </TouchableOpacity>
         )}
-        {errors.aadhaarPhoto && (
-          <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>
-        )}
+        {errors.aadhaarPhoto && <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>}
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📤 Upload Your Photo *</Text>
         {userPhoto ? (
-          <View style={{ position: "relative", marginTop: 10 }}>
-            <Image
-              source={{ uri: userPhoto }}
-              style={{ width: 100, height: 100 }}
-            />
+          <View style={{ position: 'relative', marginTop: 10 }}>
+            <Image source={{ uri: userPhoto }} style={{ width: 100, height: 100 }} />
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {
-                setUserPhoto("");
-                clearError("userPhoto");
+                setUserPhoto('');
+                clearError('userPhoto');
               }}
             >
               <Text style={styles.closeText}>×</Text>
@@ -1378,48 +1327,32 @@ export default function BookingScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        {errors.userPhoto && (
-          <Text style={styles.errorText}>{errors.userPhoto}</Text>
-        )}
+        {errors.userPhoto && <Text style={styles.errorText}>{errors.userPhoto}</Text>}
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>📅 Booking Details</Text>
         <Text style={styles.label}>Check-in date *</Text>
         <TouchableOpacity
-          style={[
-            styles.datePickerButton,
-            errors.checkInDate && styles.inputError,
-          ]}
+          style={[styles.datePickerButton, errors.checkInDate && styles.inputError]}
           onPress={() => setShowCheckInPicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {checkInDate
-              ? checkInDate.toLocaleDateString("en-IN")
-              : "DD/MM/YYYY"}
+            {checkInDate ? checkInDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
-        {errors.checkInDate && (
-          <Text style={styles.errorText}>{errors.checkInDate}</Text>
-        )}
+        {errors.checkInDate && <Text style={styles.errorText}>{errors.checkInDate}</Text>}
         <Text style={styles.label}>Check-out date *</Text>
         <TouchableOpacity
-          style={[
-            styles.datePickerButton,
-            errors.checkOutDate && styles.inputError,
-          ]}
+          style={[styles.datePickerButton, errors.checkOutDate && styles.inputError]}
           onPress={() => setShowCheckOutPicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {checkOutDate
-              ? checkOutDate.toLocaleDateString("en-IN")
-              : "DD/MM/YYYY"}
+            {checkOutDate ? checkOutDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
           </Text>
           <Image source={calender} style={styles.calendarIcon} />
         </TouchableOpacity>
-        {errors.checkOutDate && (
-          <Text style={styles.errorText}>{errors.checkOutDate}</Text>
-        )}
+        {errors.checkOutDate && <Text style={styles.errorText}>{errors.checkOutDate}</Text>}
         {showCheckInPicker && (
           <DateTimePicker
             value={checkInDate || new Date()}
@@ -1450,17 +1383,10 @@ export default function BookingScreen() {
         />
         <View style={styles.section}>
           <Text style={styles.label}>User Stay Type</Text>
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              justifyContent: "space-around",
-              marginTop: 10,
-            }}
-          >
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginTop: 10 }}>
             {/* Work */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+              style={{ flexDirection: "row", alignItems: "center", minWidth: 80, paddingHorizontal: 10 }}
               onPress={() => setPurposeType("work")}
             >
               <View style={styles.radioOuter}>
@@ -1470,25 +1396,21 @@ export default function BookingScreen() {
             </TouchableOpacity>
             {/* Leisure */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+              style={{ flexDirection: "row", alignItems: "center", minWidth: 80, paddingHorizontal: 10 }}
               onPress={() => setPurposeType("leisure")}
             >
               <View style={styles.radioOuter}>
-                {purposeType === "leisure" && (
-                  <View style={styles.radioInner} />
-                )}
+                {purposeType === "leisure" && <View style={styles.radioInner} />}
               </View>
               <Text style={styles.radioLabel}>Leisure</Text>
             </TouchableOpacity>
             {/* Student */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+              style={{ flexDirection: "row", alignItems: "center", minWidth: 80, paddingHorizontal: 10 }}
               onPress={() => setPurposeType("student")}
             >
               <View style={styles.radioOuter}>
-                {purposeType === "student" && (
-                  <View style={styles.radioInner} />
-                )}
+                {purposeType === "student" && <View style={styles.radioInner} />}
               </View>
               <Text style={styles.radioLabel}>Student</Text>
             </TouchableOpacity>
@@ -1510,7 +1432,6 @@ export default function BookingScreen() {
       </TouchableOpacity>
     </>
   );
-
   // FIXED: In meal package onPress - Set selectedPlanType to exact API value
   const renderTiffinBooking = () => {
     const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
@@ -1881,7 +1802,6 @@ export default function BookingScreen() {
       </>
     );
   };
-
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -1902,7 +1822,6 @@ export default function BookingScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#fff",
@@ -1923,6 +1842,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
     marginBottom: 10,
+    marginTop:1
   },
   label: {
     fontSize: 14,
@@ -1964,6 +1884,9 @@ const styles = StyleSheet.create({
   icon: {
     height: 18,
     width: 16,
+    margin:4,
+    marginBottom:15
+
   },
   radioRow: {
     flexDirection: "row",
@@ -2148,6 +2071,7 @@ const styles = StyleSheet.create({
     height: 20,
     marginRight: 8,
     tintColor: "#004AAD",
+    marginBottom:10
   },
   expandedContent: {
     padding: 16,
@@ -2295,5 +2219,25 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  checkboxBase: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#ccc",
+    backgroundColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  checkboxSelected: {
+    backgroundColor: "#FF6600",
+    borderColor: "#FF6600",
+  },
+  checkMark: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

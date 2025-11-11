@@ -140,14 +140,14 @@ export default function ProductDetails() {
 
       if (result.success) {
         const mappedReviews = result.data.map((review: any) => {
-          const [d, m, y] = review.reviewDate.split('/'); 
+          const [d, m, y] = review.reviewDate.split('/');
           return {
             id: review._id,
             name: review.guest?.name || review.user?.name || "Anonymous",
             avatar: review.guest?.profileImage || review.user?.profileImage || null,
             rating: review.rating,
             comment: review.review,
-            date: new Date(y, m - 1, d).toLocaleDateString(), 
+            date: new Date(y, m - 1, d).toLocaleDateString(),
           };
         });
         console.log("Mapped reviews:", mappedReviews);
@@ -174,9 +174,9 @@ export default function ProductDetails() {
   }, [paramType, paramId]);
 
   // React Query hook for reviews (caches for 5min by default from QueryClient)
-  const { 
-    data: reviewsResult, 
-    isLoading: isLoadingReviews 
+  const {
+    data: reviewsResult,
+    isLoading: isLoadingReviews
   } = useQuery({
     queryKey: ['reviews', paramType, paramId],
     queryFn: fetchReviews,
@@ -331,7 +331,7 @@ export default function ProductDetails() {
 
           processedData = {
             id: fullApiData.id || fullApiData._id,
-            name: fullApiData.tiffinName,
+            name: fullApiData.name || fullApiData.tiffinName,
             description: fullDesc,
             images,
             tags,
@@ -699,7 +699,7 @@ export default function ProductDetails() {
           {mappedData.pricing?.map((plan: any, index: number) => (
             <View key={index} style={styles.pricingPlan}>
               <View style={styles.pricingHeader}>
-                <Text 
+                <Text
                   style={styles.pricingSectionTitle}
                   numberOfLines={1}
                   ellipsizeMode="tail"

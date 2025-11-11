@@ -23,7 +23,7 @@ import CheckoutItemCard, {
   HostelCheckoutData,
 } from "@/components/CheckoutItemCard";
 import Header from "@/components/Header";
-
+import Toast from 'react-native-toast-message';
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [couponModalVisible, setCouponModalVisible] = useState(false);
@@ -40,7 +40,6 @@ const Checkout: React.FC = () => {
   const [tiffinService, setTiffinService] = useState<any | null>(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
   const [finalPricing, setFinalPricing] = useState<any | null>(null);
-
   const params = useLocalSearchParams();
   const {
     serviceType,
@@ -65,23 +64,19 @@ const Checkout: React.FC = () => {
     numberOfTiffin,
     fullName,
   } = params;
-
   const isTiffin = serviceType === "tiffin";
   const isHostel = serviceType === "hostel";
-
   // Helper to normalize values from useLocalSearchParams which may be string | string[] | undefined
   const firstParam = (val: string | string[] | undefined): string | undefined => {
     if (val === undefined) return undefined;
     return Array.isArray(val) ? val[0] : val;
   };
-
   // Parse JSON strings if they exist (fallback to empty objects/arrays)
   const parsedHostelData = hostelDataStr ? JSON.parse(hostelDataStr as string) : {};
   const parsedRoomData = roomDataStr ? JSON.parse(roomDataStr as string) : {};
   const parsedSelectedBeds = selectedBedsStr ? JSON.parse(selectedBedsStr as string) : [];
   const parsedPlan = planStr ? JSON.parse(planStr as string) : {};
   const parsedUserData = userDataStr ? JSON.parse(userDataStr as string) : {};
-
   // Log received params explicitly
   console.log("=== Received Params in Checkout ===");
   console.log("serviceType:", serviceType);
@@ -101,7 +96,6 @@ const Checkout: React.FC = () => {
   console.log("parsedSelectedBeds:", parsedSelectedBeds);
   console.log("parsedPlan:", parsedPlan);
   console.log("parsedUserData:", parsedUserData);
-
   // Log dynamic params for debugging
   console.log("Dynamic Checkout Params:", {
     serviceType,
@@ -127,7 +121,6 @@ const Checkout: React.FC = () => {
     fullName,
   });
   console.log("Received bookingId in Checkout:", bookingId);
-
   // NEW: Memoized tiffinData with priority: fetched > params > service > hardcoded
   const tiffinData: TiffinCheckoutData = useMemo(() => {
     // Prioritize fetched order details
@@ -171,36 +164,29 @@ const Checkout: React.FC = () => {
       price: `₹${parseInt(firstParam(totalPrice) || '120')}/meal`,
     };
   }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate]);
-
   console.log("Constructed tiffinData:", tiffinData);
-
   // FIXED: Wrap in useMemo for reactivity
   const hostelData: HostelCheckoutData = useMemo(() => ({
-    id: firstParam(bookingId) || "2",  // Use real bookingId
-    title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",  // e.g., "Testing is it working"
-    imageUrl: parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",  // First room photo
-    guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",  // e.g., "F"
-    contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone",  // e.g., "8080805522"
-    checkInDate: bookingDetails?.checkInDate ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "Fallback Date"),  // e.g., "06/10/2025"
-    checkOutDate: bookingDetails?.checkOutDate ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "Fallback Date"),  // e.g., "13/10/2025"
+    id: firstParam(bookingId) || "2", // Use real bookingId
+    title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name", // e.g., "Testing is it working"
+    imageUrl: parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400", // First room photo
+    guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name", // e.g., "F"
+    contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone", // e.g., "8080805522"
+    checkInDate: bookingDetails?.checkInDate ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "Fallback Date"), // e.g., "06/10/2025"
+    checkOutDate: bookingDetails?.checkOutDate ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "Fallback Date"), // e.g., "13/10/2025"
     // FIX: Use PascalCase keys from API response
-    rent: `₹${(bookingDetails?.Rent || parsedPlan.price || 0)}/month`,  // Now 10000
-    deposit: `₹${(bookingDetails?.totalDeposit || parsedPlan.depositAmount || 0)}`,  // Now 10000
+    rent: `₹${(bookingDetails?.Rent || parsedPlan.price || 0)}/month`, // Now 10000
+    deposit: `₹${(bookingDetails?.totalDeposit || parsedPlan.depositAmount || 0)}`, // Now 10000
   }), [bookingDetails, parsedHostelData, parsedRoomData, parsedUserData, parsedPlan, bookingId, checkInDate, checkOutDate]);
-
   console.log("Constructed hostelData:", hostelData);
-
   const checkoutData = isTiffin ? tiffinData : hostelData;
-
   console.log("Service ID from BookingScreen:", serviceId);
   console.log("Full checkoutData ID :", checkoutData.id);
-
   // FIXED: Use correct keys in hostel logic
   // UPDATED: getTransactionDetails with proper hostel calculation (defensive)
   // FIXED: For tiffin, use tiffinOrderDetails instead of bookingDetails
   const getTransactionDetails = useMemo(() => {
     console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
-
   if (isTiffin) {
     // TIFFIN LOGIC — Price based on plan (daily/weekly/monthly), no deposit
     // Extract price from various possible sources - FIXED for tiffin
@@ -209,14 +195,11 @@ const Checkout: React.FC = () => {
       ?? parsedPlan?.price
       ?? Number((tiffinData?.price || '').replace(/[^0-9.]/g, ''))
       ?? 120;
-
     // Plan type for multiplier (if duration-based; for now, assume price is for full plan unit)
     const plan = tiffinOrderDetails?.planType || tiffinOrderDetails?.choosePlanType?.planName || tiffinData?.plan || 'per meal';
     let multiplier = 1; // Default: 1 unit (week/month)
-
     // Number of tiffins
     const numTiffin = parseInt(tiffinOrderDetails?.numberOfTiffin?.toString() || firstParam(numberOfTiffin) || '1');
-
     if (plan === 'per meal') {
       multiplier = numTiffin;
     } else {
@@ -232,11 +215,9 @@ const Checkout: React.FC = () => {
         multiplier = numTiffin;
       }
     }
-
     const price = Number(rawPrice);
     const totalTiffin = price * multiplier;
     const total = totalTiffin;
-
     console.log("🍲 TIFFIN BREAKDOWN:", {
       rawPrice,
       price,
@@ -248,17 +229,15 @@ const Checkout: React.FC = () => {
       startDate: startDate || tiffinOrderDetails?.date,
       endDate: endDate || tiffinOrderDetails?.endDate
     });
-
     return {
-      rent: price,  // Reuse 'rent' key for UI compatibility (represents tiffin cost per unit)
-      months: multiplier,  // Reuse 'months' as units (days/weeks/months)
+      rent: price, // Reuse 'rent' key for UI compatibility (represents tiffin cost per unit)
+      months: multiplier, // Reuse 'months' as units (days/weeks/months)
       totalRent: totalTiffin,
-      deposit: 0,  // No deposit for tiffin
+      deposit: 0, // No deposit for tiffin
       total,
       net: total,
     };
   }
-
     // HOSTEL LOGIC — only Rent + Deposit (defensive)
     // Try multiple possible paths from the API/params to find price and deposit
     const rawPlanPrice = bookingDetails?.selectPlan?.[0]?.price
@@ -266,17 +245,14 @@ const Checkout: React.FC = () => {
       ?? parsedPlan?.price
       ?? bookingDetails?.Rent
       ?? 0;
-
     const rawDeposit = bookingDetails?.selectPlan?.[0]?.depositAmount
       ?? bookingDetails?.depositAmount
       ?? parsedPlan?.depositAmount
       ?? bookingDetails?.totalDeposit
       ?? 0;
-
     // Coerce to numbers safely
     const planPrice = Number(rawPlanPrice) || 0;
     const depositAmount = Number(rawDeposit) || 0;
-
     // Check-in / Check-out (optional calculation for multiple months)
     const checkIn = bookingDetails?.checkInDate || checkInDate;
     const checkOut = bookingDetails?.checkOutDate || checkOutDate;
@@ -286,10 +262,8 @@ const Checkout: React.FC = () => {
       const checkOutDateObj = new Date(checkOut);
       months = Math.max(1, (checkOutDateObj.getFullYear() - checkInDateObj.getFullYear()) * 12 + (checkOutDateObj.getMonth() - checkInDateObj.getMonth()));
     }
-
   const totalRent = planPrice * months;
-  const total = totalRent;  // FIXED: Exclude deposit, only total rent
-
+  const total = totalRent; // FIXED: Exclude deposit, only total rent
     console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
       rawPlanPrice,
       rawDeposit,
@@ -301,7 +275,6 @@ const Checkout: React.FC = () => {
       checkIn,
       checkOut
     });
-
   return {
     rent: planPrice,
     months,
@@ -311,13 +284,8 @@ const Checkout: React.FC = () => {
     net: total,
   };
 }, [isTiffin, bookingDetails, parsedPlan, checkInDate, checkOutDate, tiffinData, tiffinOrderDetails, numberOfTiffin, startDate, endDate]);
-
-
   const transaction = getTransactionDetails;
-
-  console.log("Transaction Details:", transaction); 
-
-
+  console.log("Transaction Details:", transaction);
  const fetchFinalPricing = async (coupon: string | null = null) => {
   if (!bookingId) {
     console.error("Booking ID missing");
@@ -329,7 +297,6 @@ const Checkout: React.FC = () => {
       console.error("Token missing");
       return;
     }
-
     let url;
     if (isTiffin) {
       url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/AppliedCoupon/${bookingId}`;
@@ -339,7 +306,6 @@ const Checkout: React.FC = () => {
       console.error("Invalid service type");
       return;
     }
-
     const body = coupon ? { coupon } : {};
     const response = await axios.post(
       url,
@@ -348,7 +314,6 @@ const Checkout: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       }
     );
-
     if (response.data?.success) {
       console.log("API Response after coupon apply:", response.data.data);
       setFinalPricing(response.data.data);
@@ -368,7 +333,6 @@ const Checkout: React.FC = () => {
     }
   }
 };
-
 const handleRemoveCoupon = async () => {
   if (!bookingId) {
     Alert.alert("Error", "Booking ID missing");
@@ -380,7 +344,6 @@ const handleRemoveCoupon = async () => {
       Alert.alert("Error", "Token missing");
       return;
     }
-
     let url;
     if (isTiffin) {
       url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/removeCoupon/${bookingId}`;
@@ -390,7 +353,6 @@ const handleRemoveCoupon = async () => {
       console.error("Invalid service type");
       return;
     }
-
     const response = await axios.put(
       url,
       {}, // Empty body for remove
@@ -398,13 +360,16 @@ const handleRemoveCoupon = async () => {
         headers: { Authorization: `Bearer ${token}` },
       }
     );
-
     if (response.data?.success) {
       console.log("API Response after coupon remove:", response.data.data);
       setFinalPricing(response.data.data);
       setAppliedCoupon(null);
       setCouponCode('');
-      Alert.alert("Success", response.data.message || "Coupon removed successfully");
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: response.data.message || "Coupon removed successfully"
+      });
     } else {
       Alert.alert("Error", response.data?.message || "Failed to remove coupon");
     }
@@ -413,7 +378,6 @@ const handleRemoveCoupon = async () => {
     Alert.alert("Error", error.response?.data?.message || "Failed to remove coupon");
   }
 };
-
   // Fetch booking details for hostel
   useEffect(() => {
     const fetchBookingDetails = async () => {
@@ -422,14 +386,12 @@ const handleRemoveCoupon = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
-
         const response = await axios.get(
           `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${bookingId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         if (response.data?.success) {
           setBookingDetails(response.data.data);
           console.log("Fetched booking details:", response.data.data);
@@ -441,24 +403,20 @@ const handleRemoveCoupon = async () => {
         setLoadingBooking(false);
       }
     };
-
     fetchBookingDetails();
   }, [isHostel, bookingId]);
-
   // Fetch initial final pricing for hostel from API (base pricing)
   useEffect(() => {
     if (isHostel && !loadingBooking && bookingDetails && !finalPricing) {
       fetchFinalPricing(null); // Fetch base pricing (coupon: null) from API
     }
   }, [isHostel, loadingBooking, bookingDetails, finalPricing]);
-
   // Fetch initial final pricing for tiffin from API (base pricing)
   useEffect(() => {
     if (isTiffin && !loadingTiffin && tiffinOrderDetails && !finalPricing) {
       fetchFinalPricing(null); // Fetch base pricing (coupon: null) from API
     }
   }, [isTiffin, loadingTiffin, tiffinOrderDetails, finalPricing]);
-
   // UPDATED: Fetch tiffin order details with fixed URL
   useEffect(() => {
     const fetchTiffinOrderDetails = async () => {
@@ -467,7 +425,6 @@ const handleRemoveCoupon = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
-
         // FIXED: Add / before 'beforePayment' for correct route
         const response = await axios.get(
           `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${bookingId}`,
@@ -475,7 +432,6 @@ const handleRemoveCoupon = async () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         if (response.data?.success) {
           const details = response.data.data;
           setTiffinOrderDetails(details);
@@ -493,10 +449,8 @@ const handleRemoveCoupon = async () => {
         setLoadingTiffin(false);
       }
     };
-
     fetchTiffinOrderDetails();
   }, [isTiffin, bookingId]);
-
   // Fetch tiffin service details
   useEffect(() => {
     const fetchTiffinServiceDetails = async () => {
@@ -505,14 +459,12 @@ const handleRemoveCoupon = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
-
         const response = await axios.get(
           `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         if (response.data?.success) {
           setTiffinService(response.data.data);
           console.log("Fetched tiffin service details:", response.data.data);
@@ -524,24 +476,20 @@ const handleRemoveCoupon = async () => {
         setLoadingTiffin(false);
       }
     };
-
     fetchTiffinServiceDetails();
   }, [isTiffin, serviceId]);
-
   // Fetch wallet balance
   useEffect(() => {
     const fetchWalletAmount = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
-
         const response = await axios.get(
           "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         if (response.data?.success) {
           setWalletBalance(response.data.data?.walletAmount || 0);
         }
@@ -551,16 +499,13 @@ const handleRemoveCoupon = async () => {
         setLoadingWallet(false);
       }
     };
-
     fetchWalletAmount();
   }, []);
-
   // FIXED: Adjust paymentAmount to exclude deposit from finalPricing (workaround for backend including it)
   // Use transaction.deposit as primary source for deposit amount
   const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0;
   const adjustedFinalPrice = finalPricing?.finalPrice ? Math.max(0, finalPricing.finalPrice - depositAmount) : null;
   const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
-
   console.log("=== PAYMENT CALC DEBUG ===");
   console.log("transaction.net/total:", transaction?.net ?? transaction?.total ?? 0);
   console.log("finalPricing.finalPrice (raw):", finalPricing?.finalPrice ?? 0);
@@ -568,7 +513,6 @@ const handleRemoveCoupon = async () => {
   console.log("adjustedFinalPrice:", adjustedFinalPrice);
   console.log("Final paymentAmount (rent-only):", paymentAmount);
   console.log("=============================");
-
   // Fetch all coupons - UPDATED: Support both hostel and tiffin APIs
   const fetchCoupons = async () => {
     if (!serviceId) {
@@ -580,11 +524,9 @@ const handleRemoveCoupon = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
-
       let url;
       let serviceCouponsKey;
       let guestCouponsKey = 'guestCoupons';
-
       if (isTiffin) {
         url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getCouponForTiffinService/${serviceId}`;
         serviceCouponsKey = 'tiffinServiceCoupons';
@@ -592,14 +534,12 @@ const handleRemoveCoupon = async () => {
         url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getCouponCodeForHostel/${serviceId}`;
         serviceCouponsKey = 'hostelCoupons';
       }
-
       const response = await axios.get(
         url,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       if (response.data?.success) {
         const data = response.data.data || {};
         const fetchedCoupons = [
@@ -619,21 +559,17 @@ const handleRemoveCoupon = async () => {
       setLoadingCoupons(false);
     }
   };
-
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
       Alert.alert('Please enter a coupon code');
       return;
     }
-
     await fetchFinalPricing(couponCode.trim());
   };
-
   const handleViewCoupons = async () => {
     await fetchCoupons();
     setCouponModalVisible(true);
   };
-
   const createPaymentLink = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -641,7 +577,6 @@ const handleRemoveCoupon = async () => {
         Alert.alert("Error", "Token or booking ID missing");
         return null;
       }
-
       const response = await axios.post(
         `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createPaymentLink/${bookingId}`,
         {}, // Assuming no body needed, adjust if required
@@ -649,7 +584,6 @@ const handleRemoveCoupon = async () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       if (response.data?.success) {
         return response.data.data;
       } else {
@@ -662,7 +596,6 @@ const handleRemoveCoupon = async () => {
       return null;
     }
   };
-
   const createTiffinPaymentLink = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -670,7 +603,6 @@ const handleRemoveCoupon = async () => {
         Alert.alert("Error", "Token or booking ID missing");
         return null;
       }
-
       const response = await axios.post(
         `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/paymentByBank/${bookingId}`,
         {}, // No body needed
@@ -678,7 +610,6 @@ const handleRemoveCoupon = async () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       if (response.data?.success) {
         return response.data.data;
       } else {
@@ -691,7 +622,6 @@ const handleRemoveCoupon = async () => {
       return null;
     }
   };
-
   const handlePayOnline = async () => {
     setModalVisible(false);
     if (!paymentAmount || paymentAmount <= 0) {
@@ -701,9 +631,7 @@ const handleRemoveCoupon = async () => {
       );
       return;
     }
-
     const finalBookingId = bookingId as string;
-
     const paymentData = isTiffin ? await createTiffinPaymentLink() : await createPaymentLink();
     if (paymentData && paymentData.paymentLinkUrl) {
       const supported = await Linking.canOpenURL(paymentData.paymentLinkUrl);
@@ -718,12 +646,11 @@ const handleRemoveCoupon = async () => {
         const confirmationServiceName = checkoutData.title || "Fallback Service Name";
         const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
         const confirmationAmount = paymentAmount;
-        
+       
         console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
         console.log("confirmationId (booking/order ID):", confirmationId);
         console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
         console.log("========================================================");
-
         setTimeout(() => {
           router.push({
             pathname: "/(secure)/Confirmation",
@@ -741,7 +668,6 @@ const handleRemoveCoupon = async () => {
       }
     }
   };
-
   const handlePayWallet = async () => {
     if (!paymentAmount || paymentAmount <= 0) {
       Alert.alert(
@@ -751,7 +677,6 @@ const handleRemoveCoupon = async () => {
       setModalVisible(false);
       return;
     }
-
     if (walletBalance < paymentAmount) {
       Alert.alert(
         "Insufficient Balance",
@@ -760,18 +685,14 @@ const handleRemoveCoupon = async () => {
       setModalVisible(false);
       return;
     }
-
     setModalVisible(false);
-
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token || !bookingId) {
         Alert.alert("Error", "Token or booking ID missing");
         return;
       }
-
       let newBalance = walletBalance;
-
       if (isHostel) {
         // Call the wallet booking API for hostel
         const response = await axios.post(
@@ -781,7 +702,6 @@ const handleRemoveCoupon = async () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         if (response.data?.success) {
           const { data } = response.data;
           newBalance = data.remainingWallet;
@@ -800,7 +720,6 @@ const handleRemoveCoupon = async () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         if (response.data?.success) {
           const { data } = response.data;
           newBalance = data.remainingWallet;
@@ -811,10 +730,8 @@ const handleRemoveCoupon = async () => {
           return;
         }
       }
-
       // Update local wallet balance
       setWalletBalance(newBalance);
-
       Alert.alert(
         "Success!",
         "Booking submitted successfully!",
@@ -835,12 +752,11 @@ const handleRemoveCoupon = async () => {
               const confirmationServiceName = checkoutData.title || "Fallback Service Name";
               const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
               const confirmationAmount = paymentAmount;
-              
+             
               console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
               console.log("confirmationId (booking/order ID):", confirmationId);
               console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
               console.log("========================================================");
-
               router.push({
                 pathname: "/(secure)/Confirmation",
                 params: {
@@ -855,13 +771,11 @@ const handleRemoveCoupon = async () => {
           },
         ]
       );
-
     } catch (error: any) {
       console.error("Error in wallet payment:", error);
       Alert.alert("Error", error.response?.data?.message || "Wallet payment failed. Please try again.");
     }
   };
-
   const openPaymentModal = () => {
     if (!paymentAmount || paymentAmount <= 0) {
       Alert.alert(
@@ -873,7 +787,6 @@ const handleRemoveCoupon = async () => {
     setSelectedMethod(null); // Reset selection when opening modal
     setModalVisible(true);
   };
-
   const handleContinue = () => {
     if (selectedMethod === 'online') {
       handlePayOnline();
@@ -881,7 +794,6 @@ const handleRemoveCoupon = async () => {
       handlePayWallet();
     }
   };
-
   // Render coupon item in modal
   const renderCouponItem = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -898,7 +810,6 @@ const handleRemoveCoupon = async () => {
       </Text>
     </TouchableOpacity>
   );
-
   if (loadingWallet || (isHostel && loadingBooking) || (isTiffin && loadingTiffin)) {
     return (
       <SafeAreaView style={styles.container}>
@@ -913,9 +824,7 @@ const handleRemoveCoupon = async () => {
       </SafeAreaView>
     );
   }
-
   const discountValueNum = Number(finalPricing?.discountValue || 0);
-
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -923,7 +832,6 @@ const handleRemoveCoupon = async () => {
         onBack={() => router.back()}
         showBackButton={true}
       />
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -935,13 +843,11 @@ const handleRemoveCoupon = async () => {
               <Text style={styles.invoiceText}>↓ Invoice</Text>
             </TouchableOpacity>
           </View>
-
           <CheckoutItemCard
             serviceType={isTiffin ? "tiffin" : "hostel"}
             data={checkoutData}
           />
         </View>
-
         <View style={styles.couponSection}>
           {/* Header Row */}
           <View style={styles.couponHeader}>
@@ -950,7 +856,6 @@ const handleRemoveCoupon = async () => {
               <Text style={styles.viewCouponsText}>View Coupons</Text>
             </TouchableOpacity>
           </View>
-
           {/* Input Row */}
           <View style={styles.couponInputContainer}>
             {appliedCoupon ? (
@@ -958,8 +863,8 @@ const handleRemoveCoupon = async () => {
               <View style={styles.appliedCouponContainer}>
                 <View style={styles.appliedTag}>
                   <Text style={styles.appliedTagText}>✓ {appliedCoupon}</Text>
-                  <TouchableOpacity 
-                    style={styles.removeTagButton} 
+                  <TouchableOpacity
+                    style={styles.removeTagButton}
                     onPress={handleRemoveCoupon}
                     activeOpacity={0.7}
                     accessibilityRole="button"
@@ -985,7 +890,6 @@ const handleRemoveCoupon = async () => {
             )}
           </View>
         </View>
-
         {/* FIXED: Unified simple total display for both tiffin and hostel (no details section, only rent total) */}
         <View>
           {discountValueNum > 0 ? (
@@ -1006,7 +910,6 @@ const handleRemoveCoupon = async () => {
             </View>
           )}
         </View>
-
         {/* Cancellation Policy */}
         <View style={styles.policySection}>
           <Text style={styles.policyTitle}>Cancellation Policy:</Text>
@@ -1015,10 +918,8 @@ const handleRemoveCoupon = async () => {
             Orders are non-refundable once placed.
           </Text>
         </View>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
       {/* Payment Method */}
       <View style={styles.paymentSection}>
         <View style={styles.paymentContent}>
@@ -1030,7 +931,7 @@ const handleRemoveCoupon = async () => {
                   <Text style={styles.payUsing}>Pay Using</Text>
                   <Ionicons
                     name="caret-up"
-                    size={12}
+                    size: 12,
                     color="#000"
                     style={styles.caretIcon}
                   />
@@ -1039,7 +940,6 @@ const handleRemoveCoupon = async () => {
               </View> */}
             </View>
           </View>
-
           <TouchableOpacity
             style={styles.payButton}
             onPress={openPaymentModal}
@@ -1050,7 +950,6 @@ const handleRemoveCoupon = async () => {
           </TouchableOpacity>
         </View>
       </View>
-
       {/* Payment Modal */}
       <Modal
         animationType="slide"
@@ -1066,7 +965,6 @@ const handleRemoveCoupon = async () => {
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalOptions}>
               {/* Online Payment Option */}
               <TouchableOpacity
@@ -1089,7 +987,6 @@ const handleRemoveCoupon = async () => {
                   <Ionicons name="chevron-forward" size={20} color="#666" />
                 )}
               </TouchableOpacity>
-
               {/* Wallet Payment Option */}
               <TouchableOpacity
                 style={[
@@ -1114,7 +1011,6 @@ const handleRemoveCoupon = async () => {
                   <Ionicons name="chevron-forward" size={20} color="#666" />
                 )}
               </TouchableOpacity>
-
               {/* Continue Button */}
               <View style={styles.continueButtonContainer}>
                 <TouchableOpacity
@@ -1137,7 +1033,6 @@ const handleRemoveCoupon = async () => {
           </View>
         </View>
       </Modal>
-
       {/* Coupons Modal */}
       <Modal
         animationType="fade"
@@ -1153,7 +1048,6 @@ const handleRemoveCoupon = async () => {
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-
             <View style={styles.couponModalOptions}>
               {loadingCoupons ? (
                 <Text style={styles.loadingText}>Loading coupons...</Text>
@@ -1175,9 +1069,6 @@ const handleRemoveCoupon = async () => {
     </SafeAreaView>
   );
 };
-
-
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1254,6 +1145,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#f9f9f9',
     marginRight: 8,
+    color: '#000',
+    placeholderTextColor: '#999',
   },
   applyButton: {
     backgroundColor: '#2854C5',
@@ -1304,13 +1197,11 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   // sectionTitle already defined above; removed duplicate to avoid key collision
-
   couponHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-
   transactionSection: {
     backgroundColor: "#fff",
     paddingHorizontal: 20,
@@ -1426,7 +1317,7 @@ const styles = StyleSheet.create({
   },
   paymentSection: {
     position: "absolute",
-    bottom: 0,
+    bottom: 10,
     left: 0,
     right: 0,
     backgroundColor: "#F2EFFD",
@@ -1646,5 +1537,4 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
-
 export default Checkout;
