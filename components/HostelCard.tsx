@@ -78,7 +78,7 @@ export default function HostelCard({
                 <Ionicons
                   name={isFav ? "heart" : "heart-outline"}
                   size={20}
-                  color={isFav ? "grey" : "#6B7280"}
+                  color={isFav ? "red" : "#6B7280"}
                 />
               </TouchableOpacity>
             </View>

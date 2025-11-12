@@ -828,9 +828,9 @@ const handleRemoveCoupon = async () => {
         <View style={styles.itemOrderedSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Item ordered</Text>
-            <TouchableOpacity style={styles.invoiceButton}>
+            {/* <TouchableOpacity style={styles.invoiceButton}>
               <Text style={styles.invoiceText}>↓ Invoice</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
           <CheckoutItemCard
             serviceType={isTiffin ? "tiffin" : "hostel"}

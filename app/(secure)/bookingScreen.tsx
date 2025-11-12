@@ -165,9 +165,9 @@ export default function BookingScreen() {
   const getLabel = (planType: string): string => {
     const lower = planType.toLowerCase();
     const mealParts: string[] = [];
-    if (lower.includes("breakfast")) mealParts.push("BF");
+    if (lower.includes("breakfast")) mealParts.push("Breakfast");
     if (lower.includes("lunch")) mealParts.push("Lunch");
-    if (lower.includes("dinner")) mealParts.push("dinner");
+    if (lower.includes("dinner")) mealParts.push("Dinner");
     return mealParts.join(", ");
   };
   const mealPackages: MealPackage[] = useMemo(() => {
@@ -457,8 +457,9 @@ export default function BookingScreen() {
                   response.data.data.mealTimings?.forEach((mt: any) => {
                     const key = mt.mealType.toLowerCase() as MealType;
                     if (key in newMealLabels) {
+                      const titleCaseMealType = mt.mealType.charAt(0).toUpperCase() + mt.mealType.slice(1).toLowerCase();
                       newMealLabels[key] =
-                        `${mt.mealType} (${mt.startTime} - ${mt.endTime})`;
+                        `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
                     }
                   });
                   setMealLabels(newMealLabels);
@@ -1728,7 +1729,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text style={styles.datePickerText}>
-                  {date ? date.toLocaleDateString("en-US") : "mm/dd/yyyy"}
+                  {date ? date.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
                 </Text>
                 <Image source={calender} style={styles.calendarIcon} />
               </TouchableOpacity>
@@ -1746,32 +1747,15 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
               )}
               {hasPeriodic && (
                 <>
-                  <Text style={styles.label}>Select End Date *</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.datePickerButton,
-                      errors.endDate && styles.inputError,
-                    ]}
-                    onPress={() => setShowEndDatePicker(true)}
-                  >
-                    <Text style={styles.datePickerText}>
-                      {endDate
-                        ? endDate.toLocaleDateString("en-US")
-                        : "mm/dd/yyyy"}
+                  <Text style={styles.label}>End Date</Text>
+                  <View style={styles.dateDisplay}>
+                    <Text style={styles.dateDisplayText}>
+                      {endDate ? endDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
                     </Text>
-                    <Image source={calender} style={styles.calendarIcon} />
-                  </TouchableOpacity>
+                    <Text style={styles.infoText}>Based on your {tiffinPlan} plan</Text>
+                  </View>
                   {errors.endDate && (
                     <Text style={styles.errorText}>{errors.endDate}</Text>
-                  )}
-                  {showEndDatePicker && (
-                    <DateTimePicker
-                      value={endDate || new Date(date || new Date())}
-                      mode="date"
-                      display="default"
-                      onChange={onChangeEndDate}
-                      minimumDate={date || new Date()}
-                    />
                   )}
                 </>
               )}
@@ -2232,5 +2216,27 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  // NEW: Styles for non-editable end date display
+  dateDisplay: {
+    borderWidth: 1,
+    borderColor: "#aaa",
+    borderRadius: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    justifyContent: "space-between",
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
+    backgroundColor: "#f9f9f9",
+  },
+  dateDisplayText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  infoText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
   },
 });
