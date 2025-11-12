@@ -116,7 +116,7 @@ export default function BookingScreen() {
   const [pincode, setPincode] = useState("");
   const [address, setAddress] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [selectedfood, setSelectedfood] = useState("Both");
+  const [selectedfood, setSelectedfood] = useState("");
   const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
   const [date, setDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -196,16 +196,16 @@ export default function BookingScreen() {
     return [];
   };
   const currentFoodOptions = useMemo(() => {
-    if (selectedMealPackage === 0 || !tiffinService) {
-      return [
-        { label: "Veg", value: "Veg" },
-        { label: "Non-Veg", value: "Non-Veg" },
-        { label: "Both Veg & Non-Veg", value: "Both" },
-      ];
+    if (!tiffinService) return [];
+    let effectiveFoodType: string;
+    if (selectedMealPackage === 0) {
+      effectiveFoodType = tiffinService.foodType;
+    } else {
+      const selectedPkg = mealPackages.find((p) => p.id === selectedMealPackage);
+      if (!selectedPkg) return [];
+      effectiveFoodType = selectedPkg.foodType;
     }
-    const selectedPkg = mealPackages.find((p) => p.id === selectedMealPackage);
-    if (!selectedPkg) return [];
-    return getAvailableFoodOptions(selectedPkg.foodType);
+    return getAvailableFoodOptions(effectiveFoodType);
   }, [selectedMealPackage, mealPackages, tiffinService]);
   const orderTypeOptions = useMemo(() => {
     return (
@@ -420,7 +420,7 @@ export default function BookingScreen() {
             contactInfo: parsedServiceData.contactInfo,
           }));
           // FIXED: No prefill for meals or food type - start blank
-          setSelectedfood("Both");
+          setSelectedfood("");
           setOrderType("delivery");
           if (parsedServiceData.serviceId || parsedServiceData.id) {
             const fetchTiffinService = async () => {
@@ -462,6 +462,17 @@ export default function BookingScreen() {
                     }
                   });
                   setMealLabels(newMealLabels);
+                  // FIXED: Auto-set initial food type based on service
+                  const serviceFoodType = response.data.data.foodType;
+                  let initialFoodValue = "";
+                  if (serviceFoodType === "Veg") {
+                    initialFoodValue = "Veg";
+                  } else if (serviceFoodType === "Non-Veg") {
+                    initialFoodValue = "Non-Veg";
+                  } else if (serviceFoodType === "Both Veg & Non-Veg") {
+                    initialFoodValue = "Both";
+                  }
+                  setSelectedfood(initialFoodValue);
                 }
               } catch (error) {
                 console.error("Error fetching tiffin service:", error);
@@ -1601,7 +1612,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             <View style={styles.expandedContent}>
               {/* Food Type */}
               <Text style={styles.sectionTitle}>Food Type</Text>
-              {currentFoodOptions.map((opt) => (
+              {currentFoodOptions.length > 0 && currentFoodOptions.map((opt) => (
                 <RadioButton
                   key={opt.value}
                   label={opt.label}

@@ -489,62 +489,140 @@ const handleContinueSubscription = (order: Order) => {
         <View style={styles.orderDetails}>
           {order.serviceType === "hostel" ? (
             <>
+              {/* Hostel Booking Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Hostel Booking:</Text>
-                <Text style={styles.detailValue} numberOfLines={1}>
-                  {order.serviceName}
-                </Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.serviceName}
+                  </Text>
+                </View>
               </View>
-              {/* <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Customer:</Text>
-                <Text style={styles.detailValue}>{order.customer}</Text>
-              </View> */}
+              {/* Check-in Date Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Check-in date:</Text>
-                <Text style={styles.detailValue}>{order.checkInDate}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.checkInDate}
+                  </Text>
+                </View>
               </View>
+              {/* Check-out Date Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Check-out date:</Text>
-                <Text style={styles.detailValue}>{order.checkOutDate}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.checkOutDate}
+                  </Text>
+                </View>
               </View>
             </>
           ) : (
             <>
+              {/* Tiffin Service Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Tiffin Service:</Text>
-                <Text style={styles.detailValue} numberOfLines={1}>
-                  {order.serviceName}
-                </Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.serviceName}
+                  </Text>
+                </View>
               </View>
-              {/* <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Customer:</Text>
-                <Text style={styles.detailValue}>{order.customer}</Text>
-              </View> */}
+              {/* Check-in Date Row (Tiffin) */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Check-in date:</Text>
-                <Text style={styles.detailValue}>{order.startDate}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.startDate}
+                  </Text>
+                </View>
               </View>
+              {/* Check-out Date Row (Tiffin) */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Check-out date:</Text>
-                <Text style={styles.detailValue}>{order.endDate}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.endDate}
+                  </Text>
+                </View>
               </View>
+              {/* Meal Type Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Meal Type:</Text>
-                <Text style={styles.detailValue}>{order.mealType}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.mealType}
+                  </Text>
+                </View>
               </View>
+              {/* Food Type Row (Conditional) */}
               {order.foodType && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Food Type:</Text>
-                  <Text style={styles.detailValue}>{order.foodType}</Text>
+                  <View style={{ flex: 1, alignItems: "flex-end" }}>
+                    <Text
+                      style={styles.detailValue}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {order.foodType}
+                    </Text>
+                  </View>
                 </View>
               )}
+              {/* Plan Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Plan:</Text>
-                <Text style={styles.detailValue}>{order.plan}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.plan}
+                  </Text>
+                </View>
               </View>
+              {/* Order Type Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Order Type:</Text>
-                <Text style={styles.detailValue}>{order.orderType}</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.orderType}
+                  </Text>
+                </View>
               </View>
             </>
           )}
@@ -948,7 +1026,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 3,
     alignItems: "center",
-    justifyContent: "space-between",
   },
   orderedOneLbl: {
     fontSize: 14,
@@ -962,7 +1039,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#64748B",
     fontWeight: "400",
-    flex: 1,
+    minWidth: 120,
+    flexShrink: 1,
   },
   detailValue: {
     fontSize: 15,
