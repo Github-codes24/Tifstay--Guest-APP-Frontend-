@@ -1513,7 +1513,7 @@ const fetchTiffinRecentSearch = async (
                       />
                     )}
                   </View>
-                  <View style={styles.filterItem}>
+                  {/* <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Area</Text>
                     {isLoadingCities ? (
                       <ActivityIndicator size="small" color="#6B7280" />
@@ -1525,8 +1525,8 @@ const fetchTiffinRecentSearch = async (
                         placeholder="All"
                       />
                     )}
-                  </View>
-                  <View style={styles.filterItem}>
+                  </View> */}
+                  {/* <View style={styles.filterItem}>
                     <Text style={styles.filterLabel}>Max Rent (₹)</Text>
                     <Dropdown
                       options={maxRentOptions}
@@ -1534,7 +1534,7 @@ const fetchTiffinRecentSearch = async (
                       onSelect={handleMaxRentSelect}
                       placeholder="All"
                     />
-                  </View>
+                  </View> */}
                 </View>
               </View>
             )}

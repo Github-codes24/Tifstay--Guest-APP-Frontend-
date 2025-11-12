@@ -29,7 +29,7 @@ const TermsAndConditionsScreen = () => {
       );
 
       if (res.data.success) {
-        // ✅ If data is empty or null, handle gracefully
+        // ✅ Fallback for empty or missing data
         if (res.data.data && Object.keys(res.data.data).length > 0) {
           setTerms(res.data.data);
         } else {
@@ -68,11 +68,12 @@ const TermsAndConditionsScreen = () => {
           <Text style={{ color: "red" }}>{error}</Text>
         </View>
       ) : !terms ? (
-        <View style={styles.loader}>
-          <Text style={{ color: colors.title }}>
+        // ✅ Fallback shown top-left instead of centered
+        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.paragraph}>
             No Terms and Conditions available at the moment.
           </Text>
-        </View>
+        </ScrollView>
       ) : (
         <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.paragraph}>{terms.description}</Text>

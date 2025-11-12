@@ -181,7 +181,7 @@ const AccountScreen = () => {
 
         {/* 🔹 Logout (Icon + Text same as others) */}
         <TouchableOpacity
-          style={styles.menuItem}
+          style={[styles.menuItem, { marginTop: -3 }]} 
           onPress={() => setLogoutVisible(true)}
         >
           <View style={styles.menuLeft}>
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginHorizontal: 28,
-    marginVertical: 5,
+    marginVertical: 4,
     borderRadius: 8,
     justifyContent: "space-between",
   },

@@ -16,6 +16,7 @@ import {
   FlatList,
   TextInput,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import axios from "axios";
 import Toast from "react-native-toast-message";
@@ -45,11 +46,13 @@ export default function RegisterScreen() {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingDialCode, setLoadingDialCode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredCountries = useMemo(() => {
-    let filtered = countries.filter((country) =>
-      country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      country.countryCode.toLowerCase().includes(searchQuery.toLowerCase())
+    let filtered = countries.filter(
+      (country) =>
+        country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        country.countryCode.toLowerCase().includes(searchQuery.toLowerCase())
     );
     filtered.sort((a, b) => a.name.localeCompare(b.name));
     return filtered;
@@ -62,12 +65,12 @@ export default function RegisterScreen() {
           "https://tifstay-project-be.onrender.com/api/guest/countries"
         );
         if (res.data.success) {
-          const sorted = res.data.data.sort((a: any, b: any) =>
+          const sorted = res.data.data.sort((a, b) =>
             a.name.localeCompare(b.name)
           );
           setCountries(sorted);
 
-          const india = sorted.find((c: any) => c.countryCode === "IN");
+          const india = sorted.find((c) => c.countryCode === "IN");
           if (india) {
             setSelectedCountry((prev) => ({
               ...prev,
@@ -82,7 +85,7 @@ export default function RegisterScreen() {
     fetchCountries();
   }, []);
 
-  const handleCountryChange = async (country: any) => {
+  const handleCountryChange = async (country) => {
     try {
       setLoadingDialCode(true);
       const res = await axios.get(
@@ -112,6 +115,7 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    if (isSubmitting) return;
     Keyboard.dismiss();
 
     const trimmedName = name.trim();
@@ -136,17 +140,19 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (!/^[6-9]\d{9}$/.test(trimmedPhone)) {
+    if (!/^[0-9]{10}$/.test(trimmedPhone)) {
       Toast.show({
         type: "error",
         text1: "Invalid Phone Number",
-        text2: "Please enter a valid 10-digit Indian phone number.",
+        text2: "Please enter a valid 10-digit phone number.",
       });
       return;
     }
 
     try {
-      const requestBody: any = {
+      setIsSubmitting(true);
+
+      const requestBody = {
         name: trimmedName,
         phoneNumber: trimmedPhone,
       };
@@ -182,7 +188,7 @@ export default function RegisterScreen() {
           text2: message || "Something went wrong. Please try again.",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       if (error.response) {
         const serverMessage =
           error.response.data?.message || "User already registered.";
@@ -204,6 +210,8 @@ export default function RegisterScreen() {
           text2: error.message,
         });
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -218,7 +226,6 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* 🔹 Top Logo Image */}
           <View style={styles.imageWrapper}>
             <Image
               source={require("../../assets/images/loginlogo.png")}
@@ -227,7 +234,6 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* 🔹 Bottom Section */}
           <View style={styles.bottomCard}>
             <ImageBackground
               source={require("../../assets/images/background.png")}
@@ -251,13 +257,15 @@ export default function RegisterScreen() {
                 onChangeText={setName}
               />
 
-              {/* Country Picker + Phone */}
               <View style={styles.phoneInputContainer}>
                 <TouchableOpacity
                   style={styles.countrySelector}
                   onPress={() => setIsPickerOpen(true)}
                 >
-                  <Image source={{ uri: selectedCountry.flag }} style={styles.flagImage} />
+                  <Image
+                    source={{ uri: selectedCountry.flag }}
+                    style={styles.flagImage}
+                  />
                   <Text style={styles.dialCodeText}>
                     {loadingDialCode ? "..." : selectedCountry.dialCode}
                   </Text>
@@ -269,7 +277,7 @@ export default function RegisterScreen() {
                   keyboardType="phone-pad"
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
-                  maxLength={15}
+                  maxLength={10}
                 />
               </View>
 
@@ -280,7 +288,24 @@ export default function RegisterScreen() {
                 onChangeText={setCode}
               />
 
-              <CustomButton title="Continue" onPress={handleRegister} />
+              {/* ✅ Button with loader */}
+            {/* ✅ Button with loader — stays blue even when disabled */}
+<TouchableOpacity
+  style={[
+    styles.submitButton,
+    { backgroundColor: colors.primary, opacity: isSubmitting ? 0.7 : 1 },
+  ]}
+  onPress={handleRegister}
+  disabled={isSubmitting}
+  activeOpacity={0.8}
+>
+  {isSubmitting ? (
+    <ActivityIndicator size="small" color="#fff" />
+  ) : (
+    <Text style={styles.buttonText}>Continue</Text>
+  )}
+</TouchableOpacity>
+
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Have an account? </Text>
@@ -293,7 +318,6 @@ export default function RegisterScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔹 Country Picker Modal */}
       <Modal
         visible={isPickerOpen}
         animationType="slide"
@@ -318,8 +342,8 @@ export default function RegisterScreen() {
 
           <FlatList
             data={filteredCountries}
-            keyExtractor={(item: any) => item.countryCode}
-            renderItem={({ item }: any) => (
+            keyExtractor={(item) => item.countryCode}
+            renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.countryItem}
                 onPress={() => {
@@ -336,7 +360,6 @@ export default function RegisterScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ✅ Toast */}
       <CustomToast />
     </SafeAreaView>
   );
@@ -351,7 +374,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-  backgroundColor: "#fff",
+    backgroundColor: "#fff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     elevation: 10,
@@ -369,7 +392,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 8,
     alignItems: "center",
-    backgroundColor: "#f5f6fa", // 🩶 same as name/referral
+    backgroundColor: "#f5f6fa",
     marginBottom: 16,
   },
   countrySelector: {
@@ -388,6 +411,18 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: "transparent",
     color: "#000",
+  },
+  submitButton: {
+    height: 50,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   footer: { marginTop: 10, flexDirection: "row", justifyContent: "center" },
   footerText: { color: colors.textSecondary, fontSize: 14 },

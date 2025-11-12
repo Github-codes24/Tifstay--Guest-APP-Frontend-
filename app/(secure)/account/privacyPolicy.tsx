@@ -25,10 +25,15 @@ const PrivacyPolicyScreen = () => {
           "https://tifstay-project-be.onrender.com/api/guest/staticPage/get-privacy-policy"
         );
 
-        // 
-
         if (response.data.success) {
-          setPolicy(response.data.data.description || "No privacy policy available.");
+          const data = response.data.data;
+
+          // ✅ Fallback check for empty object or empty description
+          if (!data || Object.keys(data).length === 0 || !data.description) {
+            setPolicy("No privacy policy available.");
+          } else {
+            setPolicy(data.description);
+          }
         } else {
           setPolicy("Failed to load privacy policy.");
         }

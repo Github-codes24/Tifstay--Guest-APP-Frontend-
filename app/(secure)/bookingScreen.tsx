@@ -1383,10 +1383,10 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
         />
         <View style={styles.section}>
           <Text style={styles.label}>User Stay Type</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginTop: 10 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 10 }}>
             {/* Work */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", minWidth: 80, paddingHorizontal: 10 }}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
               onPress={() => setPurposeType("work")}
             >
               <View style={styles.radioOuter}>
@@ -1396,7 +1396,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             </TouchableOpacity>
             {/* Leisure */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", minWidth: 80, paddingHorizontal: 10 }}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
               onPress={() => setPurposeType("leisure")}
             >
               <View style={styles.radioOuter}>
@@ -1406,7 +1406,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             </TouchableOpacity>
             {/* Student */}
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", minWidth: 80, paddingHorizontal: 10 }}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
               onPress={() => setPurposeType("student")}
             >
               <View style={styles.radioOuter}>
@@ -1842,7 +1842,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
     marginBottom: 10,
-    marginTop:1
+    marginTop:1,
+    flex: 1,
+    numberOfLines: 1,
+    ellipsizeMode: 'tail'
   },
   label: {
     fontSize: 14,
@@ -1886,7 +1889,6 @@ const styles = StyleSheet.create({
     width: 16,
     margin:4,
     marginBottom:15
-
   },
   radioRow: {
     flexDirection: "row",
@@ -2065,6 +2067,7 @@ const styles = StyleSheet.create({
   sectionHeaderContent: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   sectionHeaderIcon: {
     width: 20,
