@@ -182,6 +182,17 @@ export default function ProductDetails() {
       }));
     }
   }, [reviewsResult]);
+  // Helper function to parse time string to minutes since midnight for sorting
+  const parseTimeToMinutes = (timeStr: string): number => {
+    const [time, period] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    return hours * 60 + minutes;
+  };
   // Map full API data to component-expected structure
   useEffect(() => {
     console.log("🟢 ProductDetails processing:", { paramId, paramType });
@@ -194,23 +205,8 @@ export default function ProductDetails() {
       try {
         let fullApiData = null;
         if (paramType === "tiffin") {
-          // Check if full data was passed from Dashboard
-          const passedDataStr = params.fullServiceData as string;
-          if (passedDataStr) {
-            try {
-              const passedData = JSON.parse(passedDataStr);
-              if (passedData && passedData.pricing && passedData.id === paramId) {
-                fullApiData = passedData;
-                console.log("Using passed full service data from Dashboard (includes pricing with plan IDs)");
-              }
-            } catch (parseError) {
-              console.warn("Failed to parse passed data, falling back to API fetch:", parseError);
-            }
-          }
-          // Fallback to fetch if not passed or invalid
-          if (!fullApiData) {
-            fullApiData = await fetchTiffinById(paramId);
-          }
+          // Always fetch full data from API to ensure complete fields like whatsIncludes, serviceFeatures, contactInfo, etc.
+          fullApiData = await fetchTiffinById(paramId);
         } else if (paramType === "hostel") {
           fullApiData = await fetchHostelById(paramId);
         }
@@ -262,38 +258,64 @@ export default function ProductDetails() {
             rooms: rooms, // Keep for potential use
           };
         } else if (paramType === "tiffin") {
-          // Handle single image or photos array
-          let images = [];
-          if (fullApiData.image && fullApiData.image.uri) {
+          // Handle images from vegPhotos, nonVegPhotos, or fallback
+          const vegPhotos = fullApiData.vegPhotos || [];
+          const nonVegPhotos = fullApiData.nonVegPhotos || [];
+          let images = [...vegPhotos, ...nonVegPhotos].filter(Boolean).map((p: string) => ({ uri: p }));
+          if (images.length === 0 && fullApiData.image?.uri) {
             images = [{ uri: fullApiData.image.uri }];
-          } else {
-            const photos = fullApiData.photos || [];
-            images = photos.length > 0 ? photos.map((p: string) => ({ uri: p })) : [];
           }
-          const mealPreferences = fullApiData.mealTimings?.map((m: any) => ({
-            type: m.mealType,
-            time: `${m.startTime} - ${m.endTime}`,
-          })) || [];
-          const whatsIncluded = fullApiData.includedItems || fullApiData.whatsIncluded || [];
-          const whyChooseUs = fullApiData.whyChooseUs || fullApiData.highlights || [];
+          // Handle mealPreferences from mealTimings or direct
+          let mealPreferences = [];
+          let timing = "7 AM - 9 PM";
+          if (fullApiData.mealTimings && fullApiData.mealTimings.length > 0) {
+            // Sort by parsed startTime to ensure chronological order
+            const sortedTimings = [...fullApiData.mealTimings].sort((a, b) => {
+              const aMinutes = parseTimeToMinutes(a.startTime);
+              const bMinutes = parseTimeToMinutes(b.startTime);
+              return aMinutes - bMinutes;
+            });
+            const firstStart = sortedTimings[0].startTime;
+            const lastEnd = sortedTimings[sortedTimings.length - 1].endTime;
+            timing = `${firstStart} - ${lastEnd}`;
+            // Map for individual preferences
+            mealPreferences = fullApiData.mealTimings.map((m: any) => ({
+              type: m.mealType,
+              time: `${m.startTime} - ${m.endTime}`,
+            }));
+          }
+          const whatsIncluded = fullApiData.whatsIncludes ? fullApiData.whatsIncludes.split(', ').map(item => item.trim()).filter(Boolean) : [];
+          const whyChooseUs = fullApiData.serviceFeatures || [];
           const orderTypes = fullApiData.orderTypes || ['Dining', 'Delivery'];
           const pricing = fullApiData.pricing || [];
-          const offersText = pricing.map((p: any) => p.offers).join(" ");
-          const fullDesc = `${fullApiData.description} ${offersText}`;
-          // Derive tags from top-level foodType
-          const tags = fullApiData.foodType ? [fullApiData.foodType] : [];
+          const offersText = pricing.map((p: any) => p.offers).filter(Boolean).join(" ");
+          const fullDesc = `${fullApiData.description || ''} ${offersText}`.trim();
+          // Derive tags from tags or foodType
+          const tags = fullApiData.tags || (fullApiData.foodType ? [fullApiData.foodType] : []);
           const firstPlan = pricing[0];
           const price = firstPlan ? `₹${firstPlan.monthlyDelivery || firstPlan.monthlyDining || 0}/Month` : "₹0/Month";
           const offer = firstPlan?.offers ? firstPlan.offers : null;
           const rating = parseFloat(fullApiData.averageRating) || 0;
           const reviewCount = fullApiData.totalReviews || 0;
-          const fullAddress = fullApiData.location?.fullAddress || "";
-          const servingRadius = `${fullApiData.location?.serviceRadius || 5} km`;
-          const location = fullApiData.location?.nearbyLandmarks || fullAddress || "Unknown";
-          const timing = fullApiData.mealTimings ? fullApiData.mealTimings.map((m: any) => `${m.startTime} - ${m.endTime}`).join(', ') : "7 AM - 9 PM";
-          const isOffline = fullApiData.isOffline || false;
-          const offlineReason = fullApiData.offlineReason || "";
-          const comeBackAt = fullApiData.comeBackAt || "";
+          // Handle location as object or string
+          let fullAddress = "";
+          let servingRadiusNum = 5;
+          let nearbyLandmarks = "";
+          if (typeof fullApiData.location === 'string') {
+            fullAddress = fullApiData.location;
+          } else {
+            fullAddress = fullApiData.location?.fullAddress || "";
+            servingRadiusNum = fullApiData.location?.serviceRadius || 5;
+            nearbyLandmarks = fullApiData.location?.nearbyLandmarks || "";
+          }
+          const servingRadius = `${servingRadiusNum} km`;
+          const location = nearbyLandmarks || fullAddress || "Unknown";
+          const isOffline = fullApiData.offlineDetails?.isOffline || false;
+          const offlineReason = fullApiData.offlineDetails?.offlineReason || fullApiData.offlineReason || "";
+          const comeBackAt = fullApiData.offlineDetails?.comeBackAt || fullApiData.comeBackAt || "";
+          // Handle contactInfo preferring direct contactInfo, fallback to owner
+          const contactPhone = fullApiData.contactInfo?.phone || fullApiData.owner?.phoneNumber || '';
+          const contactWhatsapp = fullApiData.contactInfo?.whatsapp || fullApiData.contactInfo?.phone || fullApiData.owner?.phoneNumber || '';
           processedData = {
             id: fullApiData.id || fullApiData._id,
             name: fullApiData.name || fullApiData.tiffinName,
@@ -319,11 +341,17 @@ export default function ProductDetails() {
             comeBackAt,
             location,
             contactInfo: {
-              phone: fullApiData.ownerId?.phoneNumber || '',
-              whatsapp: fullApiData.ownerId?.phoneNumber ? `+91${fullApiData.ownerId.phoneNumber}` : '',
+              phone: contactPhone.toString(),
+              whatsapp: contactWhatsapp ? `+91${contactWhatsapp}` : '',
             },
-            owner: fullApiData.ownerId,
+            owner: fullApiData.owner,
           };
+          // Debug logs for tiffin-specific fields
+          console.log('🔍 DEBUG - whatsIncluded:', whatsIncluded);
+          console.log('🔍 DEBUG - whyChooseUs:', whyChooseUs);
+          console.log('🔍 DEBUG - servingRadius:', servingRadius);
+          console.log('🔍 DEBUG - contactInfo phone:', processedData.contactInfo.phone || 'EMPTY');
+          console.log('🔍 DEBUG - contactInfo whatsapp:', processedData.contactInfo.whatsapp || 'EMPTY');
         }
         setMappedData(processedData);
       } catch (error) {
@@ -763,10 +791,14 @@ export default function ProductDetails() {
           <Text style={styles.serviceRadius}>
             Service Radius: {mappedData.servingRadius}
           </Text>
-          {mappedData.contactInfo && (
+          {mappedData.contactInfo && Object.values(mappedData.contactInfo).some(Boolean) && (
             <View style={styles.contactInfo}>
-              <Text style={styles.contactText}>Phone: {mappedData.contactInfo.phone}</Text>
-              <Text style={styles.contactText}>WhatsApp: {mappedData.contactInfo.whatsapp}</Text>
+              {mappedData.contactInfo.phone && (
+                <Text style={styles.contactText}>Phone: {mappedData.contactInfo.phone}</Text>
+              )}
+              {mappedData.contactInfo.whatsapp && (
+                <Text style={styles.contactText}>WhatsApp: {mappedData.contactInfo.whatsapp}</Text>
+              )}
             </View>
           )}
         </View>

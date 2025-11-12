@@ -732,45 +732,34 @@ const handleRemoveCoupon = async () => {
       }
       // Update local wallet balance
       setWalletBalance(newBalance);
-      Alert.alert(
-        "Success!",
-        "Booking submitted successfully!",
-        [
-          {
-            text: "Cancel",
-            style: "cancel", // iOS me thoda alag dikhai dega
-            onPress: () => {
-              // Alert close only (kuch navigate nahi hoga)
-            },
+      Toast.show({
+        type: 'success',
+        text1: 'Success!',
+        text2: 'Booking submitted successfully!'
+      });
+      // FIXED: Always use original bookingId for confirmation
+      const confirmationId = bookingId as string;
+      const confirmationServiceType = serviceType as string;
+      const confirmationServiceName = checkoutData.title || "Fallback Service Name";
+      const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
+      const confirmationAmount = paymentAmount;
+     
+      console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
+      console.log("confirmationId (booking/order ID):", confirmationId);
+      console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+      console.log("========================================================");
+      setTimeout(() => {
+        router.push({
+          pathname: "/(secure)/Confirmation",
+          params: {
+            id: confirmationId,
+            serviceType: confirmationServiceType,
+            serviceName: confirmationServiceName,
+            guestName: confirmationGuestName,
+            amount: confirmationAmount,
           },
-          {
-            text: "OK",
-            onPress: () => {
-              // FIXED: Always use original bookingId for confirmation
-              const confirmationId = bookingId as string;
-              const confirmationServiceType = serviceType as string;
-              const confirmationServiceName = checkoutData.title || "Fallback Service Name";
-              const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
-              const confirmationAmount = paymentAmount;
-             
-              console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
-              console.log("confirmationId (booking/order ID):", confirmationId);
-              console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
-              console.log("========================================================");
-              router.push({
-                pathname: "/(secure)/Confirmation",
-                params: {
-                  id: confirmationId,
-                  serviceType: confirmationServiceType,
-                  serviceName: confirmationServiceName,
-                  guestName: confirmationGuestName,
-                  amount: confirmationAmount,
-                },
-              });
-            },
-          },
-        ]
-      );
+        });
+      }, 2000);
     } catch (error: any) {
       console.error("Error in wallet payment:", error);
       Alert.alert("Error", error.response?.data?.message || "Wallet payment failed. Please try again.");

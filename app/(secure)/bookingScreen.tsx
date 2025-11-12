@@ -1487,7 +1487,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           )}
         </View>
         <View style={styles.section}>
-          <View style={{ flexDirection: "row" }}>
+         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
             <Image source={location1} style={styles.icon} />
             <Text style={styles.sectionTitle}>Delivery Address</Text>
           </View>
@@ -1498,7 +1498,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             style={[
               styles.input,
               errors.street && styles.inputError,
-              orderType === "dining" && { backgroundColor: "#eee" },
             ]}
             placeholder="Enter your street address"
             value={street}
@@ -1513,7 +1512,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                   street: "Street address is required for delivery!",
                 }));
             }}
-            editable={orderType === "delivery"}
           />
           {errors.street && (
             <Text style={styles.errorText}>{errors.street}</Text>
@@ -1522,7 +1520,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           <TextInput
             style={[
               styles.input,
-              orderType === "dining" && { backgroundColor: "#eee" },
             ]}
             placeholder="Enter nearby landmark"
             value={landmark}
@@ -1530,7 +1527,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
               setLandmark(text);
               clearError("landmark");
             }}
-            editable={orderType === "delivery"}
           />
           <Text style={styles.label}>
             Locality / Area {orderType === "delivery" && "*"}
@@ -1539,7 +1535,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             style={[
               styles.input,
               errors.locality && styles.inputError,
-              orderType === "dining" && { backgroundColor: "#eee" },
             ]}
             placeholder="Enter locality or area"
             value={locality}
@@ -1554,7 +1549,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                   locality: "Locality is required for delivery!",
                 }));
             }}
-            editable={orderType === "delivery"}
           />
           {errors.locality && (
             <Text style={styles.errorText}>{errors.locality}</Text>
@@ -1566,7 +1560,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             style={[
               styles.input,
               errors.pincode && styles.inputError,
-              orderType === "dining" && { backgroundColor: "#eee" },
             ]}
             placeholder="Enter pincode (6 digits)"
             value={pincode}
@@ -1583,7 +1576,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             }}
             keyboardType="number-pad"
             maxLength={6}
-            editable={orderType === "delivery"}
           />
           {errors.pincode && (
             <Text style={styles.errorText}>{errors.pincode}</Text>
@@ -1593,13 +1585,11 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             style={[
               styles.input,
               { height: 80 },
-              orderType === "dining" && { backgroundColor: "#eee" },
             ]}
             placeholder="Any dietary preferences, spice level, or special requests"
             multiline
             value={specialInstructions}
             onChangeText={setSpecialInstructions}
-            editable={orderType === "delivery"}
           />
         </View>
         <View style={styles.section}>
@@ -1638,17 +1628,6 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                   onPress={(value) => {
                     const newOrderType = value as "dining" | "delivery";
                     setOrderType(newOrderType);
-                    // Clear delivery fields and errors when switching to dining to avoid stale grayed data
-                    if (newOrderType === "dining") {
-                      setStreet("");
-                      setLandmark("");
-                      setLocality("");
-                      setPincode("");
-                      setSpecialInstructions("");
-                      clearError("street");
-                      clearError("locality");
-                      clearError("pincode");
-                    }
                   }}
                 />
               ))}

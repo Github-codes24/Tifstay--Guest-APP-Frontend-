@@ -18,6 +18,9 @@ import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import demoData from "@/data/demoData.json";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { BackHandler } from "react-native";
+
 
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
@@ -203,6 +206,20 @@ const Confirmation: React.FC = () => {
 
     fetchRandomHostels();
   }, [isTiffin]);
+  
+  useFocusEffect(
+  React.useCallback(() => {
+    const onBackPress = () => {
+      router.replace("/(secure)/(tabs)");
+      return true; // Prevent default back action
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+
+    return () => subscription.remove();
+  }, [])
+);
+
 
   const tiffinBookingDetails = tiffinDetails ? {
     bookingId: tiffinDetails.bookingId,
