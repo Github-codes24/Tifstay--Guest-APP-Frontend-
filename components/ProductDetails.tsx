@@ -26,14 +26,11 @@ import ShareModal from "./modals/ShareModal";
 import Header from "../components/Header";
 import RoomSelectionModal from "./modals/RoomSelectionModal";
 import { useFavorites } from "@/context/FavoritesContext"; // Fixed path
-
 const { width } = Dimensions.get("window");
-
 export default function ProductDetails() {
   const params = useLocalSearchParams<{ id?: string; type?: string }>();
   const paramId = params.id as string;
   const paramType = params.type as "tiffin" | "hostel";
-
   const [mappedData, setMappedData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Details");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -41,10 +38,8 @@ export default function ProductDetails() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
   const [reviews, setReviews] = useState([]);
-
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
-
   // Auth token helper (reused from DashboardScreen logic)
   const getAuthToken = async (): Promise<string | null> => {
     try {
@@ -59,7 +54,6 @@ export default function ProductDetails() {
       return null;
     }
   };
-
   // --- Fetch full tiffin details by ID ---
   const fetchTiffinById = async (id: string): Promise<any | null> => {
     const token = await getAuthToken();
@@ -75,7 +69,8 @@ export default function ProductDetails() {
       const result = await response.json();
       console.log("getTiffinServiceById response:", JSON.stringify(result, null, 2));
       if (result.success && result.data) {
-        return result.data;
+        // Normalize to object if array
+        return Array.isArray(result.data) ? result.data[0] : result.data;
       } else {
         console.warn("getTiffinServiceById failed:", result.message);
         return null;
@@ -85,7 +80,6 @@ export default function ProductDetails() {
       return null;
     }
   };
-
   // --- Fetch full hostel details by ID ---
   const fetchHostelById = async (id: string): Promise<any | null> => {
     const token = await getAuthToken();
@@ -101,7 +95,8 @@ export default function ProductDetails() {
       const result = await response.json();
       console.log("getHostelServiceById response:", JSON.stringify(result, null, 2));
       if (result.success && result.data) {
-        return result.data;
+        // Normalize to object if array
+        return Array.isArray(result.data) ? result.data[0] : result.data;
       } else {
         console.warn("getHostelServiceById failed:", result.message);
         return null;
@@ -111,33 +106,26 @@ export default function ProductDetails() {
       return null;
     }
   };
-
   // Extracted fetchReviews logic for useQuery (returns mapped data for caching)
   const fetchReviews = useCallback(async () => {
     const token = await getAuthToken();
     console.log("Token:", token);
-
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-
     try {
-      // Note: For tiffin, this endpoint looks incorrect (using hostelServices). 
+      // Note: For tiffin, this endpoint looks incorrect (using hostelServices).
       // Assuming it's intentional or backend handles it; otherwise, change to /tiffinServices/getRatingsandReviews
       const url = paramType === "hostel"
         ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${paramId}`
         : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${paramId}`;
       console.log("Fetching reviews from:", url);
-
       const response = await fetch(url, { headers });
       console.log("Fetch status:", response.status);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const result = await response.json();
       console.log(`${paramType} Review response:`, result);
-
       if (result.success) {
         const mappedReviews = result.data.map((review: any) => {
           const [d, m, y] = review.reviewDate.split('/');
@@ -172,7 +160,6 @@ export default function ProductDetails() {
       };
     }
   }, [paramType, paramId]);
-
   // React Query hook for reviews (caches for 5min by default from QueryClient)
   const {
     data: reviewsResult,
@@ -183,7 +170,6 @@ export default function ProductDetails() {
     enabled: activeTab === 'Reviews' && !!paramId, // Only fetch when tab is active (matches current behavior)
     staleTime: 5 * 60 * 1000, // Inherit 5min from QueryClient, but explicit for clarity
   });
-
   // Update local state when query data is available
   useEffect(() => {
     if (reviewsResult) {
@@ -196,21 +182,17 @@ export default function ProductDetails() {
       }));
     }
   }, [reviewsResult]);
-
   // Map full API data to component-expected structure
   useEffect(() => {
     console.log("🟢 ProductDetails processing:", { paramId, paramType });
-
     const processData = async () => {
       if (!paramId || !paramType) {
         console.error("No ID or type provided");
         return;
       }
-
       // Note: Removed setIsLoadingDetails here; handle in render if needed
       try {
         let fullApiData = null;
-
         if (paramType === "tiffin") {
           // Check if full data was passed from Dashboard
           const passedDataStr = params.fullServiceData as string;
@@ -232,19 +214,14 @@ export default function ProductDetails() {
         } else if (paramType === "hostel") {
           fullApiData = await fetchHostelById(paramId);
         }
-
         if (!fullApiData) {
           console.error(`Failed to fetch ${paramType} details`);
           return;
         }
-
         console.log(`Full ${paramType} API Data:`, JSON.stringify(fullApiData, null, 2));
-
         let processedData: any = {};
-
         if (paramType === "hostel") {
           const apiData = fullApiData;
-
           const rooms = Array.isArray(apiData.rooms) ? apiData.rooms : [];
           const totalBeds = rooms.reduce((acc: number, room: any) => {
             return acc + (Array.isArray(room.totalBeds) ? room.totalBeds.length : 0);
@@ -253,15 +230,12 @@ export default function ProductDetails() {
             if (!Array.isArray(room.totalBeds)) return acc;
             return acc + room.totalBeds.filter((bed: any) => bed.status === "Unoccupied").length;
           }, 0);
-
           // Calculate daily if not provided (monthly / 30)
           const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
           const dailyPrice = typeof apiData.pricing?.daily === 'number' ? apiData.pricing.daily : Math.floor(monthlyPrice / 30);
           const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
-
           // Images
           const images = Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos.map((p: string) => ({ uri: p })) : [];
-
           processedData = {
             id: apiData._id,
             name: apiData.hostelName || "Unknown Hostel",
@@ -306,16 +280,8 @@ export default function ProductDetails() {
           const pricing = fullApiData.pricing || [];
           const offersText = pricing.map((p: any) => p.offers).join(" ");
           const fullDesc = `${fullApiData.description} ${offersText}`;
-
-          // Derive tags from pricing
-          const foodTags: string[] = [];
-          pricing.forEach((p: any) => {
-            const ft = p.foodType?.toLowerCase();
-            if (ft?.includes("veg")) foodTags.push("Veg");
-            if (ft?.includes("non-veg")) foodTags.push("Non-Veg");
-          });
-          const tags = [...new Set(foodTags)];
-
+          // Derive tags from top-level foodType
+          const tags = fullApiData.foodType ? [fullApiData.foodType] : [];
           const firstPlan = pricing[0];
           const price = firstPlan ? `₹${firstPlan.monthlyDelivery || firstPlan.monthlyDining || 0}/Month` : "₹0/Month";
           const offer = firstPlan?.offers ? firstPlan.offers : null;
@@ -328,7 +294,6 @@ export default function ProductDetails() {
           const isOffline = fullApiData.isOffline || false;
           const offlineReason = fullApiData.offlineReason || "";
           const comeBackAt = fullApiData.comeBackAt || "";
-
           processedData = {
             id: fullApiData.id || fullApiData._id,
             name: fullApiData.name || fullApiData.tiffinName,
@@ -360,21 +325,16 @@ export default function ProductDetails() {
             owner: fullApiData.ownerId,
           };
         }
-
         setMappedData(processedData);
       } catch (error) {
         console.error("Error processing data:", error);
       }
     };
-
     processData();
   }, [paramId, paramType]);
-
   // Fixed: Now isFavorite is available, use mappedData
   const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
-
   // Inside ProductDetails component
-
   // Add this helper for API calls
   const addFavoriteToBackend = async (serviceId: string, serviceType: "tiffin" | "hostel") => {
     const token = await getAuthToken();
@@ -382,15 +342,12 @@ export default function ProductDetails() {
       console.warn("No token, skipping backend favorite add");
       return { success: false };
     }
-
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
-
     let url: string;
     let body: { [key: string]: string } = {};
-
     if (serviceType === "hostel") {
       url = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService";
       body = { hostelServiceId: serviceId };
@@ -398,7 +355,6 @@ export default function ProductDetails() {
       url = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
       body = { tiffinServiceId: serviceId };
     }
-
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -413,16 +369,13 @@ export default function ProductDetails() {
       return { success: false };
     }
   };
-
   // Update handleFavoritePress
   const handleFavoritePress = async () => {
     if (!mappedData) return;
-
     const serviceId = mappedData.id;
     const serviceType = paramType;
     const wasFavorite = isFav;
     const expectedAction = wasFavorite ? 'remove' : 'add';
-
     // Toggle local immediately for UI feedback
     if (wasFavorite) {
       removeFromFavorites(serviceId, serviceType);
@@ -433,10 +386,8 @@ export default function ProductDetails() {
         data: mappedData,
       });
     }
-
     // Call API (toggle)
     const result = await addFavoriteToBackend(serviceId, serviceType);
-
     if (result.success) {
       const action = result.message.includes('added') ? 'add' : 'remove';
       if (action !== expectedAction) {
@@ -468,21 +419,17 @@ export default function ProductDetails() {
       Alert.alert('Error', 'Failed to update favorites. Please try again.');
     }
   };
-
   const handleShare = async (platform: string) => {
     if (!mappedData) return;
     setShowShareModal(false);
-
     // Generate deep link using expo-linking
     const deepLink = Linking.createURL('/product-details', {
       queryParams: { id: paramId, type: paramType }
     });
-
     const message =
       paramType === "tiffin"
         ? `Check out this amazing tiffin service: ${mappedData.name} - ${mappedData.description}\n\nOpen in app: ${deepLink}`
         : `Check out this great hostel: ${mappedData.name} - ${mappedData.description}\n\nOpen in app: ${deepLink}`;
-
     try {
       if (platform === "whatsapp") {
         const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
@@ -502,7 +449,6 @@ export default function ProductDetails() {
         await Clipboard.setStringAsync(deepLink);
         // Optionally, copy the full message too, but link is key
       }
-
       // Show confirmation modal after a brief delay
       setTimeout(() => {
         setShowConfirmationModal(true);
@@ -513,7 +459,6 @@ export default function ProductDetails() {
       Alert.alert("Share", message);
     }
   };
-
   // Early return if data not ready
   if (!mappedData) {
     return (
@@ -530,7 +475,6 @@ export default function ProductDetails() {
       </SafeAreaView>
     );
   }
-
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
     <Header
@@ -539,11 +483,9 @@ export default function ProductDetails() {
       onBack={() => router.back()}
     />
   );
-
   // ==================== IMAGE CAROUSEL SECTION ====================
   const renderImageCarousel = () => {
     const imageWidth = width - 32;
-
     return (
       <View style={styles.imageContainer}>
         <FlatList
@@ -564,7 +506,6 @@ export default function ProductDetails() {
           )}
           keyExtractor={(item, index) => index.toString()}
         />
-
         {/* Pagination dots */}
         <View style={styles.pagination}>
           {(mappedData.images || []).map((_: any, index: number) => (
@@ -577,7 +518,6 @@ export default function ProductDetails() {
             />
           ))}
         </View>
-
         {/* Favorite button */}
         <TouchableOpacity
           style={styles.favoriteButton}
@@ -592,7 +532,6 @@ export default function ProductDetails() {
       </View>
     );
   };
-
   // ==================== BASIC INFO SECTION ====================
   const renderBasicInfo = () => (
     <View style={styles.basicInfo}>
@@ -606,9 +545,7 @@ export default function ProductDetails() {
           </Text>
         </View>
       </View>
-
       {/* Rating */}
-
       {/* Tags for Hostel */}
       {paramType === "hostel" && (
         <View style={styles.tagsContainer}>
@@ -621,12 +558,10 @@ export default function ProductDetails() {
           </View>
         </View>
       )}
-
       {/* Hostel-specific location info */}
       {paramType === "hostel" && mappedData.sublocation && (
         <Text style={styles.sublocation}>{mappedData.sublocation}</Text>
       )}
-
       {/* Hostel room availability */}
       {paramType === "hostel" && (
         <View style={styles.roomAvailability}>
@@ -639,10 +574,8 @@ export default function ProductDetails() {
           </View>
         </View>
       )}
-
       {/* Description */}
       <Text style={styles.description}>{mappedData.description}</Text>
-
       {/* Tags and timing for Tiffin */}
       {paramType === "tiffin" && (
         <View style={styles.tiffinTags}>
@@ -661,12 +594,10 @@ export default function ProductDetails() {
           </View>
         </View>
       )}
-
       {/* Pricing Section */}
       {renderPricingSection()}
     </View>
   );
-
   // ==================== PRICING SECTION ====================
   const renderPricingSection = () => {
     if (paramType === "hostel") {
@@ -713,18 +644,20 @@ export default function ProductDetails() {
                 )}
               </View>
               <View style={styles.pricingColumns}>
-                {/* Dining prices column */}
-                <View style={styles.pricingColumn}>
-                  <Text style={styles.priceItem}>Dining ₹{plan.perMealDining}/day</Text>
-                  <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/week</Text>
-                  <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
-                </View>
-                {/* Delivery prices column */}
-                <View style={styles.pricingColumn}>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.perMealDelivery}/day</Text>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/week</Text>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/month</Text>
-                </View>
+                {/* Dining prices column - only show if weeklyDining or monthlyDining > 0 */}
+                {(plan.weeklyDining > 0 || plan.monthlyDining > 0) && (
+                  <View style={styles.pricingColumn}>
+                    <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/week</Text>
+                    <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
+                  </View>
+                )}
+                {/* Delivery prices column - only show if weeklyDelivery or monthlyDelivery > 0 */}
+                {(plan.weeklyDelivery > 0 || plan.monthlyDelivery > 0) && (
+                  <View style={styles.pricingColumn}>
+                    <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/week</Text>
+                    <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/month</Text>
+                  </View>
+                )}
               </View>
             </View>
           )) || (
@@ -736,7 +669,6 @@ export default function ProductDetails() {
       );
     }
   };
-
   // ==================== TABS SECTION ====================
   const renderTabs = () => (
     <View style={styles.tabContainer}>
@@ -768,7 +700,6 @@ export default function ProductDetails() {
       </TouchableOpacity>
     </View>
   );
-
   // ==================== TIFFIN DETAILS SECTION ====================
   const renderTiffinDetails = () => (
     <View style={styles.detailsContainer}>
@@ -781,7 +712,6 @@ export default function ProductDetails() {
           </Text>
         </View>
       )}
-
       {/* Meal Preference */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Meal Preference</Text>
@@ -794,7 +724,6 @@ export default function ProductDetails() {
           </View>
         ))}
       </View>
-
       {/* What's Included */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{"What's included"}</Text>
@@ -805,7 +734,6 @@ export default function ProductDetails() {
           </View>
         ))}
       </View>
-
       {/* Order Type Available */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Order Type Available</Text>
@@ -816,7 +744,6 @@ export default function ProductDetails() {
           </View>
         ))}
       </View>
-
       {/* Why Choose Us */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Why Choose Us</Text>
@@ -827,7 +754,6 @@ export default function ProductDetails() {
           </View>
         ))}
       </View>
-
       {/* Location */}
       <View style={[styles.section, styles.locationSection]}>
         <Text style={styles.sectionTitle}>Location</Text>
@@ -847,7 +773,6 @@ export default function ProductDetails() {
       </View>
     </View>
   );
-
   // ==================== HOSTEL DETAILS SECTION ====================
   const renderHostelDetails = () => (
     <View style={styles.detailsContainer}>
@@ -865,7 +790,6 @@ export default function ProductDetails() {
                   : amenity.available !== false;
               const iconName =
                 AMENITY_ICONS[amenityName] || DEFAULT_AMENITY_ICON;
-
               return (
                 <View key={index} style={styles.facilityItem}>
                   <Ionicons
@@ -888,7 +812,6 @@ export default function ProductDetails() {
           </View>
         </View>
       </View>
-
       {/* Rules & Policies */}
       <View style={[styles.section, styles.rulesSection]}>
         <Text style={styles.sectionTitle}>Rules & Policies</Text>
@@ -905,7 +828,6 @@ export default function ProductDetails() {
           </Text>
         </View>
       </View>
-
       {/* Location */}
       <View style={[styles.section, styles.locationSection]}>
         <Text style={styles.sectionTitle}>Location</Text>
@@ -918,7 +840,6 @@ export default function ProductDetails() {
       </View>
     </View>
   );
-
   // ==================== REVIEWS SECTION ====================
   const renderReviews = () => (
     <View style={styles.reviewsContainer}>
@@ -978,7 +899,6 @@ export default function ProductDetails() {
       )}
     </View>
   );
-
   // ==================== BOTTOM BUTTONS SECTION ====================
   const renderBottomButtons = () => (
     <View style={styles.bottomContainer}>
@@ -994,13 +914,12 @@ export default function ProductDetails() {
                 const userDataObj = storedUser
                   ? JSON.parse(storedUser)
                   : { name: "", phoneNumber: "", email: "" };
-
                 router.push({
-                  pathname: "/bookingScreen",  // Adjust if using full path like "/(secure)/bookingScreen"
+                  pathname: "/bookingScreen", // Adjust if using full path like "/(secure)/bookingScreen"
                   params: {
                     bookingType: "tiffin",
                     serviceData: JSON.stringify({
-                      serviceId: mappedData.id,  // ✅ Now enables API fetches
+                      serviceId: mappedData.id, // ✅ Now enables API fetches
                       serviceName: mappedData.name,
                       price: mappedData.price,
                       foodType: mappedData.foodType || (mappedData.tags ? mappedData.tags[0] || "Veg" : "Veg"),
@@ -1014,9 +933,9 @@ export default function ProductDetails() {
                       location: mappedData.fullAddress || "",
                       contactInfo: mappedData.contactInfo || { phone: "", whatsapp: "" },
                     }),
-                    userData: JSON.stringify(userDataObj),  // ✅ Now autofills real name/phone if stored
+                    userData: JSON.stringify(userDataObj), // ✅ Now autofills real name/phone if stored
                     defaultPlan: "monthly",
-                    date: new Date().toISOString().split('T')[0],  // 2025-10-09 (today)
+                    date: new Date().toISOString().split('T')[0], // 2025-10-09 (today)
                   },
                 });
               } catch (error) {
@@ -1096,7 +1015,6 @@ export default function ProductDetails() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1153,7 +1071,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-
   // Basic info styles
   basicInfo: {
     padding: 16,
@@ -1261,7 +1178,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginLeft: 4,
   },
-
   // Pricing styles
   // Pricing styles
   pricingBox: {
@@ -1306,7 +1222,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 18,
   },
-
   // Tiffin pricing styles
   tiffinPricing: {
     marginTop: 16,
@@ -1366,7 +1281,6 @@ const styles = StyleSheet.create({
     color: "#1976D2",
     fontWeight: "500",
   },
-
   // Details container
   detailsContainer: {
     padding: 16,
@@ -1425,7 +1339,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-
   // Location section styles
   locationSection: {
     marginBottom: 0,
@@ -1464,7 +1377,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 4,
   },
-
   // Hostel details specific styles
   facilitiesSection: {
     marginBottom: 20,
@@ -1531,7 +1443,6 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
   },
-
   // Reviews styles
   reviewsContainer: {
     paddingHorizontal: 16,
@@ -1614,7 +1525,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 40,
   },
-
   // Bottom buttons styles
   bottomContainer: {
     paddingHorizontal: 16,
