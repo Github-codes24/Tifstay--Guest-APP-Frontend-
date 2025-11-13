@@ -46,10 +46,10 @@ const CheckoutItemCard: React.FC<CheckoutItemCardProps> = ({
         {isTiffin ? (
           // Tiffin Details
           <>
-            <DetailRow
+            {/* <DetailRow
               label="Meal Type"
               value={(data as TiffinCheckoutData).mealType}
-            />
+            /> */}
             <DetailRow
               label="Food Type"
               value={(data as TiffinCheckoutData).foodType}

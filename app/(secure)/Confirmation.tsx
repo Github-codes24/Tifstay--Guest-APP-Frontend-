@@ -20,11 +20,15 @@ import demoData from "@/data/demoData.json";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { BackHandler } from "react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+
 
 
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
 const CARD_MARGIN = 10;
+
 
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
@@ -261,6 +265,45 @@ const Confirmation: React.FC = () => {
     amount: paramAmount || 'N/A',
   };
 
+  const handlePrintInvoice = async () => {
+  const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+
+  const htmlContent = `
+    <html>
+      <body style="font-family: Arial; padding: 20px;">
+        <h2 style="text-align: center;">TifStay - Booking Invoice</h2>
+        <hr />
+        <h3>Booking Summary</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          ${Object.entries(details)
+            .filter(([key]) => key !== 'mealType')
+            .map(
+              ([key, value]) => `
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ccc;"><b>${key}</b></td>
+                <td style="padding: 8px; border: 1px solid #ccc;">${value}</td>
+              </tr>`
+            )
+            .join("")}
+        </table>
+        <hr />
+        <p style="text-align:center;">Thank you for booking with TifStay!</p>
+      </body>
+    </html>
+  `;
+
+  try {
+    const { uri } = await Print.printToFileAsync({ html: htmlContent });
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri);
+    } else {
+      alert("Invoice saved at: " + uri);
+    }
+  } catch (error) {
+    console.error("Error generating invoice:", error);
+  }
+};
+
   const currentBookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
 
   const getRecommendations = () => {
@@ -373,9 +416,11 @@ const Confirmation: React.FC = () => {
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.sectionTitle}>Booking Summary</Text>
-            <TouchableOpacity style={styles.invoiceButton}>
-              <Text style={styles.invoiceText}>↓ Invoice</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.invoiceButton} onPress={handlePrintInvoice}>
+  <Ionicons name="download-outline" size={16} color="#fff" />
+  <Text style={styles.invoiceText}>Invoice</Text>
+</TouchableOpacity>
+
           </View>
 
           {isTiffin ? (
@@ -586,6 +631,8 @@ const Confirmation: React.FC = () => {
     </SafeAreaView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: {
