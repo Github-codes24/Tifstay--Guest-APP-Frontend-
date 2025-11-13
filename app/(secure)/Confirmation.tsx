@@ -276,7 +276,7 @@ const Confirmation: React.FC = () => {
         <h3>Booking Summary</h3>
         <table style="width: 100%; border-collapse: collapse;">
           ${Object.entries(details)
-            .filter(([key]) => key !== 'mealType')
+            
             .map(
               ([key, value]) => `
               <tr>
