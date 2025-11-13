@@ -46,9 +46,8 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const phoneRegex = /^[0-9]{10}$/;
-  const scrollRef = useRef<ScrollView>(null); // ✅ added ref
+  const scrollRef = useRef<ScrollView>(null);
 
-  // ✅ FIX: Reset scroll when keyboard hides
   useEffect(() => {
     const keyboardDidHideListener = Keyboard.addListener("keyboardDidHide", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -213,7 +212,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          ref={scrollRef} // ✅ added ref
+          ref={scrollRef}
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -260,11 +259,13 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.numberInput}
                   placeholder="Phone Number"
+                  placeholderTextColor="#999" // ✅ fixed visibility
                   keyboardType="phone-pad"
                   value={phoneNumber}
                   onChangeText={handlePhoneNumberChange}
                   editable={!isLoading}
                   maxLength={10}
+                  textAlignVertical="center" // ✅ key fix
                 />
               </View>
 
@@ -283,18 +284,17 @@ export default function LoginScreen() {
               </View>
 
               {/* Get OTP button with loader */}
-           <TouchableOpacity
-  style={[styles.verifyButton, { opacity: isLoading ? 0.7 : 1 }]}
-  onPress={handleGetOTP}
-  disabled={isLoading}
->
-  {isLoading ? (
-    <ActivityIndicator color="#fff" />
-  ) : (
-    <Text style={styles.verifyText}>Get OTP</Text>
-  )}
-</TouchableOpacity>
-
+              <TouchableOpacity
+                style={[styles.verifyButton, { opacity: isLoading ? 0.7 : 1 }]}
+                onPress={handleGetOTP}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.verifyText}>Get OTP</Text>
+                )}
+              </TouchableOpacity>
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Don’t have an account? </Text>
@@ -398,8 +398,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingHorizontal: 12,
-    height: "100%",
+    height: 50, // ✅ fixed height
     color: "#000",
+    textAlignVertical: "center", // ✅ vertical alignment
   },
   termsContainer: {
     flexDirection: "row",
@@ -450,22 +451,21 @@ const styles = StyleSheet.create({
   flagInList: { width: 30, height: 20, marginRight: 12, resizeMode: "contain" },
   countryNameText: { flex: 1, fontSize: 16 },
   verifyButton: {
-  backgroundColor: colors.primary,
-  borderRadius: 12,
-  paddingVertical: 14,
-  alignItems: "center",
-  justifyContent: "center",
-  marginTop: 10,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 4,
-},
-verifyText: {
-  color: "#fff",
-  fontSize: 16,
-  fontWeight: "600",
-},
-
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  verifyText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });

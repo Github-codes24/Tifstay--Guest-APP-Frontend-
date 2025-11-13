@@ -1752,8 +1752,8 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
                     <Text style={styles.dateDisplayText}>
                       {endDate ? endDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
                     </Text>
-                    <Text style={styles.infoText}>Based on your {tiffinPlan} plan</Text>
                   </View>
+                  <Text style={styles.infoText}>Based on your {tiffinPlan} plan</Text>
                   {errors.endDate && (
                     <Text style={styles.errorText}>{errors.endDate}</Text>
                   )}

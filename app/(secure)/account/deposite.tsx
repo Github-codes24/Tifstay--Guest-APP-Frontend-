@@ -1,5 +1,4 @@
-// DepositScreen.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
@@ -9,8 +8,10 @@ import {
     Image,
     Alert,
     ActivityIndicator,
+    RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from '@react-navigation/native';
 import CommonDropdown from "@/components/CommonDropDown";
 import LabeledInput from "@/components/LabeledInput";
 import colors from "@/constants/colors";
@@ -20,7 +21,6 @@ import { router } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 const DepositScreen = () => {
     const [withdrawOption, setWithdrawOption] = useState<"wallet" | "bank">("bank");
     const [accountNumber, setAccountNumber] = useState("");
@@ -29,23 +29,20 @@ const DepositScreen = () => {
     const [accountType, setAccountType] = useState("");
     const [depositAmount, setDepositAmount] = useState<number>(0);
     const [loading, setLoading] = useState(false);
-
+    const [refreshing, setRefreshing] = useState(false);
     const ACCOUNT_TYPES = [
         { label: "Savings", value: "Savings" },
         { label: "Current", value: "Current" },
     ];
-
     // Fetch deposit amount
     const fetchDepositAmount = async () => {
         try {
             const token = await AsyncStorage.getItem("token");
             if (!token) return;
-
             const response = await axios.get(
                 "https://tifstay-project-be.onrender.com/api/guest/deposit/getDepositAmount",
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
             if (response.data?.success) {
                 setDepositAmount(response.data.data?.depositedAmount || 0);
             } else {
@@ -56,12 +53,18 @@ const DepositScreen = () => {
             Alert.alert("Error", "Unable to fetch deposit amount.");
         }
     };
-
-    useEffect(() => {
-        fetchDepositAmount();
+    useFocusEffect(
+        useCallback(() => {
+            fetchDepositAmount();
+        }, [])
+    );
+    // Pull-to-refresh handler
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchDepositAmount();
+        setRefreshing(false);
     }, []);
-
-    // 📌 Withdraw by Wallet
+    // Withdraw by Wallet
     const handleWalletWithdraw = async () => {
         try {
             setLoading(true);
@@ -70,13 +73,11 @@ const DepositScreen = () => {
                 Alert.alert("Error", "User not authenticated");
                 return;
             }
-
             const response = await axios.post(
                 "https://tifstay-project-be.onrender.com/api/guest/withdrawal/withdraw-by-wallet",
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
             if (response.data?.success) {
                 Alert.alert("Success", "Amount withdrawn to wallet successfully");
                 fetchDepositAmount(); // refresh balance
@@ -90,14 +91,12 @@ const DepositScreen = () => {
             setLoading(false);
         }
     };
-
-    // 📌 Withdraw by Bank
+    // Withdraw by Bank
     const handleBankWithdraw = async () => {
         if (!accountNumber || !ifsc || !accountHolder || !accountType) {
             Alert.alert("Validation Error", "Please fill all required fields.");
             return;
         }
-
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem("token");
@@ -105,20 +104,12 @@ const DepositScreen = () => {
                 Alert.alert("Error", "User not authenticated");
                 return;
             }
-
-            const body = {
-                accountNumber,
-                ifscCode: ifsc,
-                accountType,
-                accountHolderName: accountHolder,
-            };
-
+            const body = { accountNumber, ifscCode: ifsc, accountType, accountHolderName: accountHolder };
             const response = await axios.post(
                 "https://tifstay-project-be.onrender.com/api/guest/withdrawal/withdraw-by-bank",
                 body,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
             if (response.data?.success) {
                 Alert.alert("Success", "Bank withdrawal request submitted successfully");
                 setAccountNumber("");
@@ -136,16 +127,9 @@ const DepositScreen = () => {
             setLoading(false);
         }
     };
-
-    // 📌 Handle Withdraw button
     const handleWithdraw = () => {
-        if (withdrawOption === "wallet") {
-            handleWalletWithdraw();
-        } else {
-            handleBankWithdraw();
-        }
+        withdrawOption === "wallet" ? handleWalletWithdraw() : handleBankWithdraw();
     };
-
     return (
         <SafeAreaView style={styles.safeArea}>
             {/* Header */}
@@ -160,9 +144,12 @@ const DepositScreen = () => {
                     <Text style={styles.allTransactionsText}>All Transactions</Text>
                 </TouchableOpacity>
             </View>
-
             <KeyboardAwareScrollView enableOnAndroid extraScrollHeight={80} showsHorizontalScrollIndicator={false}>
-                <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                >
                     {/* Deposit Box */}
                     <View style={styles.depositBox}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -179,36 +166,22 @@ const DepositScreen = () => {
                             <Text style={styles.addDepositText}>Add Deposit Amount</Text>
                         </TouchableOpacity>
                     </View>
-
                     {/* Withdraw Options */}
                     <Text style={styles.withdrawTitle}>Select withdraw options</Text>
                     <View style={styles.optionRow}>
                         <View style={styles.radioRow}>
                             <Text style={styles.radioLabel}>Wallet</Text>
-                            <TouchableOpacity
-                                style={styles.radioCircle}
-                                onPress={() => setWithdrawOption("wallet")}
-                            >
-                                {withdrawOption === "wallet" && (
-                                    <View style={styles.radioSelected} />
-                                )}
+                            <TouchableOpacity style={styles.radioCircle} onPress={() => setWithdrawOption("wallet")}>
+                                {withdrawOption === "wallet" && <View style={styles.radioSelected} />}
                             </TouchableOpacity>
                         </View>
-
                         <View style={styles.radioRow}>
                             <Text style={styles.radioLabel}>Bank Account</Text>
-                            <TouchableOpacity
-                                style={styles.radioCircle}
-                                onPress={() => setWithdrawOption("bank")}
-                            >
-                                {withdrawOption === "bank" && (
-                                    <View style={styles.radioSelected} />
-                                )}
+                            <TouchableOpacity style={styles.radioCircle} onPress={() => setWithdrawOption("bank")}>
+                                {withdrawOption === "bank" && <View style={styles.radioSelected} />}
                             </TouchableOpacity>
                         </View>
                     </View>
-
-                    {/* Bank Form */}
                     {withdrawOption === "bank" && (
                         <View style={styles.bankForm}>
                             <LabeledInput
@@ -249,25 +222,20 @@ const DepositScreen = () => {
                             />
                         </View>
                     )}
-
                     <Text style={styles.note}>Note: Bank withdrawal may take 1-3 business days.</Text>
-
                     <CustomButton
                         title={loading ? "Please wait..." : withdrawOption === "wallet" ? "WITHDRAW TO WALLET" : "SEND REQUEST"}
                         disabled={loading}
                         onPress={handleWithdraw}
                         style={{ width: '95%', alignSelf: 'center', marginVertical: 0 }}
                     />
-
                     {loading && <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 10 }} />}
                 </ScrollView>
             </KeyboardAwareScrollView>
         </SafeAreaView>
     );
 };
-
 export default DepositScreen;
-
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: "#fff" },
     container: { paddingHorizontal: 16, paddingBottom: 40 },

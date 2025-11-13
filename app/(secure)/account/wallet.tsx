@@ -10,6 +10,7 @@ import {
     Image,
     Alert,
     ActivityIndicator,
+    RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,8 +53,9 @@ export default function WalletScreen() {
     const [balance, setBalance] = useState<number>(0);
     const [transactions, setTransactions] = useState<Txn[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [refreshing, setRefreshing] = useState(false);
 
-    const fetchWalletAmount = async () => {
+    const fetchWalletAmount = useCallback(async () => {
         try {
             const token = await AsyncStorage.getItem("token");
             if (!token) return Alert.alert("Error", "User not authenticated");
@@ -71,9 +73,9 @@ export default function WalletScreen() {
         } catch (error: any) {
             Alert.alert("Error", error.response?.data?.message || "Something went wrong");
         }
-    };
+    }, []);
 
-    const fetchTransactions = async () => {
+    const fetchTransactions = useCallback(async () => {
         try {
             const token = await AsyncStorage.getItem("token");
             if (!token) return Alert.alert("Error", "User not authenticated");
@@ -127,19 +129,25 @@ export default function WalletScreen() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchWalletAmount();
         fetchTransactions();
-    }, []);
+    }, [fetchWalletAmount, fetchTransactions]);
 
     useFocusEffect(
         useCallback(() => {
             fetchWalletAmount();
             fetchTransactions();
-        }, [])
+        }, [fetchWalletAmount, fetchTransactions])
     );
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([fetchWalletAmount(), fetchTransactions()]);
+        setRefreshing(false);
+    }, [fetchWalletAmount, fetchTransactions]);
 
     const onAddMoney = () => {
         router.push("/(secure)/account/addmoney");
@@ -177,6 +185,7 @@ export default function WalletScreen() {
             <ScrollView
                 contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
                 {/* Balance Card */}
                 <View style={styles.balanceCard}>

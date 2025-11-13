@@ -96,9 +96,9 @@ const CheckoutItemCard: React.FC<CheckoutItemCardProps> = ({
         )}
       </View>
 
-      <TouchableOpacity style={styles.calendarIcon}>
+      {/* <TouchableOpacity style={styles.calendarIcon}>
         <Ionicons name="calendar-outline" size={20} color="#666" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 };

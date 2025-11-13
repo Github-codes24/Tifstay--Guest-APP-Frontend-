@@ -259,11 +259,12 @@ export default function DashboardScreen() {
             location: hostel.fullAddress || "Unknown Location",
             price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
             amenities: hostel.facilities || [],
-            rating: hostel.average || 0,
+            rating: hostel.averageRating || 0,
             reviews: hostel.totalReviews || 0,
             availableBeds: hostel.availableBeds || 0,
             occupiedBeds: hostel.occupiedBeds || 0,
             subLocation: hostel.nearbyLandmarks || "",
+            deposit: `₹${hostel.securityDeposit || 0}`,
             image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
             planType: hostel.planType || "",
             roomType: hostel.roomType || "",
@@ -495,11 +496,12 @@ const fetchTiffinRecentSearch = async (
             location: hostel.fullAddress || "Unknown Location",
             price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
             amenities: hostel.facilities || [],
-            rating: hostel.average || 0,
+            rating: hostel.averageRating || 0,
             reviews: hostel.totalReviews || 0,
             availableBeds: hostel.availableBeds || 0,
             occupiedBeds: hostel.occupiedBeds || 0,
             subLocation: hostel.nearbyLandmarks || "",
+            deposit: `₹${hostel.securityDeposit || 0}`,
             image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
             planType: hostel.planType || "",
             roomType: hostel.roomType || "",
@@ -1429,12 +1431,12 @@ const fetchTiffinRecentSearch = async (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>
                   {isFiltered
-                    ? "Filtered Results"
+                    ? "Available Results"
                     : searchQuery
                       ? "Search Results"
                       : isHostel
                         ? "Available Accommodations"
-                        : "Filtered Results"}
+                        : "Available Results"}
                 </Text>
                 {!isHostel && (
                   <TouchableOpacity
@@ -1736,6 +1738,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
     zIndex: 10,
+    width:235
   },
   filterItem: {
     flex: 1,

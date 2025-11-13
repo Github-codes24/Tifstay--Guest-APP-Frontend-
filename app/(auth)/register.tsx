@@ -274,10 +274,12 @@ export default function RegisterScreen() {
                 <TextInput
                   style={styles.numberInput}
                   placeholder="Phone Number"
+                  placeholderTextColor="#999" // ✅ fixed placeholder color
                   keyboardType="phone-pad"
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   maxLength={10}
+                  textAlignVertical="center" // ✅ vertical alignment
                 />
               </View>
 
@@ -288,24 +290,21 @@ export default function RegisterScreen() {
                 onChangeText={setCode}
               />
 
-              {/* ✅ Button with loader */}
-            {/* ✅ Button with loader — stays blue even when disabled */}
-<TouchableOpacity
-  style={[
-    styles.submitButton,
-    { backgroundColor: colors.primary, opacity: isSubmitting ? 0.7 : 1 },
-  ]}
-  onPress={handleRegister}
-  disabled={isSubmitting}
-  activeOpacity={0.8}
->
-  {isSubmitting ? (
-    <ActivityIndicator size="small" color="#fff" />
-  ) : (
-    <Text style={styles.buttonText}>Continue</Text>
-  )}
-</TouchableOpacity>
-
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary, opacity: isSubmitting ? 0.7 : 1 },
+                ]}
+                onPress={handleRegister}
+                disabled={isSubmitting}
+                activeOpacity={0.8}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Continue</Text>
+                )}
+              </TouchableOpacity>
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Have an account? </Text>
@@ -411,6 +410,8 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: "transparent",
     color: "#000",
+    textAlignVertical: "center", // ✅ fix for placeholder
+    placeholderTextColor: "#999", // ✅ fix for placeholder
   },
   submitButton: {
     height: 50,
