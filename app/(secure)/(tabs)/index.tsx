@@ -9,7 +9,6 @@ import {
   Animated,
   Keyboard,
   FlatList,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
@@ -35,6 +34,7 @@ import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
 import { BackHandler } from 'react-native';
 import { useFocusEffect } from "@react-navigation/native";
+import Toast from "react-native-toast-message";
 interface Hostel {
   id: string;
   name: string;
@@ -211,20 +211,20 @@ export default function DashboardScreen() {
         // Add to frontend
         console.log("Adding to favorites via API toggle");
         addToFavorites({ id, type, data: item });
-        Alert.alert("Success", "Added successfully");
+        Toast.show({ type: "success", text1: "Success", text2: "Added successfully" });
       } else if (result.message.includes("removed")) {
         // Remove from frontend
         console.log("Removing from favorites via API toggle");
         removeFromFavorites(id, type);
-        Alert.alert("Success", "Removed successfully from favourites");
+        Toast.show({ type: "success", text1: "Success", text2: "Removed successfully from favourites" });
       } else {
         // Unexpected message, but success, perhaps log
         console.log("Unexpected success message:", result.message);
-        Alert.alert("Success", "Favorites updated");
+        Toast.show({ type: "success", text1: "Success", text2: "Favorites updated" });
       }
     } else {
       console.log("API toggle failed:", result.message);
-      Alert.alert("Error", "Failed to update favorites. Please try again.");
+      Toast.show({ type: "error", text1: "Error", text2: "Failed to update favorites. Please try again." });
     }
   }, [isFavorite, addToFavorites, removeFromFavorites]);
   // --- React Query Functions ---
