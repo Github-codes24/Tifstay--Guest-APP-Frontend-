@@ -254,7 +254,7 @@ export default function ProductDetails() {
             price: `₹${monthlyPrice}/MONTH`,
             daily: dailyPrice,
             weekly: weeklyPrice,
-            location: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Unknown",
+            location: typeof apiData.location?.area === 'string' ? apiData.location.area : "Unknown",
             rooms: rooms, // Keep for potential use
           };
         } else if (paramType === "tiffin") {
@@ -306,7 +306,7 @@ export default function ProductDetails() {
           } else {
             fullAddress = fullApiData.location?.fullAddress || "";
             servingRadiusNum = fullApiData.location?.serviceRadius || 5;
-            nearbyLandmarks = fullApiData.location?.nearbyLandmarks || "";
+            nearbyLandmarks = fullApiData.location?.area || "";
           }
           const servingRadius = `${servingRadiusNum} km`;
           const location = nearbyLandmarks || fullAddress || "Unknown";

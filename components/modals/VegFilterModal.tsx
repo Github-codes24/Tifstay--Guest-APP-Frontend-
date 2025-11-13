@@ -60,7 +60,7 @@ const VegFilterModal: React.FC<VegFilterModalProps> = ({
                   <View style={styles.radioSelected} />
                 )}
               </View>
-              <Text style={styles.radioText}>Pure Veg only</Text>
+              <Text style={styles.radioText}>Veg Only</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.doneButton} onPress={handleDone}>

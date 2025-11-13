@@ -11,6 +11,7 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -81,8 +82,6 @@ export default function DashboardScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const {
-    isFilterApplied,
-    setIsFilterApplied,
     appliedFilters,
     setAppliedFilters,
     isSearchFocused,
@@ -102,7 +101,7 @@ export default function DashboardScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isHostel, setIsHostel] = useState(false);
   const [showVegFilterModal, setShowVegFilterModal] = useState(false);
-  const [vegFilter, setVegFilter] = useState<"off" | "veg">("off");
+  const [vegFilter, setVegFilter] = useState<"off" | "veg_all" | "veg_only">("off");
   const [hostelType, setHostelType] = useState("");
   const [area, setArea] = useState("");
   const [maxRent, setMaxRent] = useState("");
@@ -656,7 +655,11 @@ const fetchTiffinRecentSearch = async (
   const hostelTypeOptions = useMemo(() => ["All", ...hostelTypesData], [hostelTypesData]);
   const areaOptions = useMemo(() => ["All", ...citiesData], [citiesData]);
   const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
-  const hasFilters = Object.keys(appliedFilters).length > 0;
+  const hasFilters = useMemo(() => {
+    return Object.keys(appliedFilters).length > 0;
+  }, [appliedFilters]);
+  const isVegFiltered = useMemo(() => vegFilter !== "off", [vegFilter]);
+  const isFiltered = useMemo(() => hasFilters || isVegFiltered, [hasFilters, isVegFiltered]);
   // --- Refetch data when FilterModal opens if data is missing ---
   useEffect(() => {
     if (showFilterModal && isHostel) {
@@ -679,7 +682,7 @@ const fetchTiffinRecentSearch = async (
   // --- Reset visible count on mode/filter/search changes ---
   useEffect(() => {
     setVisibleCount(10);
-  }, [isHostel, appliedFilters, searchQuery, isSearchFocused]);
+  }, [isHostel, appliedFilters, searchQuery, isSearchFocused, vegFilter]);
   useEffect(() => {
     if (isSearchFocused && searchQuery) {
       setSearchVisibleCount(10);
@@ -696,7 +699,12 @@ const fetchTiffinRecentSearch = async (
       setIsSearching(true);
       const priceSort = appliedFilters.cost || "";
       const minRating = appliedFilters.rating || 0;
-      const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+      let vegValue: string | undefined;
+      if (vegFilter !== "off") {
+        vegValue = "Veg";
+      } else {
+        vegValue = appliedFilters.vegNonVeg || undefined;
+      }
       let data: TiffinService[] | Hostel[];
       if (isHostel) {
         data = await fetchHostelSearch(trimmedQuery);
@@ -758,21 +766,35 @@ const fetchTiffinRecentSearch = async (
           service.tags.some((tag) => tag.toLowerCase().includes(query))
       );
     }
-    // FIX: Enhanced Veg/Non-Veg/Both filter - Client-side backup
-    const vegFilterValue = appliedFilters.vegNonVeg ||
-      (vegFilter === "veg" ? "Veg" : null);
-    if (vegFilterValue === "Veg") {
-      filtered = filtered.filter((service) =>
-        service.tags.includes("veg") && !service.tags.includes("non-veg")
-      );
-    } else if (vegFilterValue === "Non-Veg") {
-      filtered = filtered.filter((service) =>
-        service.tags.includes("non-veg") && !service.tags.includes("veg")
-      );
-    } else if (vegFilterValue === "Both Veg & Non-Veg") {
-      filtered = filtered.filter((service) =>
-        service.tags.includes("veg") && service.tags.includes("non-veg")
-      );
+    // Veg filtering logic
+    if (vegFilter !== "off") {
+      if (vegFilter === "veg_only") {
+        // Veg Only: pure veg
+        filtered = filtered.filter((service) =>
+          service.tags.includes("veg") && !service.tags.includes("non-veg")
+        );
+      } else {
+        // veg_all: veg + both
+        filtered = filtered.filter((service) =>
+          service.tags.includes("veg")
+        );
+      }
+    } else if (appliedFilters.vegNonVeg) {
+      // Apply FilterModal veg filter
+      if (appliedFilters.vegNonVeg === "Veg") {
+        // Pure veg
+        filtered = filtered.filter((service) =>
+          service.tags.includes("veg") && !service.tags.includes("non-veg")
+        );
+      } else if (appliedFilters.vegNonVeg === "Non-Veg") {
+        filtered = filtered.filter((service) =>
+          service.tags.includes("non-veg") && !service.tags.includes("veg")
+        );
+      } else if (appliedFilters.vegNonVeg === "Both Veg & Non-Veg") {
+        filtered = filtered.filter((service) =>
+          service.tags.includes("veg") && service.tags.includes("non-veg")
+        );
+      }
     }
     // Rating filter
     const minRatingFilter = appliedFilters.rating || 0;
@@ -814,7 +836,7 @@ const fetchTiffinRecentSearch = async (
         service.description.toLowerCase().includes(appliedFilters.cuisine.toLowerCase())
       );
     }
-    console.log("🔍 Filtered Tiffins Count:", filtered.length, "VegValue:", vegFilterValue); // Debug
+    console.log("🔍 Filtered Tiffins Count:", filtered.length); // Debug
     return filtered;
   }, [allTiffinServicesData, searchedTiffinsData, searchQuery, isSearchFocused, appliedFilters, vegFilter]);
   const filteredHostels = useMemo(() => {
@@ -916,7 +938,12 @@ const fetchTiffinRecentSearch = async (
         await refetchTiffins();
         const priceSort = appliedFilters.cost || "";
         const minRating = appliedFilters.rating || 0;
-        const vegValue = appliedFilters.vegNonVeg || (vegFilter === "veg" ? "Veg" : undefined);
+        let vegValue: string | undefined;
+        if (vegFilter !== "off") {
+          vegValue = "Veg";
+        } else {
+          vegValue = appliedFilters.vegNonVeg || undefined;
+        }
         if (isSearchFocused && searchQuery.trim()) {
           const trimmed = searchQuery.trim();
           const data = await fetchTiffinRecentSearch(trimmed, priceSort, minRating, vegValue);
@@ -1005,19 +1032,10 @@ const fetchTiffinRecentSearch = async (
   };
   const handleApplyFilters = (filters: Filters) => {
     setAppliedFilters(filters);
-    setIsFilterApplied(Object.keys(filters).length > 0);
   };
   const handleVegFilterApply = (filter: "all" | "veg") => {
-    const newVeg = filter === "all" ? "off" : "veg";
-    setVegFilter(newVeg);
-    const newFilters = { ...appliedFilters };
-    if (filter === "all") {
-      delete newFilters.vegNonVeg;
-    } else {
-      newFilters.vegNonVeg = "Veg";
-    }
-    setAppliedFilters(newFilters);
-    setIsFilterApplied(Object.keys(newFilters).length > 0);
+    setVegFilter(filter === "all" ? "veg_all" : "veg_only");
+    setShowVegFilterModal(false);
   };
   const handleHostelTypeSelect = (value: string) => setHostelType(value === "All" ? "" : value);
   const handleAreaSelect = (value: string) => setArea(value === "All" ? "" : value);
@@ -1202,168 +1220,6 @@ const fetchTiffinRecentSearch = async (
       </View>
     );
   }
-  // --- Filtered View --- (unchanged)
-  if (isFilterApplied && hasFilters) {
-    return (
-      <View style={styles.container}>
-        <SafeAreaView style={styles.safeArea} edges={["top"]}>
-          <View style={styles.filteredHeader}>
-            <TouchableOpacity
-              style={styles.filteredBackButton}
-              onPress={() => {
-                setIsFilterApplied(false);
-                setAppliedFilters({});
-              }}
-            >
-              <Ionicons name="chevron-back" size={24} color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.filteredTitle}>Applied Filter</Text>
-          </View>
-        </SafeAreaView>
-        <View style={styles.filteredSearchContainer}>
-          <View style={styles.filteredSearchBar}>
-            <Ionicons name="search" size={20} color="#6B7280" />
-            <TextInput
-              placeholder={isHostel ? "Search for hostel..." : "Tiffin Service"}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.filteredSearchInput}
-              placeholderTextColor="#9CA3AF"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={handleClearSearch}>
-                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.micButton}>
-              <Ionicons name="mic" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            style={[styles.filterButton, { backgroundColor: colors.primary }]}
-            onPress={() => setShowFilterModal(true)}
-          >
-            <Ionicons name="options" size={22} color="white" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.filteredResultsContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.filteredResultsTitle}>Filtered Results</Text>
-            {!isHostel && (
-              <TouchableOpacity
-                style={styles.vegToggleButton}
-                onPress={() => setShowVegFilterModal(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.vegLabelContainer}>
-                  <Text style={styles.vegLabelText}>VEG</Text>
-                </View>
-                <Animated.View style={[styles.vegToggleTrack]}>
-                  {/* Thumb that moves to the right when toggled ON and fills with primary color behind the leaf */}
-                  <Animated.View
-                    style={[
-                      styles.vegToggleThumb,
-                      {
-                        transform: [
-                          {
-                            translateX: vegToggleAnimated.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, 18], // move right when ON
-                            }),
-                          },
-                        ],
-                        // thumb remains green even when OFF; only its position and leaf opacity change
-                        // backgroundColor provided by styles.vegToggleThumb
-                      },
-                    ]}
-                  >
-                    <Animated.View style={[
-                      styles.leafContainer,
-                      {
-                        opacity: vegToggleAnimated,
-                        transform: [
-                          {
-                            scale: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
-                          }
-                        ],
-                      }
-                    ]}>
-                      <Ionicons name="leaf" size={12} color="#FFFFFF" />
-                    </Animated.View>
-                  </Animated.View>
-                </Animated.View>
-              </TouchableOpacity>
-            )}
-          </View>
-          <Text style={styles.servicesCount}>{displayedItems.length} filtered results</Text>
-          {isHostel && isLoadingHostels ? (
-            <View style={styles.noResultsContainer}>
-              <ActivityIndicator size="large" color="#6B7280" />
-              <Text style={styles.noResultsSubtext}>Loading hostels...</Text>
-            </View>
-          ) : displayedItems.length > 0 ? (
-            <FlatList
-              data={visibleItems}
-              renderItem={isHostel ? renderHostelItem : renderTiffinItem}
-              keyExtractor={keyExtractor}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              onEndReached={handleLoadMore}
-              onEndReachedThreshold={0.5}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-              }
-              ListFooterComponent={
-                <TouchableOpacity
-                  style={styles.backToHomeButton}
-                  onPress={() => {
-                    setIsFilterApplied(false);
-                    setAppliedFilters({});
-                  }}
-                >
-                  <Text style={styles.backToHomeText}>Back to Home</Text>
-                </TouchableOpacity>
-              }
-            />
-          ) : (
-            <>
-              <View style={styles.noResultsContainer}>
-                <Ionicons name="filter" size={50} color="#9CA3AF" />
-                <Text style={styles.noResultsText}>
-                  No {isHostel ? "hostels" : "tiffin services"} match your filters
-                </Text>
-                <Text style={styles.noResultsSubtext}>Try adjusting your filters</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.backToHomeButton}
-                onPress={() => {
-                  setIsFilterApplied(false);
-                  setAppliedFilters({});
-                }}
-              >
-                <Text style={styles.backToHomeText}>Back to Home</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-        <FilterModal
-          visible={showFilterModal}
-          onClose={() => setShowFilterModal(false)}
-          onApplyFilters={handleApplyFilters}
-          isHostel={isHostel}
-          currentFilters={appliedFilters}
-          cities={citiesData}
-          isLoadingCities={isLoadingCities}
-          hostelTypes={hostelTypesData}
-          isLoadingHostelTypes={isLoadingHostelTypes}
-          roomTypes={roomTypesData}
-          isLoadingRoomTypes={isLoadingRoomTypes}
-          planTypes={planTypesData}
-          isLoadingPlanTypes={isLoadingPlanTypes}
-        />
-      </View>
-    );
-  }
   // --- Normal Dashboard View --- (FIX: Ensure banner text is wrapped)
   // Added profileSource computation for fallback image handling
   const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
@@ -1427,7 +1283,7 @@ const fetchTiffinRecentSearch = async (
                 <Ionicons name="options" size={22} color={hasFilters ? "white" : "#2563EB"} />
               </TouchableOpacity>
             </View>
-            {!searchQuery && !hasFilters && (
+            {!searchQuery && (
               <View style={styles.banner}>
                 <Image source={isHostel ? hostel1 : food1} style={styles.bannerImage} resizeMode="cover" />
                 <View style={styles.bannerContent}>
@@ -1457,7 +1313,6 @@ const fetchTiffinRecentSearch = async (
                     setIsHostel(false);
                     setSearchQuery("");
                     setAppliedFilters({});
-                    setIsFilterApplied(false);
                     setHostelType("");
                     setArea("");
                     setMaxRent("");
@@ -1479,7 +1334,6 @@ const fetchTiffinRecentSearch = async (
                     setIsHostel(true);
                     setSearchQuery("");
                     setAppliedFilters({});
-                    setIsFilterApplied(false);
                     setHostelType("");
                     setArea("");
                     setMaxRent("");
@@ -1497,7 +1351,7 @@ const fetchTiffinRecentSearch = async (
                 </TouchableOpacity>
               </View>
             </View>
-            {isHostel && !hasFilters && (
+            {isHostel && !hasFilters && !isVegFiltered && (
               <View style={styles.filterSection}>
                 <View style={styles.filterRow}>
                   <View style={styles.filterItem}>
@@ -1541,18 +1395,24 @@ const fetchTiffinRecentSearch = async (
             <View style={styles.servicesSection}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>
-                  {hasFilters
+                  {isFiltered
                     ? "Filtered Results"
                     : searchQuery
                       ? "Search Results"
                       : isHostel
                         ? "Available Accommodations"
-                        : "Available Tiffin Service"}
+                        : "Filtered Results"}
                 </Text>
                 {!isHostel && (
                   <TouchableOpacity
                     style={styles.vegToggleButton}
-                    onPress={() => setShowVegFilterModal(true)}
+                    onPress={() => {
+                      if (vegFilter === "off") {
+                        setShowVegFilterModal(true);
+                      } else {
+                        setVegFilter("off");
+                      }
+                    }}
                     activeOpacity={0.7}
                   >
                     <View style={styles.vegLabelContainer}>
@@ -1601,9 +1461,9 @@ const fetchTiffinRecentSearch = async (
                     : searchQuery
                       ? `${filteredHostels.length} results found`
                       : `${filteredHostels.length} properties found in ${userLocation || "Unknown Location"}`
-                  : hasFilters
+                  : isFiltered
                     ? `${filteredTiffinServices.length} filtered results`
-                    : searchQuery || vegFilter === "veg"
+                    : searchQuery || isVegFiltered
                       ? `${filteredTiffinServices.length} results found`
                       : `${tiffinServices.length} services found in ${userLocation || "Unknown Location"}`}
               </Text>
@@ -1666,7 +1526,7 @@ const fetchTiffinRecentSearch = async (
       <VegFilterModal
         visible={showVegFilterModal}
         onClose={() => setShowVegFilterModal(false)}
-        currentFilter={vegFilter === "off" ? "all" : "veg"}
+        currentFilter={vegFilter === "off" || vegFilter === "veg_all" ? "all" : "veg"}
         onApply={handleVegFilterApply}
       />
     </View>
@@ -1958,71 +1818,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#004AAD",
     fontWeight: "500",
-  },
-  filteredHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  filteredBackButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.title,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  filteredTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-  },
-  filteredSearchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 16,
-    marginBottom: 20,
-    gap: 12,
-  },
-  filteredSearchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F2EFFD",
-    borderRadius: 8,
-    height: 48,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    paddingHorizontal: 16,
-  },
-  filteredSearchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 15,
-    color: "#1F2937",
-  },
-  filteredResultsContainer: {
-    flex: 1,
-  },
-  filteredResultsTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  backToHomeButton: {
-    marginHorizontal: 20,
-    marginVertical: 20,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  backToHomeText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.primary,
   },
   searchFocusedHeader: {
     flexDirection: "row",
