@@ -22,26 +22,19 @@ import { useFocusEffect } from "@react-navigation/native";
 import { BackHandler } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-
-
-
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
 const CARD_MARGIN = 10;
-
-
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
   const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount } = params;
   const isTiffin = serviceType === "tiffin";
-
   const [bookingDetails, setBookingDetails] = useState(null);
   const [tiffinDetails, setTiffinDetails] = useState(null);
   const [randomTiffin, setRandomTiffin] = useState(null);
   const [randomTiffins, setRandomTiffins] = useState([]);
   const [randomHostels, setRandomHostels] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -50,7 +43,6 @@ const Confirmation: React.FC = () => {
     const year = date.getFullYear().toString().slice(-2);
     return `${day}/${month}/${year}`;
   };
-
   useEffect(() => {
     const fetchBookingDetails = async () => {
       if (id) {
@@ -61,7 +53,6 @@ const Confirmation: React.FC = () => {
             setLoading(false);
             return;
           }
-
           let response;
           if (isTiffin) {
             response = await axios.get(
@@ -70,7 +61,6 @@ const Confirmation: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` },
               }
             );
-
             if (response.data.success) {
               setTiffinDetails(response.data.data);
             }
@@ -81,7 +71,6 @@ const Confirmation: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` },
               }
             );
-
             if (response.data.success) {
               setBookingDetails(response.data.data);
             }
@@ -95,17 +84,14 @@ const Confirmation: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchBookingDetails();
   }, [id, isTiffin]);
-
   useEffect(() => {
     const fetchRandomTiffins = async () => {
       if (!isTiffin) {
         try {
           const token = await AsyncStorage.getItem("token");
           if (!token) return;
-
           const tiffins = [];
           for (let i = 0; i < 3; i++) {
             const response = await axios.get(
@@ -114,7 +100,6 @@ const Confirmation: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` },
               }
             );
-
             if (response.data.success) {
               const service = response.data.data;
               // Ensure arrays
@@ -132,7 +117,6 @@ const Confirmation: React.FC = () => {
               service.timing = service.mealTimings?.map((m: any) => `${m.startTime}-${m.endTime}`).join(' | ') || "7AM-9PM";
               // Tags from foodType
               service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
-
               const locationString = service.location
                 ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
@@ -151,17 +135,14 @@ const Confirmation: React.FC = () => {
         }
       }
     };
-
     fetchRandomTiffins();
   }, [isTiffin]);
-
   useEffect(() => {
     const fetchRandomHostels = async () => {
       if (isTiffin) {
         try {
           const token = await AsyncStorage.getItem("token");
           if (!token) return;
-
           const hostels = [];
           for (let i = 0; i < 3; i++) {
             const response = await axios.get(
@@ -170,31 +151,29 @@ const Confirmation: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` },
               }
             );
-
             if (response.data.success) {
               const hostel = response.data.data;
               // Ensure array
               hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
               // Set image for card
-              if (hostel.hostelPhotos[0]) {
-                hostel.image = hostel.hostelPhotos[0].replace(/\.jpg\.jpg$/, ".jpg");
-              } else {
-                hostel.image = "https://via.placeholder.com/400x300?text=No+Image";
-              }
-
+              const photoUrl = hostel.hostelPhotos[0] ? hostel.hostelPhotos[0].replace(/(\.\w{3,4})\1$/, "$1") : "https://via.placeholder.com/400x300?text=No+Image";
+              hostel.image = { uri: photoUrl };
               // Derive price, rating, etc. for card
               hostel.price = `₹${hostel.pricing?.monthly || hostel.pricing?.perDay || 0}/Month`; // Fallback to perDay if no monthly
               hostel.type = hostel.hostelType || "Boys Hostel";
               hostel.rating = parseFloat(hostel.averageRating) || 0;
               hostel.reviews = hostel.totalReviews || 0;
               hostel.availableBeds = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.filter((bed: any) => bed.status === "Unoccupied") || []).length, 0) || 0;
+              const totalBedsCount = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.length || 0), 0) || 0;
+              hostel.occupiedBeds = totalBedsCount - hostel.availableBeds;
               hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
               hostel.deposit = `₹${hostel.securityDeposit || 0}`;
               hostel.description = hostel.description || "Comfortable stay with all amenities.";
-
               const locationString = hostel.location
                 ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
+              const nearbyLandmarks = hostel.location?.nearbyLandmarks || '';
+              hostel.subLocation = nearbyLandmarks.length > 50 ? nearbyLandmarks.slice(0, 50) + '...' : nearbyLandmarks;
               hostel.location = locationString;
               // Set name to match what HostelCard expects (likely 'name')
               hostel.name = hostel.hostelName || "Unnamed Hostel";
@@ -207,24 +186,19 @@ const Confirmation: React.FC = () => {
         }
       }
     };
-
     fetchRandomHostels();
   }, [isTiffin]);
-  
+ 
   useFocusEffect(
   React.useCallback(() => {
     const onBackPress = () => {
       router.replace("/(secure)/(tabs)");
       return true; // Prevent default back action
     };
-
     const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-
     return () => subscription.remove();
   }, [])
 );
-
-
   const tiffinBookingDetails = tiffinDetails ? {
     bookingId: tiffinDetails.bookingId,
     tiffinService: tiffinDetails.tiffinServiceName,
@@ -248,7 +222,6 @@ const Confirmation: React.FC = () => {
     orderType: "Delivery",
     planType: "Daily",
   };
-
   const hostelBookingDetails = bookingDetails ? {
     id: id,
     hostelBooking: bookingDetails.hostelName,
@@ -264,10 +237,8 @@ const Confirmation: React.FC = () => {
     checkInDate: "01/08/25",
     amount: paramAmount || 'N/A',
   };
-
   const handlePrintInvoice = async () => {
   const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
-
   const htmlContent = `
     <html>
       <body style="font-family: Arial; padding: 20px;">
@@ -276,7 +247,7 @@ const Confirmation: React.FC = () => {
         <h3>Booking Summary</h3>
         <table style="width: 100%; border-collapse: collapse;">
           ${Object.entries(details)
-            
+           
             .map(
               ([key, value]) => `
               <tr>
@@ -291,7 +262,6 @@ const Confirmation: React.FC = () => {
       </body>
     </html>
   `;
-
   try {
     const { uri } = await Print.printToFileAsync({ html: htmlContent });
     if (await Sharing.isAvailableAsync()) {
@@ -303,9 +273,7 @@ const Confirmation: React.FC = () => {
     console.error("Error generating invoice:", error);
   }
 };
-
   const currentBookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
-
   const getRecommendations = () => {
     if (isTiffin) {
       return randomHostels.length > 0
@@ -313,19 +281,23 @@ const Confirmation: React.FC = () => {
         : (demoData.hostels?.slice(0, 3) || []).map((hostel, index) => {
           // Ensure arrays and set props for demoData
           hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
-          hostel.image = hostel.hostelPhotos[0] || hostel.image; // Fallback to existing image if set
+          const demoImageUrl = hostel.hostelPhotos[0] || (typeof hostel.image === 'string' ? hostel.image : hostel.image?.uri) || 'https://via.placeholder.com/400x300?text=No+Image';
+          hostel.image = { uri: demoImageUrl };
           hostel.price = `₹${hostel.pricing?.monthly || hostel.pricing?.perDay || 0}/Month`;
           hostel.type = hostel.hostelType || "Boys Hostel";
           hostel.rating = parseFloat(hostel.averageRating) || 0;
           hostel.reviews = hostel.totalReviews || 0;
           hostel.availableBeds = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.filter((bed: any) => bed.status === "Unoccupied") || []).length, 0) || 0;
+          const totalBedsCount = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.length || 0), 0) || 0;
+          hostel.occupiedBeds = totalBedsCount - hostel.availableBeds;
           hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
           hostel.deposit = `₹${hostel.securityDeposit || 0}`;
           hostel.description = hostel.description || "Comfortable stay with all amenities.";
-
           const locationString = hostel.location
             ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
             : 'Location not available';
+          const nearbyLandmarks = hostel.location?.nearbyLandmarks || '';
+          hostel.subLocation = nearbyLandmarks.length > 50 ? nearbyLandmarks.slice(0, 50) + '...' : nearbyLandmarks;
           hostel.location = locationString;
           // Set name to match what HostelCard expects
           hostel.name = hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`;
@@ -345,7 +317,6 @@ const Confirmation: React.FC = () => {
         service.description = service.description || "Delicious home-cooked meals.";
         service.timing = service.mealTimings?.map((m: any) => `${m.startTime}-${m.endTime}`).join(' | ') || "7AM-9PM";
         service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
-
         const locationString = service.location
           ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
           : 'Location not available';
@@ -356,17 +327,13 @@ const Confirmation: React.FC = () => {
       });
     }
   };
-
   const recommendations = getRecommendations();
-
   const handleCallAdmin = () => {
     Linking.openURL("tel:5146014598");
   };
-
   const handleChatAdmin = () => {
     router.push('/account/chatScreen');
   };
-
   const handleBookNow = (item: any) => {
     if (isTiffin) {
       router.push(`/hostel-details/${item.id || item._id}`);
@@ -374,7 +341,6 @@ const Confirmation: React.FC = () => {
       router.push(`/tiffin-details/${item.id || item._id}`);
     }
   };
-
   const handleGoToOrder = () => {
     router.push({
       pathname: "/booking",
@@ -383,11 +349,9 @@ const Confirmation: React.FC = () => {
       },
     });
   };
-
   const handleBackToHome = () => {
     router.push("/");
   };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -397,14 +361,12 @@ const Confirmation: React.FC = () => {
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.logoContainer}>
           <Logo />
         </View>
-
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>Booking Submitted!</Text>
           <Text style={styles.subtitle}>
@@ -412,7 +374,6 @@ const Confirmation: React.FC = () => {
             successfully.
           </Text>
         </View>
-
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.sectionTitle}>Booking Summary</Text>
@@ -420,9 +381,7 @@ const Confirmation: React.FC = () => {
   <Ionicons name="download-outline" size={16} color="#fff" />
   <Text style={styles.invoiceText}>Invoice</Text>
 </TouchableOpacity>
-
           </View>
-
           {isTiffin ? (
             <>
               <View style={styles.detailRow}>
@@ -512,7 +471,6 @@ const Confirmation: React.FC = () => {
             </>
           )}
         </View>
-
         <View style={styles.adminContactRow}>
           <TouchableOpacity
             style={styles.contactButton}
@@ -521,7 +479,6 @@ const Confirmation: React.FC = () => {
             <Ionicons name="call-outline" size={20} color="#004AAD" />
             <Text style={styles.contactButtonText}>Call to Admin</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.contactButton, styles.chatButton]}
             onPress={handleChatAdmin}
@@ -530,18 +487,14 @@ const Confirmation: React.FC = () => {
             <Text style={styles.contactButtonText}>Chat with Admin</Text>
           </TouchableOpacity>
         </View>
-
         <Text style={styles.contactNote}>
           Having issue? Contact our support team at +34 12345 5210
         </Text>
-
         {isTiffin && (
           <View style={styles.whatsNextSection}>
             <Text style={styles.sectionTitle}>{"What's Next?"}</Text>
-
             <View style={styles.preferenceCard}>
               <Text style={styles.preferenceTitle}>Meal Preference</Text>
-
               <View style={styles.preferenceRow}>
                 <Text style={styles.preferenceNumberText}>1</Text>
                 <Text style={styles.preferenceText}>Provider Contact</Text>
@@ -550,7 +503,6 @@ const Confirmation: React.FC = () => {
                 The tiffin provider will contact you within 1 hours to confirm
                 your booking.
               </Text>
-
               <View style={styles.preferenceRow}>
                 <Text style={styles.preferenceNumberText}>2</Text>
                 <Text style={styles.preferenceText}>Delivery Setup</Text>
@@ -558,7 +510,6 @@ const Confirmation: React.FC = () => {
               <Text style={styles.preferenceDescription}>
                 Discuss delivery address, timing, and any special requirements.
               </Text>
-
               <View style={styles.preferenceRow}>
                 <Text style={styles.preferenceNumberText}>3</Text>
                 <Text style={styles.preferenceText}>Enjoy Your Meals</Text>
@@ -569,12 +520,10 @@ const Confirmation: React.FC = () => {
             </View>
           </View>
         )}
-
         <View style={styles.recommendationsSection}>
           <Text style={styles.recommendationTitle}>
             {isTiffin ? "Recommended Hostels" : "Recommended Tiffin Services"}
           </Text>
-
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -607,7 +556,6 @@ const Confirmation: React.FC = () => {
             ))}
           </ScrollView>
         </View>
-
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           {isTiffin && (
@@ -618,7 +566,6 @@ const Confirmation: React.FC = () => {
               style={styles.orderButton}
             />
           )}
-
           <Button
             title="Back to Home"
             onPress={handleBackToHome}
@@ -631,9 +578,6 @@ const Confirmation: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -850,5 +794,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-
 export default Confirmation;

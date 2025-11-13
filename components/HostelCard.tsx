@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
+import hostel1 from "@/assets/images/image/hostelBanner.png"; // Your existing fallback
 
 interface HostelCardProps {
   hostel: {
@@ -12,9 +13,12 @@ interface HostelCardProps {
     location: string;
     price: string;
     rating: number;
+    reviews?: number;
     amenities: string[];
     image: any;
     availableBeds?: number;
+    occupiedBeds?: number;
+    subLocation?: string;
     deposit?: string;
     horizontal?: boolean;
   };
@@ -45,6 +49,7 @@ export default function HostelCard({
 }: HostelCardProps) {
   const { isFavorite } = useFavorites();
   const isFav = isFavorited !== undefined ? isFavorited : isFavorite(hostel.id, "hostel");
+  const [imageSource, setImageSource] = useState(hostel.image); // Start with provided source
   const service = hostel;
 
   const handleFavoritePress = (e: any) => {
@@ -59,7 +64,16 @@ export default function HostelCard({
     >
       <View style={styles.cardContent}>
         <View style={styles.imageContainer}>
-          <Image source={hostel.image} style={styles.hostelImage} />
+          <Image 
+            source={imageSource}
+            style={styles.hostelImage}
+            onError={(error) => {
+              console.log('Hostel image load failed:', error.nativeEvent.error, 'URL:', hostel.image?.uri);
+              setImageSource(hostel1); // Fall back to default image
+            }}
+            // Optional: Add onLoad for success logging if needed
+            onLoad={() => console.log('Hostel image loaded successfully:', hostel.image?.uri)}
+          />
         </View>
 
         <View style={styles.hostelInfo}>
@@ -94,11 +108,14 @@ export default function HostelCard({
             </View>
           </View>
 
-          <Text style={styles.sublocation}>Near VNIT, Medical College</Text>
+          <Text style={styles.sublocation}>{hostel.subLocation || ""}</Text>
 
           <View style={styles.bedsRow}>
             <Ionicons name="bed-outline" size={16} color="#6B7280" />
-            <Text style={styles.bedsText}>{hostel.availableBeds} available</Text>
+            <Text style={styles.bedsText}>
+              {hostel.availableBeds} available 
+              {hostel.occupiedBeds ? ` (${hostel.occupiedBeds} occupied)` : ''}
+            </Text>
           </View>
 
           <View style={styles.amenitiesRow}>
@@ -118,7 +135,7 @@ export default function HostelCard({
           <View style={styles.bottomRow}>
             <View style={styles.priceContainer}>
               <Text style={styles.price}>{hostel.price}</Text>
-              <Text style={styles.deposit}>Deposit: {hostel.deposit}</Text>
+              <Text style={styles.deposit}>Deposit: {hostel.deposit || "Contact for details"}</Text>
             </View>
 
             <TouchableOpacity

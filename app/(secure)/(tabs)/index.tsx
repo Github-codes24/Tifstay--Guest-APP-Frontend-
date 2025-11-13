@@ -44,7 +44,12 @@ interface Hostel {
   price: string;
   amenities: string[];
   rating: number;
+  reviews?: number;
   image: any;
+  availableBeds?: number;
+  occupiedBeds?: number;
+  subLocation?: string;
+  deposit?: string;
   planType?: string;
   roomType?: string;
   acNonAc?: string;
@@ -239,19 +244,32 @@ export default function DashboardScreen() {
       const result = await response.json();
       console.log("getAllHostelServices response:", JSON.stringify(result, null, 2));
       if (result.success && result.data) {
-        const mappedHostels = result.data.map((hostel: any) => ({
-          id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
-          name: hostel.hostelName || "Unknown Hostel",
-          type: hostel.hostelType || "Unknown",
-          location: hostel.fullAddress || "Unknown Location",
-          price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
-          amenities: hostel.facilities || [],
-          rating: hostel.rating || 0,
-          image: imageMapping["hostel1"],
-          planType: hostel.planType || "",
-          roomType: hostel.roomType || "",
-          acNonAc: hostel.acNonAc || "",
-        }));
+        const mappedHostels = result.data.map((hostel: any) => {
+          let imageUrl = hostel.hostelPhotos?.[0];
+          if (imageUrl && (imageUrl.includes('/video/') || imageUrl.match(/\.mp4$/i))) {
+            imageUrl = hostel.roomPhotos?.[0];
+          }
+          if (!imageUrl && hostel.roomPhotos?.length > 0) {
+            imageUrl = hostel.roomPhotos[0];
+          }
+          return {
+            id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
+            name: hostel.hostelName || "Unknown Hostel",
+            type: hostel.hostelType || "Unknown",
+            location: hostel.fullAddress || "Unknown Location",
+            price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
+            amenities: hostel.facilities || [],
+            rating: hostel.average || 0,
+            reviews: hostel.totalReviews || 0,
+            availableBeds: hostel.availableBeds || 0,
+            occupiedBeds: hostel.occupiedBeds || 0,
+            subLocation: hostel.nearbyLandmarks || "",
+            image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
+            planType: hostel.planType || "",
+            roomType: hostel.roomType || "",
+            acNonAc: hostel.acNonAc || "",
+          };
+        });
         return mappedHostels;
       } else {
         console.warn("getAllHostelServices failed:", result.message);
@@ -462,19 +480,32 @@ const fetchTiffinRecentSearch = async (
         const filtered = result.data.filter((hostel: any) =>
           (hostel.hostelName || "").toLowerCase().includes(trimmedQuery)
         );
-        const mappedHostels = filtered.map((hostel: any) => ({
-          id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
-          name: hostel.hostelName || "Unknown Hostel",
-          type: hostel.hostelType || "Unknown",
-          location: hostel.fullAddress || "Unknown Location",
-          price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
-          amenities: hostel.facilities || [],
-          rating: hostel.rating || 0,
-          image: imageMapping["hostel1"],
-          planType: hostel.planType || "",
-          roomType: hostel.roomType || "",
-          acNonAc: hostel.acNonAc || "",
-        }));
+        const mappedHostels = filtered.map((hostel: any) => {
+          let imageUrl = hostel.hostelPhotos?.[0];
+          if (imageUrl && (imageUrl.includes('/video/') || imageUrl.match(/\.mp4$/i))) {
+            imageUrl = hostel.roomPhotos?.[0];
+          }
+          if (!imageUrl && hostel.roomPhotos?.length > 0) {
+            imageUrl = hostel.roomPhotos[0];
+          }
+          return {
+            id: hostel.hostelId || `hostel-${Math.random().toString(36).substr(2, 9)}`,
+            name: hostel.hostelName || "Unknown Hostel",
+            type: hostel.hostelType || "Unknown",
+            location: hostel.fullAddress || "Unknown Location",
+            price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
+            amenities: hostel.facilities || [],
+            rating: hostel.average || 0,
+            reviews: hostel.totalReviews || 0,
+            availableBeds: hostel.availableBeds || 0,
+            occupiedBeds: hostel.occupiedBeds || 0,
+            subLocation: hostel.nearbyLandmarks || "",
+            image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
+            planType: hostel.planType || "",
+            roomType: hostel.roomType || "",
+            acNonAc: hostel.acNonAc || "",
+          };
+        });
         return mappedHostels;
       } else {
         // FIX: Backend failed? Fallback to client-side filter on allHostelsData
@@ -1053,6 +1084,7 @@ const fetchTiffinRecentSearch = async (
   );
   const renderHostelItem = ({ item }: { item: Hostel }) => (
     <HostelCard
+   
       hostel={item}
       onPress={() => handleHostelPress(item)}
       onBookPress={() => handleBookPress(item)}
@@ -1060,6 +1092,7 @@ const fetchTiffinRecentSearch = async (
         console.log("Hostel heart icon clicked in dashboard for ID:", item.id);
         handleFavoriteToggle(item);
       }}
+     
     />
   );
   const keyExtractor = (item: Hostel | TiffinService) => (item.id || Math.random().toString()).toString();
