@@ -27,6 +27,7 @@ import Header from "../components/Header";
 import RoomSelectionModal from "./modals/RoomSelectionModal";
 import { useFavorites } from "@/context/FavoritesContext"; // Fixed path
 const { width } = Dimensions.get("window");
+
 export default function ProductDetails() {
   const params = useLocalSearchParams<{ id?: string; type?: string }>();
   const paramId = params.id as string;
@@ -40,6 +41,7 @@ export default function ProductDetails() {
   const [reviews, setReviews] = useState([]);
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
+
   // Auth token helper (reused from DashboardScreen logic)
   const getAuthToken = async (): Promise<string | null> => {
     try {
@@ -54,6 +56,7 @@ export default function ProductDetails() {
       return null;
     }
   };
+
   // --- Fetch full tiffin details by ID ---
   const fetchTiffinById = async (id: string): Promise<any | null> => {
     const token = await getAuthToken();
@@ -80,6 +83,7 @@ export default function ProductDetails() {
       return null;
     }
   };
+
   // --- Fetch full hostel details by ID ---
   const fetchHostelById = async (id: string): Promise<any | null> => {
     const token = await getAuthToken();
@@ -106,6 +110,7 @@ export default function ProductDetails() {
       return null;
     }
   };
+
   // Extracted fetchReviews logic for useQuery (returns mapped data for caching)
   const fetchReviews = useCallback(async () => {
     const token = await getAuthToken();
@@ -160,6 +165,7 @@ export default function ProductDetails() {
       };
     }
   }, [paramType, paramId]);
+
   // React Query hook for reviews (caches for 5min by default from QueryClient)
   const {
     data: reviewsResult,
@@ -170,6 +176,7 @@ export default function ProductDetails() {
     enabled: activeTab === 'Reviews' && !!paramId, // Only fetch when tab is active (matches current behavior)
     staleTime: 5 * 60 * 1000, // Inherit 5min from QueryClient, but explicit for clarity
   });
+
   // Update local state when query data is available
   useEffect(() => {
     if (reviewsResult) {
@@ -182,6 +189,7 @@ export default function ProductDetails() {
       }));
     }
   }, [reviewsResult]);
+
   // Helper function to parse time string to minutes since midnight for sorting
   const parseTimeToMinutes = (timeStr: string): number => {
     const [time, period] = timeStr.split(' ');
@@ -193,6 +201,13 @@ export default function ProductDetails() {
     }
     return hours * 60 + minutes;
   };
+
+  // Truncate description helper
+  const truncateDescription = (desc: string, maxLength: number = 150): string => {
+    if (!desc || desc.length <= maxLength) return desc || "Not available";
+    return desc.substring(0, maxLength).trim() + '...';
+  };
+
   // Map full API data to component-expected structure
   useEffect(() => {
     console.log("🟢 ProductDetails processing:", { paramId, paramType });
@@ -219,16 +234,19 @@ export default function ProductDetails() {
         if (paramType === "hostel") {
           const apiData = fullApiData;
           const rooms = Array.isArray(apiData.rooms) ? apiData.rooms : [];
-          const totalBeds = rooms.reduce((acc: number, room: any) => {
+          const totalBedsCalc = rooms.reduce((acc: number, room: any) => {
             return acc + (Array.isArray(room.totalBeds) ? room.totalBeds.length : 0);
           }, 0);
-          const availableBeds = rooms.reduce((acc: number, room: any) => {
+          const availableBedsCalc = rooms.reduce((acc: number, room: any) => {
             if (!Array.isArray(room.totalBeds)) return acc;
             return acc + room.totalBeds.filter((bed: any) => bed.status === "Unoccupied").length;
           }, 0);
+          // Use API values if available, fallback to calculated
+          const totalBeds = typeof apiData.totalBeds === 'number' ? apiData.totalBeds : totalBedsCalc;
+          const availableBeds = typeof apiData.availableBeds === 'number' ? apiData.availableBeds : availableBedsCalc;
           // Calculate daily if not provided (monthly / 30)
           const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
-          const dailyPrice = typeof apiData.pricing?.daily === 'number' ? apiData.pricing.daily : Math.floor(monthlyPrice / 30);
+          const dailyPrice = typeof apiData.pricing?.perDay === 'number' ? apiData.pricing.perDay : Math.floor(monthlyPrice / 30);
           const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
           // Images
           const images = Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos.map((p: string) => ({ uri: p })) : [];
@@ -236,7 +254,7 @@ export default function ProductDetails() {
             id: apiData._id,
             name: apiData.hostelName || "Unknown Hostel",
             type: apiData.hostelType || "Boys Hostel",
-            description: apiData.description || "No description available.",
+            description: truncateDescription(apiData.description),
             images,
             totalRooms: typeof apiData.totalRooms === 'number' ? apiData.totalRooms : rooms.length,
             totalBeds,
@@ -244,17 +262,17 @@ export default function ProductDetails() {
             deposit: typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0,
             offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
             amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
-            fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "",
-            sublocation: typeof apiData.location?.area === 'string' ? apiData.location.area : "",
-            rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Default rules: No smoking, visitors till 8 PM.",
+            fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Not available",
+            sublocation: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Not available",
+            location: typeof apiData.location?.area === 'string' ? apiData.location.area : "Unknown",
+            rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Not available",
             userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
-            reviewCount: typeof apiData.reviewCount === 'number' ? apiData.reviewCount : 0,
-            rating: typeof apiData.rating === 'number' ? apiData.rating : 0,
+            reviewCount: typeof apiData.totalReviews === 'number' ? apiData.totalReviews : 0,
+            rating: typeof apiData.averageRating === 'number' ? apiData.averageRating : 0,
             reviews: 0, // Fallback
             price: `₹${monthlyPrice}/MONTH`,
             daily: dailyPrice,
             weekly: weeklyPrice,
-            location: typeof apiData.location?.area === 'string' ? apiData.location.area : "Unknown",
             rooms: rooms, // Keep for potential use
           };
         } else if (paramType === "tiffin") {
@@ -360,8 +378,10 @@ export default function ProductDetails() {
     };
     processData();
   }, [paramId, paramType]);
+
   // Fixed: Now isFavorite is available, use mappedData
   const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
+
   // Inside ProductDetails component
   // Add this helper for API calls
   const addFavoriteToBackend = async (serviceId: string, serviceType: "tiffin" | "hostel") => {
@@ -397,6 +417,7 @@ export default function ProductDetails() {
       return { success: false };
     }
   };
+
   // Update handleFavoritePress
   const handleFavoritePress = async () => {
     if (!mappedData) return;
@@ -447,6 +468,7 @@ export default function ProductDetails() {
       Alert.alert('Error', 'Failed to update favorites. Please try again.');
     }
   };
+
   const handleShare = async (platform: string) => {
     if (!mappedData) return;
     setShowShareModal(false);
@@ -487,6 +509,7 @@ export default function ProductDetails() {
       Alert.alert("Share", message);
     }
   };
+
   // Early return if data not ready
   if (!mappedData) {
     return (
@@ -503,6 +526,7 @@ export default function ProductDetails() {
       </SafeAreaView>
     );
   }
+
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
     <Header
@@ -511,6 +535,7 @@ export default function ProductDetails() {
       onBack={() => router.back()}
     />
   );
+
   // ==================== IMAGE CAROUSEL SECTION ====================
   const renderImageCarousel = () => {
     const imageWidth = width - 32;
@@ -560,6 +585,7 @@ export default function ProductDetails() {
       </View>
     );
   };
+
   // ==================== BASIC INFO SECTION ====================
   const renderBasicInfo = () => (
     <View style={styles.basicInfo}>
@@ -569,7 +595,7 @@ export default function ProductDetails() {
         <View style={styles.ratingContainer}>
           <Ionicons name="star" size={16} color="#FFA500" />
           <Text style={styles.rating}>
-            {mappedData.rating} ({mappedData.reviews || mappedData.reviewCount})
+            {mappedData.rating} ({mappedData.reviewCount})
           </Text>
         </View>
       </View>
@@ -587,17 +613,17 @@ export default function ProductDetails() {
         </View>
       )}
       {/* Hostel-specific location info */}
-      {paramType === "hostel" && mappedData.sublocation && (
+      {paramType === "hostel" && mappedData.sublocation && mappedData.sublocation !== "Not available" && (
         <Text style={styles.sublocation}>{mappedData.sublocation}</Text>
       )}
       {/* Hostel room availability */}
       {paramType === "hostel" && (
         <View style={styles.roomAvailability}>
-          <Text style={styles.roomText}>Total Rooms: {mappedData.totalRooms}</Text>
+          <Text style={styles.roomText}>Total Rooms: {mappedData.totalRooms || "Not available"}</Text>
           <View style={styles.bedInfo}>
             <Ionicons name="bed-outline" size={16} color="#666" />
             <Text style={styles.roomText}>
-              {mappedData.availableBeds}/{mappedData.totalBeds} bed available
+              {mappedData.availableBeds || 0}/{mappedData.totalBeds || 0} bed available
             </Text>
           </View>
         </View>
@@ -626,6 +652,7 @@ export default function ProductDetails() {
       {renderPricingSection()}
     </View>
   );
+
   // ==================== PRICING SECTION ====================
   const renderPricingSection = () => {
     if (paramType === "hostel") {
@@ -697,6 +724,7 @@ export default function ProductDetails() {
       );
     }
   };
+
   // ==================== TABS SECTION ====================
   const renderTabs = () => (
     <View style={styles.tabContainer}>
@@ -728,6 +756,7 @@ export default function ProductDetails() {
       </TouchableOpacity>
     </View>
   );
+
   // ==================== TIFFIN DETAILS SECTION ====================
   const renderTiffinDetails = () => (
     <View style={styles.detailsContainer}>
@@ -805,6 +834,7 @@ export default function ProductDetails() {
       </View>
     </View>
   );
+
   // ==================== HOSTEL DETAILS SECTION ====================
   const renderHostelDetails = () => (
     <View style={styles.detailsContainer}>
@@ -855,8 +885,7 @@ export default function ProductDetails() {
             style={styles.rulesIcon}
           />
           <Text style={styles.rulesText}>
-            {mappedData.rulesAndPolicies ||
-              "No smoking inside premises. Visitors allowed till 8 PM. Mess timing: 7-10 AM, 12-2 PM, 7-9 PM. Maintain cleanliness in common areas."}
+            {mappedData.rulesAndPolicies}
           </Text>
         </View>
       </View>
@@ -864,14 +893,15 @@ export default function ProductDetails() {
       <View style={[styles.section, styles.locationSection]}>
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
-          <Text style={styles.locationTitle}>Near Medical College</Text>
+          <Text style={styles.locationTitle}>{mappedData.sublocation}</Text>
           <Text style={styles.locationAddress}>
-            {mappedData.fullAddress || `${mappedData.sublocation}, ${mappedData.location}`}
+            {mappedData.fullAddress}
           </Text>
         </View>
       </View>
     </View>
   );
+
   // ==================== REVIEWS SECTION ====================
   const renderReviews = () => (
     <View style={styles.reviewsContainer}>
@@ -931,6 +961,7 @@ export default function ProductDetails() {
       )}
     </View>
   );
+
   // ==================== BOTTOM BUTTONS SECTION ====================
   const renderBottomButtons = () => (
     <View style={styles.bottomContainer}>
@@ -1010,6 +1041,7 @@ export default function ProductDetails() {
       )}
     </View>
   );
+
   // ==================== MAIN RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
@@ -1047,6 +1079,7 @@ export default function ProductDetails() {
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

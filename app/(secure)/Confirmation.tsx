@@ -122,7 +122,7 @@ const Confirmation: React.FC = () => {
                 : 'Location not available';
               service.location = locationString;
               // Set name if it's under a different key (adjust based on API response for tiffins)
-              service.name = service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service";
+              service.name = service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service";
               tiffins.push(service);
             }
           }
@@ -322,7 +322,7 @@ const Confirmation: React.FC = () => {
           : 'Location not available';
         service.location = locationString;
         // Set name to match what TiffinCard expects
-        service.name = service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`;
+        service.name = service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`;
         return service;
       });
     }
@@ -378,9 +378,9 @@ const Confirmation: React.FC = () => {
           <View style={styles.summaryHeader}>
             <Text style={styles.sectionTitle}>Booking Summary</Text>
           <TouchableOpacity style={styles.invoiceButton} onPress={handlePrintInvoice}>
-  <Ionicons name="download-outline" size={16} color="#fff" />
-  <Text style={styles.invoiceText}>Invoice</Text>
-</TouchableOpacity>
+    <Ionicons name="download-outline" size={16} color="#fff" />
+    <Text style={styles.invoiceText}>Invoice</Text>
+  </TouchableOpacity>
           </View>
           {isTiffin ? (
             <>

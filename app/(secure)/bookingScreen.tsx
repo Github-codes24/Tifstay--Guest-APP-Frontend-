@@ -11,16 +11,18 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
-import { calender, location1, person } from "@/assets/images";
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import Header from "@/components/Header";
 import Buttons from "@/components/Buttons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
 type RoomData = {
@@ -126,7 +128,6 @@ export default function BookingScreen() {
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
-  const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [message, setMessage] = useState("");
   const [purposeType, setPurposeType] = useState<
     "work" | "leisure" | "student"
@@ -325,6 +326,14 @@ export default function BookingScreen() {
       );
       return {};
     }
+  };
+  // Custom toast function for backend errors only (using react-native-toast-message)
+  const showCustomToast = (message: string) => {
+    Toast.show({
+      type: "error",
+      text1: "Booking Error",
+      text2: message,
+    });
   };
   useEffect(() => {
     const isHostelBooking =
@@ -698,14 +707,6 @@ export default function BookingScreen() {
       // Auto-fill check-out will happen via useEffect
     }
   };
-  const onChangeCheckOutDate = (event: any, selectedDate?: Date) => {
-    setShowCheckOutPicker(Platform.OS === "ios");
-    if (selectedDate) {
-      // Same fix for check-out
-      selectedDate.setHours(12, 0, 0, 0);
-      setCheckOutDate(new Date(selectedDate));
-    }
-  };
   // NEW: Image picker functions for hostel uploads
   const pickAadhaarPhoto = async () => {
     const permissionResult =
@@ -932,527 +933,341 @@ export default function BookingScreen() {
       });
     } else {
       console.error("Booking failed:", response.data.message || "Unknown error");
+      const errorMsg = response.data.message || "Unknown error";
       setErrors((prev) => ({
         ...prev,
-        general:
-          "Booking failed: " +
-          (response.data.message || "Unknown error"),
+        general: `Booking failed: ${errorMsg}`,
       }));
+      showCustomToast(`Booking failed: ${errorMsg}`);
     }
   } catch (error) {
     console.error(
       "Error creating tiffin booking:",
       error.response?.data || error.message
     );
-    const errorMsg =
-      error.response?.status === 400
-        ? "Invalid booking details. Please check your selections and try again."
-        : "Something went wrong while booking. Please try again.";
+    let errorMsg = "Something went wrong while booking. Please try again.";
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+      errorMsg = error.response.data.message; // Use backend error message
+    } else if (error.response?.status === 400) {
+      errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
+    }
     setErrors((prev) => ({
       ...prev,
       general: errorMsg,
     }));
+    showCustomToast(errorMsg);
   }
 };
-// UPDATED: Handle hostel submit (add bed names to payload)
-// UPDATED: Handle hostel submit (add bed names to payload)
-const handleHostelSubmit = async () => {
-  console.log("=== Hostel Submit Debug ===");
-  console.log("serviceData:", serviceData);
-  console.log("hostelPlan:", hostelPlan);
-  console.log("fullName:", fullName);
-  console.log("phoneNumber:", phoneNumber);
-  console.log("checkInDate:", checkInDate);
-  console.log("checkOutDate:", checkOutDate);
-  console.log("purposeType:", purposeType);
-  console.log("aadhaarPhoto:", aadhaarPhoto);
-  console.log("userPhoto:", userPhoto);
-  console.log("rooms:", serviceData.rooms);
-  console.log("bedNames:", bedNames);
-  if (!validateHostelForm()) {
-    // NEW: Auto-expand beds section if bed name errors are present for better UX
-    const allBedKeys = serviceData.rooms.flatMap(room =>
-      room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
-    );
-    const hasMissingBedNames = allBedKeys.some(key => !bedNames[key]?.trim());
-    if (hasMissingBedNames) {
-      setExpandedTiffin(0);
-    }
-    return;
-  }
-  setIsLoadingHostel(true);
-  try {
-    if (!serviceData.hostelId) {
-      console.error("Error: Hostel ID is missing!");
-      console.log("hostelId:", serviceData.hostelId);
-      setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
-      return;
-    }
-    // NEW: No need for single roomId validation
-    if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
-      console.error("Error: No rooms or beds selected!");
-      setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
-      return;
-    }
-    const token = await AsyncStorage.getItem("token");
-    const guestId = await AsyncStorage.getItem("guestId");
-    console.log("token:", token ? "Present" : "Missing");
-    console.log("guestId:", guestId ? "Present" : "Missing");
-    if (!token || !guestId) {
-      console.error("Error: Authentication token or guest ID is missing!");
-      setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
-      return;
-    }
-    // FIXED: Use flat price and deposit for the plan (no per-bed division)
-    const selectPlan = [
-      {
-        name: hostelPlan,
-        price: currentPlanPrice,
-        depositAmount: currentDeposit,
-      },
-    ];
-    // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
-    const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
-      roomId: room.roomId,
-      roomNumber: String(room.roomNumber || ""), // e.g., "101"
-      bedNumber: room.beds.map(bed => ({
-        bedId: bed.bedId,
-        bedNumber: bed.bedNumber,
-        name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
-      })),
-    }));
-    // Create FormData for file uploads
-    const formData = new FormData();
-    formData.append('fullName', fullName);
-    formData.append('phoneNumber', phoneNumber);
-    formData.append('email', serviceData.email || "example@example.com");
-    formData.append('checkInDate', checkInDate.toISOString());
-    formData.append('checkOutDate', checkOutDate.toISOString());
-    formData.append('workType', purposeType);
-    formData.append('guestId', guestId);
-    // Append rooms as JSON string (now with names)
-    formData.append('rooms', JSON.stringify(roomsPayload));
-    // Append plan as JSON string
-    formData.append('selectPlan', JSON.stringify(selectPlan));
-    // Append images as files (if selected)
-    if (aadhaarPhoto) {
-      formData.append('addharCardPhoto', {
-        uri: aadhaarPhoto,
-        type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
-        name: 'aadhar.jpg',
-      } as any);
-    }
-    if (userPhoto) {
-      formData.append('userPhoto', {
-        uri: userPhoto,
-        type: 'image/jpeg',
-        name: 'user.jpg',
-      } as any);
-    }
-    console.log("Full FormData Payload: (logged as object for debug)");
-    console.log({
-      fullName,
-      phoneNumber,
-      email: serviceData.email || "example@example.com",
-      checkInDate: checkInDate.toISOString(),
-      checkOutDate: checkOutDate.toISOString(),
-      workType: purposeType,
-      guestId,
-      rooms: roomsPayload,
-      selectPlan,
-      aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
-      userPhoto: userPhoto ? 'Attached' : 'Null',
-    });
-    // NEW: API URL uses only hostelId (remove roomId query param)
-    const response = await axios.post(
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
+  // UPDATED: Handle hostel submit (add bed names to payload)
+  // UPDATED: Handle hostel submit (add bed names to payload)
+  const handleHostelSubmit = async () => {
+    console.log("=== Hostel Submit Debug ===");
+    console.log("serviceData:", serviceData);
+    console.log("hostelPlan:", hostelPlan);
+    console.log("fullName:", fullName);
+    console.log("phoneNumber:", phoneNumber);
+    console.log("checkInDate:", checkInDate);
+    console.log("checkOutDate:", checkOutDate);
+    console.log("purposeType:", purposeType);
+    console.log("aadhaarPhoto:", aadhaarPhoto);
+    console.log("userPhoto:", userPhoto);
+    console.log("rooms:", serviceData.rooms);
+    console.log("bedNames:", bedNames);
+    if (!validateHostelForm()) {
+      // NEW: Auto-expand beds section if bed name errors are present for better UX
+      const allBedKeys = serviceData.rooms.flatMap(room =>
+        room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
+      );
+      const hasMissingBedNames = allBedKeys.some(key => !bedNames[key]?.trim());
+      if (hasMissingBedNames) {
+        setExpandedTiffin(0);
       }
-    );
-    console.log("API Response:", response.data);
-    if (response.data.success) {
-      console.log("Booking successful:", response.data.data);
-      // alert("Hostel booking created successfully!");
-      const bookingId = response.data.data._id;
-      console.log("Navigating to checkout with booking ID:", bookingId);
-      router.push({
-        pathname: "/check-out",
-        params: {
-          serviceType: "hostel",
-          bookingId,
-          serviceId: serviceData.hostelId,
-        },
-      });
-    } else {
-      console.error("Booking failed:", response.data.message || "Unknown error");
-      setErrors(prev => ({ ...prev, general: "Booking failed: " + (response.data.message || "Unknown error") }));
+      return;
     }
-  } catch (error: any) {
-    console.error("Error creating hostel booking:", error.response?.data || error.message);
-    console.error("Full error object:", error);
-    setErrors(prev => ({ ...prev, general: "Something went wrong while booking. Please try again." }));
-  } finally {
-    setIsLoadingHostel(false);
-  }
-};
-// NEW: Bed name input handler (with sync for first bed)
-const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirstBed: boolean) => {
-  const key = getBedKey(roomId, bedId);
-  setBedNames(prev => ({ ...prev, [key]: text }));
-  clearError(key);
-  if (isFirstBed) {
-    setFullName(text); // Sync back to primary fullName
-  }
-};
-  const Checkbox = ({
-    checked,
-    onPress,
-  }: {
-    checked: boolean;
-    onPress: () => void;
-  }) => (
-    <TouchableOpacity
-      style={[styles.checkboxBase, checked && styles.checkboxSelected]}
-      onPress={onPress}
-    >
-      {checked && <Text style={styles.checkMark}>✓</Text>}
-    </TouchableOpacity>
-  );
-  const RadioButton = ({
-    label,
-    value,
-    selected,
-    onPress,
-  }: {
-    label: string;
-    value: string;
-    selected: string;
-    onPress: (value: string) => void;
-  }) => (
-    <TouchableOpacity onPress={() => onPress(value)} style={styles.radioRow}>
-      <View style={styles.radioOuter}>
-        {selected === value && <View style={styles.radioInner} />}
-      </View>
-      <Text style={styles.radioLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-  // UPDATED: Helper to render selected rooms summary + bed names UI (flattened: no nested cards, use dividers)
-  const renderBedNamesSection = () => {
-    if (serviceData.rooms.length === 0) return null;
-    // Find first bed for prefill logic
-    const firstBedRoom = serviceData.rooms[0];
-    const firstBed = firstBedRoom?.beds[0];
-    const isFirstBed = (room: RoomData, bed: { bedId: string }) => room === firstBedRoom && bed.bedId === firstBed?.bedId;
-    return (
-      <View style={styles.bedNamesSection}>
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => setExpandedTiffin(prev => prev === 0 ? null : 0)} // Reuse expandedTiffin as toggle (0 for beds)
-        >
-          <View style={styles.sectionHeaderContent}>
-            <Image source={person} style={styles.sectionHeaderIcon} />
-            <Text style={styles.sectionTitle}>Selected Rooms & Guest Names</Text>
-          </View>
-          <Text style={styles.dropdownIcon}>{expandedTiffin === 0 ? '▲' : '▼'}</Text>
-        </TouchableOpacity>
-        {expandedTiffin === 0 && (
-          <View style={styles.expandedContent}>
-            <Text style={styles.introText}>
-              Assign names to each guest bed for a smooth booking process.
-            </Text>
-            {serviceData.rooms.map((room, roomIndex) => (
-              <View key={room.roomId} style={styles.roomContainer}>
-                <View style={styles.roomHeader}>
-                  <Text style={styles.roomTitle}>Room {room.roomNumber}</Text>
-                  <Text style={styles.roomSubtitle}>{room.beds.length} Guest(s)</Text>
-                </View>
-                {room.beds.map((bed, bedIndex) => {
-                  const bedKey = getBedKey(room.roomId, bed.bedId);
-                  const bedName = bedNames[bedKey] || '';
-                  const error = getBedNameError(bedKey);
-                  return (
-                    <View key={bed.bedId} style={[styles.bedRow, error && styles.bedRowError]}>
-                      <View style={styles.bedAvatarContainer}>
-                        <View style={styles.bedAvatar}>
-                          <Image source={person} style={styles.bedAvatarIcon} />
-                        </View>
-                        <Text style={styles.bedNumberLabel}>Bed {bed.bedNumber}</Text>
-                      </View>
-                      <View style={styles.bedNameContainer}>
-                        <TextInput
-                          style={[styles.bedNameInput, error && styles.inputError]}
-                          placeholder={`Guest name for Bed ${bed.bedNumber}`}
-                          value={bedName}
-                          onChangeText={(text) => handleBedNameChange(room.roomId, bed.bedId, text, isFirstBed(room, bed))}
-                          onBlur={() => {
-                            if (!bedName.trim()) {
-                              setErrors(prev => ({ ...prev, [bedKey]: "Name is required for this bed!" }));
-                            }
-                          }}
-                        />
-                        {error && <Text style={styles.errorText}>{error}</Text>}
-                      </View>
-                    </View>
-                  );
-                })}
-                {roomIndex < serviceData.rooms.length - 1 && <View style={styles.roomDivider} />}
-              </View>
-            ))}
-            <View style={styles.totalGuestsFooter}>
-              <Text style={styles.totalBedsText}>Total Guests: {totalBedsCount}</Text>
-            </View>
-          </View>
-        )}
-      </View>
-    );
+    setIsLoadingHostel(true);
+    try {
+      if (!serviceData.hostelId) {
+        console.error("Error: Hostel ID is missing!");
+        console.log("hostelId:", serviceData.hostelId);
+        setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
+        return;
+      }
+      // NEW: No need for single roomId validation
+      if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+        console.error("Error: No rooms or beds selected!");
+        setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
+        return;
+      }
+      const token = await AsyncStorage.getItem("token");
+      const guestId = await AsyncStorage.getItem("guestId");
+      console.log("token:", token ? "Present" : "Missing");
+      console.log("guestId:", guestId ? "Present" : "Missing");
+      if (!token || !guestId) {
+        console.error("Error: Authentication token or guest ID is missing!");
+        setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+        return;
+      }
+      // FIXED: Use flat price and deposit for the plan (no per-bed division)
+      const selectPlan = [
+        {
+          name: hostelPlan,
+          price: currentPlanPrice,
+          depositAmount: currentDeposit,
+        },
+      ];
+      // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
+      const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+        roomId: room.roomId,
+        roomNumber: String(room.roomNumber || ""), // e.g., "101"
+        bedNumber: room.beds.map(bed => ({
+          bedId: bed.bedId,
+          bedNumber: bed.bedNumber,
+          name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
+        })),
+      }));
+      // Create FormData for file uploads
+      const formData = new FormData();
+      formData.append('fullName', fullName);
+      formData.append('phoneNumber', phoneNumber);
+      formData.append('email', serviceData.email || "example@example.com");
+      formData.append('checkInDate', checkInDate.toISOString());
+      formData.append('checkOutDate', checkOutDate.toISOString());
+      formData.append('workType', purposeType);
+      formData.append('guestId', guestId);
+      // Append rooms as JSON string (now with names)
+      formData.append('rooms', JSON.stringify(roomsPayload));
+      // Append plan as JSON string
+      formData.append('selectPlan', JSON.stringify(selectPlan));
+      // Append images as files (if selected)
+      if (aadhaarPhoto) {
+        formData.append('addharCardPhoto', {
+          uri: aadhaarPhoto,
+          type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
+          name: 'aadhar.jpg',
+        } as any);
+      }
+      if (userPhoto) {
+        formData.append('userPhoto', {
+          uri: userPhoto,
+          type: 'image/jpeg',
+          name: 'user.jpg',
+        } as any);
+      }
+      console.log("Full FormData Payload: (logged as object for debug)");
+      console.log({
+        fullName,
+        phoneNumber,
+        email: serviceData.email || "example@example.com",
+        checkInDate: checkInDate.toISOString(),
+        checkOutDate: checkOutDate.toISOString(),
+        workType: purposeType,
+        guestId,
+        rooms: roomsPayload,
+        selectPlan,
+        aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
+        userPhoto: userPhoto ? 'Attached' : 'Null',
+      });
+      // NEW: API URL uses only hostelId (remove roomId query param)
+      const response = await axios.post(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      console.log("API Response:", response.data);
+      if (response.data.success) {
+        console.log("Booking successful:", response.data.data);
+        // alert("Hostel booking created successfully!");
+        const bookingId = response.data.data._id;
+        console.log("Navigating to checkout with booking ID:", bookingId);
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "hostel",
+            bookingId,
+            serviceId: serviceData.hostelId,
+          },
+        });
+      } else {
+        console.error("Booking failed:", response.data.message || "Unknown error");
+        const errorMsg = response.data.message || "Unknown error";
+        setErrors(prev => ({ ...prev, general: `Booking failed: ${errorMsg}` }));
+        showCustomToast(`Booking failed: ${errorMsg}`);
+      }
+    } catch (error: any) {
+      console.error("Error creating hostel booking:", error.response?.data || error.message);
+      console.error("Full error object:", error);
+      let errorMsg = "Something went wrong while booking. Please try again.";
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        errorMsg = error.response.data.message; // Use backend error message
+      } else if (error.response?.status === 400) {
+        errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
+      }
+      setErrors(prev => ({ ...prev, general: errorMsg }));
+      showCustomToast(errorMsg);
+    } finally {
+      setIsLoadingHostel(false);
+    }
   };
-  // FIXED: Single plan options - Always show all options
-  const getPlanOptions = () => {
-    return [
-      // { label: "Per Day", value: "perDay" },
-      { label: "Weekly", value: "weekly" },
-      { label: "Monthly", value: "monthly" },
-    ];
+  // NEW: Bed name input handler (with sync for first bed)
+  const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirstBed: boolean) => {
+    const key = getBedKey(roomId, bedId);
+    setBedNames(prev => ({ ...prev, [key]: text }));
+    clearError(key);
+    if (isFirstBed) {
+      setFullName(text); // Sync back to primary fullName
+    }
   };
-  const renderHostelBooking = () => (
-    <>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Request Booking</Text>
-        <Text style={styles.hostelName}>
-          {serviceData.hostelName || "Scholars Den Boys Hostel"}
-        </Text>
-        {/* UPDATED: Render bed names UI instead of simple summary */}
-        {renderBedNamesSection()}
-        <Text style={styles.label}>Select Plan</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setHostelPlan}
-            items={pickerItems}
-            placeholder={{ label: "Select Plan", value: null }}
-            style={{
-              inputIOS: styles.pickerInput,
-              inputAndroid: styles.pickerInput,
-            }}
-            value={hostelPlan}
-          />
-        </View>
-        <View style={styles.priceContainer}>
-          <Text style={styles.priceText}>
-            ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
-          </Text>
-          <Text style={styles.depositText}>
-            Deposit: ₹{currentDeposit}
-          </Text>
-        </View>
-      </View>
-      {/* Personal Info */}
-      <View style={styles.section}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Image source={person} style={styles.icon} />
-          <Text style={styles.sectionTitle}> Personal Information</Text>
-        </View>
-        <Text style={styles.label}>Full Name *</Text>
-        <TextInput
-          style={[styles.input, errors.fullName && styles.inputError]}
-          placeholder="Enter your full name"
-          value={fullName}
-          onChangeText={(text) => {
-            setFullName(text);
-            clearError('fullName');
-            // NEW: Sync to first bed if exists
-            const firstRoom = serviceData.rooms[0];
-            if (firstRoom && firstRoom.beds[0]) {
-              handleBedNameChange(firstRoom.roomId, firstRoom.beds[0].bedId, text, true);
-            }
-          }}
-          onBlur={() => {
-            if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: "Full Name is required!" }));
-          }}
-        />
-        {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-        <Text style={styles.label}>Phone Number *</Text>
-        <TextInput
-          style={[styles.input, errors.phoneNumber && styles.inputError]}
-          placeholder="Enter your phone number"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={(text) => {
-            setPhoneNumber(text);
-            clearError('phoneNumber');
-          }}
-          onBlur={() => {
-            if (!phoneNumber.trim()) setErrors(prev => ({ ...prev, phoneNumber: "Phone Number is required!" }));
-          }}
-        />
-        {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📤 Upload Aadhaar Card Photo *</Text>
-        {aadhaarPhoto ? (
-          <View style={{ position: 'relative', marginTop: 10 }}>
-            <Image source={{ uri: aadhaarPhoto }} style={{ width: 100, height: 100 }} />
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => {
-                setAadhaarPhoto('');
-                clearError('aadhaarPhoto');
-              }}
-            >
-              <Text style={styles.closeText}>×</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
-            <Text style={styles.uploadButtonText}>Upload photo</Text>
-            <Text style={styles.uploadSubtext}>
-              Upload clear photo of your Aadhaar card
-            </Text>
-          </TouchableOpacity>
-        )}
-        {errors.aadhaarPhoto && <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>}
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📤 Upload Your Photo *</Text>
-        {userPhoto ? (
-          <View style={{ position: 'relative', marginTop: 10 }}>
-            <Image source={{ uri: userPhoto }} style={{ width: 100, height: 100 }} />
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => {
-                setUserPhoto('');
-                clearError('userPhoto');
-              }}
-            >
-              <Text style={styles.closeText}>×</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.uploadButton} onPress={pickUserPhoto}>
-            <Text style={styles.uploadButtonText}>Upload photo</Text>
-            <Text style={styles.uploadSubtext}>
-              Upload clear photo of your selfie or photo from gallery
-            </Text>
-          </TouchableOpacity>
-        )}
-        {errors.userPhoto && <Text style={styles.errorText}>{errors.userPhoto}</Text>}
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📅 Booking Details</Text>
-        <Text style={styles.label}>Check-in date *</Text>
-        <TouchableOpacity
-          style={[styles.datePickerButton, errors.checkInDate && styles.inputError]}
-          onPress={() => setShowCheckInPicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {checkInDate ? checkInDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
-          </Text>
-          <Image source={calender} style={styles.calendarIcon} />
-        </TouchableOpacity>
-        {errors.checkInDate && <Text style={styles.errorText}>{errors.checkInDate}</Text>}
-        <Text style={styles.label}>Check-out date *</Text>
-        <TouchableOpacity
-          style={[styles.datePickerButton, errors.checkOutDate && styles.inputError]}
-          onPress={() => setShowCheckOutPicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {checkOutDate ? checkOutDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
-          </Text>
-          <Image source={calender} style={styles.calendarIcon} />
-        </TouchableOpacity>
-        {errors.checkOutDate && <Text style={styles.errorText}>{errors.checkOutDate}</Text>}
-        {showCheckInPicker && (
-          <DateTimePicker
-            value={checkInDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={onChangeCheckInDate}
-            minimumDate={new Date()}
-          />
-        )}
-        {showCheckOutPicker && (
-          <DateTimePicker
-            value={checkOutDate || new Date(checkInDate || new Date())}
-            mode="date"
-            display="default"
-            onChange={onChangeCheckOutDate}
-            minimumDate={checkInDate || new Date()}
-          />
-        )}
-        <Text style={[styles.label, { marginTop: 15 }]}>
-          Special Instructions (Optional)
-        </Text>
-        <TextInput
-          style={[styles.input, { height: 80 }]}
-          placeholder="Any special requests or messages"
-          multiline
-          value={message}
-          onChangeText={setMessage}
-        />
-        <View style={styles.section}>
-          <Text style={styles.label}>User Stay Type</Text>
-          <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 10 }}>
-            {/* Work */}
-            <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
-              onPress={() => setPurposeType("work")}
-            >
-              <View style={styles.radioOuter}>
-                {purposeType === "work" && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.radioLabel}>Work</Text>
-            </TouchableOpacity>
-            {/* Leisure */}
-            <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
-              onPress={() => setPurposeType("leisure")}
-            >
-              <View style={styles.radioOuter}>
-                {purposeType === "leisure" && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.radioLabel}>Leisure</Text>
-            </TouchableOpacity>
-            {/* Student */}
-            <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
-              onPress={() => setPurposeType("student")}
-            >
-              <View style={styles.radioOuter}>
-                {purposeType === "student" && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.radioLabel}>Student</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-      {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
-      {errors.rooms && <Text style={styles.errorText}>{errors.rooms}</Text>}
+    const Checkbox = ({
+      checked,
+      onPress,
+    }: {
+      checked: boolean;
+      onPress: () => void;
+    }) => (
       <TouchableOpacity
-        style={[styles.submitButton, isLoadingHostel && styles.disabledButton]}
-        onPress={handleHostelSubmit}
-        disabled={isLoadingHostel}
+        style={[styles.checkboxBase, checked && styles.checkboxSelected]}
+        onPress={onPress}
       >
-        {isLoadingHostel ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitButtonText}>Book Now</Text>
-        )}
+        {checked && <Text style={styles.checkMark}>✓</Text>}
       </TouchableOpacity>
-    </>
-  );
-  // FIXED: In meal package onPress - Set selectedPlanType to exact API value
-  const renderTiffinBooking = () => {
-    const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
-    return (
+    );
+    const RadioButton = ({
+      label,
+      value,
+      selected,
+      onPress,
+    }: {
+      label: string;
+      value: string;
+      selected: string;
+      onPress: (value: string) => void;
+    }) => (
+      <TouchableOpacity onPress={() => onPress(value)} style={styles.radioRow}>
+        <View style={styles.radioOuter}>
+          {selected === value && <View style={styles.radioInner} />}
+        </View>
+        <Text style={styles.radioLabel}>{label}</Text>
+      </TouchableOpacity>
+    );
+    // UPDATED: Helper to render selected rooms summary + bed names UI (flattened: no nested cards, use dividers)
+    const renderBedNamesSection = () => {
+      if (serviceData.rooms.length === 0) return null;
+      // Find first bed for prefill logic
+      const firstBedRoom = serviceData.rooms[0];
+      const firstBed = firstBedRoom?.beds[0];
+      const isFirstBed = (room: RoomData, bed: { bedId: string }) => room === firstBedRoom && bed.bedId === firstBed?.bedId;
+      return (
+        <View style={styles.bedNamesSection}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => setExpandedTiffin(prev => prev === 0 ? null : 0)} // Reuse expandedTiffin as toggle (0 for beds)
+          >
+            <View style={styles.sectionHeaderContent}>
+              <Ionicons name="person-outline" size={20} color="#004AAD" style={styles.sectionHeaderIcon} />
+              <Text style={styles.sectionTitle}>Selected Rooms & Guest Names</Text>
+            </View>
+            <Text style={styles.dropdownIcon}>{expandedTiffin === 0 ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {expandedTiffin === 0 && (
+            <View style={styles.expandedContent}>
+              <Text style={styles.introText}>
+                Assign names to each guest bed for a smooth booking process.
+              </Text>
+              {serviceData.rooms.map((room, roomIndex) => (
+                <View key={room.roomId} style={styles.roomContainer}>
+                  <View style={styles.roomHeader}>
+                    <Text style={styles.roomTitle}>Room {room.roomNumber}</Text>
+                    <Text style={styles.roomSubtitle}>{room.beds.length} Guest(s)</Text>
+                  </View>
+                  {room.beds.map((bed, bedIndex) => {
+                    const bedKey = getBedKey(room.roomId, bed.bedId);
+                    const bedName = bedNames[bedKey] || '';
+                    const error = getBedNameError(bedKey);
+                    return (
+                      <View key={bed.bedId} style={[styles.bedRow, error && styles.bedRowError]}>
+                        <View style={styles.bedAvatarContainer}>
+                          <View style={styles.bedAvatar}>
+                            <Ionicons name="person-outline" size={24} color="#004AAD" style={styles.bedAvatarIcon} />
+                          </View>
+                          <Text style={styles.bedNumberLabel}>Bed {bed.bedNumber}</Text>
+                        </View>
+                        <View style={styles.bedNameContainer}>
+                          <TextInput
+                            style={[styles.bedNameInput, error && styles.inputError]}
+                            placeholder={`Guest name for Bed ${bed.bedNumber}`}
+                            value={bedName}
+                            onChangeText={(text) => handleBedNameChange(room.roomId, bed.bedId, text, isFirstBed(room, bed))}
+                            onBlur={() => {
+                              if (!bedName.trim()) {
+                                setErrors(prev => ({ ...prev, [bedKey]: "Name is required for this bed!" }));
+                              }
+                            }}
+                          />
+                          {error && <Text style={styles.errorText}>{error}</Text>}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  {roomIndex < serviceData.rooms.length - 1 && <View style={styles.roomDivider} />}
+                </View>
+              ))}
+              <View style={styles.totalGuestsFooter}>
+                <Text style={styles.totalBedsText}>Total Guests: {totalBedsCount}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      );
+    };
+    // FIXED: Single plan options - Always show all options
+    const getPlanOptions = () => {
+      return [
+        // { label: "Per Day", value: "perDay" },
+        { label: "Weekly", value: "weekly" },
+        { label: "Monthly", value: "monthly" },
+      ];
+    };
+    const renderHostelBooking = () => (
       <>
         <View style={styles.section}>
-          <View style={{ flexDirection: "row" }}>
-            <Image source={person} style={styles.icon} />
-            <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>Request Booking</Text>
+          <Text style={styles.hostelName}>
+            {serviceData.hostelName || "Scholars Den Boys Hostel"}
+          </Text>
+          {/* UPDATED: Render bed names UI instead of simple summary */}
+          {renderBedNamesSection()}
+          <Text style={styles.label}>Select Plan</Text>
+          <View style={styles.pickerWrapper}>
+            <RNPickerSelect
+              onValueChange={setHostelPlan}
+              items={pickerItems}
+              placeholder={{ label: "Select Plan", value: null }}
+              style={{
+                inputIOS: styles.pickerInput,
+                inputAndroid: styles.pickerInput,
+              }}
+              value={hostelPlan}
+            />
+          </View>
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceText}>
+              ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
+            </Text>
+            <Text style={styles.depositText}>
+              Deposit: ₹{currentDeposit}
+            </Text>
+          </View>
+        </View>
+        {/* Personal Info */}
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="person-outline" size={18} color="#004AAD" style={styles.icon} />
+            <Text style={styles.sectionTitle}> Personal Information</Text>
           </View>
           <Text style={styles.label}>Full Name *</Text>
           <TextInput
@@ -1461,20 +1276,18 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             value={fullName}
             onChangeText={(text) => {
               setFullName(text);
-              clearError("fullName");
+              clearError('fullName');
+              // NEW: Sync to first bed if exists
+              const firstRoom = serviceData.rooms[0];
+              if (firstRoom && firstRoom.beds[0]) {
+                handleBedNameChange(firstRoom.roomId, firstRoom.beds[0].bedId, text, true);
+              }
             }}
             onBlur={() => {
-              if (!fullName.trim())
-                setErrors((prev) => ({
-                  ...prev,
-                  fullName: "Full Name is required!",
-                }));
+              if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: "Full Name is required!" }));
             }}
-            editable={true}
           />
-          {errors.fullName && (
-            <Text style={styles.errorText}>{errors.fullName}</Text>
-          )}
+          {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
           <Text style={styles.label}>Phone Number *</Text>
           <TextInput
             style={[styles.input, errors.phoneNumber && styles.inputError]}
@@ -1483,760 +1296,964 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
             value={phoneNumber}
             onChangeText={(text) => {
               setPhoneNumber(text);
-              clearError("phoneNumber");
+              clearError('phoneNumber');
             }}
             onBlur={() => {
-              if (!phoneNumber.trim())
-                setErrors((prev) => ({
-                  ...prev,
-                  phoneNumber: "Phone Number is required!",
-                }));
+              if (!phoneNumber.trim()) setErrors(prev => ({ ...prev, phoneNumber: "Phone Number is required!" }));
             }}
-            editable={true}
           />
-          {errors.phoneNumber && (
-            <Text style={styles.errorText}>{errors.phoneNumber}</Text>
-          )}
+          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
         </View>
         <View style={styles.section}>
-         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-            <Image source={location1} style={styles.icon} />
-            <Text style={styles.sectionTitle}>Delivery Address</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="id-card-outline" size={18} color="#004AAD" style={styles.icon} />
+            <Text style={styles.sectionTitle}>Upload Aadhaar Card Photo *</Text>
           </View>
-          <Text style={styles.label}>
-            Street Address {orderType === "delivery" && "*"}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              errors.street && styles.inputError,
-            ]}
-            placeholder="Enter your street address"
-            value={street}
-            onChangeText={(text) => {
-              setStreet(text);
-              clearError("street");
-            }}
-            onBlur={() => {
-              if (orderType === "delivery" && !street.trim())
-                setErrors((prev) => ({
-                  ...prev,
-                  street: "Street address is required for delivery!",
-                }));
-            }}
-          />
-          {errors.street && (
-            <Text style={styles.errorText}>{errors.street}</Text>
+          {aadhaarPhoto ? (
+            <View style={styles.imageContainer}>
+              <Image source={{ uri: aadhaarPhoto }} style={styles.uploadedImage} />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setAadhaarPhoto('');
+                  clearError('aadhaarPhoto');
+                }}
+              >
+                <Ionicons name="close" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
+              <Text style={styles.uploadButtonText}>Upload photo</Text>
+              <Text style={styles.uploadSubtext}>
+                Upload clear photo of your Aadhaar card
+              </Text>
+            </TouchableOpacity>
           )}
-          <Text style={styles.label}>Landmark (Optional)</Text>
-          <TextInput
-            style={[
-              styles.input,
-            ]}
-            placeholder="Enter nearby landmark"
-            value={landmark}
-            onChangeText={(text) => {
-              setLandmark(text);
-              clearError("landmark");
-            }}
-          />
-          <Text style={styles.label}>
-            Locality / Area {orderType === "delivery" && "*"}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              errors.locality && styles.inputError,
-            ]}
-            placeholder="Enter locality or area"
-            value={locality}
-            onChangeText={(text) => {
-              setLocality(text);
-              clearError("locality");
-            }}
-            onBlur={() => {
-              if (orderType === "delivery" && !locality.trim())
-                setErrors((prev) => ({
-                  ...prev,
-                  locality: "Locality is required for delivery!",
-                }));
-            }}
-          />
-          {errors.locality && (
-            <Text style={styles.errorText}>{errors.locality}</Text>
-          )}
-          <Text style={styles.label}>
-            Pincode {orderType === "delivery" && "*"}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              errors.pincode && styles.inputError,
-            ]}
-            placeholder="Enter pincode (6 digits)"
-            value={pincode}
-            onChangeText={(text) => {
-              setPincode(text.replace(/[^0-9]/g, "").slice(0, 6));
-              clearError("pincode");
-            }}
-            onBlur={() => {
-              if (orderType === "delivery" && !pincode.trim())
-                setErrors((prev) => ({
-                  ...prev,
-                  pincode: "Pincode is required for delivery!",
-                }));
-            }}
-            keyboardType="number-pad"
-            maxLength={6}
-          />
-          {errors.pincode && (
-            <Text style={styles.errorText}>{errors.pincode}</Text>
-          )}
-          <Text style={styles.label}>Delivery Instructions (Optional)</Text>
-          <TextInput
-            style={[
-              styles.input,
-              { height: 80 },
-            ]}
-            placeholder="Any dietary preferences, spice level, or special requests"
-            multiline
-            value={specialInstructions}
-            onChangeText={setSpecialInstructions}
-          />
+          {errors.aadhaarPhoto && <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>}
         </View>
         <View style={styles.section}>
-          <View style={{ flexDirection: "row" }}>
-            <Image source={calender} style={styles.icon} />
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="person-circle-outline" size={18} color="#004AAD" style={styles.icon} />
+            <Text style={styles.sectionTitle}>Upload Your Photo *</Text>
+          </View>
+          {userPhoto ? (
+            <View style={styles.imageContainer}>
+              <Image source={{ uri: userPhoto }} style={styles.uploadedImage} />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setUserPhoto('');
+                  clearError('userPhoto');
+                }}
+              >
+                <Ionicons name="close" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.uploadButton} onPress={pickUserPhoto}>
+              <Text style={styles.uploadButtonText}>Upload photo</Text>
+              <Text style={styles.uploadSubtext}>
+                Upload clear photo of your selfie or photo from gallery
+              </Text>
+            </TouchableOpacity>
+          )}
+          {errors.userPhoto && <Text style={styles.errorText}>{errors.userPhoto}</Text>}
+        </View>
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="calendar-outline" size={18} color="#004AAD" style={styles.icon} />
             <Text style={styles.sectionTitle}>Booking Details</Text>
           </View>
-          <View style={styles.tiffinSelectorsContainer}>
-            <View style={styles.expandedContent}>
-              {/* Food Type */}
-              <Text style={styles.sectionTitle}>Food Type</Text>
-              {currentFoodOptions.length > 0 && currentFoodOptions.map((opt) => (
-                <RadioButton
-                  key={opt.value}
-                  label={opt.label}
-                  value={opt.value}
-                  selected={selectedfood}
-                  onPress={(value) => {
-                    setSelectedfood(value);
-                    clearError("selectedfood");
-                  }}
-                />
-              ))}
-              {errors.selectedfood && (
-                <Text style={styles.errorText}>{errors.selectedfood}</Text>
-              )}
-              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
-                Choose Order Type
-              </Text>
-              {orderTypeOptions.map((opt) => (
-                <RadioButton
-                  key={opt.value}
-                  label={opt.label}
-                  value={opt.value}
-                  selected={orderType}
-                  onPress={(value) => {
-                    const newOrderType = value as "dining" | "delivery";
-                    setOrderType(newOrderType);
-                  }}
-                />
-              ))}
-              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
-                Select Meal Package *
-              </Text>
-              {mealPackages.map((pkg) => (
-                <RadioButton
-                  key={pkg.id}
-                  label={pkg.label}
-                  value={pkg.id.toString()}
-                  selected={selectedMealPackage.toString()}
-                  onPress={(value) => {
-                    const id = parseInt(value);
-                    setSelectedMealPackage(id);
-                    const selectedPkg = mealPackages.find((p) => p.id === id);
-                    if (selectedPkg) {
-                      setTiffinMeals(selectedPkg.meals);
-                      // FIXED: Set exact planType for backend match
-                      setSelectedPlanType(selectedPkg.planType);
-                      // Reset food type if not compatible
-                      const availableValues = getAvailableFoodOptions(
-                        selectedPkg.foodType
-                      ).map((o) => o.value);
-                      if (!availableValues.includes(selectedfood)) {
-                        setSelectedfood(availableValues[0] || "Both");
-                      }
-                    }
-                    clearError("mealPreferences");
-                  }}
-                />
-              ))}
-              {errors.mealPackage && (
-                <Text style={styles.errorText}>{errors.mealPackage}</Text>
-              )}
-              {errors.selectedPlanType && (
-                <Text style={styles.errorText}>{errors.selectedPlanType}</Text>
-              )}
-              <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
-                Subscription Type *
-              </Text>
-              {getPlanOptions().map((option) => (
-                <RadioButton
-                  key={option.value}
-                  label={option.label}
-                  value={option.value}
-                  selected={tiffinPlan || ""}
-                  onPress={(value) => {
-                    setTiffinPlan(value);
-                    clearError("tiffinPlan");
-                  }}
-                />
-              ))}
-              {errors.tiffinPlan && (
-                <Text style={styles.errorText}>{errors.tiffinPlan}</Text>
-              )}
-              {/* FIXED: Show price (dynamic) only when all selected and fetched */}
-              {selectedMealPackage > 0 && tiffinPlan ? (
-                <View style={styles.priceContainer}>
-                  {isFetchingDetails ? (
-                    <ActivityIndicator color="#004AAD" />
-                  ) : getBasePriceForPlan(tiffinPlan) > 0 ? (
-                    <>
-                      <Text style={styles.priceText}>
-                        ₹{getBasePriceForPlan(tiffinPlan)} /{" "}
-                        {tiffinPlan === "perDay" ? "day" : tiffinPlan}
-                      </Text>
-                      {fetchedPricing.offers && (
-                        <Text style={styles.offersText}>
-                          {fetchedPricing.offers}
-                        </Text>
-                      )}
-                    </>
-                  ) : (
-                    planError && <Text style={styles.errorText}>{planError}</Text>
-                  )}
-                </View>
-              ) : null}
-              <Text style={[styles.label, { marginTop: 10 }]}>
-                Select Start Date *
-              </Text>
+          <Text style={styles.label}>Check-in date *</Text>
+          <TouchableOpacity
+            style={[styles.datePickerButton, errors.checkInDate && styles.inputError]}
+            onPress={() => setShowCheckInPicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {checkInDate ? checkInDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
+            </Text>
+            <Ionicons name="calendar-outline" size={17} color="#333" style={styles.calendarIcon} />
+          </TouchableOpacity>
+          {errors.checkInDate && <Text style={styles.errorText}>{errors.checkInDate}</Text>}
+          <Text style={styles.label}>Check-out date *</Text>
+          <View
+            style={[
+              styles.dateDisplay,
+              errors.checkOutDate && styles.inputError
+            ]}
+          >
+            <Text style={[
+              styles.dateDisplayText,
+              errors.checkOutDate && { color: '#ff0000' }
+            ]}>
+              {checkOutDate ? checkOutDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
+            </Text>
+            <Ionicons name="calendar-outline" size={17} color="#999" style={styles.calendarIcon} />
+          </View>
+          {errors.checkOutDate && <Text style={styles.errorText}>{errors.checkOutDate}</Text>}
+          {showCheckInPicker && (
+            <DateTimePicker
+              value={checkInDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={onChangeCheckInDate}
+              minimumDate={new Date()}
+            />
+          )}
+          <Text style={[styles.label, { marginTop: 15 }]}>
+            Special Instructions (Optional)
+          </Text>
+          <TextInput
+            style={[styles.input, { height: 80 }]}
+            placeholder="Any special requests or messages"
+            multiline
+            value={message}
+            onChangeText={setMessage}
+          />
+          <View style={styles.section}>
+            <Text style={styles.label}>User Stay Type</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-evenly", marginTop: 10 }}>
+              {/* Work */}
               <TouchableOpacity
-                style={[
-                  styles.datePickerButton,
-                  errors.date && styles.inputError,
-                ]}
-                onPress={() => setShowDatePicker(true)}
+                style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
+                onPress={() => setPurposeType("work")}
               >
-                <Text style={styles.datePickerText}>
-                  {date ? date.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
-                </Text>
-                <Image source={calender} style={styles.calendarIcon} />
+                <View style={styles.radioOuter}>
+                  {purposeType === "work" && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.radioLabel}>Work</Text>
               </TouchableOpacity>
-              {errors.date && (
-                <Text style={styles.errorText}>{errors.date}</Text>
-              )}
-              {showDatePicker && (
-                <DateTimePicker
-                  value={date || new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={onChangeDate}
-                  minimumDate={new Date()}
-                />
-              )}
-              {hasPeriodic && (
-                <>
-                  <Text style={styles.label}>End Date</Text>
-                  <View style={styles.dateDisplay}>
-                    <Text style={styles.dateDisplayText}>
-                      {endDate ? endDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
-                    </Text>
-                  </View>
-                  <Text style={styles.infoText}>Based on your {tiffinPlan} plan</Text>
-                  {errors.endDate && (
-                    <Text style={styles.errorText}>{errors.endDate}</Text>
-                  )}
-                </>
-              )}
+              {/* Leisure */}
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
+                onPress={() => setPurposeType("leisure")}
+              >
+                <View style={styles.radioOuter}>
+                  {purposeType === "leisure" && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.radioLabel}>Leisure</Text>
+              </TouchableOpacity>
+              {/* Student */}
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", flex: 1, paddingHorizontal: 10 }}
+                onPress={() => setPurposeType("student")}
+              >
+                <View style={styles.radioOuter}>
+                  {purposeType === "student" && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.radioLabel}>Student</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-        {errors.general && (
-          <Text style={styles.errorText}>{errors.general}</Text>
-        )}
-        <Buttons
-          style={styles.submitButton}
-          title="Submit Order Request"
-          onPress={handleTiffinSubmit}
-        />
-        <Text style={styles.confirmationText}>
-          Provider will reach out within 1 hour to confirm.
-        </Text>
+        {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
+        {errors.rooms && <Text style={styles.errorText}>{errors.rooms}</Text>}
+        <TouchableOpacity
+          style={[styles.submitButton, isLoadingHostel && styles.disabledButton]}
+          onPress={handleHostelSubmit}
+          disabled={isLoadingHostel}
+        >
+          {isLoadingHostel ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Book Now</Text>
+          )}
+        </TouchableOpacity>
       </>
     );
-  };
-  return (
-    <SafeAreaView style={styles.container}>
-      <Header
-        title={bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking"}
-        style={styles.header}
-      />
-      <View style={styles.container}>
-        <ScrollView
-          scrollEnabled={true}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {bookingType === "tiffin"
-            ? renderTiffinBooking()
-            : renderHostelBooking()}
-        </ScrollView>
-      </View>
-    </SafeAreaView>
-  );
-}
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "#fff",
-    padding: 20,
-    flex: 1,
-  },
-  header: {
-    backgroundColor: "#fff",
-  },
-  section: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 25,
-  },
-  sectionTitle: {
-    fontWeight: "bold",
-    fontSize: 16,
-    marginBottom: 10,
-    marginTop:1,
-    flex: 1,
-    numberOfLines: 1,
-    ellipsizeMode: 'tail'
-  },
-  label: {
-    fontSize: 14,
-    marginBottom: 5,
-    color: "#444",
-    fontWeight: "bold",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#aaa",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 5,
-    fontSize: 14,
-  },
-  inputError: {
-    borderColor: "#ff0000",
-  },
-  errorText: {
-    color: "#ff0000",
-    fontSize: 12,
-    marginBottom: 10,
-    textAlign: "left",
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: "#aaa",
-    borderRadius: 6,
-    marginBottom: 15,
-  },
-  pickerInput: {
-    height: 51,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    fontSize: 14,
-    color: "black",
-  },
-  icon: {
-    height: 18,
-    width: 16,
-    margin:4,
-    marginBottom:15
-  },
-  radioRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  radioOuter: {
-    height: 20,
-    width: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#004AAD",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  radioInner: {
-    height: 10,
-    width: 10,
-    borderRadius: 5,
-    backgroundColor: "#004AAD",
-  },
-  radioLabel: {
-    fontSize: 14,
-    color: "#333",
-  },
-  datePickerButton: {
-    borderWidth: 1,
-    borderColor: "#aaa",
-    borderRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    justifyContent: "space-between",
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  datePickerText: {
-    fontSize: 14,
-    color: "black",
-  },
-  submitButton: {
-    backgroundColor: "#004AAD",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    marginBottom: 10,
-  },
-  disabledButton: {
-    backgroundColor: "#ccc",
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-    textAlign: "center",
-  },
-  confirmationText: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-  },
-  hostelName: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 15,
-    color: "#333",
-  },
-  priceContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  priceText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#004AAD",
-  },
-  depositText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  uploadButton: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 15,
-    alignItems: "center",
-    backgroundColor: "#f9f9f9",
-  },
-  uploadButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 5,
-  },
-  uploadSubtext: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-  },
-  calendarIcon: {
-    width: 17,
-    height: 17,
-  },
-  loadingContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 8,
-  },
-  purposeContainer: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 15,
-  },
-  purposeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  purposeButtonActive: {
-    backgroundColor: "#004AAD",
-    borderColor: "#004AAD",
-  },
-  purposeText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  purposeTextActive: {
-    color: "#fff",
-    fontWeight: "500",
-  },
-  offersText: {
-    fontSize: 14,
-    color: "#FF6600",
-    textAlign: "center",
-    marginTop: 5,
-    fontWeight: "bold",
-  },
-  // UPDATED: Styles for bed names section (flattened: single cohesive card with dividers, no nested borders/radii)
-  bedNamesSection: {
-    backgroundColor: "#f8f9ff",
-    borderRadius: 12,
-    padding: 0,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#e3e8ff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  sectionHeaderContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  sectionHeaderIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
-    tintColor: "#004AAD",
-    marginBottom:10
-  },
-  expandedContent: {
-    padding: 16,
-    backgroundColor: "#fff",
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  introText: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    paddingVertical: 8,
-    lineHeight: 20,
-  },
-  roomContainer: {
-    marginVertical: 0, // No extra margins
-  },
-  roomHeader: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "transparent", // No background
-    borderTopWidth: 0, // No border
-  },
-  roomTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#004AAD",
-    marginBottom: 2,
-  },
-  roomSubtitle: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
-  },
-  bedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    margin: 0, // No margins
-    backgroundColor: "transparent", // No background
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0", // Light divider on top
-  },
-  bedRowError: {
-    backgroundColor: "#fff5f5", // Subtle error bg
-    borderTopColor: "#ffcccc",
-  },
-  bedAvatarContainer: {
-    alignItems: "center",
-    marginRight: 16,
-    minWidth: 60,
-  },
-  bedAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#e3f2fd",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 6,
-    borderWidth: 2,
-    borderColor: "#004AAD",
-  },
-  bedAvatarIcon: {
-    width: 24,
-    height: 24,
-    tintColor: "#004AAD",
-  },
-  bedNumberLabel: {
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  bedNameContainer: {
-    flex: 1,
-  },
-  bedNameInput: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    backgroundColor: "#fff",
-    marginBottom: 4,
-  },
-  roomDivider: {
-    height: 1,
-    backgroundColor: "#f0f0f0",
-    marginHorizontal: 16,
-  },
-  totalGuestsFooter: {
-    paddingVertical: 12,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  totalBedsText: {
-    fontSize: 14,
-    color: "#004AAD",
-    fontWeight: "700",
-  },
-  // NEW: Styles for tiffin dropdowns
-  tiffinSelectorsContainer: {
-    marginBottom: 20,
-  },
-  tiffinDropdown: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#aaa",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    marginBottom: 10,
-    backgroundColor: "#fff",
-  },
-  tiffinDropdownLabel: {
-    fontSize: 14,
-    color: "#333",
-  },
-  dropdownIcon: {
-    fontSize: 12,
-    color: "#666",
-  },
-  expandedScroll: {
-    maxHeight: 500,
-  },
-  // NEW: Styles for close button on images
-  closeButton: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 15,
-    width: 25,
-    height: 25,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  checkboxBase: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#ccc",
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 8,
-  },
-  checkboxSelected: {
-    backgroundColor: "#FF6600",
-    borderColor: "#FF6600",
-  },
-  checkMark: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  // NEW: Styles for non-editable end date display
-  dateDisplay: {
-    borderWidth: 1,
-    borderColor: "#aaa",
-    borderRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    justifyContent: "space-between",
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 5,
-    backgroundColor: "#f9f9f9",
-  },
-  dateDisplayText: {
-    fontSize: 14,
-    color: "#333",
-  },
-  infoText: {
-    fontSize: 12,
-    color: "#666",
-    fontStyle: "italic",
-  },
-});
+    // FIXED: In meal package onPress - Set selectedPlanType to exact API value
+    const renderTiffinBooking = () => {
+      const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
+      return (
+        <>
+          <View style={styles.section}>
+            <View style={{ flexDirection: "row" }}>
+              <Ionicons name="person-outline" size={18} color="#004AAD" style={styles.icon} />
+              <Text style={styles.sectionTitle}>Personal Information</Text>
+            </View>
+            <Text style={styles.label}>Full Name *</Text>
+            <TextInput
+              style={[styles.input, errors.fullName && styles.inputError]}
+              placeholder="Enter your full name"
+              value={fullName}
+              onChangeText={(text) => {
+                setFullName(text);
+                clearError("fullName");
+              }}
+              onBlur={() => {
+                if (!fullName.trim())
+                  setErrors((prev) => ({
+                    ...prev,
+                    fullName: "Full Name is required!",
+                  }));
+              }}
+              editable={true}
+            />
+            {errors.fullName && (
+              <Text style={styles.errorText}>{errors.fullName}</Text>
+            )}
+            <Text style={styles.label}>Phone Number *</Text>
+            <TextInput
+              style={[styles.input, errors.phoneNumber && styles.inputError]}
+              placeholder="Enter your phone number"
+              keyboardType="phone-pad"
+              value={phoneNumber}
+              onChangeText={(text) => {
+                setPhoneNumber(text);
+                clearError("phoneNumber");
+              }}
+              onBlur={() => {
+                if (!phoneNumber.trim())
+                  setErrors((prev) => ({
+                    ...prev,
+                    phoneNumber: "Phone Number is required!",
+                  }));
+              }}
+              editable={true}
+            />
+            {errors.phoneNumber && (
+              <Text style={styles.errorText}>{errors.phoneNumber}</Text>
+            )}
+          </View>
+          <View style={styles.section}>
+           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+              <Ionicons name="location-outline" size={18} color="#004AAD" style={styles.icon} />
+              <Text style={styles.sectionTitle}>Delivery Address</Text>
+            </View>
+            <Text style={styles.label}>
+              Street Address {orderType === "delivery" && "*"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.street && styles.inputError,
+              ]}
+              placeholder="Enter your street address"
+              value={street}
+              onChangeText={(text) => {
+                setStreet(text);
+                clearError("street");
+              }}
+              onBlur={() => {
+                if (orderType === "delivery" && !street.trim())
+                  setErrors((prev) => ({
+                    ...prev,
+                    street: "Street address is required for delivery!",
+                  }));
+              }}
+            />
+            {errors.street && (
+              <Text style={styles.errorText}>{errors.street}</Text>
+            )}
+            <Text style={styles.label}>Landmark (Optional)</Text>
+            <TextInput
+              style={[
+                styles.input,
+              ]}
+              placeholder="Enter nearby landmark"
+              value={landmark}
+              onChangeText={(text) => {
+                setLandmark(text);
+                clearError("landmark");
+              }}
+            />
+            <Text style={styles.label}>
+              Locality / Area {orderType === "delivery" && "*"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.locality && styles.inputError,
+              ]}
+              placeholder="Enter locality or area"
+              value={locality}
+              onChangeText={(text) => {
+                setLocality(text);
+                clearError("locality");
+              }}
+              onBlur={() => {
+                if (orderType === "delivery" && !locality.trim())
+                  setErrors((prev) => ({
+                    ...prev,
+                    locality: "Locality is required for delivery!",
+                  }));
+              }}
+            />
+            {errors.locality && (
+              <Text style={styles.errorText}>{errors.locality}</Text>
+            )}
+            <Text style={styles.label}>
+              Pincode {orderType === "delivery" && "*"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.pincode && styles.inputError,
+              ]}
+              placeholder="Enter pincode (6 digits)"
+              value={pincode}
+              onChangeText={(text) => {
+                setPincode(text.replace(/[^0-9]/g, "").slice(0, 6));
+                clearError("pincode");
+              }}
+              onBlur={() => {
+                if (orderType === "delivery" && !pincode.trim())
+                  setErrors((prev) => ({
+                    ...prev,
+                    pincode: "Pincode is required for delivery!",
+                  }));
+              }}
+              keyboardType="number-pad"
+              maxLength={6}
+            />
+            {errors.pincode && (
+              <Text style={styles.errorText}>{errors.pincode}</Text>
+            )}
+            <Text style={styles.label}>Delivery Instructions (Optional)</Text>
+            <TextInput
+              style={[
+                styles.input,
+                { height: 80 },
+              ]}
+              placeholder="Any dietary preferences, spice level, or special requests"
+              multiline
+              value={specialInstructions}
+              onChangeText={setSpecialInstructions}
+            />
+          </View>
+          <View style={styles.section}>
+            <View style={{ flexDirection: "row" }}>
+              <Ionicons name="calendar-outline" size={18} color="#004AAD" style={styles.icon} />
+              <Text style={styles.sectionTitle}>Booking Details</Text>
+            </View>
+            <View style={styles.tiffinSelectorsContainer}>
+              <View style={styles.expandedContent}>
+                {/* Food Type */}
+                <Text style={styles.sectionTitle}>Food Type</Text>
+                {currentFoodOptions.length > 0 && currentFoodOptions.map((opt) => (
+                  <RadioButton
+                    key={opt.value}
+                    label={opt.label}
+                    value={opt.value}
+                    selected={selectedfood}
+                    onPress={(value) => {
+                      setSelectedfood(value);
+                      clearError("selectedfood");
+                    }}
+                  />
+                ))}
+                {errors.selectedfood && (
+                  <Text style={styles.errorText}>{errors.selectedfood}</Text>
+                )}
+                <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                  Choose Order Type
+                </Text>
+                {orderTypeOptions.map((opt) => (
+                  <RadioButton
+                    key={opt.value}
+                    label={opt.label}
+                    value={opt.value}
+                    selected={orderType}
+                    onPress={(value) => {
+                      const newOrderType = value as "dining" | "delivery";
+                      setOrderType(newOrderType);
+                    }}
+                  />
+                ))}
+                <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                  Select Meal Package *
+                </Text>
+                {mealPackages.map((pkg) => (
+                  <RadioButton
+                    key={pkg.id}
+                    label={pkg.label}
+                    value={pkg.id.toString()}
+                    selected={selectedMealPackage.toString()}
+                    onPress={(value) => {
+                      const id = parseInt(value);
+                      setSelectedMealPackage(id);
+                      const selectedPkg = mealPackages.find((p) => p.id === id);
+                      if (selectedPkg) {
+                        setTiffinMeals(selectedPkg.meals);
+                        // FIXED: Set exact planType for backend match
+                        setSelectedPlanType(selectedPkg.planType);
+                        // Reset food type if not compatible
+                        const availableValues = getAvailableFoodOptions(
+                          selectedPkg.foodType
+                        ).map((o) => o.value);
+                        if (!availableValues.includes(selectedfood)) {
+                          setSelectedfood(availableValues[0] || "Both");
+                        }
+                      }
+                      clearError("mealPreferences");
+                    }}
+                  />
+                ))}
+                {errors.mealPackage && (
+                  <Text style={styles.errorText}>{errors.mealPackage}</Text>
+                )}
+                {errors.selectedPlanType && (
+                  <Text style={styles.errorText}>{errors.selectedPlanType}</Text>
+                )}
+                <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                  Subscription Type *
+                </Text>
+                {getPlanOptions().map((option) => (
+                  <RadioButton
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                    selected={tiffinPlan || ""}
+                    onPress={(value) => {
+                      setTiffinPlan(value);
+                      clearError("tiffinPlan");
+                    }}
+                  />
+                ))}
+                {errors.tiffinPlan && (
+                  <Text style={styles.errorText}>{errors.tiffinPlan}</Text>
+                )}
+                {/* FIXED: Show price (dynamic) only when all selected and fetched */}
+                {selectedMealPackage > 0 && tiffinPlan ? (
+                  <View style={styles.priceContainer}>
+                    {isFetchingDetails ? (
+                      <ActivityIndicator color="#004AAD" />
+                    ) : getBasePriceForPlan(tiffinPlan) > 0 ? (
+                      <>
+                        <Text style={styles.priceText}>
+                          ₹{getBasePriceForPlan(tiffinPlan)} /{" "}
+                          {tiffinPlan === "perDay" ? "day" : tiffinPlan}
+                        </Text>
+                        {fetchedPricing.offers && (
+                          <Text style={styles.offersText}>
+                            {fetchedPricing.offers}
+                          </Text>
+                        )}
+                      </>
+                    ) : (
+                      planError && <Text style={styles.errorText}>{planError}</Text>
+                    )}
+                  </View>
+                ) : null}
+                <Text style={[styles.label, { marginTop: 10 }]}>
+                  Select Start Date *
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.datePickerButton,
+                    errors.date && styles.inputError,
+                  ]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={styles.datePickerText}>
+                    {date ? date.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={17} color="#333" style={styles.calendarIcon} />
+                </TouchableOpacity>
+                {errors.date && (
+                  <Text style={styles.errorText}>{errors.date}</Text>
+                )}
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={date || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={onChangeDate}
+                    minimumDate={new Date()}
+                  />
+                )}
+                {hasPeriodic && (
+                  <>
+                    <Text style={styles.label}>End Date</Text>
+                    <View style={styles.dateDisplay}>
+                      <Text style={styles.dateDisplayText}>
+                        {endDate ? endDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
+                      </Text>
+                    </View>
+                    <Text style={styles.infoText}>Based on your {tiffinPlan} plan</Text>
+                    {errors.endDate && (
+                      <Text style={styles.errorText}>{errors.endDate}</Text>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+          {errors.general && (
+            <Text style={styles.errorText}>{errors.general}</Text>
+          )}
+          <Buttons
+            style={styles.submitButton}
+            title="Submit Order Request"
+            onPress={handleTiffinSubmit}
+          />
+          <Text style={styles.confirmationText}>
+            Provider will reach out within 1 hour to confirm.
+          </Text>
+        </>
+      );
+    };
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header
+          title={bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking"}
+          style={styles.header}
+        />
+        <View style={styles.container}>
+          <ScrollView
+            scrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {bookingType === "tiffin"
+              ? renderTiffinBooking()
+              : renderHostelBooking()}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  const styles = StyleSheet.create({
+    container: {
+      backgroundColor: "#fff",
+      padding: 16,
+      flex: 1,
+    },
+    header: {
+      backgroundColor: "#fff",
+    },
+    section: {
+      borderWidth: 1,
+      borderColor: "#ccc",
+      borderRadius: 10,
+      padding: 15,
+      marginBottom: 25,
+    },
+    sectionTitle: {
+      fontWeight: "bold",
+      fontSize: 16,
+      marginBottom: 10,
+      marginTop:1,
+      flex: 1,
+      numberOfLines: 1,
+      ellipsizeMode: 'tail'
+    },
+    label: {
+      fontSize: 14,
+      marginBottom: 5,
+      color: "#444",
+      fontWeight: "bold",
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: "#aaa",
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      marginBottom: 5,
+      fontSize: 14,
+    },
+    inputError: {
+      borderColor: "#ff0000",
+    },
+    errorText: {
+      color: "#ff0000",
+      fontSize: 12,
+      marginBottom: 10,
+      textAlign: "left",
+    },
+    pickerWrapper: {
+      borderWidth: 1,
+      borderColor: "#aaa",
+      borderRadius: 6,
+      marginBottom: 15,
+    },
+    pickerInput: {
+      height: 51,
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      fontSize: 14,
+      color: "black",
+    },
+    icon: {
+      height: 18,
+      width: 18,
+      margin:4,
+      marginBottom:15
+    },
+    radioRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    radioOuter: {
+      height: 20,
+      width: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: "#004AAD",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
+    },
+    radioInner: {
+      height: 10,
+      width: 10,
+      borderRadius: 5,
+      backgroundColor: "#004AAD",
+    },
+    radioLabel: {
+      fontSize: 14,
+      color: "#333",
+    },
+    datePickerButton: {
+      borderWidth: 1,
+      borderColor: "#aaa",
+      borderRadius: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      justifyContent: "space-between",
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 5,
+    },
+    datePickerText: {
+      fontSize: 14,
+      color: "black",
+    },
+    submitButton: {
+      backgroundColor: "#004AAD",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      borderRadius: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 30,
+      marginBottom: 10,
+    },
+    disabledButton: {
+      backgroundColor: "#ccc",
+    },
+    submitButtonText: {
+      color: "#fff",
+      fontWeight: "bold",
+      fontSize: 16,
+      textAlign: "center",
+    },
+    confirmationText: {
+      fontSize: 12,
+      color: "#666",
+      textAlign: "center",
+    },
+    hostelName: {
+      fontSize: 18,
+      fontWeight: "600",
+      marginBottom: 15,
+      color: "#333",
+    },
+    priceContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    priceText: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: "#004AAD",
+    },
+    depositText: {
+      fontSize: 14,
+      color: "#666",
+    },
+    uploadButton: {
+      borderWidth: 1,
+      borderColor: "#ddd",
+      borderRadius: 8,
+      padding: 15,
+      alignItems: "center",
+      backgroundColor: "#f9f9f9",
+    },
+    uploadButtonText: {
+      fontSize: 14,
+      fontWeight: "500",
+      marginBottom: 5,
+    },
+    uploadSubtext: {
+      fontSize: 12,
+      color: "#666",
+      textAlign: "center",
+    },
+    calendarIcon: {
+      width: 17,
+      height: 17,
+    },
+    loadingContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 20,
+    },
+    loadingText: {
+      fontSize: 14,
+      color: "#666",
+      marginTop: 8,
+    },
+    purposeContainer: {
+      flexDirection: "row",
+      gap: 10,
+      marginTop: 15,
+    },
+    purposeButton: {
+      flex: 1,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "#ddd",
+      alignItems: "center",
+      backgroundColor: "#fff",
+    },
+    purposeButtonActive: {
+      backgroundColor: "#004AAD",
+      borderColor: "#004AAD",
+    },
+    purposeText: {
+      fontSize: 14,
+      color: "#666",
+    },
+    purposeTextActive: {
+      color: "#fff",
+      fontWeight: "500",
+    },
+    offersText: {
+      fontSize: 14,
+      color: "#FF6600",
+      textAlign: "center",
+      marginTop: 5,
+      fontWeight: "bold",
+    },
+    // UPDATED: Styles for bed names section (to match other sections: white bg, #ccc border, 10px radius, consistent padding)
+    bedNamesSection: {
+      borderWidth: 1,
+      borderColor: "#ccc",
+      borderRadius: 10,
+      marginBottom: 25,
+      backgroundColor: "#fff",
+      overflow: 'hidden',
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 15,
+      paddingVertical: 15,
+      // Removed: backgroundColor, borderTopLeftRadius, borderTopRightRadius
+    },
+    sectionHeaderContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+    },
+    sectionHeaderIcon: {
+      width: 20,
+      height: 20,
+      marginRight: 8,
+      tintColor: "#004AAD",
+    },
+    expandedContent: {
+      paddingHorizontal: 15,
+      paddingVertical: 15,
+      // Removed: backgroundColor, borderBottomLeftRadius, borderBottomRightRadius
+    },
+    introText: {
+      fontSize: 14,
+      color: "#666",
+      textAlign: "center",
+      paddingVertical: 8,
+      lineHeight: 20,
+    },
+    roomContainer: {
+      marginVertical: 0, // No extra margins
+    },
+    roomHeader: {
+      paddingVertical: 12,
+      paddingHorizontal: 0, // Align with parent padding
+      backgroundColor: "transparent", // No background
+      borderTopWidth: 0, // No border
+    },
+    roomTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#004AAD",
+      marginBottom: 2,
+    },
+    roomSubtitle: {
+      fontSize: 14,
+      color: "#666",
+      fontWeight: "500",
+    },
+    bedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 0, // Align with parent padding
+      margin: 0, // No margins
+      backgroundColor: "transparent", // No background
+      borderTopWidth: 1,
+      borderTopColor: "#f0f0f0", // Light divider on top
+    },
+    bedRowError: {
+      backgroundColor: "#fff5f5", // Subtle error bg
+      borderTopColor: "#ffcccc",
+    },
+    bedAvatarContainer: {
+      alignItems: "center",
+      marginRight: 16,
+      minWidth: 60,
+    },
+    bedAvatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "#e3f2fd",
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 6,
+      borderWidth: 2,
+      borderColor: "#004AAD",
+    },
+    bedAvatarIcon: {
+      width: 24,
+      height: 24,
+      tintColor: "#004AAD",
+    },
+    bedNumberLabel: {
+      fontSize: 12,
+      color: "#666",
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    bedNameContainer: {
+      flex: 1,
+    },
+    bedNameInput: {
+      borderWidth: 1,
+      borderColor: "#aaa", // Match input
+      borderRadius: 6,
+      paddingHorizontal: 10, // Match input
+      paddingVertical: 8, // Match input
+      fontSize: 14, // Match input
+      backgroundColor: "#fff",
+      marginBottom: 5, // Match input
+    },
+    roomDivider: {
+      height: 1,
+      backgroundColor: "#f0f0f0",
+      marginHorizontal: 0, // Full width with parent padding
+    },
+    totalGuestsFooter: {
+      paddingVertical: 12,
+      paddingHorizontal: 0, // Align with parent padding
+      alignItems: "center",
+      borderTopWidth: 1,
+      borderTopColor: "#f0f0f0",
+    },
+    totalBedsText: {
+      fontSize: 14,
+      color: "#004AAD",
+      fontWeight: "700",
+    },
+    // NEW: Styles for tiffin dropdowns
+    tiffinSelectorsContainer: {
+      marginBottom: 20,
+    },
+    tiffinDropdown: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#aaa",
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+      marginBottom: 10,
+      backgroundColor: "#fff",
+    },
+    tiffinDropdownLabel: {
+      fontSize: 14,
+      color: "#333",
+    },
+    dropdownIcon: {
+      fontSize: 12,
+      color: "#666",
+    },
+    expandedScroll: {
+      maxHeight: 500,
+    },
+    // NEW: Styles for close button on images
+    imageContainer: {
+      position: 'relative',
+      width: 100,
+      height: 100,
+      marginTop: 10,
+      alignSelf: 'flex-start',
+    },
+    uploadedImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 8,
+    },
+    closeButton: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      borderRadius: 12.5,
+      width: 25,
+      height: 25,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    checkboxBase: {
+      width: 24,
+      height: 24,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: "#ccc",
+      backgroundColor: "white",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 8,
+    },
+    checkboxSelected: {
+      backgroundColor: "#FF6600",
+      borderColor: "#FF6600",
+    },
+    checkMark: {
+      color: "white",
+      fontWeight: "bold",
+      fontSize: 16,
+    },
+    // NEW: Styles for non-editable end date display
+    dateDisplay: {
+      borderWidth: 1,
+      borderColor: "#aaa",
+      borderRadius: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      justifyContent: "space-between",
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 5,
+      backgroundColor: "#f9f9f9",
+    },
+    dateDisplayText: {
+      fontSize: 14,
+      color: "#999",
+    },
+    infoText: {
+      fontSize: 12,
+      color: "#666",
+      fontStyle: "italic",
+    },
+  });

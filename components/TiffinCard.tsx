@@ -4,11 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
 import { router } from "expo-router";
-
 import vegIcon from "@/assets/images/icons/vegIcon.png";
 import nonVegIcon from "@/assets/images/icons/non_vegIcon.png";
 import bothIcon from "@/assets/images/icons/BothIcon.png";
-
 interface TiffinCardProps {
   service: {
     id: string;
@@ -22,6 +20,7 @@ interface TiffinCardProps {
     tags?: string[];
     timing: string;
     location?: any;
+    highestPrice?: string;
   };
   onPress?: () => void;
   onBookPress?: () => void;
@@ -29,7 +28,6 @@ interface TiffinCardProps {
   horizontal?: boolean;
   isFavorited?: boolean;
 }
-
 export default function TiffinCard({
   service,
   onPress,
@@ -41,26 +39,21 @@ export default function TiffinCard({
   const { isFavorite } = useFavorites();
   const isFav = isFavorited !== undefined ? isFavorited : isFavorite(service.id, "tiffin");
   console.log("id", isFav);
-
   // safely handle tags
   const tags = Array.isArray(service.tags) ? service.tags : [];
   const hasVeg = tags.map((tag) => tag.toLowerCase()).includes("veg");
   const hasNonVeg = tags.map((tag) => tag.toLowerCase()).includes("non-veg");
-
   const getVegType = () => {
     if (hasVeg && hasNonVeg) return "both";
     if (hasNonVeg) return "non-veg";
     if (hasVeg) return "veg";
     return "both";
   };
-
   const vegType = getVegType();
-
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
     onFavoritePress?.();
   };
-
   return (
     <TouchableOpacity
       style={[styles.serviceCard, horizontal && styles.horizontalContainer]}
@@ -70,43 +63,42 @@ export default function TiffinCard({
         <View style={styles.imageContainer}>
           <Image source={service.image} style={styles.serviceImage} />
         </View>
-
         <View style={styles.serviceInfo}>
           <View style={styles.headerRow}>
             <Text style={styles.serviceName}>{service.name}</Text>
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={14} color="#FFA500" />
-              <Text style={styles.rating}>{service.rating}</Text>
-              <Text style={styles.reviews}>({service.reviews})</Text>
-            </View>
-            <View style={styles.favoriteButtonContainer}>
-              <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={handleFavoritePress}
-              >
-                <Ionicons
-                  name={isFav ? "heart" : "heart-outline"}
-                  size={20}
-                  color={isFav ? "red" : "#6B7280"}
-                />
-              </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <View style={styles.ratingContainer}>
+                <Ionicons name="star" size={14} color="#FFA500" />
+                <Text style={styles.rating}>{service.rating}</Text>
+                <Text style={styles.reviews}>({service.reviews})</Text>
+              </View>
+              <View style={styles.favoriteButtonContainer}>
+                <TouchableOpacity
+                  style={styles.favoriteButton}
+                  onPress={handleFavoritePress}
+                >
+                  <Ionicons
+                    name={isFav ? "heart" : "heart-outline"}
+                    size={20}
+                    color={isFav ? "red" : "#6B7280"}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-
-          <Text style={styles.serviceDescription} numberOfLines={2}>
+          <Text style={styles.serviceDescription} numberOfLines={2} ellipsizeMode="tail">
             {service.description}
           </Text>
-
           <View style={styles.priceRow}>
             <View>
               <Text style={styles.price}>{service.price}</Text>
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
+              {service.highestPrice && <Text style={styles.highestPrice}>Up to ₹{service.highestPrice}</Text>}
             </View>
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>10% OFF</Text>
             </View>
           </View>
-
           <View style={styles.infoRow}>
             <View style={styles.vegTag}>
               {vegType === "veg" ? (
@@ -130,7 +122,6 @@ export default function TiffinCard({
               <Text style={styles.timingText}>{service.timing}</Text>
             </View>
           </View>
-
           <View style={styles.bookButtonContainer}>
             <TouchableOpacity
               style={styles.bookButton}
@@ -147,7 +138,6 @@ export default function TiffinCard({
     </TouchableOpacity>
   );
 }
-
 const styles = StyleSheet.create({
   serviceCard: {
     backgroundColor: "#FFFFFF",
@@ -165,7 +155,14 @@ const styles = StyleSheet.create({
   horizontalContainer: { width: "100%", marginBottom: 0 },
   imageContainer: { position: "relative" },
   serviceImage: { width: 80, height: 80, borderRadius: 12, marginRight: 12 },
-  favoriteButtonContainer: { margin: 12 },
+  serviceInfo: { flex: 1 },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  serviceName: { fontSize: 16, fontWeight: "600", color: "#1A1A1A", flex: 1, marginRight: 8 },
+  ratingContainer: { flexDirection: "row", alignItems: "center", gap: 2 },
+  rating: { fontSize: 14, fontWeight: "600", color: "#1A1A1A" },
+  reviews: { fontSize: 14, color: "#6B7280" },
+  favoriteButtonContainer: {},
   favoriteButton: {
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 12,
@@ -179,16 +176,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  serviceInfo: { flex: 1 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  serviceName: { fontSize: 16, fontWeight: "600", color: "#1A1A1A", flex: 1, marginRight: 8 },
-  ratingContainer: { flexDirection: "row", alignItems: "center", gap: 2 },
-  rating: { fontSize: 14, fontWeight: "600", color: "#1A1A1A" },
-  reviews: { fontSize: 14, color: "#6B7280" },
   serviceDescription: { fontSize: 13, color: "#6B7280", lineHeight: 18, marginBottom: 8 },
-  priceRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 8 },
+  priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
   price: { fontSize: 16, fontWeight: "700", color: "#2563EB" },
   oldPrice: { fontSize: 14, color: "#9CA3AF", textDecorationLine: "line-through" },
+  highestPrice: { fontSize: 12, color: "#6B7280", marginTop: 2 },
   discountBadge: { backgroundColor: "#E0E7FF", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   discountText: { fontSize: 11, color: "#4338CA", fontWeight: "600" },
   infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },

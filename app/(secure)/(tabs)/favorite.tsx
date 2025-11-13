@@ -2,6 +2,7 @@
 // ✅ Instant optimistic add + remove updates
 // ✅ Auto refresh on screen focus + Pull to Refresh
 // ✅ React Query caching + Expo Router navigation
+
 import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
@@ -9,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  Alert,
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,18 +20,18 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
+import Toast from "react-native-toast-message";
+
 export default function FavoritesScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { favoritesUpdated, removeFromFavorites } = useFavorites();
   const [refreshing, setRefreshing] = useState(false);
+
   const getToken = async () => await AsyncStorage.getItem("token");
+
   // ==================== FETCH QUERIES ====================
-  // Hostel favorites query (cached via React Query)
-  const {
-    data: hostelFavorites = [],
-    isLoading: hostelLoading,
-  } = useQuery({
+  const { data: hostelFavorites = [], isLoading: hostelLoading } = useQuery({
     queryKey: ["favoriteHostels", favoritesUpdated],
     queryFn: async () => {
       const token = await getToken();
@@ -54,11 +54,8 @@ export default function FavoritesScreen() {
       }
     },
   });
-  // Tiffin favorites query (cached via React Query)
-  const {
-    data: tiffinFavorites = [],
-    isLoading: tiffinLoading,
-  } = useQuery({
+
+  const { data: tiffinFavorites = [], isLoading: tiffinLoading } = useQuery({
     queryKey: ["favoriteTiffins", favoritesUpdated],
     queryFn: async () => {
       const token = await getToken();
@@ -98,8 +95,10 @@ export default function FavoritesScreen() {
       return favoriteTiffins;
     },
   });
+
   const loading = hostelLoading || tiffinLoading;
   const hasFavorites = tiffinFavorites.length > 0 || hostelFavorites.length > 0;
+
   // ==================== PULL TO REFRESH ====================
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -109,6 +108,7 @@ export default function FavoritesScreen() {
     ]);
     setRefreshing(false);
   }, [queryClient]);
+
   // ==================== AUTO REFRESH ON FOCUS ====================
   useFocusEffect(
     useCallback(() => {
@@ -116,12 +116,13 @@ export default function FavoritesScreen() {
       queryClient.invalidateQueries({ queryKey: ["favoriteHostels"] });
     }, [queryClient])
   );
+
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["favoriteTiffins"] });
     queryClient.invalidateQueries({ queryKey: ["favoriteHostels"] });
   }, [favoritesUpdated, queryClient]);
+
   // ==================== MUTATIONS ====================
-  // 🟢 OPTIMISTIC ADD MUTATION
   const addFavoriteMutation = useMutation({
     mutationFn: async ({
       service,
@@ -153,37 +154,44 @@ export default function FavoritesScreen() {
     },
     onMutate: async ({ service, serviceType }) => {
       if (serviceType === "hostel") {
-        queryClient.setQueryData(["favoriteHostels", favoritesUpdated], (old: any[] = []) => [
-          ...old,
-          service,
-        ]);
+        queryClient.setQueryData(
+          ["favoriteHostels", favoritesUpdated],
+          (old: any[] = []) => [...old, service]
+        );
       } else {
-        queryClient.setQueryData(["favoriteTiffins", favoritesUpdated], (old: any[] = []) => [
-          ...old,
-          service,
-        ]);
+        queryClient.setQueryData(
+          ["favoriteTiffins", favoritesUpdated],
+          (old: any[] = []) => [...old, service]
+        );
       }
     },
     onError: (err, { service, serviceType }) => {
-      // rollback optimistic UI
       if (serviceType === "hostel") {
-        queryClient.setQueryData(["favoriteHostels", favoritesUpdated], (old: any[] = []) =>
-          old.filter((h) => h.id !== service.id)
+        queryClient.setQueryData(
+          ["favoriteHostels", favoritesUpdated],
+          (old: any[] = []) => old.filter((h) => h.id !== service.id)
         );
       } else {
-        queryClient.setQueryData(["favoriteTiffins", favoritesUpdated], (old: any[] = []) =>
-          old.filter((t) => t.id !== service.id)
+        queryClient.setQueryData(
+          ["favoriteTiffins", favoritesUpdated],
+          (old: any[] = []) => old.filter((t) => t.id !== service.id)
         );
       }
-      Alert.alert("Error", "Failed to add to favorites");
+      Toast.show({
+        type: "error",
+        text1: "Failed to add to favorites",
+      });
     },
     onSuccess: (res) => {
       if (!res?.success) {
-        Alert.alert("Error", res?.message || "Failed to add favorite");
+        Toast.show({
+          type: "error",
+          text1: res?.message || "Failed to add favorite",
+        });
       }
     },
   });
-  // 🔴 OPTIMISTIC REMOVE MUTATION (same as before)
+
   const removeFavoriteMutation = useMutation({
     mutationFn: async ({
       serviceId,
@@ -210,12 +218,14 @@ export default function FavoritesScreen() {
         favoritesUpdated,
       ]);
       if (serviceType === "hostel") {
-        queryClient.setQueryData(["favoriteHostels", favoritesUpdated], (old: any[] = []) =>
-          old.filter((h) => h.id !== serviceId)
+        queryClient.setQueryData(
+          ["favoriteHostels", favoritesUpdated],
+          (old: any[] = []) => old.filter((h) => h.id !== serviceId)
         );
       } else {
-        queryClient.setQueryData(["favoriteTiffins", favoritesUpdated], (old: any[] = []) =>
-          old.filter((t) => t.id !== serviceId)
+        queryClient.setQueryData(
+          ["favoriteTiffins", favoritesUpdated],
+          (old: any[] = []) => old.filter((t) => t.id !== serviceId)
         );
       }
       return { previousHostels, previousTiffins, serviceType };
@@ -223,29 +233,54 @@ export default function FavoritesScreen() {
     onError: (err, variables, context: any) => {
       if (context) {
         if (context.serviceType === "hostel") {
-          queryClient.setQueryData(["favoriteHostels", favoritesUpdated], context.previousHostels);
+          queryClient.setQueryData(
+            ["favoriteHostels", favoritesUpdated],
+            context.previousHostels
+          );
         } else {
-          queryClient.setQueryData(["favoriteTiffins", favoritesUpdated], context.previousTiffins);
+          queryClient.setQueryData(
+            ["favoriteTiffins", favoritesUpdated],
+            context.previousTiffins
+          );
         }
       }
-      Alert.alert("Error", "Failed to remove from favorites");
+      Toast.show({
+        type: "error",
+        text1: "Failed to remove from favorites",
+      });
     },
     onSuccess: (result, variables, context: any) => {
       if (!result?.success) {
         if (context) {
           if (variables.serviceType === "hostel") {
-            queryClient.setQueryData(["favoriteHostels", favoritesUpdated], context.previousHostels);
+            queryClient.setQueryData(
+              ["favoriteHostels", favoritesUpdated],
+              context.previousHostels
+            );
           } else {
-            queryClient.setQueryData(["favoriteTiffins", favoritesUpdated], context.previousTiffins);
+            queryClient.setQueryData(
+              ["favoriteTiffins", favoritesUpdated],
+              context.previousTiffins
+            );
           }
         }
-        Alert.alert("Error", result?.message || "Failed to remove from favorites");
+        Toast.show({
+          type: "error",
+          text1: result?.message || "Failed to remove from favorites",
+        });
         return;
       }
+
       removeFromFavorites(variables.serviceId, variables.serviceType);
-      Alert.alert("Success", "Removed from favorites");
+
+      // ✅ Success toast instead of Alert
+      Toast.show({
+        type: "success",
+        text1: "Removed from favorites",
+      });
     },
   });
+
   // ==================== HANDLERS ====================
   const handleTiffinPress = (service: any) => {
     router.push({
@@ -253,50 +288,63 @@ export default function FavoritesScreen() {
       params: { id: service.id, type: "tiffin", fullServiceData: JSON.stringify(service) },
     });
   };
+
   const handleHostelPress = (hostel: any) => {
     router.push({
       pathname: "/hostel-details/[id]",
       params: { id: hostel.id, type: "hostel", fullServiceData: JSON.stringify(hostel) },
     });
   };
+
   const handleBookPress = (item: any) => {
     router.push({
       pathname: "/bookingScreen",
       params: { id: item.id, serviceType: item.serviceType },
     });
   };
+
   const handleAddFavorite = (item: any) => {
     const type = item.serviceType === "tiffin" ? "tiffin" : "hostel";
     addFavoriteMutation.mutate({ service: item, serviceType: type });
   };
+
   const handleRemoveFavorite = (item: any) => {
     const type = item.serviceType === "tiffin" ? "tiffin" : "hostel";
     removeFavoriteMutation.mutate({ serviceId: item.id, serviceType: type });
   };
+
   // ==================== BACKEND HELPERS ====================
-  const removeFavoriteFromBackend = useCallback(async (serviceId: string, serviceType: "tiffin" | "hostel") => {
-    const token = await AsyncStorage.getItem("token");
-    if (!token) return { success: false };
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    };
-    const url =
-      serviceType === "hostel"
-        ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService"
-        : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
-    const body =
-      serviceType === "hostel"
-        ? { hostelServiceId: serviceId }
-        : { tiffinServiceId: serviceId };
-    try {
-      const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-      return await response.json();
-    } catch (error) {
-      console.error(`Failed to remove favorite ${serviceType}:`, error);
-      return { success: false };
-    }
-  }, []);
+  const removeFavoriteFromBackend = useCallback(
+    async (serviceId: string, serviceType: "tiffin" | "hostel") => {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return { success: false };
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+      const url =
+        serviceType === "hostel"
+          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService"
+          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
+      const body =
+        serviceType === "hostel"
+          ? { hostelServiceId: serviceId }
+          : { tiffinServiceId: serviceId };
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+        return await response.json();
+      } catch (error) {
+        console.error(`Failed to remove favorite ${serviceType}:`, error);
+        return { success: false };
+      }
+    },
+    []
+  );
+
   // ==================== MAPPERS ====================
   const mapTiffinService = (item: any) => ({
     id: item._id || item.id,
@@ -322,6 +370,7 @@ export default function FavoritesScreen() {
       ? `${item.mealTimings[0].startTime} - ${item.mealTimings[0].endTime}`
       : "-",
   });
+
   const mapHostelService = (item: any) => ({
     id: item._id || item.id,
     serviceType: "hostel",
@@ -340,13 +389,16 @@ export default function FavoritesScreen() {
     availableBeds: item.availableBeds || 0,
     deposit: item.deposit || "₹15000",
   });
+
   // ==================== RENDER ====================
   if (loading && !hasFavorites) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>My Favorites</Text>
-          <Text style={styles.headerSubtitle}>Your saved tiffin services and hostels</Text>
+          <Text style={styles.headerSubtitle}>
+            Your saved tiffin services and hostels
+          </Text>
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>Loading...</Text>
@@ -354,11 +406,14 @@ export default function FavoritesScreen() {
       </SafeAreaView>
     );
   }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Favorites</Text>
-        <Text style={styles.headerSubtitle}>Your saved tiffin services and hostels</Text>
+        <Text style={styles.headerSubtitle}>
+          Your saved tiffin services and hostels
+        </Text>
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -411,6 +466,7 @@ export default function FavoritesScreen() {
     </SafeAreaView>
   );
 }
+
 // ==================== STYLES ====================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", paddingTop: 20 },
@@ -418,12 +474,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: "700", color: "#1A1A1A", marginBottom: 4 },
   headerSubtitle: { fontSize: 14, color: "#6B7280" },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 100,
-  },
+  emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 100 },
   emptyTitle: { fontSize: 20, fontWeight: "600", color: "#374151", marginTop: 24, marginBottom: 8 },
   emptySubtitle: { fontSize: 14, color: "#6B7280", textAlign: "center", paddingHorizontal: 40 },
   section: { marginBottom: 24 },
