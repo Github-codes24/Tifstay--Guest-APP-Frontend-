@@ -1787,6 +1787,7 @@ const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirs
           scrollEnabled={true}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 100 }}
         >
           {bookingType === "tiffin"
             ? renderTiffinBooking()

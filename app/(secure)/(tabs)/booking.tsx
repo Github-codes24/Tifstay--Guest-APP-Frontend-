@@ -466,7 +466,7 @@ const handleContinueSubscription = (order: Order) => {
         <View style={styles.orderHeader}>
           <Text style={styles.bookingId}>
             {order.serviceType === "hostel"
-              ? "Booking Summary"
+              ? `Booking #${order.bookingId}` // UPDATED: Show booking ID for hostel as well
               : `Booking #${order.bookingId}`}
           </Text>
           <View
@@ -499,6 +499,19 @@ const handleContinueSubscription = (order: Order) => {
                     ellipsizeMode="tail"
                   >
                     {order.serviceName}
+                  </Text>
+                </View>
+              </View>
+              {/* UPDATED: Plan Row */}
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Plan:</Text>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {order.plan}
                   </Text>
                 </View>
               </View>

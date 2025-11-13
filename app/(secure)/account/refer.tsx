@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard"; // ✅ added for copy functionality
+import * as Clipboard from "expo-clipboard";
 import colors from "@/constants/colors";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -32,7 +32,8 @@ const renderItem = ({ item }) => (
 export default function ReferEarnScreen() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [redeeming, setRedeeming] = useState(false); // redeem button loading
+  const [redeeming, setRedeeming] = useState(false);
+  const [cashBackPoints, setCashBackPoints] = useState<number | null>(null); // ✅ for points from API
 
   useEffect(() => {
     const fetchReferralData = async () => {
@@ -51,15 +52,24 @@ export default function ReferEarnScreen() {
           return;
         }
 
+        // ✅ Fetch referral info
         const response = await fetch(
           `https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
-          {
-            headers: { Authorization: "Bearer " + token },
-          }
+          { headers: { Authorization: "Bearer " + token } }
         );
         const json = await response.json();
         if (json.success) {
           setData(json.data);
+        }
+
+        // ✅ Fetch cashback points
+        const pointsRes = await fetch(
+          "https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getPonits",
+          { headers: { Authorization: "Bearer " + token } }
+        );
+        const pointsJson = await pointsRes.json();
+        if (pointsJson.success && pointsJson.Points?.length > 0) {
+          setCashBackPoints(pointsJson.Points[0].cashBackPoints);
         }
       } catch (error) {
         console.error("Error fetching referral data:", error);
@@ -112,9 +122,7 @@ export default function ReferEarnScreen() {
   };
 
   const historyData = useMemo(() => {
-    if (!data || !data.referredUser || data.referredUser.length === 0) {
-      return [];
-    }
+    if (!data || !data.referredUser || data.referredUser.length === 0) return [];
     const pointsPerUser = Math.floor(data.totalPoints / data.referredUser.length);
     const currentDate = new Date().toLocaleDateString("en-GB", {
       day: "numeric",
@@ -191,12 +199,14 @@ export default function ReferEarnScreen() {
       <View style={styles.referCard}>
         <Text style={styles.referTitle}>Refer your friends</Text>
         <Text style={styles.referDesc}>
-          Refer your friends and earn 201 points for every successful referral.
+          Refer your friends and earn{" "}
+          <Text style={{ color: colors.primary, fontWeight: "700" }}>
+            {cashBackPoints !== null ? cashBackPoints : "—"}
+          </Text>{" "}
+          points for every successful referral.
         </Text>
         <View style={styles.codeRow}>
           <Text style={styles.code}>{data ? data.code : "QR7811"}</Text>
-
-          {/* ✅ Touchable Copy Button */}
           <TouchableOpacity onPress={handleCopyCode}>
             <Text style={styles.copy}>Copy</Text>
           </TouchableOpacity>

@@ -1,11 +1,12 @@
 import * as React from "react";
 import { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, Alert, Linking } from "react-native";
+import { View, Text, StyleSheet, Pressable, Linking, ActivityIndicator } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
 
 const INR = (n: number, fd = 0) =>
@@ -19,6 +20,7 @@ const INR = (n: number, fd = 0) =>
 export default function AddMoneyScreen() {
   const currentBalance = 25000;
   const [amountStr, setAmountStr] = useState<string>("0");
+  const [loading, setLoading] = useState(false);
   const amount = useMemo(() => parseInt(amountStr || "0", 10) || 0, [amountStr]);
   const insets = useSafeAreaInsets();
 
@@ -40,44 +42,49 @@ export default function AddMoneyScreen() {
 
   const onSelectCard = () => {};
 
-const onAddMoney = async () => {
-  if (amount <= 0) return;
+  const onAddMoney = async () => {
+    if (amount <= 0) return;
 
-  try {
-    const token = await AsyncStorage.getItem("token");
-    if (!token) return Alert.alert("Error", "User not authenticated");
-
-    const response = await axios.post(
-      "https://tifstay-project-be.onrender.com/api/guest/wallet/create-link",
-      { amount },
-      {
-        headers: { Authorization: `Bearer ${token}` },
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Toast.show({ type: "error", text1: "Error", text2: "User not authenticated" });
+        return;
       }
-    );
 
-    if (response.data?.success) {
-      const paymentUrl = response.data.data?.paymentLinkUrl; 
-      if (paymentUrl) {
-        const supported = await Linking.canOpenURL(paymentUrl);
-        if (supported) {
-          Alert.alert("Redirecting", "Opening payment link...");
-          await Linking.openURL(paymentUrl);
+      setLoading(true);
+
+      const response = await axios.post(
+        "https://tifstay-project-be.onrender.com/api/guest/wallet/create-link",
+        { amount },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data?.success) {
+        const paymentUrl = response.data.data?.paymentLinkUrl; 
+        if (paymentUrl) {
+          const supported = await Linking.canOpenURL(paymentUrl);
+          if (supported) {
+            Toast.show({ type: "success", text1: "Redirecting", text2: "Opening payment link..." });
+            // ✅ Give toast time to appear before redirect
+            setTimeout(() => Linking.openURL(paymentUrl), 300);
+          } else {
+            Toast.show({ type: "error", text1: "Error", text2: "Cannot open payment link." });
+          }
         } else {
-          Alert.alert("Error", "Cannot open payment link.");
+          Toast.show({ type: "success", text1: "Success", text2: "Payment link created." });
         }
       } else {
-        Alert.alert("Success", "Payment link created.");
+        Toast.show({ type: "error", text1: "Error", text2: response.data?.message || "Something went wrong" });
       }
-    } else {
-      Alert.alert("Error", response.data?.message || "Something went wrong");
+    } catch (error: any) {
+      Toast.show({ type: "error", text1: "Error", text2: error.response?.data?.message || "Something went wrong" });
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-    Alert.alert("Error", error.response?.data?.message || "Something went wrong");
-  }
-};
-
-
-
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -157,10 +164,14 @@ const onAddMoney = async () => {
 
         <Pressable
           onPress={onAddMoney}
-          style={[styles.primaryBtn, amount <= 0 && { opacity: 0.5 }]}
-          disabled={amount <= 0}
+          style={[styles.primaryBtn, (amount <= 0 || loading) && { opacity: 0.5 }]}
+          disabled={amount <= 0 || loading}
         >
-          <Text style={styles.primaryBtnText}>Add Money</Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.primaryBtnText}>Add Money</Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
