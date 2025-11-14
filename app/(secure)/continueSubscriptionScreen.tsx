@@ -349,7 +349,7 @@ export default function ContinueSubscriptionScreen() {
     }
     if (sourceRooms) {
       // Flatten rooms with their selected beds using helper
-      const restoredRooms: SelectedRoom[] = sourceRooms.flatMap((room: any) => {
+      let restoredRooms: SelectedRoom[] = sourceRooms.flatMap((room: any) => {
         const beds = getBedsArray(room);
         return beds.map((bed: any) => ({
           roomNumber: room.roomNumber?.toString() || room.roomNum?.toString() || room.room_number?.toString() || '',
@@ -359,15 +359,22 @@ export default function ContinueSubscriptionScreen() {
           name: bed?.name || '',
         }));
       }).filter(room => room.roomNumber && room.bedNumber > 0); // Filter out invalid rooms/beds
+      // Set first bed name to fullName if not set
+      if (restoredRooms.length > 0 && (!restoredRooms[0].name || restoredRooms[0].name.trim() === '')) {
+        restoredRooms[0].name = fullName || userData?.name || bookingData?.fullName || '';
+      }
       setSelectedRooms(restoredRooms);
       console.log("Restored selected rooms from source:", restoredRooms); // For debugging
     }
-  }, [fullBooking, bookingData, parsedRoomsState]);
+  }, [fullBooking, bookingData, parsedRoomsState, fullName, userData]);
   // Auto-fill check-out date based on check-in and plan
   useEffect(() => {
-    if (checkInDate && hostelPlan && !fullBooking?.checkOutDate) { // Only auto-fill if not from existing booking
+    if (checkInDate && hostelPlan) {
       let daysToAdd = 0;
       switch (hostelPlan) {
+        case 'daily':
+          daysToAdd = 1;
+          break;
         case 'weekly':
           daysToAdd = 7;
           break;
@@ -391,7 +398,7 @@ export default function ContinueSubscriptionScreen() {
         setCheckOutDate(newCheckOutDate);
       }
     }
-  }, [checkInDate, hostelPlan, fullBooking]);
+  }, [checkInDate, hostelPlan]);
   // Fetch hostel plan types after token is available (skip if existing plan or params plan available)
   useEffect(() => {
     if (token && serviceType === "hostel" && !existingSelectPlan && !plan) {
@@ -564,6 +571,10 @@ export default function ContinueSubscriptionScreen() {
         name: bed.name || '',
       }))
     );
+    // Set first bed name if not set
+    if (updatedSelected.length > 0 && (!updatedSelected[0].name || updatedSelected[0].name.trim() === '')) {
+      updatedSelected[0].name = fullName || userData?.name || bookingData?.fullName || '';
+    }
     setSelectedRooms(updatedSelected); // Set full updated list (supports deselection/removal)
     console.log("Updated selected rooms from modal:", updatedSelected); // Debug
   };
@@ -698,7 +709,6 @@ export default function ContinueSubscriptionScreen() {
       const planTypeStr = selectedMeals.join(" & ");
       // FIXED: Send short foodType for subscribe (matches backend expectation)
       const foodTypeStr = selectedfood;
-
       const chooseOrderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
       const dateStr = date.toISOString().split("T")[0];
       const endDateStr = endDate ? endDate.toISOString().split("T")[0] : dateStr;
@@ -707,7 +717,7 @@ export default function ContinueSubscriptionScreen() {
         foodType: foodTypeStr, // Short
         chooseOrderType: chooseOrderTypeStr,
         planType: planTypeStr,
-        subscribtionType: {  // FIXED: Match booking's typo 'subscribtionType'
+        subscribtionType: { // FIXED: Match booking's typo 'subscribtionType'
           subscribtion: tiffinPlan,
           price: currentPlanPrice,
         },
@@ -740,6 +750,7 @@ export default function ContinueSubscriptionScreen() {
             params: {
               bookingId: newBookingData._id,
               serviceType: "tiffin",
+              tiffinServiceId: params.tiffinServiceId,
             },
           });
           console.log("✅ Navigation to checkout complete!");
@@ -874,19 +885,21 @@ export default function ContinueSubscriptionScreen() {
       );
       console.log("📥 API Response:", response.data);
       if (response.data.success) {
-        const newBookingData = response.data.data;
-        console.log("✅ Continue subscription success:", newBookingData);
-        router.push({
-          pathname: "/(secure)/check-out",
-          params: {
-            bookingId: newBookingData._id,
-            serviceType: "hostel",
-            rooms: JSON.stringify(selectedRooms),
-
-          },
-        });
-        console.log("✅ Navigation to checkout complete!");
-      } else {
+  const newBookingData = response.data.data;
+  console.log("✅ Continue subscription success:", newBookingData);
+  const checkoutParams = {
+    bookingId: newBookingData._id,
+    serviceType: "hostel",
+    rooms: JSON.stringify(selectedRooms),
+    hostelId: fullBooking?.hostelId || params.hostelId,
+  };
+  console.log("📤 Navigating to checkout with params:", checkoutParams);
+  router.push({
+    pathname: "/(secure)/check-out",
+    params: checkoutParams,
+  });
+  console.log("✅ Navigation to checkout complete!");
+}else {
         console.log("❌ API success false:", response.data.message);
         Alert.alert("Error", response.data.message || "Failed to continue subscription.");
       }
@@ -1137,14 +1150,19 @@ export default function ContinueSubscriptionScreen() {
     }
     return options;
   };
+  // Helper to format date safely
+  const formatDate = (d: Date | null): string => {
+    if (!d || isNaN(d.getTime())) return "dd/mm/yyyy";
+    return d.toLocaleDateString("en-GB");
+  };
   const renderTiffinForm = () => {
     const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
     return (
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <View style={{ flexDirection: "row" }}>
-            <Image source={calender} style={styles.icon} />
-            <Text style={styles.sectionTitle}> Booking Details</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons name="calendar-outline" size={18} color="#000" />
+            <Text style={[styles.sectionTitle, { marginLeft: 8 }]}>Booking Details</Text>
           </View>
           {/* Food Type */}
           <Text style={styles.subSectionTitle}>Food Type</Text>
@@ -1237,9 +1255,9 @@ export default function ContinueSubscriptionScreen() {
             onPress={() => setShowDatePicker(true)}
           >
             <Text style={styles.datePickerText}>
-              {date ? date.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+              {formatDate(date)}
             </Text>
-            <Image source={calender} style={styles.calendarIcon} />
+            <Ionicons name="calendar-outline" size={20} color="#666" />
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
@@ -1259,9 +1277,9 @@ export default function ContinueSubscriptionScreen() {
                 onPress={() => setShowEndDatePicker(true)}
               >
                 <Text style={styles.datePickerText}>
-                  {endDate ? endDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
+                  {formatDate(endDate)}
                 </Text>
-                <Image source={calender} style={styles.calendarIcon} />
+                <Ionicons name="calendar-outline" size={20} color="#666" />
               </TouchableOpacity>
               {showEndDatePicker && (
                 <DateTimePicker
@@ -1303,6 +1321,7 @@ export default function ContinueSubscriptionScreen() {
     );
   };
   const updateBedName = (index: number, newName: string) => {
+    if (index === 0) return; // First bed name cannot be changed
     setSelectedRooms(prev => prev.map((room, i) => i === index ? { ...room, name: newName } : room));
   };
   const renderHostelForm = () => (
@@ -1315,20 +1334,17 @@ export default function ContinueSubscriptionScreen() {
         <View style={styles.pickerWrapper}>
           <Text style={[styles.pickerInput, { color: "#000", paddingHorizontal: 12, paddingVertical: 12 }]}>
             {existingSelectPlan
-              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan (₹${existingSelectPlan.price}/${existingSelectPlan.name})`
-              : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan (₹${displayPrice}/${hostelPlan})`
+              ? `${existingSelectPlan.name.charAt(0).toUpperCase() + existingSelectPlan.name.slice(1)} Plan`
+              : `${hostelPlan.charAt(0).toUpperCase() + hostelPlan.slice(1)} Plan`
             }
           </Text>
         </View>
-        <Text style={styles.priceText}>
-          {existingSelectPlan
-            ? `₹${existingSelectPlan.price}/${existingSelectPlan.name}`
-            : `${displayPrice || "₹8000/month"}`
-          }
-        </Text>
       </View>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📅 Booking Details</Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Ionicons name="calendar-outline" size={18} color="#000" />
+          <Text style={[styles.sectionTitle, { marginLeft: 8 }]}>Booking Details</Text>
+        </View>
         <Text style={styles.label}>Check-in date *</Text>
         <TouchableOpacity
           style={styles.datePickerButton}
@@ -1341,13 +1357,13 @@ export default function ContinueSubscriptionScreen() {
         </TouchableOpacity>
         <Text style={styles.label}>Check-out date *</Text>
         <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowCheckOutPicker(true)}
+          style={[styles.datePickerButton, styles.disabledDateButton]}
+          pointerEvents="none"
         >
-          <Text style={styles.datePickerText}>
+          <Text style={[styles.datePickerText, { color: "#999" }]}>
             {checkOutDate ? checkOutDate.toLocaleDateString("en-GB") : "dd/mm/yyyy"}
           </Text>
-          <Ionicons name="calendar-outline" size={20} color="#666" />
+          <Ionicons name="calendar-outline" size={20} color="#999" />
         </TouchableOpacity>
         {showCheckInPicker && (
           <DateTimePicker
@@ -1356,15 +1372,6 @@ export default function ContinueSubscriptionScreen() {
             display="default"
             onChange={onChangeCheckInDate}
             minimumDate={new Date()}
-          />
-        )}
-        {showCheckOutPicker && (
-          <DateTimePicker
-            value={checkOutDate || new Date(checkInDate || new Date())}
-            mode="date"
-            display="default"
-            onChange={onChangeCheckOutDate}
-            minimumDate={checkInDate || new Date()}
           />
         )}
         {/* New: Button to open Room Selection Modal */}
@@ -1385,18 +1392,27 @@ export default function ContinueSubscriptionScreen() {
         {/* Show selected rooms */}
         {selectedRooms.length > 0 && (
           <View style={styles.selectedRoomsContainer}>
-            <Text style={styles.label}>Selected Rooms:</Text>
+            <Text style={styles.subSectionTitle}>Selected Beds ({selectedRooms.length})</Text>
             {selectedRooms.map((room, index) => (
               <View key={index} style={styles.selectedRoomItem}>
-                <Text style={styles.selectedRoomText}>
-                  Room {room.roomNumber} - Bed {room.bedNumber}
-                </Text>
-                <TextInput
-                  style={styles.nameInput}
-                  placeholder="Guest Name *"
-                  value={room.name || ''}
-                  onChangeText={(text) => updateBedName(index, text)}
-                />
+                <View style={styles.roomBedRow}>
+                  <Ionicons name="bed-outline" size={16} color="#666" />
+                  <Text style={styles.selectedRoomText}>
+                    Room {room.roomNumber} - Bed {room.bedNumber}
+                  </Text>
+                </View>
+                {index === 0 ? (
+                  <Text style={[styles.nameInput, styles.primaryGuestName]}>
+                    {room.name || fullName || userData?.name || bookingData?.fullName || 'User'}
+                  </Text>
+                ) : (
+                  <TextInput
+                    style={styles.nameInput}
+                    placeholder="Guest Name *"
+                    value={room.name || ''}
+                    onChangeText={(text) => updateBedName(index, text)}
+                  />
+                )}
               </View>
             ))}
           </View>
@@ -1596,6 +1612,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: "#fff",
   },
+  disabledDateButton: {
+    opacity: 0.5,
+    backgroundColor: '#f9fafb',
+  },
   datePickerText: {
     fontSize: 14,
     color: "#000",
@@ -1714,29 +1734,50 @@ const styles = StyleSheet.create({
   },
   // New styles for selected rooms
   selectedRoomsContainer: {
-    marginTop: 10,
-    padding: 12,
-    backgroundColor: "#f0f9ff",
-    borderRadius: 8,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0f2fe",
+    borderColor: "#E5E7EB",
   },
   selectedRoomItem: {
-    paddingVertical: 4,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  roomBedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
   },
   selectedRoomText: {
     fontSize: 14,
-    color: "#0ea5e9",
-    fontWeight: "500",
+    color: "#374151",
+    fontWeight: "600",
+    marginLeft: 8,
   },
   nameInput: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 4,
-    fontSize: 12,
-    backgroundColor: "#fff",
+    borderWidth: 0,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: "#f9fafb",
+  },
+  primaryGuestName: {
+    fontWeight: "600",
+    color: "#000",
   },
 });
