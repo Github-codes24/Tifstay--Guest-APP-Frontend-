@@ -558,9 +558,9 @@ export default function BookingScreen() {
             setWeeklyDeposit(data.weeklyDeposit || 0);
             // Dynamically create picker items based on available plans
             const items = [];
-            // if (data.pricing?.perDay > 0) {
-            // items.push({ label: "Per Day", value: "daily" });
-            // }
+            if (data.pricing?.perDay > 0) {
+            items.push({ label: "Per Day", value: "daily" });
+            }
             if (data.pricing?.weekly > 0) {
               items.push({ label: "Weekly", value: "weekly" });
             }

@@ -62,6 +62,7 @@ interface TiffinService {
   price: string;
   tags: string[];
   rating: number;
+  reviews?: number;
   image: any;
   pricing: any[];
   foodType: string;
@@ -120,6 +121,8 @@ export default function DashboardScreen() {
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const vegToggleAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
+  const allHostelsRef = useRef<Hostel[]>([]);
+  const allTiffinsRef = useRef<TiffinService[]>([]);
   const imageMapping: { [key: string]: any } = {
     food1,
     hostel1,
@@ -255,7 +258,8 @@ export default function DashboardScreen() {
     return food1;
   }, []);
   // --- Unified Fetch Hostels Function ---
-  const fetchHostels = useCallback(async (filters: Filters, searchQuery: string = ""): Promise<Hostel[]> => {
+  const fetchHostels = useCallback(async (filters: Filters, searchQuery: string = "", baseData: Hostel[] = []): Promise<Hostel[]> => {
+    const trimmedQuery = searchQuery.trim().toLowerCase();
     const token = await getAuthToken();
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -281,7 +285,7 @@ export default function DashboardScreen() {
     if (filters.hostelType) params.append("hostelType", filters.hostelType);
     if (filters.roomType) params.append("roomType", filters.roomType);
     if (filters.acNonAc) params.append("acNonAc", filters.acNonAc);
-    if (filters.rating) params.append("rating", filters.rating.toString());
+    if (filters.rating) params.append("minRating", filters.rating.toString());
     // Price range (nested format)
     if (filters.priceRange && filters.priceRange.length === 2) {
       params.append("priceRange[min]", filters.priceRange[0].toString());
@@ -298,7 +302,7 @@ export default function DashboardScreen() {
       const response = await fetch(url, { headers });
       const result = await response.json();
       console.log("getAllHostelsServices response:", JSON.stringify(result, null, 2));
-      if (result.success && result.data) {
+      if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
         const mappedHostels = result.data.map((hostel: any) => {
           let imageUrl = hostel.hostelPhotos?.[0];
           if (imageUrl && (imageUrl.includes('/video/') || imageUrl.match(/\.mp4$/i))) {
@@ -327,12 +331,31 @@ export default function DashboardScreen() {
           };
         });
         return mappedHostels;
+      } else if (searchQuery.trim() && baseData.length > 0) {
+        // Backend empty / failed → fallback to client-side on baseData
+        console.warn("Backend hostel search empty or failed, falling back to client-side filter");
+        return baseData.filter((hostel) => {
+          const lowerQuery = trimmedQuery;
+          const nameMatch = hostel.name.toLowerCase().includes(lowerQuery);
+          const locMatch = hostel.location.toLowerCase().includes(lowerQuery);
+          return nameMatch || locMatch;
+        });
       } else {
         console.warn("getAllHostelsServices failed:", result.message);
         return [];
       }
     } catch (error) {
       console.error("Failed to fetch hostels:", error);
+      if (searchQuery.trim() && baseData.length > 0) {
+        // Error → client fallback
+        console.warn("Hostel search network/error fallback to client-side");
+        return baseData.filter((hostel) => {
+          const lowerQuery = trimmedQuery;
+          const nameMatch = hostel.name.toLowerCase().includes(lowerQuery);
+          const locMatch = hostel.location.toLowerCase().includes(lowerQuery);
+          return nameMatch || locMatch;
+        });
+      }
       return [];
     }
   }, []);
@@ -378,6 +401,7 @@ export default function DashboardScreen() {
             price,
             tags: uniqueTags,
             rating: tiffin.averageRating,
+            reviews: tiffin.totalReviews || 0,
             image: defaultImage,
             vegPhotos: tiffin.vegPhotos || [],
             nonVegPhotos: tiffin.nonVegPhotos || [],
@@ -399,7 +423,8 @@ const fetchTiffinRecentSearch = async (
   query: string,
   priceSort = "",
   minRating = 0,
-  foodTypeParam?: string
+  foodTypeParam?: string,
+  allData: TiffinService[] = []
 ): Promise<TiffinService[]> => {
   if (!query.trim()) {
     return [];
@@ -412,12 +437,15 @@ const fetchTiffinRecentSearch = async (
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const params = new URLSearchParams({
     search: encodedQuery,
-    ...(priceSort && { priceSort }),
-    ...(minRating > 0 && { rating: `${minRating} & above` }),
   });
+  if (minRating > 0) {
+    // Normalized to simple number like fetchHostels
+    params.append("minRating", minRating.toString());
+  }
   if (foodTypeParam) {
     params.append("foodType", foodTypeParam);
   }
+  // priceSort handled client-side, not sent to backend
   const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
   console.log("🔍 Tiffin Search URL:", url);
   console.log("🔍 Decoded Query for Debug:", decodeURIComponent(encodedQuery));
@@ -425,8 +453,8 @@ const fetchTiffinRecentSearch = async (
     const response = await fetch(url, { headers });
     const result = await response.json();
     console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
-    if (result.success && result.data && Array.isArray(result.data)) {
-      // Backend success → extra client-side partial/case-insensitive filter (name + desc + location)
+    if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
+      // Backend success with data → extra client-side partial/case-insensitive filter (name + desc + location)
       const backendFiltered = result.data.filter((tiffin: any) => {
         const lowerQuery = trimmedQuery;
         const nameMatch = (tiffin.tiffinName || "").toLowerCase().includes(lowerQuery);
@@ -465,6 +493,7 @@ const fetchTiffinRecentSearch = async (
           price,
           tags: uniqueTags,
           rating: tiffin.averageRating || 0,
+          reviews: tiffin.totalReviews || 0,
           image: defaultImage,
           vegPhotos: tiffin.vegPhotos || [],
           nonVegPhotos: tiffin.nonVegPhotos || [],
@@ -477,7 +506,7 @@ const fetchTiffinRecentSearch = async (
     } else {
       // Backend empty / failed → fallback to client-side on allTiffinServicesData
       console.warn("Backend tiffin search empty or failed, falling back to client-side filter");
-      return allTiffinServicesData.filter((service) => {
+      return allData.filter((service) => {
         const lowerQuery = trimmedQuery;
         const nameMatch = service.name.toLowerCase().includes(lowerQuery);
         const descMatch = service.description.toLowerCase().includes(lowerQuery);
@@ -490,7 +519,7 @@ const fetchTiffinRecentSearch = async (
     console.error("❌ Tiffin Search Error:", err);
     // Error → client fallback
     console.warn("Tiffin search network/error fallback to client-side");
-    return allTiffinServicesData.filter((service) => {
+    return allData.filter((service) => {
       const lowerQuery = trimmedQuery;
       const nameMatch = service.name.toLowerCase().includes(lowerQuery);
       const descMatch = service.description.toLowerCase().includes(lowerQuery);
@@ -625,8 +654,8 @@ const fetchTiffinRecentSearch = async (
   // --- React Query Hooks (Updated for Hostels) ---
   const filtersKey = useMemo(() => JSON.stringify(appliedFilters), [appliedFilters]);
   const { data: allHostelsData = [], isLoading: isLoadingHostels, refetch: refetchHostels } = useQuery({
-    queryKey: ['allHostels', filtersKey, searchQuery, isHostel],
-    queryFn: () => fetchHostels(appliedFilters, searchQuery),
+    queryKey: ['allHostels', filtersKey, isHostel],
+    queryFn: () => fetchHostels(appliedFilters, ''),
     enabled: isHostel,
   });
   const { data: allTiffinServicesData = [], isLoading: isLoadingTiffins, refetch: refetchTiffins } = useQuery({
@@ -659,8 +688,9 @@ const fetchTiffinRecentSearch = async (
     enabled: isSearchFocused && !searchQuery.trim(),
   });
   // --- Fixed: Replace useQuery with manual getQueryData to avoid missing queryFn error and support debounced/manual setQueryData ---
-  const searchedHostelsData = queryClient.getQueryData<Hostel[]>(['searchedItems', 'hostels', searchQuery]) || [];
-  const searchedTiffinsData = queryClient.getQueryData<TiffinService[]>(['searchedItems', 'tiffins', searchQuery]) || [];
+  const normalizedSearchQuery = searchQuery.trim();
+  const searchedHostelsData = queryClient.getQueryData<Hostel[]>(['searchedItems', 'hostels', normalizedSearchQuery]) || [];
+  const searchedTiffinsData = queryClient.getQueryData<TiffinService[]>(['searchedItems', 'tiffins', normalizedSearchQuery]) || [];
   const hostelTypeOptions = useMemo(() => ["All", ...hostelTypesData], [hostelTypesData]);
   const areaOptions = useMemo(() => ["All", ...citiesData], [citiesData]);
   const maxRentOptions = ["All", "5000", "10000", "15000", "20000", "25000", "30000"];
@@ -697,9 +727,16 @@ const fetchTiffinRecentSearch = async (
       setSearchVisibleCount(10);
     }
   }, [isSearchFocused, searchQuery]);
+  // Update refs for stable base data
+  useEffect(() => {
+    allHostelsRef.current = allHostelsData;
+  }, [allHostelsData]);
+  useEffect(() => {
+    allTiffinsRef.current = allTiffinServicesData;
+  }, [allTiffinServicesData]);
   // --- Unified Search Debounce Effect (Updated for Hostels: Invalidate instead of manual fetch) ---
   useEffect(() => {
-    if (!isSearchFocused || !searchQuery.trim()) {
+    if (!isSearchFocused || !searchQuery.trim() || searchQuery.length < 2) {
       setIsSearching(false);
       return;
     }
@@ -715,10 +752,12 @@ const fetchTiffinRecentSearch = async (
         vegValue = appliedFilters.vegNonVeg || undefined;
       }
       if (isHostel) {
-        // Invalidate/refetch main query (includes search param via deps)
-        await queryClient.invalidateQueries({ queryKey: ['allHostels'] });
+        // Manual fetch and set for hostels to match tiffin logic
+        const data = await fetchHostels(appliedFilters, trimmedQuery, allHostelsRef.current);
+        const key = ["searchedItems", "hostels", trimmedQuery];
+        queryClient.setQueryData(key, data);
       } else {
-        const data = await fetchTiffinRecentSearch(trimmedQuery, priceSort, minRating, vegValue);
+        const data = await fetchTiffinRecentSearch(trimmedQuery, priceSort, minRating, vegValue, allTiffinsRef.current);
         const key = ["searchedItems", "tiffins", trimmedQuery];
         queryClient.setQueryData(key, data);
       }
@@ -905,6 +944,20 @@ const fetchTiffinRecentSearch = async (
     try {
       if (isHostel) {
         await refetchHostels();
+        const priceSort = appliedFilters.cost || "";
+        const minRating = appliedFilters.rating || 0;
+        let vegValue: string | undefined;
+        if (vegFilter !== "off") {
+          vegValue = "Veg";
+        } else {
+          vegValue = appliedFilters.vegNonVeg || undefined;
+        }
+        if (isSearchFocused && searchQuery.trim()) {
+          const trimmed = searchQuery.trim();
+          const data = await fetchHostels(appliedFilters, trimmed, allHostelsRef.current);
+          const key = ["searchedItems", "hostels", trimmed];
+          queryClient.setQueryData(key, data);
+        }
       } else {
         await refetchTiffins();
         const priceSort = appliedFilters.cost || "";
@@ -917,7 +970,7 @@ const fetchTiffinRecentSearch = async (
         }
         if (isSearchFocused && searchQuery.trim()) {
           const trimmed = searchQuery.trim();
-          const data = await fetchTiffinRecentSearch(trimmed, priceSort, minRating, vegValue);
+          const data = await fetchTiffinRecentSearch(trimmed, priceSort, minRating, vegValue, allTiffinsRef.current);
           const key = ["searchedItems", "tiffins", trimmed];
           queryClient.setQueryData(key, data);
         }
@@ -1031,7 +1084,6 @@ const fetchTiffinRecentSearch = async (
         console.log("Hostel heart icon clicked in dashboard for ID:", item.id);
         handleFavoriteToggle(item);
       }}
-  
     />
   );
   const keyExtractor = (item: Hostel | TiffinService) => (item.id || Math.random().toString()).toString();
@@ -1072,7 +1124,7 @@ const fetchTiffinRecentSearch = async (
             isSearching ? (
               <View style={styles.noResultsContainer}>
                 <ActivityIndicator size="large" color="#6B7280" />
-                <Text style={styles.noResultsSubtext}>Searching...</Text>
+                <Text style={styles.noResultsSubtext}>Searching for "{searchQuery}"...</Text>
               </View>
             ) : isHostel ? (
               searchedHostelsData.length > 0 ? (
@@ -1094,7 +1146,7 @@ const fetchTiffinRecentSearch = async (
                   <Text style={styles.noResultsText}>
                     {`No hostels found matching "${searchQuery}"`}
                   </Text>
-                  <Text style={styles.noResultsSubtext}>Try searching with different keywords</Text>
+                  <Text style={styles.noResultsSubtext}>Try searching with different keywords like "AC" or "Near College"</Text>
                 </View>
               )
             ) : searchedTiffinsData.length > 0 ? (
@@ -1116,7 +1168,7 @@ const fetchTiffinRecentSearch = async (
                 <Text style={styles.noResultsText}>
                   {`No services found matching "${searchQuery}"`}
                 </Text>
-                <Text style={styles.noResultsSubtext}>Try searching with different keywords</Text>
+                <Text style={styles.noResultsSubtext}>Try searching with different keywords like "Veg" or "Maharashtrian"</Text>
               </View>
             )
           ) : (
@@ -1129,6 +1181,8 @@ const fetchTiffinRecentSearch = async (
                         key={index}
                         style={styles.suggestionTag}
                         onPress={() => setSearchQuery(suggestion)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Search for ${suggestion}`}
                       >
                         {/* FIX: Explicit <Text> with string */}
                         <Text style={styles.suggestionTagText}>{String(suggestion)}</Text>
@@ -1136,19 +1190,19 @@ const fetchTiffinRecentSearch = async (
                     ))
                   ) : (
                     <>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("WiFi")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("WiFi")} accessibilityRole="button" accessibilityLabel="Search for WiFi">
                         <Text style={styles.suggestionTagText}>WiFi</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("AC")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("AC")} accessibilityRole="button" accessibilityLabel="Search for AC">
                         <Text style={styles.suggestionTagText}>AC</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Near College")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Near College")} accessibilityRole="button" accessibilityLabel="Search for Near College">
                         <Text style={styles.suggestionTagText}>Near College</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Parking")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Parking")} accessibilityRole="button" accessibilityLabel="Search for Parking">
                         <Text style={styles.suggestionTagText}>Parking</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Mess")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Mess")} accessibilityRole="button" accessibilityLabel="Search for Mess">
                         <Text style={styles.suggestionTagText}>Mess</Text>
                       </TouchableOpacity>
                     </>
@@ -1160,6 +1214,8 @@ const fetchTiffinRecentSearch = async (
                         key={index}
                         style={styles.suggestionTag}
                         onPress={() => setSearchQuery(suggestion)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Search for ${suggestion}`}
                       >
                         {/* FIX: Explicit <Text> with string */}
                         <Text style={styles.suggestionTagText}>{String(suggestion)}</Text>
@@ -1167,19 +1223,19 @@ const fetchTiffinRecentSearch = async (
                     ))
                   ) : (
                     <>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Veg")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Veg")} accessibilityRole="button" accessibilityLabel="Search for Veg">
                         <Text style={styles.suggestionTagText}>Veg</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Maharashtrian")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Maharashtrian")} accessibilityRole="button" accessibilityLabel="Search for Maharashtrian">
                         <Text style={styles.suggestionTagText}>Maharashtrian</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Healthy")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Healthy")} accessibilityRole="button" accessibilityLabel="Search for Healthy">
                         <Text style={styles.suggestionTagText}>Healthy</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Home Style")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Home Style")} accessibilityRole="button" accessibilityLabel="Search for Home Style">
                         <Text style={styles.suggestionTagText}>Home Style</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Budget")}>
+                      <TouchableOpacity style={styles.suggestionTag} onPress={() => setSearchQuery("Budget")} accessibilityRole="button" accessibilityLabel="Search for Budget">
                         <Text style={styles.suggestionTagText}>Budget</Text>
                       </TouchableOpacity>
                     </>
@@ -1200,14 +1256,14 @@ const fetchTiffinRecentSearch = async (
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <View style={styles.locationContainer}>
-            <TouchableOpacity style={styles.locationButton} onPress={() => setShowLocationModal(true)}>
+            <TouchableOpacity style={styles.locationButton} onPress={() => setShowLocationModal(true)} accessibilityRole="button" accessibilityLabel="Change location">
               <Ionicons name="home" size={20} color="#000" />
               <Text style={styles.locationText}>Home Location</Text>
               <Ionicons name="chevron-down" size={20} color="#000" />
             </TouchableOpacity>
             <Text style={styles.locationSubtext}>{userLocation || "Unknown Location"}</Text>
           </View>
-          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress} accessibilityRole="button" accessibilityLabel="View profile">
             <Image
               source={profileSource} // Updated to use conditional source with local fallback
               style={styles.profileImage}
@@ -1238,9 +1294,10 @@ const fetchTiffinRecentSearch = async (
                   onFocus={() => setIsSearchFocused(true)}
                   style={styles.searchInput}
                   placeholderTextColor="#9CA3AF"
+                  accessibilityLabel="Search input"
                 />
                 {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={handleClearSearch}>
+                  <TouchableOpacity onPress={handleClearSearch} accessibilityRole="button" accessibilityLabel="Clear search">
                     <Ionicons name="close-circle" size={20} color="#9CA3AF" />
                   </TouchableOpacity>
                 )}
@@ -1251,6 +1308,8 @@ const fetchTiffinRecentSearch = async (
               <TouchableOpacity
                 style={[styles.filterButton, { backgroundColor: hasFilters ? colors.primary : "#F2EFFD" }]}
                 onPress={() => setShowFilterModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open filters"
               >
                 <Ionicons name="options" size={22} color={hasFilters ? "white" : "#2563EB"} />
               </TouchableOpacity>
@@ -1290,6 +1349,8 @@ const fetchTiffinRecentSearch = async (
                     setMaxRent("");
                     setVegFilter("off");
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch to Tiffin/Restaurants"
                 >
                   <Image
                     source={tiffinlogo}
@@ -1311,6 +1372,8 @@ const fetchTiffinRecentSearch = async (
                     setMaxRent("");
                     setVegFilter("off");
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch to PG/Hostels"
                 >
                   <Image
                     source={hostellogo}
@@ -1386,6 +1449,8 @@ const fetchTiffinRecentSearch = async (
                       }
                     }}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={vegFilter === "off" ? "Enable veg filter" : "Disable veg filter"}
                   >
                     <View style={styles.vegLabelContainer}>
                       <Text style={styles.vegLabelText}>VEG</Text>

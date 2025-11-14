@@ -692,11 +692,11 @@ export default function ProductDetails() {
                 >
                   {plan.planType} ({plan.foodType})
                 </Text>
-                {plan.offers && (
+                {/* {plan.offers && (
                   <View style={styles.discountBadge}>
                     <Text style={styles.discountText}>{plan.offers}</Text>
                   </View>
-                )}
+                )} */}
               </View>
               <View style={styles.pricingColumns}>
                 {/* Dining prices column - only show if weeklyDining or monthlyDining > 0 */}
