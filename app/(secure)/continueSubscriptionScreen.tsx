@@ -750,7 +750,7 @@ export default function ContinueSubscriptionScreen() {
             params: {
               bookingId: newBookingData._id,
               serviceType: "tiffin",
-              tiffinServiceId: params.tiffinServiceId,
+              tiffinServiceId: newBookingData.tiffinServiceId || params.tiffinServiceId, // Updated: Use from response if available
             },
           });
           console.log("✅ Navigation to checkout complete!");
@@ -891,7 +891,7 @@ export default function ContinueSubscriptionScreen() {
     bookingId: newBookingData._id,
     serviceType: "hostel",
     rooms: JSON.stringify(selectedRooms),
-    hostelId: fullBooking?.hostelId || params.hostelId,
+    hostelId: newBookingData.hostelId, // Updated: Use from response
   };
   console.log("📤 Navigating to checkout with params:", checkoutParams);
   router.push({

@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import RNPickerSelect from "react-native-picker-select";
@@ -135,6 +136,7 @@ export default function BookingScreen() {
   const [aadhaarPhoto, setAadhaarPhoto] = useState<string>("");
   const [userPhoto, setUserPhoto] = useState<string>("");
   const [isLoadingHostel, setIsLoadingHostel] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const ranAutofill = useRef(false);
   const [expandedTiffin, setExpandedTiffin] = useState<number | null>(bookingType === "hostel" ? 0 : null);
   // NEW: Single tiffin meal preferences
@@ -1242,18 +1244,27 @@ export default function BookingScreen() {
           {/* UPDATED: Render bed names UI instead of simple summary */}
           {renderBedNamesSection()}
           <Text style={styles.label}>Select Plan</Text>
-          <View style={styles.pickerWrapper}>
-            <RNPickerSelect
-              onValueChange={setHostelPlan}
-              items={pickerItems}
-              placeholder={{ label: "Select Plan", value: null }}
-              style={{
-                inputIOS: styles.pickerInput,
-                inputAndroid: styles.pickerInput,
-              }}
-              value={hostelPlan}
-            />
-          </View>
+          <TouchableOpacity
+            style={styles.pickerWrapper}
+            onPress={() => setShowPlanModal(true)}
+          >
+            <View
+              style={[
+                styles.pickerInput,
+                styles.customPickerInput,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.pickerInputText,
+                  !hostelPlan && { color: "#999" },
+                ]}
+              >
+                {pickerItems.find((item) => item.value === hostelPlan)?.label || "Select Plan"}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color="#666" />
+            </View>
+          </TouchableOpacity>
           <View style={styles.priceContainer}>
             <Text style={styles.priceText}>
               ₹{currentPlanPrice} / {(hostelPlan || "monthly").charAt(0).toUpperCase() + (hostelPlan || "monthly").slice(1)}
@@ -1460,6 +1471,47 @@ export default function BookingScreen() {
             <Text style={styles.submitButtonText}>Book Now</Text>
           )}
         </TouchableOpacity>
+        <Modal
+          visible={showPlanModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowPlanModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowPlanModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Plan</Text>
+                <TouchableOpacity onPress={() => setShowPlanModal(false)}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalContent}>
+                {pickerItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={[
+                      styles.modalOption,
+                      hostelPlan === item.value && styles.modalOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setHostelPlan(item.value);
+                      setShowPlanModal(false);
+                    }}
+                  >
+                    <Text style={styles.modalOptionText}>{item.label}</Text>
+                    {hostelPlan === item.value && (
+                      <Ionicons name="checkmark" size={20} color="#004AAD" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </>
     );
     // FIXED: In meal package onPress - Set selectedPlanType to exact API value
@@ -1876,6 +1928,19 @@ export default function BookingScreen() {
       fontSize: 14,
       color: "black",
     },
+    customPickerInput: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      height: 51,
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      backgroundColor: '#fff',
+    },
+    pickerInputText: {
+      fontSize: 14,
+      color: 'black',
+    },
     icon: {
       height: 18,
       width: 18,
@@ -2255,5 +2320,52 @@ export default function BookingScreen() {
       fontSize: 12,
       color: "#666",
       fontStyle: "italic",
+    },
+    // NEW: Styles for custom plan modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: '#fff',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '60%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: '#f0f0f0',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#333',
+    },
+    modalContent: {
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+    },
+    modalOption: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: '#f0f0f0',
+    },
+    modalOptionSelected: {
+      backgroundColor: '#f0f8ff',
+    },
+    modalOptionText: {
+      fontSize: 16,
+      color: '#333',
+      flex: 1,
     },
   });

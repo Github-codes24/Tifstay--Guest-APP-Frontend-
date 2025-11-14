@@ -332,7 +332,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
                 {/* Room Type */}
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterTitle}>Room Type</Text>
+                  <Text style={styles.filterTitle}>Max Bed Num</Text>
                   <View style={{ position: "relative" }}>
                     {isLoadingRoomTypes && (!roomTypes || roomTypes.length === 0) ? (
                       <ActivityIndicator size="small" color={colors.primary} style={styles.dropdownLoader} />
