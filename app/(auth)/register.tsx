@@ -136,9 +136,10 @@ export default function RegisterScreen() {
     }
     try {
       setIsSubmitting(true);
+      const formattedPhoneNumber = `${selectedCountry.dialCode} ${trimmedPhone}`;
       const requestBody = {
         name: trimmedName,
-        phoneNumber: trimmedPhone,
+        phoneNumber: formattedPhoneNumber,
       };
       if (trimmedCode) requestBody.code = trimmedCode;
       const response = await axios.post(
@@ -157,9 +158,9 @@ export default function RegisterScreen() {
         });
         setTimeout(() => {
           router.push({
-            pathname: "/verify",
-            params: { phoneNumber: trimmedPhone, otp: otpCode },
-          });
+  pathname: "/verify",
+  params: { phoneNumber: trimmedPhone, dialCode: selectedCountry.dialCode },
+});
         }, 2000);
       } else {
         Toast.show({

@@ -102,11 +102,12 @@ export default function LoginScreen() {
   const handleCountryChange = async (country: any) => {
     try {
       setLoadingDialCode(true);
+      const encodedCountryName = encodeURIComponent(country.name);
       const res = await axios.get(
-        `https://tifstay-project-be.onrender.com/api/guest/country-code?country=${country.name}`
+        `https://tifstay-project-be.onrender.com/api/guest/country-code?country=${encodedCountryName}`
       );
       if (res.data.success) {
-        const dial = res.data.data.dialCode || "+0";
+        const dial = res.data.data.dialCode || "+91";
         setSelectedCountry({
           ...country,
           dialCode: dial,
@@ -114,14 +115,14 @@ export default function LoginScreen() {
       } else {
         setSelectedCountry({
           ...country,
-          dialCode: "+0",
+          dialCode: "+91",
         });
       }
     } catch (err) {
       console.log("Error fetching dial code:", err);
       setSelectedCountry({
         ...country,
-        dialCode: "+0",
+        dialCode: "+91",
       });
     } finally {
       setLoadingDialCode(false);
@@ -155,7 +156,8 @@ export default function LoginScreen() {
       return;
     }
 
-    const payload = { phoneNumber: trimmedNumber };
+    const formattedPhoneNumber = `${selectedCountry.dialCode} ${trimmedNumber}`;
+    const payload = { phoneNumber: formattedPhoneNumber };
 
     try {
       const response = await axios.post(
@@ -175,7 +177,7 @@ export default function LoginScreen() {
         setTimeout(() => {
           router.push({
             pathname: "/verify",
-            params: { phoneNumber: trimmedNumber },
+            params: { phoneNumber: trimmedNumber, dialCode: selectedCountry.dialCode },
           });
           setIsLoading(false);
         }, 2500);

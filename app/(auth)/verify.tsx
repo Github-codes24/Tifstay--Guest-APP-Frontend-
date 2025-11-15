@@ -31,7 +31,7 @@ export default function VerifyScreen() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const inputRefs = useRef<TextInput[]>([]);
   const { login } = useAuthStore();
-  const { phoneNumber } = useLocalSearchParams();
+  const { phoneNumber, dialCode } = useLocalSearchParams();
   const [timer, setTimer] = useState(30);
   const [isResendDisabled, setIsResendDisabled] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -87,9 +87,10 @@ export default function VerifyScreen() {
 
     setLoading(true);
     try {
+      const formattedPhoneNumber = `${dialCode} ${phoneNumber}`;
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
-        { phoneNumber, otp: otpCode }
+        { phoneNumber: formattedPhoneNumber, otp: otpCode }
       );
 
       if (response.data.success) {
@@ -133,9 +134,10 @@ export default function VerifyScreen() {
     if (isResendDisabled) return;
 
     try {
+      const formattedPhoneNumber = `${dialCode} ${phoneNumber}`;
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/login",
-        { phoneNumber }
+        { phoneNumber: formattedPhoneNumber }
       );
 
       if (response.data.success) {

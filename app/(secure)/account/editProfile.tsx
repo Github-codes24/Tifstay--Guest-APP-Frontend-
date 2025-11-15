@@ -145,20 +145,32 @@ const EditProfile = () => {
         extraScrollHeight={20}
         keyboardShouldPersistTaps="handled"
       >
-       <View style={styles.profileContainer}>
-          {/* ✅ Profile image with fallback */}
-          <TouchableOpacity onPress={pickImage}>
-            {profileImage?.uri ? (
-              <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
-            ) : (
-              <Image
-                source={require("../../../assets/images/fallbackdp.png")}
-                style={styles.profileImage}
-              />
-            )}
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{name}</Text>
-        </View>
+   <View style={styles.profileContainer}>
+  <View style={styles.imageWrapper}>
+    {/* Profile Image */}
+    <TouchableOpacity onPress={pickImage}>
+      {profileImage?.uri ? (
+        <Image
+          source={{ uri: profileImage.uri }}
+          style={styles.profileImage}
+        />
+      ) : (
+        <Image
+          source={require("../../../assets/images/fallbackdp.png")}
+          style={styles.profileImage}
+        />
+      )}
+    </TouchableOpacity>
+
+    {/* Camera Icon Overlay */}
+    <TouchableOpacity style={styles.cameraIcon} onPress={pickImage}>
+      <Ionicons name="camera" size={18} color="#fff" />
+    </TouchableOpacity>
+  </View>
+
+  <Text style={styles.headerTitle}>{name}</Text>
+</View>
+
 
         <View style={{ gap: 8 }}>
           <LabeledInput
@@ -217,6 +229,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 5, color: "#000" },
+  imageWrapper: {
+  position: "relative",
+  width: 86,
+  height: 86,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+cameraIcon: {
+  position: "absolute",
+  bottom: 0,
+  right: 0,
+  backgroundColor: colors.primary || "#000",
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  justifyContent: "center",
+  alignItems: "center",
+  borderWidth: 2,
+  borderColor: "#fff",
+},
+
 });
 
 export default EditProfile;

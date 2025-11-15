@@ -346,46 +346,49 @@ export default function FavoritesScreen() {
   );
 
   // ==================== MAPPERS ====================
-  const mapTiffinService = (item: any) => ({
-    id: item._id || item.id,
-    serviceType: "tiffin",
-    name: item.tiffinName || "No Name",
-    description: item.description || "No description available",
-    photos: item.photos || [],
-    rating: item.averageRating || 0,
-    reviews: item.totalReviews || 0,
-    foodType: item.foodType || "Both",
-    mealTimings: item.mealTimings || [],
-    location: item.location || {},
-    pricing: item.pricing || [],
-    tags: item.foodType ? [item.foodType] : ["Both"],
-    image: item.photos?.length ? { uri: item.photos[0] } : undefined,
-    price: item.pricing?.[0]?.perMealDelivery
-      ? `${item.pricing[0].perMealDelivery}/meal`
-      : "-",
-    oldPrice: item.pricing?.[0]?.perMealDining
-      ? `${item.pricing[0].perMealDining}/meal`
-      : "-",
-    timing: item.mealTimings?.[0]
-      ? `${item.mealTimings[0].startTime} - ${item.mealTimings[0].endTime}`
-      : "-",
-  });
+  const mapTiffinService = (item: any) => {
+    const allPhotos = [...(item.vegPhotos || []), ...(item.nonVegPhotos || [])];
+    return {
+      id: item._id || item.id,
+      serviceType: "tiffin",
+      name: item.tiffinName || "No Name",
+      description: item.description || "No description available",
+      photos: allPhotos,
+      rating: item.averageRating || 0,
+      reviews: item.totalReviews || 0,
+      foodType: item.pricing?.[0]?.foodType || "Both",
+      mealTimings: item.mealTimings || [],
+      location: item.location || {},
+      pricing: item.pricing || [],
+      tags: item.pricing?.[0]?.foodType ? [item.pricing[0].foodType] : ["Both"],
+      image: allPhotos.length ? { uri: allPhotos[0] } : undefined,
+      price: item.pricing?.[0]?.monthlyDelivery
+        ? `₹${item.pricing[0].monthlyDelivery}/month`
+        : "-",
+      oldPrice: item.pricing?.[0]?.monthlyDining
+        ? `₹${item.pricing[0].monthlyDining}/month`
+        : "-",
+      timing: item.mealTimings?.[0]
+        ? `${item.mealTimings[0].startTime} - ${item.mealTimings[0].endTime}`
+        : "-",
+    };
+  };
 
   const mapHostelService = (item: any) => ({
     id: item._id || item.id,
     serviceType: "hostel",
     name: item.hostelName || "Unknown Hostel",
-    type: item.type || "Hostel",
+    type: item.hostelType || "Hostel",
     description: item.description || "No description available",
-    image: item.photos?.length ? { uri: item.photos[0] } : undefined,
-    price: item.pricing?.[0]?.monthlyRent
-      ? `₹${item.pricing[0].monthlyRent}/month`
+    image: item.hostelPhotos?.length ? { uri: item.hostelPhotos[0] } : undefined,
+    price: item.pricing?.monthly
+      ? `₹${item.pricing.monthly}/month`
       : "-",
     oldPrice: "-",
     rating: item.averageRating || 0,
     reviews: item.totalReviews || 0,
     amenities: item.amenities || [],
-    location: item.location?.address || "Unknown Location",
+    location: item.location?.fullAddress || "Unknown Location",
     availableBeds: item.availableBeds || 0,
     deposit: item.deposit || "₹15000",
   });

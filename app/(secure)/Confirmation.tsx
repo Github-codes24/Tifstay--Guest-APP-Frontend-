@@ -105,24 +105,29 @@ const Confirmation: React.FC = () => {
               // Ensure arrays
               service.vegPhotos = Array.isArray(service.vegPhotos) ? service.vegPhotos : service.vegPhotos ? [service.vegPhotos] : [];
               service.nonVegPhotos = Array.isArray(service.nonVegPhotos) ? service.nonVegPhotos : service.nonVegPhotos ? [service.nonVegPhotos] : [];
-              // Set image for card
-              service.image = service.vegPhotos[0] || service.nonVegPhotos[0];
-              // Derive price, rating, etc. for card
+              // Set image for card - first available
+              const allPhotos = [...service.vegPhotos, ...service.nonVegPhotos];
+              service.image = allPhotos.length > 0 ? { uri: allPhotos[0] } : { uri: "https://via.placeholder.com/400x300?text=No+Image" };
+              // Derive price from first pricing (prefer monthlyDelivery)
               const firstPricing = service.pricing?.[0];
-              service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/Month` : "₹0/Month";
-              service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || 0) * 1.1)}/Month` : "";
+              service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/month` : "-";
+              service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0) * 1.1)}/month` : "-";
               service.rating = parseFloat(service.averageRating) || 0;
               service.reviews = service.totalReviews || 0;
+              service.foodType = service.foodType || firstPricing?.foodType || "Both";
               service.description = service.description || "Delicious home-cooked meals.";
-              service.timing = service.mealTimings?.map((m: any) => `${m.startTime}-${m.endTime}`).join(' | ') || "7AM-9PM";
+              service.timing = service.mealTimings?.map((m: any) => `${m.startTime} - ${m.endTime}`).join(' | ') || "-";
               // Tags from foodType
               service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
               const locationString = service.location
                 ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
-              service.location = locationString;
-              // Set name if it's under a different key (adjust based on API response for tiffins)
-              service.name = service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service";
+              // Trim location to max 60 chars for 1-2 lines
+              service.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
+              // Trim name to max 25 chars for 1 line
+              service.name = (service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service").length > 25
+                ? (service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service").substring(0, 25) + '...'
+                : service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || "Unnamed Tiffin Service";
               tiffins.push(service);
             }
           }
@@ -155,28 +160,32 @@ const Confirmation: React.FC = () => {
               const hostel = response.data.data;
               // Ensure array
               hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
-              // Set image for card
-              const photoUrl = hostel.hostelPhotos[0] ? hostel.hostelPhotos[0].replace(/(\.\w{3,4})\1$/, "$1") : "https://via.placeholder.com/400x300?text=No+Image";
+              // Set image for card - first available with fallback
+              const photoUrl = hostel.hostelPhotos.length > 0 ? hostel.hostelPhotos[0].replace(/(\.\w{3,4})\1$/, "$1") : "https://via.placeholder.com/400x300?text=No+Image";
               hostel.image = { uri: photoUrl };
-              // Derive price, rating, etc. for card
-              hostel.price = `₹${hostel.pricing?.monthly || hostel.pricing?.perDay || 0}/Month`; // Fallback to perDay if no monthly
-              hostel.type = hostel.hostelType || "Boys Hostel";
+              // Derive price (monthly preferred)
+              hostel.price = hostel.pricing?.monthly ? `₹${hostel.pricing.monthly}/month` : `₹${hostel.pricing?.perDay || 0}/day`;
+              hostel.oldPrice = "-";
+              hostel.type = hostel.hostelType || "Hostel";
               hostel.rating = parseFloat(hostel.averageRating) || 0;
               hostel.reviews = hostel.totalReviews || 0;
               hostel.availableBeds = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.filter((bed: any) => bed.status === "Unoccupied") || []).length, 0) || 0;
               const totalBedsCount = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.length || 0), 0) || 0;
               hostel.occupiedBeds = totalBedsCount - hostel.availableBeds;
               hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
-              hostel.deposit = `₹${hostel.securityDeposit || 0}`;
+              hostel.deposit = `₹${hostel.securityDeposit || 15000}`;
               hostel.description = hostel.description || "Comfortable stay with all amenities.";
               const locationString = hostel.location
                 ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
+              // Trim location to max 60 chars for 1-2 lines
+              hostel.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
               const nearbyLandmarks = hostel.location?.nearbyLandmarks || '';
               hostel.subLocation = nearbyLandmarks.length > 50 ? nearbyLandmarks.slice(0, 50) + '...' : nearbyLandmarks;
-              hostel.location = locationString;
-              // Set name to match what HostelCard expects (likely 'name')
-              hostel.name = hostel.hostelName || "Unnamed Hostel";
+              // Trim name to max 25 chars for 1 line
+              hostel.name = (hostel.hostelName || "Unnamed Hostel").length > 25
+                ? (hostel.hostelName || "Unnamed Hostel").substring(0, 25) + '...'
+                : hostel.hostelName || "Unnamed Hostel";
               hostels.push(hostel);
             }
           }
@@ -188,7 +197,6 @@ const Confirmation: React.FC = () => {
     };
     fetchRandomHostels();
   }, [isTiffin]);
- 
   useFocusEffect(
   React.useCallback(() => {
     const onBackPress = () => {
@@ -239,6 +247,7 @@ const Confirmation: React.FC = () => {
   };
   const handlePrintInvoice = async () => {
   const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+  const filteredDetails = Object.entries(details).filter(([key]) => key !== 'mealType');
   const htmlContent = `
     <html>
       <body style="font-family: Arial; padding: 20px;">
@@ -246,8 +255,7 @@ const Confirmation: React.FC = () => {
         <hr />
         <h3>Booking Summary</h3>
         <table style="width: 100%; border-collapse: collapse;">
-          ${Object.entries(details)
-           
+          ${filteredDetails
             .map(
               ([key, value]) => `
               <tr>
@@ -281,26 +289,29 @@ const Confirmation: React.FC = () => {
         : (demoData.hostels?.slice(0, 3) || []).map((hostel, index) => {
           // Ensure arrays and set props for demoData
           hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
-          const demoImageUrl = hostel.hostelPhotos[0] || (typeof hostel.image === 'string' ? hostel.image : hostel.image?.uri) || 'https://via.placeholder.com/400x300?text=No+Image';
+          const demoImageUrl = hostel.hostelPhotos.length > 0 ? hostel.hostelPhotos[0].replace(/(\.\w{3,4})\1$/, "$1") : (typeof hostel.image === 'string' ? hostel.image : hostel.image?.uri) || 'https://via.placeholder.com/400x300?text=No+Image';
           hostel.image = { uri: demoImageUrl };
-          hostel.price = `₹${hostel.pricing?.monthly || hostel.pricing?.perDay || 0}/Month`;
-          hostel.type = hostel.hostelType || "Boys Hostel";
+          hostel.price = hostel.pricing?.monthly ? `₹${hostel.pricing.monthly}/month` : `₹${hostel.pricing?.perDay || 0}/day`;
+          hostel.type = hostel.hostelType || "Hostel";
           hostel.rating = parseFloat(hostel.averageRating) || 0;
           hostel.reviews = hostel.totalReviews || 0;
           hostel.availableBeds = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.filter((bed: any) => bed.status === "Unoccupied") || []).length, 0) || 0;
           const totalBedsCount = hostel.rooms?.reduce((acc, room) => acc + (room.totalBeds?.length || 0), 0) || 0;
           hostel.occupiedBeds = totalBedsCount - hostel.availableBeds;
           hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
-          hostel.deposit = `₹${hostel.securityDeposit || 0}`;
+          hostel.deposit = `₹${hostel.securityDeposit || 15000}`;
           hostel.description = hostel.description || "Comfortable stay with all amenities.";
           const locationString = hostel.location
             ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
             : 'Location not available';
+          // Trim location to max 60 chars for 1-2 lines
+          hostel.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
           const nearbyLandmarks = hostel.location?.nearbyLandmarks || '';
           hostel.subLocation = nearbyLandmarks.length > 50 ? nearbyLandmarks.slice(0, 50) + '...' : nearbyLandmarks;
-          hostel.location = locationString;
-          // Set name to match what HostelCard expects
-          hostel.name = hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`;
+          // Trim name to max 25 chars for 1 line
+          hostel.name = (hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`).length > 25
+            ? (hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`).substring(0, 25) + '...'
+            : hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`;
           return hostel;
         });
     } else {
@@ -308,21 +319,26 @@ const Confirmation: React.FC = () => {
         // Ensure arrays and set props for demoData
         service.vegPhotos = Array.isArray(service.vegPhotos) ? service.vegPhotos : service.vegPhotos ? [service.vegPhotos] : [];
         service.nonVegPhotos = Array.isArray(service.nonVegPhotos) ? service.nonVegPhotos : service.nonVegPhotos ? [service.nonVegPhotos] : [];
-        service.image = service.vegPhotos[0] || service.nonVegPhotos[0] || service.image;
+        const allPhotos = [...service.vegPhotos, ...service.nonVegPhotos];
+        service.image = allPhotos.length > 0 ? { uri: allPhotos[0] } : { uri: "https://via.placeholder.com/400x300?text=No+Image" };
         const firstPricing = service.pricing?.[0];
-        service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/Month` : "₹0/Month";
-        service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || 0) * 1.1)}/Month` : "";
+        service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/month` : "-";
+        service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0) * 1.1)}/month` : "-";
         service.rating = parseFloat(service.averageRating) || 0;
         service.reviews = service.totalReviews || 0;
+        service.foodType = service.foodType || firstPricing?.foodType || "Both";
         service.description = service.description || "Delicious home-cooked meals.";
-        service.timing = service.mealTimings?.map((m: any) => `${m.startTime}-${m.endTime}`).join(' | ') || "7AM-9PM";
+        service.timing = service.mealTimings?.map((m: any) => `${m.startTime} - ${m.endTime}`).join(' | ') || "-";
         service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
         const locationString = service.location
           ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
           : 'Location not available';
-        service.location = locationString;
-        // Set name to match what TiffinCard expects
-        service.name = service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`;
+        // Trim location to max 60 chars for 1-2 lines
+        service.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
+        // Trim name to max 25 chars for 1 line
+        service.name = (service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`).length > 25
+          ? (service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`).substring(0, 25) + '...'
+          : service.tiffinName || service.tiffinServiceName || service.serviceName || service.name || `Demo Tiffin ${index + 1}`;
         return service;
       });
     }
@@ -334,12 +350,23 @@ const Confirmation: React.FC = () => {
   const handleChatAdmin = () => {
     router.push('/account/chatScreen');
   };
-  const handleBookNow = (item: any) => {
-    if (isTiffin) {
-      router.push(`/hostel-details/${item.id || item._id}`);
-    } else {
-      router.push(`/tiffin-details/${item.id || item._id}`);
-    }
+  const handleViewPress = (item: any) => {
+    const serviceId = item.id || item._id;
+    const pathname = isTiffin ? `/hostel-details/${serviceId}` : `/tiffin-details/${serviceId}`;
+    const type = isTiffin ? 'hostel' : 'tiffin';
+    router.push({
+      pathname,
+      params: { id: serviceId, type, intent: 'view' }
+    });
+  };
+  const handleBookPress = (item: any) => {
+    const serviceId = item.id || item._id;
+    const pathname = isTiffin ? `/hostel-details/${serviceId}` : `/tiffin-details/${serviceId}`;
+    const type = isTiffin ? 'hostel' : 'tiffin';
+    router.push({
+      pathname,
+      params: { id: serviceId, type, intent: 'book' }
+    });
   };
   const handleGoToOrder = () => {
     router.push({
@@ -386,13 +413,13 @@ const Confirmation: React.FC = () => {
             <>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Tiffin Service:</Text>
-                <Text style={styles.detailValue}>
+                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
                   {tiffinBookingDetails.tiffinService}
                 </Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Customer:</Text>
-                <Text style={styles.detailValue}>
+                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
                   {tiffinBookingDetails.customer}
                 </Text>
               </View>
@@ -442,13 +469,13 @@ const Confirmation: React.FC = () => {
             <>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Hostel Booking :</Text>
-                <Text style={styles.detailValue}>
+                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
                   {hostelBookingDetails.hostelBooking}
                 </Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Customer :</Text>
-                <Text style={styles.detailValue}>
+                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
                   {hostelBookingDetails.customer}
                 </Text>
               </View>
@@ -499,7 +526,7 @@ const Confirmation: React.FC = () => {
                 <Text style={styles.preferenceNumberText}>1</Text>
                 <Text style={styles.preferenceText}>Provider Contact</Text>
               </View>
-              <Text style={styles.preferenceDescription}>
+              <Text style={styles.preferenceDescription} numberOfLines={2} ellipsizeMode="tail">
                 The tiffin provider will contact you within 1 hours to confirm
                 your booking.
               </Text>
@@ -507,14 +534,14 @@ const Confirmation: React.FC = () => {
                 <Text style={styles.preferenceNumberText}>2</Text>
                 <Text style={styles.preferenceText}>Delivery Setup</Text>
               </View>
-              <Text style={styles.preferenceDescription}>
+              <Text style={styles.preferenceDescription} numberOfLines={2} ellipsizeMode="tail">
                 Discuss delivery address, timing, and any special requirements.
               </Text>
               <View style={styles.preferenceRow}>
                 <Text style={styles.preferenceNumberText}>3</Text>
                 <Text style={styles.preferenceText}>Enjoy Your Meals</Text>
               </View>
-              <Text style={styles.preferenceDescription}>
+              <Text style={styles.preferenceDescription} numberOfLines={2} ellipsizeMode="tail">
                 Fresh, homemade tiffin will be delivered to your schedule.
               </Text>
             </View>
@@ -539,15 +566,15 @@ const Confirmation: React.FC = () => {
                   {isTiffin ? (
                     <HostelCard
                       hostel={item}
-                      onPress={() => handleBookNow(item)}
-                      onBookPress={() => handleBookNow(item)}
+                      onPress={() => handleViewPress(item)}
+                      onBookPress={() => handleBookPress(item)}
                       horizontal={true}
                     />
                   ) : (
                     <TiffinCard
                       service={item}
-                      onPress={() => handleBookNow(item)}
-                      onBookPress={() => handleBookNow(item)}
+                      onPress={() => handleViewPress(item)}
+                      onBookPress={() => handleBookPress(item)}
                       horizontal={true}
                     />
                   )}
@@ -596,7 +623,7 @@ const styles = StyleSheet.create({
   titleSection: {
     alignItems: "center",
     marginBottom: 24,
-    paddingHorizontal: 26,
+    paddingHorizontal: 20,
   },
   mainTitle: {
     fontSize: 24,
@@ -608,15 +635,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     textAlign: "center",
+    lineHeight: 20,
   },
   summaryCard: {
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderColor: "#A5A5A5",
+    marginHorizontal: 20,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderColor: "#E5E7EB",
     borderWidth: 1,
     backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   summaryHeader: {
     flexDirection: "row",
@@ -625,85 +661,114 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
-    color: "#000",
+    color: "#1F2937",
   },
   invoiceButton: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#004AAD",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   invoiceText: {
-    color: "#4A90E2",
+    color: "#fff",
     fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 4,
   },
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 12,
+    paddingVertical: 4,
   },
   detailLabel: {
     fontSize: 14,
-    color: "#666",
+    color: "#6B7280",
+    fontWeight: "500",
   },
   detailValue: {
     fontSize: 14,
-    color: "#000",
-    fontWeight: "500",
+    color: "#1F2937",
+    fontWeight: "600",
+    textAlign: "right",
+    flex: 1,
+    flexShrink: 1,
   },
   orderId: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#004AAD",
   },
   adminContactRow: {
     flexDirection: "row",
     gap: 12,
     marginBottom: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   contactButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
-    borderColor: "#A5A5A5",
+    padding: 14,
+    borderRadius: 12,
+    borderColor: "#E5E7EB",
     borderWidth: 1,
     backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   chatButton: {
     marginLeft: 0,
   },
   contactButtonText: {
     fontSize: 14,
-    color: "#000",
-    fontWeight: "500",
-    marginLeft: 6,
+    color: "#1F2937",
+    fontWeight: "600",
+    marginLeft: 8,
   },
   contactNote: {
     fontSize: 12,
-    color: "#666",
+    color: "#6B7280",
     textAlign: "center",
-    marginBottom: 16,
-    paddingHorizontal: 16,
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    lineHeight: 16,
   },
   whatsNextSection: {
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderColor: "#A5A5A5",
+    marginHorizontal: 20,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderColor: "#E5E7EB",
     borderWidth: 1,
     backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   preferenceCard: {
-    marginTop: 8,
+    marginTop: 12,
   },
   preferenceTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#000",
+    color: "#1F2937",
     marginBottom: 16,
   },
   preferenceRow: {
@@ -713,25 +778,25 @@ const styles = StyleSheet.create({
   },
   preferenceText: {
     fontSize: 14,
-    color: "#000",
-    fontWeight: "500",
-    marginLeft: 8,
+    color: "#1F2937",
+    fontWeight: "600",
+    marginLeft: 12,
   },
   preferenceNumberText: {
     fontSize: 12,
-    color: "#000",
-    fontWeight: "500",
+    color: "#fff",
+    fontWeight: "600",
     textAlign: "center",
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#E8F5E9",
-    lineHeight: 20,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#004AAD",
+    lineHeight: 24,
   },
   preferenceDescription: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 28,
+    fontSize: 13,
+    color: "#6B7280",
+    marginLeft: 36,
     marginBottom: 12,
     lineHeight: 18,
   },
@@ -763,16 +828,17 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: "hidden",
   },
   actionButtons: {
     alignItems: "center",
-    marginBottom: 24,
-    paddingHorizontal: 16,
+    marginBottom: 32,
+    paddingHorizontal: 20,
   },
   orderButton: {
     marginBottom: 16,
@@ -780,8 +846,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     backgroundColor: "transparent",
-    padding: 12,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 12,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#004AAD",
