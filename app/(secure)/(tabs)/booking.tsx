@@ -559,7 +559,7 @@ const handleContinueSubscription = (order: Order) => {
               </View>
               {/* Check-in Date Row (Tiffin) */}
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Check-in date:</Text>
+                <Text style={styles.detailLabel}>Start date:</Text>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text
                     style={styles.detailValue}
@@ -572,7 +572,7 @@ const handleContinueSubscription = (order: Order) => {
               </View>
               {/* Check-out Date Row (Tiffin) */}
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Check-out date:</Text>
+                <Text style={styles.detailLabel}>End date:</Text>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text
                     style={styles.detailValue}
@@ -585,7 +585,7 @@ const handleContinueSubscription = (order: Order) => {
               </View>
               {/* Meal Type Row */}
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Meal Type:</Text>
+                <Text style={styles.detailLabel}>Plan Type:</Text>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text
                     style={styles.detailValue}
@@ -1077,7 +1077,7 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-evenly",
     gap: 12,
   },
  rateButtonStyle: {

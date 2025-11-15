@@ -1168,18 +1168,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 12,
   },
-  couponInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: '#f9f9f9',
-    marginRight: 8,
-    color: '#000',
-    placeholderTextColor: '#999',
-  },
+couponInput: {
+  flex: 1,
+  borderWidth: 1,
+  borderColor: '#e0e0e0',
+  borderRadius: 8,
+  paddingHorizontal: 12,
+  paddingVertical: 12,
+  backgroundColor: '#f9f9f9',  // Optional: Consider '#fff' for pure white if contrast is still an issue
+  marginRight: 8,
+  color: '#000',
+  placeholderTextColor: '#666',  // Darker gray—try '#555' or '#333' if needed for even more contrast
+},
   applyButton: {
     backgroundColor: '#2854C5',
     paddingHorizontal: 20,
