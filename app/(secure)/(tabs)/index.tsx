@@ -290,8 +290,8 @@ export default function DashboardScreen() {
     if (filters.rating) params.append("minRating", filters.rating.toString());
     // Price range (nested format)
     if (filters.priceRange && filters.priceRange.length === 2) {
-      params.append("priceRange[min]", filters.priceRange[0].toString());
-      params.append("priceRange[max]", filters.priceRange[1].toString());
+      const priceStr = `${filters.priceRange[0]}-${filters.priceRange[1]}`;
+      params.append("priceRange", priceStr);
     }
     // Amenities (comma-joined)
     if (filters.amenities && filters.amenities.length > 0) {

@@ -28,11 +28,11 @@ const PrivacyPolicyScreen = () => {
         if (response.data.success) {
           const data = response.data.data;
 
-          // ✅ Fallback check for empty object or empty description
-          if (!data || Object.keys(data).length === 0 || !data.description) {
+          // ✅ Fallback check for empty array or missing description
+          if (!data || data.length === 0 || !data[0]?.description) {
             setPolicy("No privacy policy available.");
           } else {
-            setPolicy(data.description);
+            setPolicy(data[0].description);
           }
         } else {
           setPolicy("Failed to load privacy policy.");

@@ -27,6 +27,7 @@ import Toast from 'react-native-toast-message';
 
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [couponModalVisible, setCouponModalVisible] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
@@ -810,8 +811,12 @@ const Checkout: React.FC = () => {
       );
       return;
     }
-    setSelectedMethod(null); // Reset selection when opening modal
-    setModalVisible(true);
+    if (isHostel) {
+      setDepositModalVisible(true);
+    } else {
+      setSelectedMethod(null); // Reset selection when opening modal
+      setModalVisible(true);
+    }
   };
 
   const handleContinue = () => {
@@ -820,6 +825,12 @@ const Checkout: React.FC = () => {
     } else if (selectedMethod === 'wallet') {
       handlePayWallet();
     }
+  };
+
+  const handleDepositContinue = () => {
+    setDepositModalVisible(false);
+    setSelectedMethod(null);
+    setModalVisible(true);
   };
 
   // Render coupon item in modal
@@ -981,6 +992,28 @@ const Checkout: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
+      {/* Deposit Modal - NEW */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={depositModalVisible}
+        onRequestClose={() => setDepositModalVisible(false)}
+      >
+        <View style={styles.depositModalOverlay}>
+          <View style={styles.depositModalContainer}>
+            <Text style={styles.depositModalTitle}>Important Notice</Text>
+            <Text style={styles.depositModalText}>
+              You have to pay ₹{depositAmount} at the owner property.
+            </Text>
+            <TouchableOpacity
+              style={styles.depositContinueButton}
+              onPress={handleDepositContinue}
+            >
+              <Text style={styles.depositContinueButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       {/* Payment Modal */}
       <Modal
         animationType="slide"
@@ -1520,6 +1553,47 @@ couponInput: {
   },
   continueButtonTextDisabled: {
     color: '#999',
+  },
+  // NEW: Deposit Modal Styles
+  depositModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  depositModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+  },
+  depositModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  depositModalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  depositContinueButton: {
+    backgroundColor: '#2854C5',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  depositContinueButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   // Coupon Modal Styles
   couponModalOverlay: {

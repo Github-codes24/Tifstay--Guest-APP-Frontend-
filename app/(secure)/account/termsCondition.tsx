@@ -30,8 +30,8 @@ const TermsAndConditionsScreen = () => {
 
       if (res.data.success) {
         // ✅ Fallback for empty or missing data
-        if (res.data.data && Object.keys(res.data.data).length > 0) {
-          setTerms(res.data.data);
+        if (res.data.data && res.data.data.length > 0) {
+          setTerms(res.data.data[0]);
         } else {
           setTerms(null);
         }

@@ -43,6 +43,15 @@ const Confirmation: React.FC = () => {
     const year = date.getFullYear().toString().slice(-2);
     return `${day}/${month}/${year}`;
   };
+  const cleanImageUrl = (url: string): string => {
+    if (!url) return url;
+    if (url.includes('cloudinary.com')) {
+      // Only add auto-format transformation; don't touch extensions/public IDs
+      return url.replace('/upload/', '/upload/f_auto,q_auto/');
+    }
+    // Fallback for non-Cloudinary: minimal cleanup if needed
+    return url;
+  };
   useEffect(() => {
     const fetchBookingDetails = async () => {
       if (id) {
@@ -107,7 +116,8 @@ const Confirmation: React.FC = () => {
               service.nonVegPhotos = Array.isArray(service.nonVegPhotos) ? service.nonVegPhotos : service.nonVegPhotos ? [service.nonVegPhotos] : [];
               // Set image for card - first available
               const allPhotos = [...service.vegPhotos, ...service.nonVegPhotos];
-              service.image = allPhotos.length > 0 ? { uri: allPhotos[0] } : { uri: "https://via.placeholder.com/400x300?text=No+Image" };
+              const firstPhotoUrl = allPhotos.length > 0 ? cleanImageUrl(allPhotos[0]) : "https://via.placeholder.com/400x300?text=No+Image";
+              service.image = { uri: firstPhotoUrl };
               // Derive price from first pricing (prefer monthlyDelivery)
               const firstPricing = service.pricing?.[0];
               service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/month` : "-";
@@ -161,7 +171,7 @@ const Confirmation: React.FC = () => {
               // Ensure array
               hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
               // Set image for card - first available with fallback
-              const photoUrl = hostel.hostelPhotos.length > 0 ? hostel.hostelPhotos[0].replace(/(\.\w{3,4})\1$/, "$1") : "https://via.placeholder.com/400x300?text=No+Image";
+              const photoUrl = hostel.hostelPhotos.length > 0 ? cleanImageUrl(hostel.hostelPhotos[0]) : "https://via.placeholder.com/400x300?text=No+Image";
               hostel.image = { uri: photoUrl };
               // Derive price (monthly preferred)
               hostel.price = hostel.pricing?.monthly ? `₹${hostel.pricing.monthly}/month` : `₹${hostel.pricing?.perDay || 0}/day`;
@@ -289,7 +299,7 @@ const Confirmation: React.FC = () => {
         : (demoData.hostels?.slice(0, 3) || []).map((hostel, index) => {
           // Ensure arrays and set props for demoData
           hostel.hostelPhotos = Array.isArray(hostel.hostelPhotos) ? hostel.hostelPhotos : hostel.hostelPhotos ? [hostel.hostelPhotos] : [];
-          const demoImageUrl = hostel.hostelPhotos.length > 0 ? hostel.hostelPhotos[0].replace(/(\.\w{3,4})\1$/, "$1") : (typeof hostel.image === 'string' ? hostel.image : hostel.image?.uri) || 'https://via.placeholder.com/400x300?text=No+Image';
+          const demoImageUrl = hostel.hostelPhotos.length > 0 ? cleanImageUrl(hostel.hostelPhotos[0]) : (typeof hostel.image === 'string' ? hostel.image : hostel.image?.uri) || 'https://via.placeholder.com/400x300?text=No+Image';
           hostel.image = { uri: demoImageUrl };
           hostel.price = hostel.pricing?.monthly ? `₹${hostel.pricing.monthly}/month` : `₹${hostel.pricing?.perDay || 0}/day`;
           hostel.type = hostel.hostelType || "Hostel";
@@ -320,7 +330,8 @@ const Confirmation: React.FC = () => {
         service.vegPhotos = Array.isArray(service.vegPhotos) ? service.vegPhotos : service.vegPhotos ? [service.vegPhotos] : [];
         service.nonVegPhotos = Array.isArray(service.nonVegPhotos) ? service.nonVegPhotos : service.nonVegPhotos ? [service.nonVegPhotos] : [];
         const allPhotos = [...service.vegPhotos, ...service.nonVegPhotos];
-        service.image = allPhotos.length > 0 ? { uri: allPhotos[0] } : { uri: "https://via.placeholder.com/400x300?text=No+Image" };
+        const firstPhotoUrl = allPhotos.length > 0 ? cleanImageUrl(allPhotos[0]) : "https://via.placeholder.com/400x300?text=No+Image";
+        service.image = { uri: firstPhotoUrl };
         const firstPricing = service.pricing?.[0];
         service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/month` : "-";
         service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0) * 1.1)}/month` : "-";

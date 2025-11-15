@@ -176,7 +176,7 @@ const Booking: React.FC = () => {
           endDate: item.endDate ? new Date(item.endDate).toLocaleDateString() : "", // FIXED: Use endDate from API
           mealType: item.planType || "", // FIXED: Direct from planType (e.g., "Lunch & dinner")
           foodType: item.foodType || "", // FIXED: Direct from API (e.g., "Veg")
-          plan: item.planType || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
+          plan: item.plan || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
           orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
           status: (item.status || "").toLowerCase() as Order["status"],
           price: item.price ? `₹${item.price}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
