@@ -146,7 +146,7 @@ const AccountScreen = () => {
         <MenuItem
           label="Cart"
           iconName="cart-outline"
-          onpress={() => router.push("/(secure)/account/cart")}
+          onpress={() => router.push("/(secure)/Cartscreen")}
         />
         <MenuItem
           label="Deposit"
