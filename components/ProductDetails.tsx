@@ -634,8 +634,8 @@ export default function ProductDetails() {
       {paramType === "tiffin" && (
         <View style={styles.tiffinTags}>
           {mappedData.tags?.map((tag: string, index: number) => (
-            <View key={index} style={styles.greenTag}>
-              <Text style={styles.greenTagText}>{tag}</Text>
+            <View key={index} style={tag === 'Non-Veg' ? styles.redTag : styles.greenTag}>
+              <Text style={tag === 'Non-Veg' ? styles.redTagText : styles.greenTagText}>{tag}</Text>
             </View>
           ))}
           <View style={styles.timingTag}>
@@ -1230,6 +1230,19 @@ const styles = StyleSheet.create({
   greenTagText: {
     fontSize: 12,
     color: "#2E7D32",
+    fontWeight: "500",
+  },
+  redTag: {
+    backgroundColor: "#FFEBEE",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  redTagText: {
+    fontSize: 12,
+    color: "#C62828",
     fontWeight: "500",
   },
   timingTag: {

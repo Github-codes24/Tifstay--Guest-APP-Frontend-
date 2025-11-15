@@ -87,20 +87,14 @@ export default function TiffinOrderDetails() {
         setCurrentMonth(new Date(data.summary.startDate));
         setSelectedDate(new Date(data.summary.startDate));
         
-        // FIXED: Use mealType from summary, and format it properly
-        const mealTypeRaw = data.summary.mealType || "N/A";
-        const mealTypeValue = mealTypeRaw === "N/A" 
-          ? "N/A" 
-          : mealTypeRaw.replace(", ", " & ");  // e.g., "Lunch, Dinner" → "Lunch & Dinner"
-        
         setBookingData((prev) => ({
           ...prev,
           bookingId: data.summary.bookingId,
           tiffinServiceName: data.summary.tiffinServiceName || "N/A",
           customer: data.summary.customerName,
           startDate: formatShortDate(data.summary.startDate),
-          mealType: mealTypeValue,
-          plan: data.summary.planType,
+          mealType: "Lunch & Dinner",
+          plan: "Monthly",
           orderType: data.summary.orderType,
           endDate: formatShortDate(data.summary.endDate),
         }));
@@ -399,15 +393,17 @@ export default function TiffinOrderDetails() {
         key={`day-${day}`}
         style={dayStyle}
         onPress={
-          isInPeriod
-            ? () =>
-                setSelectedDate(
-                  new Date(
-                    currentMonth.getFullYear(),
-                    currentMonth.getMonth(),
-                    day
-                  )
-                )
+          isInPeriod && !isSkippedDate
+            ? () => {
+                const newDate = new Date(
+                  currentMonth.getFullYear(),
+                  currentMonth.getMonth(),
+                  day
+                );
+                setSelectedDate(newDate);
+                setShowSkipMeal(true);
+                setSkipMeals({ lunch: false, dinner: false });
+              }
             : undefined
         }
       >

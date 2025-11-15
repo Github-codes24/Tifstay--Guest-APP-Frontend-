@@ -105,18 +105,18 @@ const AccountScreen = () => {
       >
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
-  {profileData?.profileImage ? (
-    <Image
-      source={{ uri: profileData.profileImage }}
-      style={styles.largeImage}
-    />
-  ) : (
-    <Image
-      source={require("../../../assets/images/fallbackdp.png")}
-      style={styles.largeImage}
-    />
-  )}
-</View>
+            {profileData?.profileImage ? (
+              <Image
+                source={{ uri: profileData.profileImage }}
+                style={styles.largeImage}
+              />
+            ) : (
+              <Image
+                source={require("../../../assets/images/fallbackdp.png")}
+                style={styles.largeImage}
+              />
+            )}
+          </View>
 
           {profileData?.name ? (
             <Text style={styles.title}>{profileData.name}</Text>
@@ -142,6 +142,11 @@ const AccountScreen = () => {
           label="Wallet"
           image={require("../../../assets/images/icon/wallet.png")}
           onpress={() => router.push("/(secure)/account/wallet")}
+        />
+        <MenuItem
+          label="Cart"
+          iconName="cart-outline"
+          onpress={() => router.push("/(secure)/account/cart")}
         />
         <MenuItem
           label="Deposit"
@@ -237,6 +242,7 @@ const AccountScreen = () => {
 const MenuItem = ({
   label,
   image,
+  iconName,
   backgroundColor,
   textColor = "grey",
   iconTint = "grey",
@@ -244,7 +250,8 @@ const MenuItem = ({
   onpress,
 }: {
   label: string;
-  image: any;
+  image?: any;
+  iconName?: string;
   backgroundColor?: string;
   textColor?: string;
   iconTint?: string;
@@ -256,7 +263,16 @@ const MenuItem = ({
     onPress={onpress}
   >
     <View style={styles.menuLeft}>
-      <Image source={image} style={styles.smallIcon} />
+      {iconName ? (
+        <Ionicons
+          name={iconName as any}
+          size={24}
+          color={textColor}
+          style={{ marginRight: 12 }}
+        />
+      ) : image ? (
+        <Image source={image} style={styles.smallIcon} />
+      ) : null}
       <Text style={[styles.menuText, { color: textColor }]}>{label}</Text>
     </View>
     <Image source={arrow} style={[styles.arrowIcon, { tintColor: iconTint }]} />

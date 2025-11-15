@@ -26,6 +26,7 @@ import Header from "@/components/Header";
 import Toast from 'react-native-toast-message';
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [depositModalVisible, setDepositModalVisible] = useState(false);
   const [couponModalVisible, setCouponModalVisible] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
@@ -773,8 +774,12 @@ const handleRemoveCoupon = async () => {
       );
       return;
     }
-    setSelectedMethod(null); // Reset selection when opening modal
-    setModalVisible(true);
+    if (isHostel && depositAmount > 0) {
+      setDepositModalVisible(true);
+    } else {
+      setSelectedMethod(null); // Reset selection when opening modal
+      setModalVisible(true);
+    }
   };
   const handleContinue = () => {
     if (selectedMethod === 'online') {
@@ -939,6 +944,40 @@ const handleRemoveCoupon = async () => {
           </TouchableOpacity>
         </View>
       </View>
+      {/* Deposit Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={depositModalVisible}
+        onRequestClose={() => setDepositModalVisible(false)}
+      >
+        <View style={styles.depositOverlay}>
+          <View style={styles.depositContainer}>
+            <Text style={styles.depositTitle}>Important Notice</Text>
+            <Text style={styles.depositMessage}>
+              You have to pay ₹{depositAmount} to the owner
+            </Text>
+            <View style={styles.depositButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setDepositModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.depositContinueButton}
+                onPress={() => {
+                  setDepositModalVisible(false);
+                  setSelectedMethod(null);
+                  setModalVisible(true);
+                }}
+              >
+                <Text style={styles.depositContinueButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {/* Payment Modal */}
       <Modal
         animationType="slide"
@@ -1477,6 +1516,62 @@ const styles = StyleSheet.create({
   },
   continueButtonTextDisabled: {
     color: '#999',
+  },
+  // Deposit Modal Styles
+  depositOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  depositContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 350,
+  },
+  depositTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  depositMessage: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  depositButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '500',
+  },
+  depositContinueButton: {
+    flex: 1,
+    backgroundColor: '#2854C5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  depositContinueButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   // Coupon Modal Styles
   couponModalOverlay: {
