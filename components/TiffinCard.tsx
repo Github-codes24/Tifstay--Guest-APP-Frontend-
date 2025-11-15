@@ -18,7 +18,7 @@ interface TiffinCardProps {
     reviews: number;
     image: any;
     tags?: string[];
-    timing: string;
+    mealPreferences?: { type: string; time: string }[];
     location?: any;
     highestPrice?: string;
   };
@@ -50,6 +50,25 @@ export default function TiffinCard({
     return "both";
   };
   const vegType = getVegType();
+
+  // Compute combined timing
+  const computeTiming = (preferences: { type: string; time: string }[] | undefined): string => {
+    if (!preferences || preferences.length === 0) return "-";
+    const parseStartTime = (timeStr: string): number => {
+      const start = timeStr.split(" - ")[0];
+      const [timePart, period] = start.split(" ");
+      let [hours, minutes] = timePart.split(":").map(Number);
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    };
+    const sorted = [...preferences].sort((a, b) => parseStartTime(a.time) - parseStartTime(b.time));
+    const firstStart = sorted[0].time.split(" - ")[0];
+    const lastEnd = sorted[sorted.length - 1].time.split(" - ")[1];
+    return `${firstStart} - ${lastEnd}`;
+  };
+  const combinedTiming = computeTiming(service.mealPreferences);
+
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
     onFavoritePress?.();
@@ -106,7 +125,10 @@ export default function TiffinCard({
               ) : vegType === "non-veg" ? (
                 <Image source={nonVegIcon} style={styles.nonVegIcon} />
               ) : (
-                <Image source={bothIcon} style={styles.bothIcon} />
+                <View style={styles.bothTagsContainer}>
+                  <Image source={vegIcon} style={styles.vegIconSmall} />
+                  <Image source={nonVegIcon} style={styles.nonVegIconSmall} />
+                </View>
               )}
             </View>
             <View style={styles.locationTimeContainer}>
@@ -119,7 +141,7 @@ export default function TiffinCard({
                   : "-"}
               </Text>
               <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.timingText}>{service.timing}</Text>
+              <Text style={styles.timingText}>{combinedTiming}</Text>
             </View>
           </View>
           <View style={styles.bookButtonContainer}>
@@ -187,7 +209,12 @@ const styles = StyleSheet.create({
   vegTag: { marginRight: 8 },
   vegIcon: { width: 52, height: 20 },
   nonVegIcon: { width: 71, height: 19 },
-  bothIcon: { width: 46, height: 20 },
+  bothTagsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  vegIconSmall: { width: 26, height: 10 },
+  nonVegIconSmall: { width: 35, height: 9.5 },
   locationTimeContainer: { flexDirection: "row", alignItems: "center", flex: 1 },
   locationText: { fontSize: 10, color: "#6B7280", marginRight: 4 },
   timingText: { fontSize: 10, color: "#6B7280" },

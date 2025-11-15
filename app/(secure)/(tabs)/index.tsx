@@ -68,6 +68,8 @@ interface TiffinService {
   foodType: string;
   vegPhotos?: string[];
   nonVegPhotos?: string[];
+  mealPreferences?: { type: string; time: string }[];
+  overallTiming?: string;
 }
 interface Filters {
   rating?: number;
@@ -393,6 +395,14 @@ export default function DashboardScreen() {
             type: m.mealType,
             time: `${m.startTime} - ${m.endTime}`,
           })) || [];
+          const mealTimings = tiffin.mealTimings || [];
+          let overallStart = '-';
+          let overallEnd = '-';
+          if (mealTimings.length > 0) {
+            overallStart = mealTimings[0].startTime || '-';
+            overallEnd = mealTimings[mealTimings.length - 1].endTime || '-';
+          }
+          const overallTiming = `${overallStart} → ${overallEnd}`;
           return {
             id: tiffin._id,
             name: tiffin.tiffinName,
@@ -407,6 +417,7 @@ export default function DashboardScreen() {
             nonVegPhotos: tiffin.nonVegPhotos || [],
             pricing: tiffin.pricing,
             mealPreferences,
+            overallTiming,
             foodType: tiffin.foodType,
           };
         });
@@ -485,6 +496,14 @@ const fetchTiffinRecentSearch = async (
         const defaultImage = computeTiffinImage(tiffin, "off");
         const firstPrice = tiffin.pricing?.[0];
         const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
+        const mealTimings = tiffin.mealTimings || [];
+        let overallStart = '-';
+        let overallEnd = '-';
+        if (mealTimings.length > 0) {
+          overallStart = mealTimings[0].startTime || '-';
+          overallEnd = mealTimings[mealTimings.length - 1].endTime || '-';
+        }
+        const overallTiming = `${overallStart} → ${overallEnd}`;
         return {
           id: tiffin._id,
           name: tiffin.tiffinName,
@@ -499,6 +518,7 @@ const fetchTiffinRecentSearch = async (
           nonVegPhotos: tiffin.nonVegPhotos || [],
           pricing: tiffin.pricing || [],
           mealPreferences,
+          overallTiming,
           foodType: tiffin.foodType || "",
         };
       });
