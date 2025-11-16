@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -9,24 +9,22 @@ import {
   Image,
   ImageBackground,
   Dimensions,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
   Keyboard,
   Modal,
   FlatList,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import axios from "axios";
 import Toast from "react-native-toast-message";
-import CustomButton from "../../components/CustomButton";
-import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
+import InputField from "../../components/InputField";
 import CustomToast from "../../components/CustomToast";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
 
 const INITIAL_COUNTRY = {
   name: "India",
@@ -46,18 +44,8 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const phoneRegex = /^[0-9]{10}$/;
-  const scrollRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    const keyboardDidHideListener = Keyboard.addListener("keyboardDidHide", () => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    });
-    return () => {
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  const handlePhoneNumberChange = (inputText: string) => {
+  const handlePhoneNumberChange = (inputText) => {
     const digitsOnly = inputText.replace(/[^0-9]/g, "").slice(0, 10);
     setPhoneNumber(digitsOnly);
   };
@@ -78,13 +66,14 @@ export default function LoginScreen() {
         const res = await axios.get(
           "https://tifstay-project-be.onrender.com/api/guest/countries"
         );
+
         if (res.data.success) {
-          const sorted = res.data.data.sort((a: any, b: any) =>
+          const sorted = res.data.data.sort((a, b) =>
             a.name.localeCompare(b.name)
           );
           setCountries(sorted);
 
-          const india = sorted.find((c: any) => c.countryCode === "IN");
+          const india = sorted.find((c) => c.countryCode === "IN");
           if (india) {
             setSelectedCountry((prev) => ({
               ...prev,
@@ -99,27 +88,19 @@ export default function LoginScreen() {
     fetchCountries();
   }, []);
 
-  const handleCountryChange = async (country: any) => {
+  const handleCountryChange = async (country) => {
     try {
       setLoadingDialCode(true);
       const encodedCountryName = encodeURIComponent(country.name);
       const res = await axios.get(
         `https://tifstay-project-be.onrender.com/api/guest/country-code?country=${encodedCountryName}`
       );
-      if (res.data.success) {
-        const dial = res.data.data.dialCode || "+91";
-        setSelectedCountry({
-          ...country,
-          dialCode: dial,
-        });
-      } else {
-        setSelectedCountry({
-          ...country,
-          dialCode: "+91",
-        });
-      }
-    } catch (err) {
-      console.log("Error fetching dial code:", err);
+
+      setSelectedCountry({
+        ...country,
+        dialCode: res.data.success ? res.data.data.dialCode : "+91",
+      });
+    } catch {
       setSelectedCountry({
         ...country,
         dialCode: "+91",
@@ -134,8 +115,6 @@ export default function LoginScreen() {
     setIsLoading(true);
     Keyboard.dismiss();
 
-    const trimmedNumber = phoneNumber.trim();
-
     if (!acceptedTerms) {
       Toast.show({
         type: "error",
@@ -146,7 +125,7 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!phoneRegex.test(trimmedNumber)) {
+    if (!phoneRegex.test(phoneNumber.trim())) {
       Toast.show({
         type: "error",
         text1: "Invalid Number",
@@ -156,18 +135,17 @@ export default function LoginScreen() {
       return;
     }
 
-    const formattedPhoneNumber = `${selectedCountry.dialCode} ${trimmedNumber}`;
-    const payload = { phoneNumber: formattedPhoneNumber };
+    const formattedPhoneNumber = `${selectedCountry.dialCode} ${phoneNumber.trim()}`;
 
     try {
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/login",
-        payload,
-        { headers: { "Content-Type": "application/json" } }
+        { phoneNumber: formattedPhoneNumber }
       );
 
       if (response.data.success) {
         const otpCode = response.data.data?.guest?.otpCode;
+
         Toast.show({
           type: "success",
           text1: "OTP Sent Successfully",
@@ -177,10 +155,13 @@ export default function LoginScreen() {
         setTimeout(() => {
           router.push({
             pathname: "/verify",
-            params: { phoneNumber: trimmedNumber, dialCode: selectedCountry.dialCode },
+            params: {
+              phoneNumber: phoneNumber.trim(),
+              dialCode: selectedCountry.dialCode,
+            },
           });
           setIsLoading(false);
-        }, 2500);
+        }, 2000);
       } else {
         Toast.show({
           type: "error",
@@ -189,129 +170,122 @@ export default function LoginScreen() {
         });
         setIsLoading(false);
       }
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        Toast.show({
-          type: "error",
-          text1: "Guest Not Registered",
-          text2: "Please register before logging in.",
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Server Error",
-          text2: "Something went wrong. Please try again later.",
-        });
-      }
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Server Error",
+        text2: "Something went wrong. Please try again later.",
+      });
       setIsLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        extraScrollHeight={Platform.OS === "android" ? 140 : 50}
+        extraHeight={Platform.OS === "android" ? 160 : 60}
+        enableOnAndroid
+        keyboardOpeningTime={0}
       >
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.imageWrapper}>
-            <Image
-              source={require("../../assets/images/loginlogo.png")}
-              style={styles.topImage}
-              resizeMode="cover"
-            />
-          </View>
+        {/* TOP IMAGE */}
+        <View style={styles.imageWrapper}>
+          <Image
+            source={require("../../assets/images/loginlogo.png")}
+            style={styles.topImage}
+            resizeMode="cover"
+          />
+        </View>
 
-          <View style={styles.bottomCard}>
-            <ImageBackground
-              source={require("../../assets/images/background.png")}
-              style={styles.cardBackground}
-              imageStyle={{
-                borderTopLeftRadius: 30,
-                borderTopRightRadius: 30,
-                width: "110%",
-                height: "110%",
-              }}
-              resizeMode="cover"
-            >
-              <Logo showText={false} />
-              <Text style={styles.title}>Comfortable Food, Comfortable Stay</Text>
-              <Text style={styles.subtitle}>Get started with Tifstay</Text>
+        {/* LOWER CARD */}
+        <View style={styles.bottomCard}>
+          <ImageBackground
+            source={require("../../assets/images/background.png")}
+            style={styles.cardBackground}
+            imageStyle={styles.cardImage}
+          >
+            <Logo showText={false} />
 
-              {/* Phone Input */}
-              <View style={styles.phoneInputContainer}>
-                <TouchableOpacity
-                  style={styles.countrySelector}
-                  onPress={() => setIsPickerOpen(true)}
-                  disabled={isLoading}
-                >
-                  <Image
-                    source={{ uri: selectedCountry.flag }}
-                    style={styles.flagImage}
-                  />
-                  <Text style={styles.dialCodeText}>
-                    {loadingDialCode ? "..." : selectedCountry.dialCode}
-                  </Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={styles.numberInput}
-                  placeholder="Phone Number"
-                  placeholderTextColor="#999" // ✅ fixed visibility
-                  keyboardType="phone-pad"
-                  value={phoneNumber}
-                  onChangeText={handlePhoneNumberChange}
-                  editable={!isLoading}
-                  maxLength={10}
-                  textAlignVertical="center" // ✅ key fix
-                />
-              </View>
+            <Text style={styles.title}>Comfortable Food, Comfortable Stay</Text>
+            <Text style={styles.subtitle}>Get started with Tifstay</Text>
 
-              {/* Terms */}
-              <View style={styles.termsContainer}>
-                <TouchableOpacity
-                  style={styles.checkbox}
-                  onPress={() => !isLoading && setAcceptedTerms(!acceptedTerms)}
-                >
-                  {acceptedTerms && <View style={styles.checkedBox} />}
-                </TouchableOpacity>
-                <Text style={styles.termsText}>
-                  By continuing, you agree to our{" "}
-                  <Text style={{ color: colors.primary }}>Terms of Service</Text>
-                </Text>
-              </View>
-
-              {/* Get OTP button with loader */}
+            {/* PHONE INPUT */}
+            <View style={styles.phoneInputContainer}>
               <TouchableOpacity
-                style={[styles.verifyButton, { opacity: isLoading ? 0.7 : 1 }]}
-                onPress={handleGetOTP}
+                style={styles.countrySelector}
+                onPress={() => setIsPickerOpen(true)}
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.verifyText}>Get OTP</Text>
-                )}
+                <Image
+                  source={{ uri: selectedCountry.flag }}
+                  style={styles.flagImage}
+                />
+                <Text style={styles.dialCodeText}>
+                  {loadingDialCode ? "..." : selectedCountry.dialCode}
+                </Text>
               </TouchableOpacity>
 
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>Don’t have an account? </Text>
-                <TouchableOpacity
-                  onPress={() => !isLoading && router.replace("/register")}
-                >
-                  <Text style={styles.footerLink}>Register</Text>
-                </TouchableOpacity>
-              </View>
-            </ImageBackground>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              <TextInput
+                style={styles.numberInput}
+                placeholder="Phone Number"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
+                value={phoneNumber}
+                onChangeText={handlePhoneNumberChange}
+                maxLength={10}
+              />
+            </View>
 
-      {/* Country Picker Modal */}
+            {/* TERMS */}
+            <View style={styles.termsContainer}>
+              <TouchableOpacity
+                style={styles.checkbox}
+                onPress={() => setAcceptedTerms(!acceptedTerms)}
+              >
+                {acceptedTerms && <View style={styles.checkedBox} />}
+              </TouchableOpacity>
+
+              <Text style={styles.termsText}>
+                By continuing, you agree to our{" "}
+                <Text style={{ color: colors.primary }}>Terms of Service</Text>
+              </Text>
+            </View>
+
+            {/* BUTTON */}
+            <TouchableOpacity
+              style={[
+                styles.verifyButton,
+                { opacity: isLoading ? 0.7 : 1 },
+              ]}
+              onPress={handleGetOTP}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.verifyText}>Get OTP</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* FOOTER */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Don’t have an account?{" "}
+              </Text>
+              <TouchableOpacity
+                onPress={() => !isLoading && router.replace("/register")}
+              >
+                <Text style={styles.footerLink}>Register</Text>
+              </TouchableOpacity>
+            </View>
+          </ImageBackground>
+        </View>
+      </KeyboardAwareScrollView>
+
+      {/* COUNTRY LIST MODAL */}
       <Modal
         visible={isPickerOpen}
         animationType="slide"
@@ -336,8 +310,8 @@ export default function LoginScreen() {
 
           <FlatList
             data={filteredCountries}
-            keyExtractor={(item: any) => item.countryCode}
-            renderItem={({ item }: any) => (
+            keyExtractor={(item) => item.countryCode}
+            renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.countryItem}
                 onPress={() => {
@@ -346,7 +320,10 @@ export default function LoginScreen() {
                   setSearchQuery("");
                 }}
               >
-                <Image source={{ uri: item.flag }} style={styles.flagInList} />
+                <Image
+                  source={{ uri: item.flag }}
+                  style={styles.flagInList}
+                />
                 <Text style={styles.countryNameText}>{item.name}</Text>
               </TouchableOpacity>
             )}
@@ -360,10 +337,26 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.white },
-  imageWrapper: { height: height * 0.35, width: "100%" },
-  topImage: { width: "100%", height: "100%" },
-  bottomCard: { flex: 1, marginTop: -30 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40, // prevents cut bottom
+  },
+  imageWrapper: {
+    height: height * 0.32,
+    width: "100%",
+  },
+  topImage: {
+    width: "100%",
+    height: "100%",
+  },
+  bottomCard: {
+    flex: 1,
+    marginTop: -40,
+  },
   cardBackground: {
     flex: 1,
     paddingHorizontal: 24,
@@ -371,14 +364,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    elevation: 10,
   },
-  title: { fontSize: 20, fontWeight: "600", textAlign: "center", marginTop: 16 },
+  cardImage: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    opacity:1,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 12,
+  },
   subtitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "500",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 22,
   },
   phoneInputContainer: {
     flexDirection: "row",
@@ -386,7 +388,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#f5f6fa",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
   countrySelector: {
     flexDirection: "row",
@@ -394,21 +396,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: "100%",
   },
-  flagImage: { width: 28, height: 20, resizeMode: "contain" },
-  dialCodeText: { fontSize: 16, fontWeight: "500", marginLeft: 8, marginRight: 4 },
+  flagImage: {
+    width: 28,
+    height: 20,
+    resizeMode: "contain",
+  },
+  dialCodeText: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
   numberInput: {
     flex: 1,
     fontSize: 16,
     paddingHorizontal: 12,
-    height: 50, // ✅ fixed height
+    height: 50,
     color: "#000",
-    textAlignVertical: "center", // ✅ vertical alignment
   },
   termsContainer: {
     flexDirection: "row",
-    marginBottom: 20,
+    marginBottom: 18,
     paddingHorizontal: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   checkbox: {
     width: 20,
@@ -420,19 +429,44 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 8,
   },
-  checkedBox: { width: 12, height: 12, backgroundColor: colors.primary },
-  termsText: { fontSize: 13, color: colors.textSecondary, textAlign: "center" },
-  footer: { marginTop: 10, flexDirection: "row", justifyContent: "center" },
-  footerText: { color: colors.textSecondary, fontSize: 14 },
-  footerLink: { color: colors.primary, fontWeight: "600", fontSize: 14 },
-  button: {
-    height: 50,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
+  checkedBox: {
+    width: 12,
+    height: 12,
+    backgroundColor: colors.primary,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  termsText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    flex: 1,
+    flexWrap: "wrap",
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  verifyText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  footer: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  footerText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  footerLink: {
+    color: colors.primary,
+    fontWeight: "600",
+    fontSize: 14,
+  },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -440,8 +474,15 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: colors.primary,
   },
-  modalTitle: { fontSize: 18, fontWeight: "600", color: "#fff" },
-  closeText: { fontSize: 24, color: "#fff" },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  closeText: {
+    fontSize: 24,
+    color: "#fff",
+  },
   countryItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -450,24 +491,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  flagInList: { width: 30, height: 20, marginRight: 12, resizeMode: "contain" },
-  countryNameText: { flex: 1, fontSize: 16 },
-  verifyButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+  flagInList: {
+    width: 30,
+    height: 20,
+    marginRight: 12,
   },
-  verifyText: {
-    color: "#fff",
+  countryNameText: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: "600",
   },
 });

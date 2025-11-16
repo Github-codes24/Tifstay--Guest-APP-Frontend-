@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,14 +13,15 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useFocusEffect } from '@react-navigation/native';
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery } from "@tanstack/react-query";
 import colors from "@/constants/colors";
 import { useAuthStore } from "@/store/authStore";
 import Button from "@/components/Buttons";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
 import fallbackDp from "@/assets/images/fallbackdp.png"; // Added import for fallback profile image
-
 interface Order {
   id: string;
   bookingId: string;
@@ -49,44 +50,16 @@ interface Order {
       name?: string;
     }>;
   }>;
-  tiffinServiceId?: string;  // Tiffin-specific: Service ID
-  guestId?: string;          // Tiffin-specific: Guest ID
-  guestName?: string;        // Tiffin-specific: Guest full name
+  tiffinServiceId?: string; // Tiffin-specific: Service ID
+  guestId?: string; // Tiffin-specific: Guest ID
+  guestName?: string; // Tiffin-specific: Guest full name
 }
-
-const Booking: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"pending" | "confirmed" | "rejected">(
-    "pending"
-  );
-  const [hostelOrders, setHostelOrders] = useState<Order[]>([]);
-  const [tiffinOrders, setTiffinOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false); // Add state for pull-to-refresh
-
-  const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
-  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
-
-  const { profileData, fetchProfile } = useAuthStore();
-
-  // --- Fetch profile if not loaded ---
-  useEffect(() => {
-    if (!profileData) {
-      fetchProfile();
-    }
-  }, [profileData, fetchProfile]);
-
-  useEffect(() => {
-    fetchOrders(activeTab);
-  }, [activeTab]);
-
- const fetchOrders = async (tab: "pending" | "confirmed" | "rejected") => {
-  setLoading(true);
+const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Promise<Order[]> => {
   const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
   const headers = {
     Authorization: `Bearer ${token}`,
   };
-
-  // Fetch hostel orders
   let hostelUrl: string;
   if (tab === "pending") {
     hostelUrl = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingHostelBookings";
@@ -95,55 +68,52 @@ const Booking: React.FC = () => {
   } else {
     hostelUrl = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRejectedHostelBookings";
   }
-
-  try {
-    const hostelResponse = await axios.get(hostelUrl, { headers });
-    console.log("Hostel API Response:", hostelResponse.data);
-
-    let fetchedHostelOrders: Order[] = [];
-    if (hostelResponse.data.success) {
-      fetchedHostelOrders = hostelResponse.data.data.map((item: any) => {
-        let priceValue = item.price;
-        if (tab === "rejected") {
-          priceValue = item.AppiledCoupon?.finalprice || 0;
-        }
-        const selectPlan = item.selectPlan?.[0] || { name: "monthly", price: 0 };
-        return {
-          id: item._id,
-          bookingId: item.bookingId || item._id, // Use bookingId if available, fallback to _id
-          serviceType: "hostel" as const,
-          serviceName: item.hostelId?.hostelName || "Unknown Hostel",
-          customer: item.fullName || "Unknown User",
-          checkInDate: item.checkInDate
-            ? new Date(item.checkInDate).toLocaleDateString()
-            : "",
-          checkOutDate: item.checkOutDate
-            ? new Date(item.checkOutDate).toLocaleDateString()
-            : "",
-          endDate: item.checkOutDate
-            ? new Date(item.checkOutDate).toLocaleDateString()
-            : "",
-          status: item.status.toLowerCase() as Order["status"],
-          image: item.userPhoto,
-          price: priceValue ? `₹${priceValue}` : undefined,
-          planPrice: selectPlan.price ? `₹${selectPlan.price}` : undefined, // New: Base plan price
-          plan: selectPlan.name || "monthly", // New: Pass plan name (e.g., "monthly", "weekly")
-          // FIXED: Extract _id as string; handle object or string input
-          entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
-          rooms: item.rooms || [],
-        };
-      });
-      // DEBUG: Log hostel orders statuses
-      console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType, plan: o.plan })));
-    }
-    setHostelOrders(fetchedHostelOrders);
-  } catch (hostelError) {
-    console.error("Error fetching hostel orders:", hostelError);
-    Alert.alert("Error", "Failed to fetch hostel orders");
-    setHostelOrders([]);
+  const hostelResponse = await axios.get(hostelUrl, { headers });
+  console.log("Hostel API Response:", hostelResponse.data);
+  if (!hostelResponse.data.success) {
+    throw new Error("Failed to fetch hostel orders");
   }
-
-  // Fetch tiffin orders
+  const fetchedHostelOrders: Order[] = hostelResponse.data.data.map((item: any) => {
+    let priceValue = item.price;
+    if (tab === "rejected") {
+      priceValue = item.AppiledCoupon?.finalprice || 0;
+    }
+    const selectPlan = item.selectPlan?.[0] || { name: "monthly", price: 0 };
+    return {
+      id: item._id,
+      bookingId: item.bookingId || item._id, // Use bookingId if available, fallback to _id
+      serviceType: "hostel" as const,
+      serviceName: item.hostelId?.hostelName || "Unknown Hostel",
+      customer: item.fullName || "Unknown User",
+      checkInDate: item.checkInDate
+        ? new Date(item.checkInDate).toLocaleDateString()
+        : "",
+      checkOutDate: item.checkOutDate
+        ? new Date(item.checkOutDate).toLocaleDateString()
+        : "",
+      endDate: item.checkOutDate
+        ? new Date(item.checkOutDate).toLocaleDateString()
+        : "",
+      status: item.status.toLowerCase() as Order["status"],
+      image: item.userPhoto,
+      price: priceValue ? `₹${priceValue}` : undefined,
+      planPrice: selectPlan.price ? `₹${selectPlan.price}` : undefined, // New: Base plan price
+      plan: selectPlan.name || "monthly", // New: Pass plan name (e.g., "monthly", "weekly")
+      // FIXED: Extract _id as string; handle object or string input
+      entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
+      rooms: item.rooms || [],
+    };
+  });
+  // DEBUG: Log hostel orders statuses
+  console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType, plan: o.plan })));
+  return fetchedHostelOrders;
+};
+const fetchTiffinOrders = async (tab: "pending" | "confirmed" | "rejected"): Promise<Order[]> => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
   let tiffinUrl: string;
   if (tab === "pending") {
     tiffinUrl = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPendingTiffinOrder";
@@ -152,69 +122,223 @@ const Booking: React.FC = () => {
   } else {
     tiffinUrl = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getRejectedTiffinOrder";
   }
-
-  try {
-    const tiffinResponse = await axios.get(tiffinUrl, { headers });
-    console.log("Token res:", token);
-    console.log("Tiffin API Response:", tiffinResponse);
-
-    let fetchedTiffinOrders: Order[] = [];
-    if (tiffinResponse.data.success) {
-      fetchedTiffinOrders = tiffinResponse.data.data.map((item: any) => {
-        // FIXED: Use direct fields from API (no tiffins array assumption)
-        const serviceName = (item.tiffinServiceName && item.tiffinServiceName !== "N/A" && item.tiffinServiceName.trim() !== "")
-          ? item.tiffinServiceName
-          : "Unknown Tiffin Service";
-
-        return {
-          id: item._id,
-          bookingId: item.bookingId,
-          serviceType: "tiffin" as const,
-          serviceName,
-          customer: "You",
-          startDate: item.startDate ? new Date(item.startDate).toLocaleDateString() : "",
-          endDate: item.endDate ? new Date(item.endDate).toLocaleDateString() : "", // FIXED: Use endDate from API
-          mealType: item.planType || "", // FIXED: Direct from planType (e.g., "Lunch & dinner")
-          foodType: item.foodType || "", // FIXED: Direct from API (e.g., "Veg")
-          plan: item.plan || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
-          orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
-          status: (item.status || "").toLowerCase() as Order["status"],
-          price: item.price ? `₹${item.price}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
-          image: undefined,
-          // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
-          entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
-          // NEW: Tiffin-specific fields
-          tiffinServiceId: item.tiffinServiceId || "",
-          guestId: item.guestId || "",
-          guestName: item.guestName || "",
-        };
-      });
-      // DEBUG: Log tiffin orders statuses (especially for "confirmed" tab)
-      console.log("Fetched Tiffin Orders:", fetchedTiffinOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
-    }
-    setTiffinOrders(fetchedTiffinOrders);
-  } catch (tiffinError) {
-    console.error("Error fetching tiffin orders:", tiffinError);
-    Alert.alert("Error", "Failed to fetch tiffin orders");
-    setTiffinOrders([]);
-  } finally {
-    setLoading(false);
+  const tiffinResponse = await axios.get(tiffinUrl, { headers });
+  console.log("Token res:", token);
+  console.log("Tiffin API Response:", tiffinResponse);
+  if (!tiffinResponse.data.success) {
+    throw new Error("Failed to fetch tiffin orders");
   }
+  const fetchedTiffinOrders: Order[] = tiffinResponse.data.data.map((item: any) => {
+    // FIXED: Use direct fields from API (no tiffins array assumption)
+    const serviceName = (item.tiffinServiceName && item.tiffinServiceName !== "N/A" && item.tiffinServiceName.trim() !== "")
+      ? item.tiffinServiceName
+      : "Unknown Tiffin Service";
+    return {
+      id: item._id,
+      bookingId: item.bookingId,
+      serviceType: "tiffin" as const,
+      serviceName,
+      customer: "You",
+      startDate: item.startDate ? new Date(item.startDate).toLocaleDateString() : "",
+      endDate: item.endDate ? new Date(item.endDate).toLocaleDateString() : "", // FIXED: Use endDate from API
+      mealType: item.planType || "", // FIXED: Direct from planType (e.g., "Lunch & dinner")
+      foodType: item.foodType || "", // FIXED: Direct from API (e.g., "Veg")
+      plan: item.plan || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
+      orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
+      status: (item.status || "").toLowerCase() as Order["status"],
+      price: item.price ? `₹${item.price}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
+      image: undefined,
+      // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
+      entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
+      // NEW: Tiffin-specific fields
+      tiffinServiceId: item.tiffinServiceId || "",
+      guestId: item.guestId || "",
+      guestName: item.guestName || "",
+    };
+  });
+  // DEBUG: Log tiffin orders statuses (especially for "confirmed" tab)
+  console.log("Fetched Tiffin Orders:", fetchedTiffinOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
+  return fetchedTiffinOrders;
 };
-
+const Booking: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<"pending" | "confirmed" | "rejected">(
+    "pending"
+  );
+  const [refreshing, setRefreshing] = useState(false); // Add state for pull-to-refresh
+  const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
+  const { profileData, fetchProfile } = useAuthStore();
+  // --- Fetch profile if not loaded ---
+  React.useEffect(() => {
+    if (!profileData) {
+      fetchProfile();
+    }
+  }, [profileData, fetchProfile]);
+  // Hostel queries for each tab
+  const {
+    data: pendingHostelData = [],
+    isPending: pendingHostelLoading,
+    refetch: refetchPendingHostel,
+  } = useQuery<Order[]>({
+    queryKey: ["hostelOrders", "pending"],
+    queryFn: () => fetchHostelOrders("pending"),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching hostel orders:", error);
+      Alert.alert("Error", "Failed to fetch hostel orders");
+    },
+  });
+  const {
+    data: confirmedHostelData = [],
+    isPending: confirmedHostelLoading,
+    refetch: refetchConfirmedHostel,
+  } = useQuery<Order[]>({
+    queryKey: ["hostelOrders", "confirmed"],
+    queryFn: () => fetchHostelOrders("confirmed"),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching hostel orders:", error);
+      Alert.alert("Error", "Failed to fetch hostel orders");
+    },
+  });
+  const {
+    data: rejectedHostelData = [],
+    isPending: rejectedHostelLoading,
+    refetch: refetchRejectedHostel,
+  } = useQuery<Order[]>({
+    queryKey: ["hostelOrders", "rejected"],
+    queryFn: () => fetchHostelOrders("rejected"),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching hostel orders:", error);
+      Alert.alert("Error", "Failed to fetch hostel orders");
+    },
+  });
+  // Tiffin queries for each tab
+  const {
+    data: pendingTiffinData = [],
+    isPending: pendingTiffinLoading,
+    refetch: refetchPendingTiffin,
+  } = useQuery<Order[]>({
+    queryKey: ["tiffinOrders", "pending"],
+    queryFn: () => fetchTiffinOrders("pending"),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching tiffin orders:", error);
+      Alert.alert("Error", "Failed to fetch tiffin orders");
+    },
+  });
+  const {
+    data: confirmedTiffinData = [],
+    isPending: confirmedTiffinLoading,
+    refetch: refetchConfirmedTiffin,
+  } = useQuery<Order[]>({
+    queryKey: ["tiffinOrders", "confirmed"],
+    queryFn: () => fetchTiffinOrders("confirmed"),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching tiffin orders:", error);
+      Alert.alert("Error", "Failed to fetch tiffin orders");
+    },
+  });
+  const {
+    data: rejectedTiffinData = [],
+    isPending: rejectedTiffinLoading,
+    refetch: refetchRejectedTiffin,
+  } = useQuery<Order[]>({
+    queryKey: ["tiffinOrders", "rejected"],
+    queryFn: () => fetchTiffinOrders("rejected"),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching tiffin orders:", error);
+      Alert.alert("Error", "Failed to fetch tiffin orders");
+    },
+  });
+  const hostelOrders = useMemo(() => {
+    switch (activeTab) {
+      case "pending": return pendingHostelData;
+      case "confirmed": return confirmedHostelData;
+      case "rejected": return rejectedHostelData;
+      default: return [];
+    }
+  }, [activeTab, pendingHostelData, confirmedHostelData, rejectedHostelData]);
+  const tiffinOrders = useMemo(() => {
+    switch (activeTab) {
+      case "pending": return pendingTiffinData;
+      case "confirmed": return confirmedTiffinData;
+      case "rejected": return rejectedTiffinData;
+      default: return [];
+    }
+  }, [activeTab, pendingTiffinData, confirmedTiffinData, rejectedTiffinData]);
+  const currentHostelLoading = useMemo(() => {
+    switch (activeTab) {
+      case "pending": return pendingHostelLoading;
+      case "confirmed": return confirmedHostelLoading;
+      case "rejected": return rejectedHostelLoading;
+      default: return false;
+    }
+  }, [activeTab, pendingHostelLoading, confirmedHostelLoading, rejectedHostelLoading]);
+  const currentTiffinLoading = useMemo(() => {
+    switch (activeTab) {
+      case "pending": return pendingTiffinLoading;
+      case "confirmed": return confirmedTiffinLoading;
+      case "rejected": return rejectedTiffinLoading;
+      default: return false;
+    }
+  }, [activeTab, pendingTiffinLoading, confirmedTiffinLoading, rejectedTiffinLoading]);
+  const loading = currentHostelLoading || currentTiffinLoading;
+  const refetchCurrentHostel = useCallback(() => {
+    switch (activeTab) {
+      case "pending": return refetchPendingHostel();
+      case "confirmed": return refetchConfirmedHostel();
+      case "rejected": return refetchRejectedHostel();
+      default: return Promise.resolve();
+    }
+  }, [activeTab, refetchPendingHostel, refetchConfirmedHostel, refetchRejectedHostel]);
+  const refetchCurrentTiffin = useCallback(() => {
+    switch (activeTab) {
+      case "pending": return refetchPendingTiffin();
+      case "confirmed": return refetchConfirmedTiffin();
+      case "rejected": return refetchRejectedTiffin();
+      default: return Promise.resolve();
+    }
+  }, [activeTab, refetchPendingTiffin, refetchConfirmedTiffin, refetchRejectedTiffin]);
   // Add handleRefresh function for pull-to-refresh
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await fetchOrders(activeTab);
+      await Promise.all([
+        refetchCurrentHostel(),
+        refetchCurrentTiffin(),
+      ]);
     } catch (error) {
       console.error("Error during refresh:", error);
       Alert.alert("Error", "Failed to refresh orders");
     } finally {
       setRefreshing(false);
     }
-  };
-
+  }, [refetchCurrentHostel, refetchCurrentTiffin]);
+  const refetchAll = useCallback(async () => {
+    await Promise.all([
+      refetchPendingHostel(),
+      refetchConfirmedHostel(),
+      refetchRejectedHostel(),
+      refetchPendingTiffin(),
+      refetchConfirmedTiffin(),
+      refetchRejectedTiffin(),
+    ]);
+  }, [refetchPendingHostel, refetchConfirmedHostel, refetchRejectedHostel, refetchPendingTiffin, refetchConfirmedTiffin, refetchRejectedTiffin]);
+  useFocusEffect(
+    useCallback(() => {
+      refetchAll();
+    }, [refetchAll])
+  );
   const isWithin5DaysOfEnd = (order: Order) => {
     const endDateStr = order.endDate || order.checkOutDate;
     if (!endDateStr) return false;
@@ -224,22 +348,21 @@ const Booking: React.FC = () => {
     const now = new Date();
     return now >= fiveDaysBefore && now < end;
   };
-
   const handleTrackOrder = (order: Order) => {
     console.log("=== DEBUG: handleTrackOrder called ===");
     console.log("Track order clicked for bookingId:", order.bookingId);
     console.log("Order details:", { id: order.id, status: order.status, serviceType: order.serviceType });
     console.log("Current modal state before set:", { showTrackOrderModal, trackingOrder: trackingOrder ? 'exists' : null });
-    
+   
     if (!order.id) {
       console.error("=== ERROR: Invalid order ID for tracking ===");
       Alert.alert("Error", "Cannot track this order. Invalid details.");
       return;
     }
-    
+   
     setTrackingOrder(order);
     setShowTrackOrderModal(true);
-    
+   
     // Note: State updates are async, so log after a tick if needed (use setTimeout for immediate check)
     setTimeout(() => {
       console.log("=== DEBUG: Modal state after set (next tick) ===");
@@ -247,46 +370,41 @@ const Booking: React.FC = () => {
       console.log("trackingOrder:", order.id);
     }, 0);
   };
-
 // Updated handleContinueSubscription in Booking screen
 const handleContinueSubscription = (order: Order) => {
-  if (!order.id) {  // Enforce _id as mandatory for all orders (esp. tiffin)
+  if (!order.id) { // Enforce _id as mandatory for all orders (esp. tiffin)
     console.error("Missing _id (orderId) – cannot continue subscription");
-    return;  // Early exit; handle UI error as needed
+    return; // Early exit; handle UI error as needed
   }
-
   console.log("Continue subscription:", order.id);
-
   // Helper to clean and format price (reusable for price/planPrice)
   const formatPrice = (rawPrice?: string): string => {
     if (!rawPrice) return "₹8000";
     const cleaned = rawPrice.replace('₹', '').trim();
     return `₹${cleaned}`;
   };
-
   let params: any = {
     serviceType: order.serviceType,
-    serviceName: order.serviceName || order.tiffinServiceName || "",  // Fallback for tiffin
-    price: formatPrice(order.price),  // FIXED: No double ₹
-    planPrice: formatPrice(order.planPrice || order.price),  // FIXED: No double ₹
-    plan: order.plan || order.planType || "monthly",  // Use planType for tiffin
-    orderId: order.id,  // _id is now mandatory
+    serviceName: order.serviceName || order.tiffinServiceName || "", // Fallback for tiffin
+    price: formatPrice(order.price), // FIXED: No double ₹
+    planPrice: formatPrice(order.planPrice || order.price), // FIXED: No double ₹
+    plan: order.plan || order.planType || "monthly", // Use planType for tiffin
+    orderId: order.id, // _id is now mandatory
     bookingId: order.bookingId || "",
-    fullName: order.customer || "You",  // Keep fallback; fetch full guest in screen via guestId
+    fullName: order.customer || "You", // Keep fallback; fetch full guest in screen via guestId
   };
-
   // Branch for tiffin-specific params (no rooms/hostelId, use dates from tiffin response)
   if (order.serviceType === 'tiffin') {
     // Tiffin-specific details including service ID and guest info
-    params.tiffinServiceId = order.tiffinServiceId || "";  // <-- This line already passes tiffinServiceId to the next screen
+    params.tiffinServiceId = order.tiffinServiceId || ""; // <-- This line already passes tiffinServiceId to the next screen
     params.guestId = order.guestId || "";
-    params.fullName = order.guestName || params.fullName;  // Prioritize guestName for tiffin
+    params.fullName = order.guestName || params.fullName; // Prioritize guestName for tiffin
     params.orderType = order.orderType || "";
     params.foodType = order.foodType || "";
     params.status = order.status || "";
-    
-    params.checkInDate = order.startDate || "";  // Map startDate to checkInDate for UI consistency
-    params.checkOutDate = order.endDate || "";   // Map endDate to checkOutDate
+   
+    params.checkInDate = order.startDate || ""; // Map startDate to checkInDate for UI consistency
+    params.checkOutDate = order.endDate || ""; // Map endDate to checkOutDate
     // Skip rooms and hostelId – they remain undefined (not passed)
     console.log("Tiffin-specific params applied");
   } else {
@@ -300,27 +418,25 @@ const handleContinueSubscription = (order: Order) => {
         name: bed.name,
       })) || [],
     })) || [];
-
     params.hostelId = order.entityId || "";
     params.checkInDate = order.checkInDate || "";
     params.checkOutDate = order.checkOutDate || "";
-    params.rooms = JSON.stringify(roomsData);  // Stringify for params
+    params.rooms = JSON.stringify(roomsData); // Stringify for params
   }
-
   console.log("Continue Subscription Params:", params);
   console.log("Full Order Details Passed:", {
     id: order.id,
     bookingId: order.bookingId,
     serviceName: order.serviceName || order.tiffinServiceName,
-    customer: order.serviceType === 'tiffin' ? order.guestName : order.customer,  // Use guestName for tiffin
-    checkInDate: params.checkInDate,  // Log mapped dates
+    customer: order.serviceType === 'tiffin' ? order.guestName : order.customer, // Use guestName for tiffin
+    checkInDate: params.checkInDate, // Log mapped dates
     checkOutDate: params.checkOutDate,
     rooms: params.rooms || "N/A (tiffin)",
     entityId: order.entityId || "N/A",
     plan: params.plan,
     price: order.price,
     planPrice: order.planPrice,
-    startDate: order.startDate,  // Log raw for tiffin
+    startDate: order.startDate, // Log raw for tiffin
     endDate: order.endDate,
     // Additional tiffin details for logging
     ...(order.serviceType === 'tiffin' && {
@@ -331,19 +447,15 @@ const handleContinueSubscription = (order: Order) => {
       status: order.status,
     }),
   });
-
   router.push({
     pathname: "/continueSubscriptionScreen",
     params,
   });
 };
-
-
-
   const handleRateNow = (order: Order) => {
     console.log("Rate now:", order.bookingId);
     const type = order.serviceType === "tiffin" ? "service" : "hostel";
-    
+   
     if (!order.entityId) {
       console.error("Missing entityId for order:", order);
       Alert.alert("Error", "Invalid service details. Please try again.");
@@ -360,7 +472,6 @@ const handleContinueSubscription = (order: Order) => {
       params,
     });
   };
-
   const handleSeeDetails = (order: Order) => {
     console.log(
       "See details:",
@@ -389,7 +500,6 @@ const handleContinueSubscription = (order: Order) => {
       params,
     });
   };
-
   const handleRepeatOrder = (order: Order) => {
     console.log("Repeat order:", order.bookingId);
     const pathname =
@@ -406,7 +516,6 @@ const handleContinueSubscription = (order: Order) => {
       params: { id: order.entityId, repeatOrder: "true" },
     });
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -423,7 +532,6 @@ const handleContinueSubscription = (order: Order) => {
         return "#6B7280";
     }
   };
-
   const getStatusText = (status: string) => {
     switch (status) {
       case "pending":
@@ -442,12 +550,9 @@ const handleContinueSubscription = (order: Order) => {
         return status;
     }
   };
-
   const isHistoryOrder = (status: string) =>
     ["delivered", "completed"].includes(status);
-
   const handleProfilePress = () => router.push("/account/profile");
-
   const renderOrderCard = (order: Order) => {
     // DEBUG: Log order details and conditions for button visibility
     console.log("=== DEBUG: Rendering Order Card ===");
@@ -460,7 +565,6 @@ const handleContinueSubscription = (order: Order) => {
       within5Days: isWithin5DaysOfEnd(order),
     });
     console.log("Track button should show:", activeTab === "confirmed" && order.status === "confirmed" && !isHistoryOrder(order.status) && order.serviceType === "tiffin");
-
     return (
       <View key={order.id} style={styles.orderCard}>
         <View style={styles.orderHeader}>
@@ -485,7 +589,6 @@ const handleContinueSubscription = (order: Order) => {
         {order.serviceType !== "hostel" && (
           <Text style={styles.orderedOneLbl}>Order On {order.startDate}</Text>
         )}
-
         <View style={styles.orderDetails}>
           {order.serviceType === "hostel" ? (
             <>
@@ -640,7 +743,6 @@ const handleContinueSubscription = (order: Order) => {
             </>
           )}
         </View>
-
         {activeTab === "pending" ? null : (
           <>
             {order.status === "confirmed" && !isHistoryOrder(order.status) && (
@@ -717,7 +819,7 @@ const handleContinueSubscription = (order: Order) => {
                   width={160}
                   height={48}
                 /> */} */}
-                
+               
               </View>
             )}
             {isHistoryOrder(order.status) && (
@@ -744,7 +846,6 @@ const handleContinueSubscription = (order: Order) => {
       </View>
     );
   };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -755,19 +856,15 @@ const handleContinueSubscription = (order: Order) => {
       </SafeAreaView>
     );
   }
-
   const hasHostelOrders = hostelOrders.length > 0;
   const hasTiffinOrders = tiffinOrders.length > 0;
   const hasAnyOrders = hasHostelOrders || hasTiffinOrders;
-
   // Debug log for tab data
   console.log(
     `Rendering ${activeTab} tab - Hostels: ${hostelOrders.length}, Tiffins: ${tiffinOrders.length}`,
   );
-
   // Added profileSource computation for fallback image handling
   const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
@@ -785,7 +882,6 @@ const handleContinueSubscription = (order: Order) => {
           />
         </TouchableOpacity>
       </View>
-
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === "pending" && styles.activeTab]}
@@ -827,7 +923,6 @@ const handleContinueSubscription = (order: Order) => {
           </Text>
         </TouchableOpacity>
       </View>
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -879,15 +974,14 @@ const handleContinueSubscription = (order: Order) => {
         )}
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
       {/* DEBUG: Log before modal render */}
-      {console.log("=== DEBUG: Checking Modal Render ===", { 
-        trackingOrder: trackingOrder ? trackingOrder.id : null, 
+      {console.log("=== DEBUG: Checking Modal Render ===", {
+        trackingOrder: trackingOrder ? trackingOrder.id : null,
         showTrackOrderModal,
         orderId: trackingOrder?.id,
-        serviceType: trackingOrder?.serviceType 
+        serviceType: trackingOrder?.serviceType
       })}
-      
+     
       {trackingOrder && (
         <TrackOrderModal
           visible={showTrackOrderModal}
@@ -903,7 +997,6 @@ const handleContinueSubscription = (order: Order) => {
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1086,7 +1179,6 @@ const styles = StyleSheet.create({
   borderColor: colors.primary,
   width: 230,
   alignSelf: "center",
-
 },
   repeatButtonStyle: {
     backgroundColor: colors.primary,
@@ -1096,5 +1188,4 @@ const styles = StyleSheet.create({
     height: 25,
   },
 });
-
 export default Booking;

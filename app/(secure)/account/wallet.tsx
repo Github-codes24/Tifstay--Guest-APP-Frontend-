@@ -1,6 +1,6 @@
 // WalletScreen.tsx
 import * as React from "react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -8,7 +8,6 @@ import {
     ScrollView,
     Pressable,
     Image,
-    Alert,
     ActivityIndicator,
     RefreshControl,
 } from "react-native";
@@ -16,6 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
+import Toast from "react-native-toast-message";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "@/constants/colors";
@@ -49,105 +50,138 @@ const formatINR = (value: number, fractionDigits = 0) =>
         maximumFractionDigits: fractionDigits,
     }).format(Math.abs(value));
 
+const fetchWalletAmount = async () => {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("User not authenticated");
+
+    const response = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+        { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || "Cannot fetch wallet amount");
+    }
+
+    return response.data.data?.walletAmount || 0;
+};
+
+const fetchTransactions = async () => {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("User not authenticated");
+
+    const response = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/wallet/transactions",
+        {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { page: 1, limit: 10 },
+        }
+    );
+
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || "Cannot fetch transactions");
+    }
+
+    const txnData = response.data.data?.transactions || [];
+
+    const mappedTransactions: Txn[] = txnData.map((txn: any) => {
+        const raw = txn.raw?.payload;
+        const paymentLinkDesc = raw?.payment_link?.entity?.description || "";
+        const isTopUp = paymentLinkDesc.includes("Wallet top-up");
+        const source = txn.source || "Payment";
+
+        let statusLabel: "Approved" | "Pending" | "Rejected";
+        if (txn.status === "paid") statusLabel = "Approved";
+        else if (txn.status === "failed") statusLabel = "Rejected";
+        else statusLabel = "Pending";
+
+        return {
+            id: txn._id || "",
+            title: isTopUp ? "Wallet Top-up" : txn.title || txn.description || "Transaction",
+            subtitle: source,
+            date: txn.createdAt
+                ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                })
+                : "",
+            amount: txn.amount || 0,
+            status: statusLabel,
+            icon: isTopUp
+                ? require("../../../assets/images/visa1.png")
+                : require("../../../assets/images/frame.png"),
+        };
+    });
+
+    return mappedTransactions;
+};
+
 export default function WalletScreen() {
-    const [balance, setBalance] = useState<number>(0);
-    const [transactions, setTransactions] = useState<Txn[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchWalletAmount = useCallback(async () => {
-        try {
-            const token = await AsyncStorage.getItem("token");
-            if (!token) return Alert.alert("Error", "User not authenticated");
+    const {
+        data: balance = 0,
+        isPending: walletLoading,
+        refetch: refetchWallet,
+        error: walletError,
+    } = useQuery({
+        queryKey: ["walletAmount"],
+        queryFn: fetchWalletAmount,
+        staleTime: 5 * 60 * 1000,
+        retry: 1,
+        onError: (error: any) => {
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.message || "Something went wrong",
+            });
+        },
+    });
 
-            const response = await axios.get(
-                "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+    const {
+        data: transactions = [],
+        isPending: transactionsLoading,
+        refetch: refetchTransactions,
+        error: transactionsError,
+    } = useQuery({
+        queryKey: ["walletTransactions"],
+        queryFn: fetchTransactions,
+        staleTime: 5 * 60 * 1000,
+        retry: 1,
+        onError: (error: any) => {
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: error.message || "Something went wrong",
+            });
+        },
+    });
 
-            if (response.data?.success) {
-                setBalance(response.data.data?.walletAmount || 0);
-            } else {
-                Alert.alert("Error", response.data?.message || "Cannot fetch wallet amount");
-            }
-        } catch (error: any) {
-            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
-        }
-    }, []);
-
-    const fetchTransactions = useCallback(async () => {
-        try {
-            const token = await AsyncStorage.getItem("token");
-            if (!token) return Alert.alert("Error", "User not authenticated");
-
-            const response = await axios.get(
-                "https://tifstay-project-be.onrender.com/api/guest/wallet/transactions",
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                    params: { page: 1, limit: 10 },
-                }
-            );
-
-            if (response.data?.success) {
-                const txnData = response.data.data?.transactions || [];
-
-                const mappedTransactions: Txn[] = txnData.map((txn: any) => {
-                    const raw = txn.raw?.payload;
-                    const paymentLinkDesc = raw?.payment_link?.entity?.description || "";
-                    const isTopUp = paymentLinkDesc.includes("Wallet top-up");
-                    const source = txn.source || "Payment";
-
-                    let statusLabel: "Approved" | "Pending" | "Rejected";
-                    if (txn.status === "paid") statusLabel = "Approved";
-                    else if (txn.status === "failed") statusLabel = "Rejected";
-                    else statusLabel = "Pending";
-
-                    return {
-                        id: txn._id || "",
-                        title: isTopUp ? "Wallet Top-up" : txn.title || txn.description || "Transaction",
-                        subtitle: source,
-                        date: txn.createdAt
-                            ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                            })
-                            : "",
-                        amount: txn.amount || 0,
-                        status: statusLabel,
-                        icon: isTopUp
-                            ? require("../../../assets/images/visa1.png")
-                            : require("../../../assets/images/frame.png"),
-                    };
-                });
-                setTransactions(mappedTransactions);
-            } else {
-                Alert.alert("Error", response.data?.message || "Cannot fetch transactions");
-            }
-        } catch (error: any) {
-            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchWalletAmount();
-        fetchTransactions();
-    }, [fetchWalletAmount, fetchTransactions]);
+    const loading = walletLoading || transactionsLoading;
 
     useFocusEffect(
         useCallback(() => {
-            fetchWalletAmount();
-            fetchTransactions();
-        }, [fetchWalletAmount, fetchTransactions])
+            refetchWallet();
+            refetchTransactions();
+        }, [refetchWallet, refetchTransactions])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchWalletAmount(), fetchTransactions()]);
-        setRefreshing(false);
-    }, [fetchWalletAmount, fetchTransactions]);
+        try {
+            await Promise.all([refetchWallet(), refetchTransactions()]);
+        } catch (error) {
+            console.error("Error during refresh:", error);
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "Failed to refresh wallet data",
+            });
+        } finally {
+            setRefreshing(false);
+        }
+    }, [refetchWallet, refetchTransactions]);
 
     const onAddMoney = () => {
         router.push("/(secure)/account/addmoney");

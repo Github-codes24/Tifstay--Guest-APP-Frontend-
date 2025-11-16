@@ -891,7 +891,7 @@ export default function ContinueSubscriptionScreen() {
     bookingId: newBookingData._id,
     serviceType: "hostel",
     rooms: JSON.stringify(selectedRooms),
-    serviceId: newBookingData.hostelId,
+    hostelId: newBookingData.hostelId, // Updated: Use from response
   };
   console.log("📤 Navigating to checkout with params:", checkoutParams);
   router.push({

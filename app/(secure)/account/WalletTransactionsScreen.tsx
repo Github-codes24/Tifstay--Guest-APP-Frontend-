@@ -1,5 +1,5 @@
 // WalletTransactionsScreen.tsx
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,16 @@ import {
   FlatList,
   ActivityIndicator,
   Image,
-  Alert,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
+import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
 
 type Txn = {
@@ -27,75 +30,105 @@ type Txn = {
   icon?: any;
 };
 
+const fetchTransactions = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("User not authenticated");
+
+  const response = await axios.get(
+    "https://tifstay-project-be.onrender.com/api/guest/wallet/transactions",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      params: { page: 1, limit: 50 },
+    }
+  );
+
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || "Cannot fetch transactions");
+  }
+
+  const txnData = response.data.data?.transactions || [];
+
+  const mapped: Txn[] = txnData.map((txn: any) => {
+    const raw = txn.raw?.payload;
+    const desc = raw?.payment_link?.entity?.description || "";
+    const isTopUp = desc.includes("Wallet top-up");
+    const source = txn.source || "Payment";
+
+    // Map backend status to frontend labels
+    let statusLabel: "Approved" | "Pending" | "Rejected";
+    if (txn.status === "paid") statusLabel = "Approved";
+    else if (txn.status === "failed") statusLabel = "Rejected";
+    else statusLabel = "Pending";
+
+    return {
+      id: txn._id || "",
+      title: isTopUp ? "Wallet Top-up" : txn.title || "Transaction",
+      subtitle: source,
+      date: txn.createdAt
+        ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "",
+      amount: txn.amount || 0,
+      status: statusLabel,
+      icon: isTopUp
+        ? require("../../../assets/images/visa1.png")
+        : require("../../../assets/images/frame.png"),
+    };
+  });
+
+  return mapped;
+};
+
 const WalletTransactionsScreen = () => {
   const [filter, setFilter] = useState<"All" | "Approved" | "Pending" | "Rejected">(
     "All"
   );
-  const [transactions, setTransactions] = useState<Txn[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
-  const fetchTransactions = async () => {
+  const {
+    data: transactions = [],
+    isPending: loading,
+    refetch,
+    error,
+  } = useQuery({
+    queryKey: ["walletTransactions"],
+    queryFn: fetchTransactions,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (err: any) => {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: err.message || "Something went wrong",
+      });
+    },
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) return Alert.alert("Error", "User not authenticated");
-
-      const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/wallet/transactions",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { page: 1, limit: 50 },
-        }
-      );
-
-      if (response.data?.success) {
-        const txnData = response.data.data?.transactions || [];
-
-        const mapped: Txn[] = txnData.map((txn: any) => {
-          const raw = txn.raw?.payload;
-          const desc = raw?.payment_link?.entity?.description || "";
-          const isTopUp = desc.includes("Wallet top-up");
-          const source = txn.source || "Payment";
-
-          // Map backend status to frontend labels
-          let statusLabel: "Approved" | "Pending" | "Rejected";
-          if (txn.status === "paid") statusLabel = "Approved";
-          else if (txn.status === "failed") statusLabel = "Rejected";
-          else statusLabel = "Pending";
-
-          return {
-            id: txn._id || "",
-            title: isTopUp ? "Wallet Top-up" : txn.title || "Transaction",
-            subtitle: source,
-            date: txn.createdAt
-              ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
-              : "",
-            amount: txn.amount || 0,
-            status: statusLabel,
-            icon: isTopUp
-              ? require("../../../assets/images/visa1.png")
-              : require("../../../assets/images/frame.png"),
-          };
-        });
-
-        setTransactions(mapped);
-      } else {
-        Alert.alert("Error", response.data?.message || "Cannot fetch transactions");
-      }
-    } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || "Something went wrong");
+      await refetch();
+    } catch (error) {
+      console.error("Error during refresh:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to refresh transactions",
+      });
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
+  }, [refetch]);
 
   const filtered =
     filter === "All"
@@ -201,6 +234,9 @@ const WalletTransactionsScreen = () => {
             <Text style={{ textAlign: "center", marginTop: 30, color: "#777" }}>
               No transactions found
             </Text>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
         />
       )}

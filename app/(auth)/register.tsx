@@ -19,20 +19,23 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import axios from "axios";
 import Toast from "react-native-toast-message";
-import CustomButton from "../../components/CustomButton";
 import InputField from "../../components/InputField";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
 import CustomToast from "../../components/CustomToast";
+
 const { width, height } = Dimensions.get("window");
+
 const INITIAL_COUNTRY = {
   name: "India",
   countryCode: "IN",
   flag: "https://flagcdn.com/w320/in.png",
   dialCode: "+91",
 };
+
 export default function RegisterScreen() {
   const router = useRouter();
+
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [code, setCode] = useState("");
@@ -42,6 +45,7 @@ export default function RegisterScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingDialCode, setLoadingDialCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const filteredCountries = useMemo(() => {
     let filtered = countries.filter(
       (country) =>
@@ -51,6 +55,7 @@ export default function RegisterScreen() {
     filtered.sort((a, b) => a.name.localeCompare(b.name));
     return filtered;
   }, [countries, searchQuery]);
+
   useEffect(() => {
     const fetchCountries = async () => {
       try {
@@ -62,6 +67,7 @@ export default function RegisterScreen() {
             a.name.localeCompare(b.name)
           );
           setCountries(sorted);
+
           const india = sorted.find((c) => c.countryCode === "IN");
           if (india) {
             setSelectedCountry((prev) => ({
@@ -76,12 +82,15 @@ export default function RegisterScreen() {
     };
     fetchCountries();
   }, []);
+
   const handleCountryChange = async (country) => {
     try {
       setLoadingDialCode(true);
+
       const res = await axios.get(
         `https://tifstay-project-be.onrender.com/api/guest/country-code?country=${country.name}`
       );
+
       if (res.data.success) {
         const dial = res.data.data.dialCode || "+0";
         setSelectedCountry({
@@ -104,12 +113,16 @@ export default function RegisterScreen() {
       setLoadingDialCode(false);
     }
   };
+
   const handleRegister = async () => {
     if (isSubmitting) return;
+
     Keyboard.dismiss();
+
     const trimmedName = name.trim();
     const trimmedPhone = phoneNumber.trim();
     const trimmedCode = code.trim();
+
     if (!trimmedName || !trimmedPhone) {
       Toast.show({
         type: "error",
@@ -118,6 +131,7 @@ export default function RegisterScreen() {
       });
       return;
     }
+
     if (!/^[A-Za-z ]+$/.test(trimmedName)) {
       Toast.show({
         type: "error",
@@ -126,6 +140,7 @@ export default function RegisterScreen() {
       });
       return;
     }
+
     if (!/^[0-9]{10}$/.test(trimmedPhone)) {
       Toast.show({
         type: "error",
@@ -134,39 +149,48 @@ export default function RegisterScreen() {
       });
       return;
     }
+
     try {
       setIsSubmitting(true);
+
       const formattedPhoneNumber = `${selectedCountry.dialCode} ${trimmedPhone}`;
+
       const requestBody = {
         name: trimmedName,
         phoneNumber: formattedPhoneNumber,
       };
       if (trimmedCode) requestBody.code = trimmedCode;
+
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/register",
         requestBody,
         { headers: { "Content-Type": "application/json" } }
       );
+
       const success = response.data?.success;
-      const message = response.data?.message;
       const otpCode = response.data?.data?.guest?.otpCode;
+
       if (success) {
         Toast.show({
           type: "success",
           text1: "Registration Successful",
           text2: `Your OTP is ${otpCode}`,
         });
+
         setTimeout(() => {
           router.push({
-  pathname: "/verify",
-  params: { phoneNumber: trimmedPhone, dialCode: selectedCountry.dialCode },
-});
+            pathname: "/verify",
+            params: {
+              phoneNumber: trimmedPhone,
+              dialCode: selectedCountry.dialCode,
+            },
+          });
         }, 2000);
       } else {
         Toast.show({
           type: "error",
           text1: "Registration Failed",
-          text2: message || "Something went wrong. Please try again.",
+          text2: response.data?.message || "Something went wrong.",
         });
       }
     } catch (error) {
@@ -182,7 +206,7 @@ export default function RegisterScreen() {
         Toast.show({
           type: "error",
           text1: "Network Error",
-          text2: "Please check your connection and try again.",
+          text2: "Please check your connection.",
         });
       } else {
         Toast.show({
@@ -195,6 +219,7 @@ export default function RegisterScreen() {
       setIsSubmitting(false);
     }
   };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScrollView
@@ -203,7 +228,10 @@ export default function RegisterScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
-        extraScrollHeight={Platform.OS === "ios" ? 20 : 0}
+        enableAutomaticScroll={true}
+       extraHeight={Platform.OS === "android" ? 250 : 120}
+
+        keyboardOpeningTime={0}
       >
         <View style={styles.imageWrapper}>
           <Image
@@ -212,6 +240,7 @@ export default function RegisterScreen() {
             resizeMode="cover"
           />
         </View>
+
         <View style={styles.bottomCard}>
           <ImageBackground
             source={require("../../assets/images/background.png")}
@@ -227,12 +256,16 @@ export default function RegisterScreen() {
             <Logo showText={false} />
             <Text style={styles.title}>Comfortable Food, Comfortable Stay</Text>
             <Text style={styles.subtitle}>Get started with Tifstay</Text>
+
+            {/* NAME */}
             <InputField
               placeholder="Name"
               icon="person"
               value={name}
               onChangeText={setName}
             />
+
+            {/* PHONE */}
             <View style={styles.phoneInputContainer}>
               <TouchableOpacity
                 style={styles.countrySelector}
@@ -246,27 +279,31 @@ export default function RegisterScreen() {
                   {loadingDialCode ? "..." : selectedCountry.dialCode}
                 </Text>
               </TouchableOpacity>
+
               <TextInput
                 style={styles.numberInput}
                 placeholder="Phone Number"
-                placeholderTextColor="#999" // ✅ fixed placeholder color
+                placeholderTextColor="#999"
                 keyboardType="phone-pad"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 maxLength={10}
-                textAlignVertical="center" // ✅ vertical alignment
               />
             </View>
+
+            {/* REFERRAL */}
             <InputField
               placeholder="Referral Code (optional)"
               icon="code"
               value={code}
               onChangeText={setCode}
             />
+
+            {/* BUTTON */}
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                { backgroundColor: colors.primary, opacity: isSubmitting ? 0.7 : 1 },
+                { opacity: isSubmitting ? 0.7 : 1, backgroundColor: colors.primary },
               ]}
               onPress={handleRegister}
               disabled={isSubmitting}
@@ -278,6 +315,8 @@ export default function RegisterScreen() {
                 <Text style={styles.buttonText}>Continue</Text>
               )}
             </TouchableOpacity>
+
+            {/* FOOTER */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Have an account? </Text>
               <TouchableOpacity onPress={() => router.replace("/login")}>
@@ -287,6 +326,8 @@ export default function RegisterScreen() {
           </ImageBackground>
         </View>
       </KeyboardAwareScrollView>
+
+      {/* COUNTRY MODAL */}
       <Modal
         visible={isPickerOpen}
         animationType="slide"
@@ -299,6 +340,7 @@ export default function RegisterScreen() {
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>
           </View>
+
           <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
             <InputField
               placeholder="Search country"
@@ -307,6 +349,7 @@ export default function RegisterScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
+
           <FlatList
             data={filteredCountries}
             keyExtractor={(item) => item.countryCode}
@@ -326,15 +369,18 @@ export default function RegisterScreen() {
           />
         </SafeAreaView>
       </Modal>
+
       <CustomToast />
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.white },
   imageWrapper: { height: height * 0.35, width: "100%" },
   topImage: { width: "100%", height: "100%" },
   bottomCard: { flex: 1, marginTop: -30 },
+
   cardBackground: {
     flex: 1,
     paddingHorizontal: 24,
@@ -344,6 +390,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     elevation: 10,
   },
+
   title: { fontSize: 20, fontWeight: "600", textAlign: "center", marginTop: 16 },
   subtitle: {
     fontSize: 18,
@@ -352,6 +399,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 1,
   },
+
   phoneInputContainer: {
     flexDirection: "row",
     height: 50,
@@ -360,25 +408,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f6fa",
     marginBottom: 16,
   },
+
   countrySelector: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    backgroundColor: "transparent",
     height: "100%",
   },
+
   flagImage: { width: 28, height: 20, resizeMode: "contain" },
   dialCodeText: { fontSize: 16, fontWeight: "500", marginLeft: 8 },
+
   numberInput: {
     flex: 1,
     fontSize: 16,
     paddingHorizontal: 12,
-    height: "100%",
-    backgroundColor: "transparent",
     color: "#000",
-    textAlignVertical: "center", // ✅ fix for placeholder
-    placeholderTextColor: "#999", // ✅ fix for placeholder
+    height: "100%",
   },
+
   submitButton: {
     height: 50,
     borderRadius: 8,
@@ -386,14 +434,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 10,
   },
+
   buttonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
+
   footer: { marginTop: 10, flexDirection: "row", justifyContent: "center" },
   footerText: { color: colors.textSecondary, fontSize: 14 },
   footerLink: { color: colors.primary, fontWeight: "600", fontSize: 14 },
+
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -401,8 +452,10 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: colors.primary,
   },
+
   modalTitle: { fontSize: 18, fontWeight: "600", color: "#fff" },
   closeText: { fontSize: 24, color: "#fff" },
+
   countryItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -411,6 +464,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  flagInList: { width: 30, height: 20, marginRight: 12, resizeMode: "contain" },
+
+  flagInList: { width: 30, height: 20, marginRight: 12 },
   countryNameText: { flex: 1, fontSize: 16 },
 });

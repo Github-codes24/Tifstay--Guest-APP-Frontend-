@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,14 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  Alert,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useFocusEffect } from '@react-navigation/native';
+import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -29,61 +32,118 @@ const renderItem = ({ item }) => (
   </View>
 );
 
+const fetchReferralData = async () => {
+  const guestId = await AsyncStorage.getItem("guestId");
+  if (!guestId) throw new Error("Guest ID not found");
+
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+
+  const response = await fetch(
+    `https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  const json = await response.json();
+  if (!json.success) {
+    throw new Error("Failed to fetch referral data");
+  }
+  return json.data;
+};
+
+const fetchPointsData = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+
+  const response = await fetch(
+    "https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getPonits",
+    { headers: { Authorization: "Bearer " + token } }
+  );
+  const json = await response.json();
+  if (!json.success) {
+    throw new Error("Failed to fetch points data");
+  }
+  return json.Points?.[0]?.cashBackPoints || null;
+};
+
 export default function ReferEarnScreen() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [redeeming, setRedeeming] = useState(false);
-  const [cashBackPoints, setCashBackPoints] = useState<number | null>(null); // ✅ for points from API
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchReferralData = async () => {
-      try {
-        const guestId = await AsyncStorage.getItem("guestId");
-        if (!guestId) {
-          console.warn("Guest ID not found in AsyncStorage");
-          setLoading(false);
-          return;
-        }
+  const {
+    data: referralData,
+    isPending: referralLoading,
+    refetch: refetchReferral,
+    error: referralError,
+  } = useQuery({
+    queryKey: ["referralData"],
+    queryFn: fetchReferralData,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching referral data:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to fetch referral data",
+      });
+    },
+  });
 
-        const token = await AsyncStorage.getItem("token");
-        if (!token) {
-          Alert.alert("Error", "Login required");
-          setLoading(false);
-          return;
-        }
+  const {
+    data: cashBackPoints,
+    isPending: pointsLoading,
+    refetch: refetchPoints,
+    error: pointsError,
+  } = useQuery({
+    queryKey: ["pointsData"],
+    queryFn: fetchPointsData,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    onError: (error) => {
+      console.error("Error fetching points data:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to fetch points data",
+      });
+    },
+  });
 
-        // ✅ Fetch referral info
-        const response = await fetch(
-          `https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
-          { headers: { Authorization: "Bearer " + token } }
-        );
-        const json = await response.json();
-        if (json.success) {
-          setData(json.data);
-        }
+  const loading = referralLoading || pointsLoading;
 
-        // ✅ Fetch cashback points
-        const pointsRes = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getPonits",
-          { headers: { Authorization: "Bearer " + token } }
-        );
-        const pointsJson = await pointsRes.json();
-        if (pointsJson.success && pointsJson.Points?.length > 0) {
-          setCashBackPoints(pointsJson.Points[0].cashBackPoints);
-        }
-      } catch (error) {
-        console.error("Error fetching referral data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  useFocusEffect(
+    useCallback(() => {
+      const refresh = async () => {
+        await Promise.all([refetchReferral(), refetchPoints()]);
+      };
+      refresh();
+    }, [refetchReferral, refetchPoints])
+  );
 
-    fetchReferralData();
-  }, []);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchReferral(), refetchPoints()]);
+    } catch (error) {
+      console.error("Error during refresh:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to refresh data",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchReferral, refetchPoints]);
 
   const redeemPoints = async () => {
-    if (!data || data.totalPoints <= 0) {
-      Alert.alert("No Points", "You don't have any points to redeem.");
+    if (!referralData || referralData.totalPoints <= 0) {
+      Toast.show({
+        type: "error",
+        text1: "No Points",
+        text2: "You don't have any points to redeem.",
+      });
       return;
     }
 
@@ -91,7 +151,11 @@ export default function ReferEarnScreen() {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert("Error", "Login required");
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Login required",
+        });
         return;
       }
 
@@ -108,41 +172,61 @@ export default function ReferEarnScreen() {
 
       const json = await res.json();
       if (json.success) {
-        Alert.alert("Success", `Redeemed successfully! Wallet amount: ${json.walletAmount}`);
-        setData((prev) => (prev ? { ...prev, totalPoints: 0 } : prev));
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: `Redeemed successfully! Wallet amount: ${json.walletAmount}`,
+        });
+        await queryClient.invalidateQueries({ queryKey: ["referralData"] });
       } else {
-        Alert.alert("Error", json.message || "Failed to redeem points");
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: json.message || "Failed to redeem points",
+        });
       }
     } catch (err) {
       console.error("Redeem error:", err);
-      Alert.alert("Error", "Failed to redeem points");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to redeem points",
+      });
     } finally {
       setRedeeming(false);
     }
   };
 
   const historyData = useMemo(() => {
-    if (!data || !data.referredUser || data.referredUser.length === 0) return [];
-    const pointsPerUser = Math.floor(data.totalPoints / data.referredUser.length);
+    if (!referralData || !referralData.referredUser || referralData.referredUser.length === 0) return [];
+    const pointsPerUser = Math.floor(referralData.totalPoints / referralData.referredUser.length);
     const currentDate = new Date().toLocaleDateString("en-GB", {
       day: "numeric",
       month: "long",
     });
-    return data.referredUser.map((userId) => ({
+    return referralData.referredUser.map((userId) => ({
       id: userId,
       name: userId.substring(userId.length - 6).toUpperCase(),
       date: currentDate,
       points: pointsPerUser,
     }));
-  }, [data]);
+  }, [referralData]);
 
   const handleCopyCode = async () => {
-    if (!data?.code) {
-      Alert.alert("Error", "No referral code found to copy.");
+    if (!referralData?.code) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "No referral code found to copy.",
+      });
       return;
     }
-    await Clipboard.setStringAsync(data.code);
-    Alert.alert("Copied!", "Referral code copied to clipboard.");
+    await Clipboard.setStringAsync(referralData.code);
+    Toast.show({
+      type: "success",
+      text1: "Copied!",
+      text2: "Referral code copied to clipboard.",
+    });
   };
 
   if (loading) {
@@ -173,7 +257,7 @@ export default function ReferEarnScreen() {
           }}
         >
           <Text style={styles.pointsValue}>
-            {data ? data.totalPoints.toFixed(2) : "0.00"}
+            {referralData ? referralData.totalPoints.toFixed(2) : "0.00"}
           </Text>
           <TouchableOpacity
             style={[styles.redeemButton, { opacity: redeeming ? 0.6 : 1 }]}
@@ -206,7 +290,7 @@ export default function ReferEarnScreen() {
           points for every successful referral.
         </Text>
         <View style={styles.codeRow}>
-          <Text style={styles.code}>{data ? data.code : "QR7811"}</Text>
+          <Text style={styles.code}>{referralData ? referralData.code : "QR7811"}</Text>
           <TouchableOpacity onPress={handleCopyCode}>
             <Text style={styles.copy}>Copy</Text>
           </TouchableOpacity>
@@ -234,6 +318,9 @@ export default function ReferEarnScreen() {
         ListFooterComponent={renderFooter}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       />
     </View>
   );
