@@ -100,6 +100,7 @@ export default function ContinueSubscriptionScreen() {
     dinner: false,
   });
   const [selectedMealPackage, setSelectedMealPackage] = useState<number>(0);
+  const [selectedPlanType, setSelectedPlanType] = useState<string>("");
   const [tiffinPlan, setTiffinPlan] = useState("weekly"); // Default to weekly (limited options)
   const [selectedfood, setSelectedfood] = useState("Both");
   const [orderType, setOrderType] = useState<"dining" | "delivery">("delivery");
@@ -174,7 +175,7 @@ export default function ContinueSubscriptionScreen() {
     switch (shortType) {
       case 'Both': return 'Both Veg & Non-Veg';
       case 'Veg': return 'Veg';
-      case 'Non-Veg': return 'Non-Veg';
+      case 'Non-Veg': return 'Non-veg';
       default: return 'Both Veg & Non-Veg';
     }
   };
@@ -540,6 +541,7 @@ export default function ContinueSubscriptionScreen() {
       }
       if (matchingPkg) {
         setSelectedMealPackage(matchingPkg.id);
+        setSelectedPlanType(matchingPkg.planType);
         console.log(`Matched package for planType "${orderPlanType}":`, matchingPkg.planType);
       } else {
         console.warn(`No matching package for order/params planType: "${orderPlanType}"`);
@@ -548,6 +550,7 @@ export default function ContinueSubscriptionScreen() {
           pkg.planType.toLowerCase().includes((params.plan as string || '').toLowerCase())
         );
         if (paramMatching) setSelectedMealPackage(paramMatching.id);
+        if (paramMatching) setSelectedPlanType(paramMatching.planType);
       }
     }
   }, [tiffinOrder, tiffinService, mealPackages, params.plan]);
@@ -706,15 +709,22 @@ export default function ContinueSubscriptionScreen() {
       const selectedMeals = Object.entries(tiffinMeals)
         .filter(([_, checked]) => checked)
         .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-      const planTypeStr = selectedMeals.join(" & ");
-      // FIXED: Send short foodType for subscribe (matches backend expectation)
-      const foodTypeStr = selectedfood;
+      const planTypeStr = selectedPlanType || selectedMeals.join(" & ");
+      // Prefer existing order's foodType for updates (server expects stored enum)
+      let foodTypeStr = "";
+      if (tiffinOrder && tiffinOrder.foodType) {
+        foodTypeStr = tiffinOrder.foodType;
+      } else {
+        if (selectedfood === "Veg") foodTypeStr = "Veg";
+        else if (selectedfood === "Non-Veg") foodTypeStr = "Non-veg";
+        else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-veg";
+        else foodTypeStr = selectedfood;
+      }
       const chooseOrderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
       const dateStr = date.toISOString().split("T")[0];
       const endDateStr = endDate ? endDate.toISOString().split("T")[0] : dateStr;
-      const payload = {
+      const payload: any = {
         deliveryInstructions: deliveryInstructions || "",
-        foodType: foodTypeStr, // Short
         chooseOrderType: chooseOrderTypeStr,
         planType: planTypeStr,
         subscribtionType: { // FIXED: Match booking's typo 'subscribtionType'
@@ -725,6 +735,15 @@ export default function ContinueSubscriptionScreen() {
         endDate: endDateStr,
         ...(orderId && { remarks: "Continue Subscription" }),
       };
+      // Include foodType and basic guest info to match BookingScreen payload shape
+      payload.foodType = foodTypeStr;
+      // Prefer params -> userData -> tiffinOrder -> bookingData for personal info
+      const pFullName = (params.fullName as string) || userData?.name || tiffinOrder?.fullName || bookingData?.fullName;
+      const pPhone = (params.phoneNumber as string) || userData?.phoneNumber || tiffinOrder?.phoneNumber || bookingData?.phoneNumber;
+      const pAddress = tiffinOrder?.address || bookingData?.address || undefined;
+      if (pFullName) payload.fullName = pFullName;
+      if (pPhone) payload.phoneNumber = pPhone;
+      if (pAddress) payload.address = pAddress;
       console.log("📤 Tiffin Subscription API Payload:", payload);
       // Determine URL based on whether it's create or update
       const tiffinUrl = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinSubscription/${orderId}`;
@@ -930,10 +949,14 @@ export default function ContinueSubscriptionScreen() {
   const getLabel = (planType: string): string => {
     const lower = planType.toLowerCase();
     const mealParts: string[] = [];
-    if (lower.includes("breakfast")) mealParts.push("BF");
+    if (lower.includes("breakfast")) mealParts.push("Breakfast");
     if (lower.includes("lunch")) mealParts.push("Lunch");
     if (lower.includes("dinner")) mealParts.push("Dinner");
-    return mealParts.join(", ");
+    // Format: single -> "Breakfast", two -> "Breakfast & Lunch", three -> "Breakfast, Lunch & Dinner"
+    if (mealParts.length === 0) return "";
+    if (mealParts.length === 1) return mealParts[0];
+    if (mealParts.length === 2) return `${mealParts[0]} & ${mealParts[1]}`;
+    return `${mealParts[0]}, ${mealParts[1]} & ${mealParts[2]}`;
   };
   const mealPackages: MealPackage[] = useMemo(() => {
     console.log('------->', tiffinService);
@@ -1048,7 +1071,7 @@ export default function ContinueSubscriptionScreen() {
     const selectedMeals = Object.entries(tiffinMeals)
       .filter(([_, checked]) => checked)
       .map(([meal]) => meal.charAt(0).toUpperCase() + meal.slice(1));
-    const planTypeStr = selectedMeals.join(" & ");
+    const planTypeStr = selectedPlanType || selectedMeals.join(" & ");
     if (planTypeStr === "") {
       setPlanError("Please select a meal package.");
       return;
@@ -1129,26 +1152,11 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [selectedMealPackage, selectedfood, orderType, tiffinPlan]);
   const getPlanOptions = () => {
-    const options: { label: string; value: string }[] = [];
-    if (fetchedPricing.weekly > 0) {
-      options.push({
-        label: `Weekly (₹${fetchedPricing.weekly}/weekly)`,
-        value: "weekly",
-      });
-    }
-    if (fetchedPricing.monthly > 0) {
-      options.push({
-        label: `Monthly (₹${fetchedPricing.monthly}/monthly)`,
-        value: "monthly",
-      });
-    }
-    if (options.length === 0) {
-      return [
-        { label: "Weekly (₹800/weekly)", value: "weekly" },
-        { label: "Monthly (₹3200/monthly)", value: "monthly" },
-      ];
-    }
-    return options;
+    // Always present both Weekly and Monthly options (match BookingScreen)
+    return [
+      { label: "Weekly", value: "weekly" },
+      { label: "Monthly", value: "monthly" },
+    ];
   };
   // Helper to format date safely
   const formatDate = (d: Date | null): string => {
@@ -1204,6 +1212,7 @@ export default function ContinueSubscriptionScreen() {
                 const selectedPkg = mealPackages.find((p) => p.id === id);
                 if (selectedPkg) {
                   setTiffinMeals(selectedPkg.meals);
+                  setSelectedPlanType(selectedPkg.planType);
                   const availableValues = getAvailableFoodOptions(
                     selectedPkg.foodType
                   ).map((o) => o.value);
