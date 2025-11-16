@@ -1480,6 +1480,12 @@ const fetchTiffinRecentSearch = async (
                         style={[
                           styles.vegToggleThumb,
                           {
+                            borderRadius: vegFilter === "off" ? 2 : 11,
+                            backgroundColor: vegFilter === "off" ? "transparent" : "green",
+                            borderWidth: vegFilter === "off" ? 1.5 : 0,
+                            borderColor: vegFilter === "off" ? "green" : "transparent",
+                          },
+                          {
                             transform: [
                               {
                                 translateX: vegToggleAnimated.interpolate({
@@ -1491,21 +1497,25 @@ const fetchTiffinRecentSearch = async (
                           },
                         ]}
                       >
-                        <Animated.View
-                          style={[
-                            styles.leafContainer,
-                            {
-                              opacity: vegToggleAnimated,
-                              transform: [
-                                {
-                                  scale: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
-                                }
-                              ],
-                            },
-                          ]}
-                        >
-                          <Ionicons name="leaf" size={10} color="#FFFFFF" />
-                        </Animated.View>
+                        {vegFilter === "off" ? (
+                          <View style={styles.greenDot} />
+                        ) : (
+                          <Animated.View
+                            style={[
+                              styles.leafContainer,
+                              {
+                                opacity: vegToggleAnimated,
+                                transform: [
+                                  {
+                                    scale: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
+                                  }
+                                ],
+                              },
+                            ]}
+                          >
+                            <Ionicons name="leaf" size={10} color="#FFFFFF" />
+                          </Animated.View>
+                        )}
                       </Animated.View>
                     </Animated.View>
                   </TouchableOpacity>
@@ -1824,13 +1834,17 @@ const styles = StyleSheet.create({
   vegToggleThumb: {
     width: 12,
     height: 12,
-    borderRadius: 11,
-    backgroundColor: "green", // show green thumb even when OFF
+    justifyContent: "center",
+    alignItems: "center",
     position: "absolute",
     left: 0,
     top: 0,
-    justifyContent: "center",
-    alignItems: "center",
+  },
+  greenDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "green",
   },
   leafContainer: {
     width: 18,
