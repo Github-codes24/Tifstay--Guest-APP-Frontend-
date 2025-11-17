@@ -1,9 +1,49 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { Dimensions, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import colors from "@/constants/colors";
+import colors from "@/constants/colors"; // तुम्हारा colors import
 import { useFavorites } from "@/context/FavoritesContext";
-import hostel1 from "@/assets/images/image/hostelBanner.png"; // Your existing fallback
+import hostel1 from "@/assets/images/image/hostelBanner.png"; // तुम्हारा fallback
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Responsive breakpoints (पुराने से लिया)
+const getDeviceSize = () => {
+  if (SCREEN_WIDTH < 360) return "xs";
+  if (SCREEN_WIDTH < 400) return "sm";
+  if (SCREEN_WIDTH < 768) return "md";
+  return "lg";
+};
+const DEVICE_SIZE = getDeviceSize();
+
+// Responsive values (पुराने से exact)
+const SPACING = {
+  xs: { card: 10, content: 10, image: 8 },
+  sm: { card: 12, content: 11, image: 10 },
+  md: { card: 14, content: 12, image: 12 },
+  lg: { card: 16, content: 14, image: 14 },
+}[DEVICE_SIZE];
+
+const IMAGE_HEIGHT = {
+  xs: 130,
+  sm: 145,
+  md: 160,
+  lg: 180,
+}[DEVICE_SIZE];
+
+const FONT_SIZES = {
+  xs: { title: 16, location: 11, price: 20 },
+  sm: { title: 17, location: 12, price: 21 },
+  md: { title: 18, location: 12, price: 22 },
+  lg: { title: 19, location: 13, price: 24 },
+}[DEVICE_SIZE];
+
+const MAX_AMENITIES = {
+  xs: 3,
+  sm: 3,
+  md: 4,
+  lg: 4,
+}[DEVICE_SIZE];
 
 interface HostelCardProps {
   hostel: {
@@ -47,283 +87,416 @@ export default function HostelCard({
   horizontal = false,
   isFavorited,
 }: HostelCardProps) {
-  const { isFavorite } = useFavorites();
+  const { isFavorite } = useFavorites(); // तुम्हारा logic same
   const isFav = isFavorited !== undefined ? isFavorited : isFavorite(hostel.id, "hostel");
-  const [imageSource, setImageSource] = useState(hostel.image); // Start with provided source
-  const service = hostel;
+  const [imageSource, setImageSource] = useState(hostel.image); // तुम्हारा image state same
+  const service = hostel; // तुम्हारा alias same
 
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
-    onFavoritePress?.();
+    onFavoritePress?.(); // तुम्हारा handler same
   };
+
+  const totalBeds = (hostel?.availableBeds || 0) + (hostel?.occupiedBeds || 0); // नया: total calc
+
+  const displayAmenities = (hostel.amenities ?? []).slice(0, MAX_AMENITIES); // पुराना UI logic
+  const remainingAmenities = Math.max(0, (hostel.amenities ?? []).length - MAX_AMENITIES);
+
+  const compactLocation = hostel.subLocation ? `${hostel.location} • ${hostel.subLocation.split(",")[0]}` : hostel.location; // पुराना compact
 
   return (
     <TouchableOpacity
-      style={[styles.hostelCard, horizontal && styles.horizontalContainer]}
-      onPress={onPress}
+      style={[styles.card, horizontal && styles.horizontalCard]}
+      onPress={onPress} // तुम्हारा onPress same
+      activeOpacity={0.92}
+      accessibilityRole="button"
+      accessibilityLabel={`Hostel: ${hostel.name || ''}`}
     >
-      <View style={styles.cardContent}>
-        <View style={styles.imageContainer}>
-          <Image 
+      {/* Image Section with Padding (पुराना UI) */}
+      <View style={styles.imageWrapper}>
+        <View style={styles.imageSection}>
+          <Image
             source={imageSource}
-            style={styles.hostelImage}
-            onError={(error) => {
+            style={styles.image}
+            onError={(error) => { // तुम्हारा error handling same
               console.log('Hostel image load failed:', error.nativeEvent.error, 'URL:', hostel.image?.uri);
-              setImageSource(hostel1); // Fall back to default image
+              setImageSource(hostel1);
             }}
-            // Optional: Add onLoad for success logging if needed
-            onLoad={() => console.log('Hostel image loaded successfully:', hostel.image?.uri)}
+            onLoad={() => console.log('Hostel image loaded successfully:', hostel.image?.uri)} // तुम्हारा onLoad same
+            defaultSource={hostel1} // extra fallback
+            resizeMode="cover"
           />
+          {/* Gradient Overlay (पुराना) */}
+          <View style={styles.imageOverlay} />
+          {/* Favorite Button (पुराना, top-right) */}
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={handleFavoritePress}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={isFav ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Ionicons
+              name={isFav ? "heart" : "heart-outline"} // तुम्हारा isFav same
+              size={19}
+              color={isFav ? "#FF4D4D" : "#6B7280"} // updated color for filled
+            />
+          </TouchableOpacity>
+          {/* Rating Badge (पुराना, top-left) */}
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={11} color="#FFD700" />
+            <Text style={styles.ratingText}>{(hostel.rating || 0).toFixed(1)}</Text>
+            <Text style={styles.reviewsText}>({hostel.reviews || 0})</Text>
+          </View>
+          {/* Type Badge (पुराना, bottom-left) */}
+          <View style={styles.typeBadge}>
+            <Text style={styles.typeText}>{hostel.type || ''}</Text>
+          </View>
         </View>
-
-        <View style={styles.hostelInfo}>
-          <View style={styles.headerRow}>
-            <Text style={styles.hostelName}>{hostel.name}</Text>
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={14} color="#FFA500" />
-              <Text style={styles.rating}>{hostel.rating}</Text>
-              <Text style={styles.ratingCount}>({hostel.reviews || 0})</Text>
-            </View>
-            <View style={styles.favoriteButtonContainer}>
-              <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={handleFavoritePress}
-              >
-                <Ionicons
-                  name={isFav ? "heart" : "heart-outline"}
-                  size={20}
-                  color={isFav ? "red" : "#6B7280"}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.typeLocationRow}>
-            <View style={styles.typeTag}>
-              <Text style={styles.typeText}>{hostel.type}</Text>
-            </View>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-outline" size={14} color="#6B7280" />
-              <Text style={styles.locationText}>{hostel.location}</Text>
+      </View>
+      {/* Content Section (पुराना UI) */}
+      <View style={styles.contentSection}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.hostelName} numberOfLines={1} ellipsizeMode="tail">
+            {hostel.name || ''}
+          </Text>
+        </View>
+        {/* Location - Compact (पुराना) */}
+        <View style={styles.locationRow}>
+          <Ionicons name="location" size={13} color="#EF4444" />
+          <Text style={styles.locationText} numberOfLines={1}>
+            {compactLocation || ''}
+          </Text>
+        </View>
+        {/* Beds Info - Compact 3 columns (पुराना) */}
+        <View style={styles.bedsContainer}>
+          <View style={styles.bedInfoCard}>
+            <Ionicons name="bed" size={15} color={colors.primary || "#2563EB"} />
+            <View style={styles.bedInfoText}>
+              <Text style={styles.bedLabel}>Available</Text>
+              <Text style={styles.bedValue}>{(hostel.availableBeds || 0).toString()}</Text>
             </View>
           </View>
-
-          <Text style={styles.sublocation}>{hostel.subLocation || ""}</Text>
-
-          <View style={styles.bedsRow}>
-            <Ionicons name="bed-outline" size={16} color="#6B7280" />
-            <Text style={styles.bedsText}>
-              {hostel.availableBeds} available 
-              {hostel.occupiedBeds ? ` (${hostel.occupiedBeds} occupied)` : ''}
-            </Text>
-          </View>
-
-          <View style={styles.amenitiesRow}>
-            {(hostel.amenities ?? []).slice(0, 4).map((amenity) => (
-              <View key={amenity} style={styles.amenityItem}>
-                <Ionicons
-                  name={amenityIcons[amenity] || "checkmark-circle"}
-                  size={16}
-                  color="#6B7280"
-                />
-                <Text style={styles.amenityText}>{amenity}</Text>
-              </View>
-            ))}
-
-          </View>
-
-          <View style={styles.bottomRow}>
-            <View style={styles.priceContainer}>
-              <Text style={styles.price}>{hostel.price}</Text>
-              <Text style={styles.deposit}>Deposit: {hostel.deposit || "Contact for details"}</Text>
+          <View style={styles.bedInfoCard}>
+            <Ionicons name="people" size={15} color="#F59E0B" />
+            <View style={styles.bedInfoText}>
+              <Text style={styles.bedLabel}>Occupied</Text>
+              <Text style={styles.bedValue}>{(hostel.occupiedBeds || 0).toString()}</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.bookButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                onBookPress && onBookPress(); // Use the onBookPress prop
-              }}
-            >
-              <Text style={styles.bookButtonText}>Book Now</Text>
-            </TouchableOpacity>
           </View>
+          <View style={styles.bedInfoCard}>
+            <Ionicons name="grid" size={15} color="#10B981" />
+            <View style={styles.bedInfoText}>
+              <Text style={styles.bedLabel}>Total</Text>
+              <Text style={styles.bedValue}>{totalBeds.toString()}</Text>
+            </View>
+          </View>
+        </View>
+        {/* Amenities - Single Row Only (पुराना) */}
+        {displayAmenities.length > 0 && (
+          <View style={styles.amenitiesContainer}>
+            <View style={styles.amenitiesRow}>
+              {displayAmenities
+                .filter(amenity => amenity && typeof amenity === 'string') // Safety filter
+                .map((amenity, index) => (
+                  <View key={`${amenity}-${index}`} style={styles.amenityChip}>
+                    <Ionicons
+                      name={amenityIcons[amenity] || "checkmark-circle"} // तुम्हारा amenityIcons same
+                      size={11}
+                      color={colors.primary || "#2563EB"}
+                    />
+                    <Text style={styles.amenityText} numberOfLines={1}>
+                      {amenity}
+                    </Text>
+                  </View>
+                ))}
+              {remainingAmenities > 0 && (
+                <View style={styles.amenityChip}>
+                  <Text style={styles.amenityMoreText}>+{remainingAmenities}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+        {/* Footer (पुराना) */}
+        <View style={styles.footer}>
+          <View style={styles.priceContainer}>
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>{hostel.price || '₹0'}</Text>
+              <Text style={styles.perMonth}>/month</Text>
+            </View>
+            <Text style={styles.deposit}>Deposit: {hostel.deposit || "Contact"}</Text> {/* तुम्हारा deposit same */}
+          </View>
+          <TouchableOpacity
+            style={styles.bookButton}
+            onPress={(e) => { // तुम्हारा onBookPress same
+              e.stopPropagation();
+              onBookPress && onBookPress();
+            }}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Book hostel"
+          >
+            <Text style={styles.bookButtonText}>Book</Text> {/* Updated text to match old UI, but can change to "Book Now" */}
+            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
   );
 }
 
+// Styles (तुम्हारे old styles को पुराने UI
 const styles = StyleSheet.create({
-  hostelCard: {
+  card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: SPACING.card,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: "#F3F4F6", // तुम्हारा border same
   },
-  cardContent: {
-    flexDirection: "row",
-    padding: 12,
-  },
-  horizontalContainer: {
+  horizontalCard: {
     width: "100%",
-    marginBottom: 0,
   },
-  imageContainer: {
+  imageWrapper: {
+    padding: SPACING.image,
+    paddingBottom: 0,
+  },
+  imageSection: {
+    width: "100%",
+    height: IMAGE_HEIGHT,
     position: "relative",
-  },
-  hostelImage: {
-    width: 82,
-    height: 82,
     borderRadius: 12,
-    marginRight: 12,
+    overflow: "hidden",
   },
-  favoriteButtonContainer: {
-    margin: 12,
+  image: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#F3F4F6",
+  },
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 35,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
   },
   favoriteButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.95)", // updated from तुम्हारा rgba
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  hostelInfo: {
-    flex: 1,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  hostelName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1A1A1A",
-    flex: 1,
-    marginRight: 8,
-  },
-  ratingContainer: {
+  ratingBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 14,
+    gap: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  rating: {
-    fontSize: 14,
-    fontWeight: "600",
+  ratingText: {
+    fontSize: 11,
+    fontWeight: "700",
     color: "#1A1A1A",
   },
-  ratingCount: {
-    fontSize: 14,
+  reviewsText: {
+    fontSize: 10,
     color: "#6B7280",
+    fontWeight: "500",
   },
-  typeLocationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
-  },
-  typeTag: {
-    backgroundColor: "#DBEAFE",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
+  typeBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    backgroundColor: "rgba(37, 99, 235, 0.95)", // updated for blue
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 11,
   },
   typeText: {
-    fontSize: 12,
-    color: "#2563EB",
-    fontWeight: "600",
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  locationContainer: {
+  contentSection: {
+    padding: SPACING.content,
+  },
+  header: {
+    marginBottom: 7,
+  },
+  hostelName: {
+    fontSize: FONT_SIZES.title,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    letterSpacing: -0.3,
+  },
+  locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    marginBottom: 9,
+    backgroundColor: "#FEF2F2", // red tint for location
+    padding: 7,
+    borderRadius: 9,
+    gap: 5,
   },
   locationText: {
-    fontSize: 12,
-    color: "#6B7280",
+    fontSize: FONT_SIZES.location,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    flex: 1,
   },
-  sublocation: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginBottom: 6,
+  bedsContainer: {
+    flexDirection: "row",
+    gap: 5,
+    marginBottom: 9,
   },
-  bedsRow: {
+  bedInfoCard: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    padding: 7,
+    borderRadius: 9,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginBottom: 6,
+    gap: 5,
   },
-  bedsText: {
-    fontSize: 13,
+  bedInfoText: {
+    flex: 1,
+  },
+  bedLabel: {
+    fontSize: 8,
     color: "#6B7280",
+    fontWeight: "500",
+  },
+  bedValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1A1A1A",
+  },
+  amenitiesContainer: {
+    marginBottom: 9,
   },
   amenitiesRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 2,
-    marginBottom: 8,
+    gap: 5,
   },
-  amenityItem: {
+  amenityChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    backgroundColor: "#EFF6FF",
     borderColor: "#DBEAFE",
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 3,
-    margin: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 14,
+    gap: 3,
+    flexShrink: 1,
   },
   amenityText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "600",
-    color: "#6B7280",
+    color: "#1E40AF",
+    maxWidth: 65,
   },
-  bottomRow: {
+  amenityMoreText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#1E40AF",
+  },
+  footer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
+    paddingTop: 9,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
   },
   priceContainer: {
     flex: 1,
   },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
   price: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2563EB",
+    fontSize: FONT_SIZES.price,
+    fontWeight: "800",
+    color: colors.primary || "#2563EB",
+    letterSpacing: -0.5,
+  },
+  perMonth: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginLeft: 3,
   },
   deposit: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#6B7280",
+    marginTop: 3,
   },
   bookButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 9,
+    paddingHorizontal: 15,
+    borderRadius: 9,
+    gap: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary || "#2563EB",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   bookButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
