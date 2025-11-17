@@ -728,7 +728,7 @@ export default function ContinueSubscriptionScreen() {
       } else {
         if (selectedfood === "Veg") foodTypeStr = "Veg";
         else if (selectedfood === "Non-Veg") foodTypeStr = "Non-veg";
-        else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-veg";
+        else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
         else foodTypeStr = selectedfood;
       }
       const chooseOrderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);

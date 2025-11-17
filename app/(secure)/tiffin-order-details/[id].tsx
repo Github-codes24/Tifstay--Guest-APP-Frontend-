@@ -18,6 +18,8 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import colors from "@/constants/colors";
 import Button from "@/components/Buttons";
 import Header from "@/components/Header";
+import { useAuthStore } from "@/store/authStore";
+import fallbackDp from "@/assets/images/fallbackdp.png";
 
 interface SkippedMeal {
   date: string;
@@ -70,6 +72,10 @@ export default function TiffinOrderDetails() {
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
+  const { profileData, fetchProfile } = useAuthStore();
+
+  const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
+
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
@@ -84,6 +90,12 @@ export default function TiffinOrderDetails() {
     const y = date.getFullYear().toString().slice(2);
     return `${d}/${m}/${y}`;
   };
+
+  useEffect(() => {
+    if (!profileData) {
+      fetchProfile();
+    }
+  }, [profileData, fetchProfile]);
 
   useEffect(() => {
     const today = new Date();
@@ -121,11 +133,11 @@ export default function TiffinOrderDetails() {
           endDate: formatShortDate(data.summary.endDate),
         }));
 
-        setSkips(data.skipsThisMonth || []);
+        setSkips(data.fullSkipHistory || []);
         setFullExtensionAllocations(data.fullExtensionAllocations || []);
 
-        const history = (data.skipsThisMonth || []).map((skip: any) => ({
-          date: formatDate(new Date(skip.date)),
+        const history = (data.fullSkipHistory || []).map((skip: any) => ({
+          date: formatDate(new Date(skip.skipDateLocal)),
           meals: {
             lunch: false,
             dinner: false,
@@ -159,7 +171,7 @@ export default function TiffinOrderDetails() {
     let latestDate = new Date(0);
 
     skips.forEach((skip) => {
-      const skipDate = new Date(skip.date);
+      const skipDate = new Date(skip.skipDateLocal);
       skipDate.setHours(0, 0, 0, 0);
 
       if (skipDate <= today && skipDate > latestDate) {
@@ -320,7 +332,7 @@ export default function TiffinOrderDetails() {
 
   const getSkippedMealsForDate = (targetDate: Date) => {
     const skip = skips.find((s: any) => {
-      const skipDate = new Date(s.date);
+      const skipDate = new Date(s.skipDateLocal);
       return (
         targetDate.getFullYear() === skipDate.getFullYear() &&
         targetDate.getMonth() === skipDate.getMonth() &&
@@ -377,7 +389,7 @@ export default function TiffinOrderDetails() {
       12
     );
     const skip = skips.find((s: any) => {
-      const skipDate = new Date(s.date);
+      const skipDate = new Date(s.skipDateLocal);
       return (
         date.getFullYear() === skipDate.getFullYear() &&
         date.getMonth() === skipDate.getMonth() &&
@@ -408,7 +420,7 @@ export default function TiffinOrderDetails() {
     const isEndDate =
       formatShortDate(dateForMeals) === formatShortDate(endDateFull);
     const isSkippedDate = skips.some((skip: any) => {
-      const skipDate = new Date(skip.date);
+      const skipDate = new Date(skip.skipDateLocal);
       return (
         dateForMeals.getFullYear() === skipDate.getFullYear() &&
         dateForMeals.getMonth() === skipDate.getMonth() &&
@@ -416,7 +428,7 @@ export default function TiffinOrderDetails() {
       );
     });
     const isExtensionDate = fullExtensionAllocations.some((ext: any) => {
-      const extDate = new Date(ext.date);
+      const extDate = new Date(ext.dateLocal);
       return (
         dateForMeals.getFullYear() === extDate.getFullYear() &&
         dateForMeals.getMonth() === extDate.getMonth() &&
@@ -457,7 +469,7 @@ export default function TiffinOrderDetails() {
             : isExtensionDate
             ? () => {
                 const ext = fullExtensionAllocations.find((e: any) => {
-                  const extDate = new Date(e.date);
+                  const extDate = new Date(e.dateLocal);
                   return (
                     dateForMeals.getFullYear() === extDate.getFullYear() &&
                     dateForMeals.getMonth() === extDate.getMonth() &&
@@ -588,7 +600,7 @@ export default function TiffinOrderDetails() {
             style={styles.profileButton}
           >
             <Image
-              source={{ uri: "https://i.pravatar.cc/100" }}
+              source={profileSource}
               style={styles.profileImage}
             />
           </TouchableOpacity>
@@ -765,12 +777,14 @@ export default function TiffinOrderDetails() {
                     Previously Skipped Meal
                   </Text>
                   <Text style={styles.skipHistoryDate}>
-                    Date: {latestSkip.date}
+                    Date: {latestSkip.skipDateLocal || latestSkip.date}
                   </Text>
                   <Text style={styles.skipHistoryMeals}>
                     Meal Type:{" "}
                     {latestSkip.mealType === "all"
                       ? "Lunch & Dinner"
+                      : Array.isArray(latestSkip.mealType)
+                      ? latestSkip.mealType.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(" & ")
                       : latestSkip.mealType ? latestSkip.mealType.charAt(0).toUpperCase() + latestSkip.mealType.slice(1) : "Unknown"}
                   </Text>
                 </View>
