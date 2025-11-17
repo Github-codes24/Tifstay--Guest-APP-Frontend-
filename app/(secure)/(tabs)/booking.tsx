@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl, // Add this import for pull-to-refresh
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -74,11 +75,20 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
     throw new Error("Failed to fetch hostel orders");
   }
   const fetchedHostelOrders: Order[] = hostelResponse.data.data.map((item: any) => {
+    // Normalize price value: accept 0 as valid, prefer applied coupon for rejected
     let priceValue = item.price;
     if (tab === "rejected") {
-      priceValue = item.AppiledCoupon?.finalprice || 0;
+      // Use finalprice when available, otherwise fall back to item.price
+      priceValue = item.AppiledCoupon?.finalprice ?? item.price ?? 0;
     }
     const selectPlan = item.selectPlan?.[0] || { name: "monthly", price: 0 };
+    // Helper to format price safely (handles numbers and already-formatted strings)
+    const formatPrice = (val: any) => {
+      if (val === null || val === undefined) return "₹0";
+      const s = String(val).trim();
+      if (s === "") return "₹0";
+      return s.startsWith("₹") ? s : `₹${s}`;
+    };
     return {
       id: item._id,
       bookingId: item.bookingId || item._id, // Use bookingId if available, fallback to _id
@@ -96,8 +106,8 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
         : "",
       status: item.status.toLowerCase() as Order["status"],
       image: item.userPhoto,
-      price: priceValue ? `₹${priceValue}` : undefined,
-      planPrice: selectPlan.price ? `₹${selectPlan.price}` : undefined, // New: Base plan price
+      price: formatPrice(priceValue),
+      planPrice: formatPrice(selectPlan.price), // New: Base plan price
       plan: selectPlan.name || "monthly", // New: Pass plan name (e.g., "monthly", "weekly")
       // FIXED: Extract _id as string; handle object or string input
       entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
@@ -167,6 +177,9 @@ const Booking: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false); // Add state for pull-to-refresh
   const [showTrackOrderModal, setShowTrackOrderModal] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
+  // Full details modal state
+  const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
+  const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
   const { profileData, fetchProfile } = useAuthStore();
   // --- Fetch profile if not loaded ---
   React.useEffect(() => {
@@ -743,6 +756,18 @@ const handleContinueSubscription = (order: Order) => {
             </>
           )}
         </View>
+        {/* Full details button (opens modal) - show for all tabs */}
+        <View style={{ marginTop: 8 }}>
+          <Button
+            title="Full details"
+            onPress={() => {
+              setDetailsOrder(order);
+              setShowFullDetailsModal(true);
+            }}
+            style={[styles.primaryButtonStyle,{ marginBottom:8}]}
+            height={48}
+          />
+        </View>
         {activeTab === "pending" ? null : (
           <>
             {order.status === "confirmed" && !isHistoryOrder(order.status) && (
@@ -994,6 +1019,133 @@ const handleContinueSubscription = (order: Order) => {
           serviceType={trackingOrder.serviceType}
         />
       )}
+      {/* Full Details Modal (for pending items) */}
+      {detailsOrder && (
+        <Modal
+          visible={showFullDetailsModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowFullDetailsModal(false);
+            setDetailsOrder(null);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Booking Details</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowFullDetailsModal(false);
+                    setDetailsOrder(null);
+                  }}
+                  style={styles.modalCloseButton}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "600" }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>Booking ID</Text>
+                  <Text style={styles.modalValue}>{detailsOrder.bookingId || detailsOrder.id}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>Service</Text>
+                  <Text style={styles.modalValue}>{detailsOrder.serviceName}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>Type</Text>
+                  <Text style={styles.modalValue}>{detailsOrder.serviceType}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>Status</Text>
+                  <Text style={styles.modalValue}>{getStatusText(detailsOrder.status)}</Text>
+                </View>
+                {activeTab === "rejected" && (
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>Price</Text>
+                    <Text style={styles.modalValue}>{detailsOrder.price || "N/A"}</Text>
+                  </View>
+                )}
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>Plan</Text>
+                  <Text style={styles.modalValue}>{detailsOrder.plan || "N/A"}</Text>
+                </View>
+                {detailsOrder.serviceType === "tiffin" ? (
+                  <>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Guest</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.guestName || detailsOrder.customer || "You"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Start date</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.startDate || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>End date</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.endDate || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Meal Type</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.mealType || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Food Type</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.foodType || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Order Type</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.orderType || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Tiffin Service ID</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.tiffinServiceId || detailsOrder.entityId || "N/A"}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Customer</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.customer || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Check-in</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.checkInDate || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Check-out</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.checkOutDate || detailsOrder.endDate || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Rooms</Text>
+                      <View style={{ flex: 1, alignItems: "flex-end" }}>
+                        {detailsOrder.rooms && detailsOrder.rooms.length > 0 ? (
+                          detailsOrder.rooms.map((r, idx) => (
+                            <Text key={idx} style={styles.modalValue}>{`${r.roomNumber}${r.bedNumber && r.bedNumber.length ? ` (beds: ${r.bedNumber.map(b=>b.bedNumber).join(",")})` : ""}`}</Text>
+                          ))
+                        ) : (
+                          <Text style={styles.modalValue}>N/A</Text>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Hostel ID</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.entityId || "N/A"}</Text>
+                    </View>
+                  </>
+                )}
+                {/* Optionally show image */}
+                {detailsOrder.image && (
+                  <View style={{ alignItems: "center", marginTop: 12 }}>
+                    <Image source={{ uri: detailsOrder.image }} style={{ width: 120, height: 120, borderRadius: 8 }} />
+                  </View>
+                )}
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -1158,6 +1310,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginTop: 8,
     width: "100%",
+   
   },
   secondaryButtonStyle: {
     backgroundColor: "transparent",
@@ -1183,6 +1336,55 @@ const styles = StyleSheet.create({
   repeatButtonStyle: {
     backgroundColor: colors.primary,
     flex: 1,
+  },
+  // Modal styles for Full details
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 16,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+  },
+  modalCloseButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  modalContent: {
+    paddingBottom: 20,
+  },
+  modalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F3F4F6",
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  modalValue: {
+    fontSize: 14,
+    color: "#0F172A",
+    fontWeight: "600",
+    textAlign: "right",
   },
   bottomSpacer: {
     height: 25,
