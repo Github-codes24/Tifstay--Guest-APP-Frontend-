@@ -70,6 +70,7 @@ interface TiffinService {
   nonVegPhotos?: string[];
   mealPreferences?: { type: string; time: string }[];
   overallTiming?: string;
+  highestPrice?: string;
 }
 interface Filters {
   rating?: number;
@@ -391,6 +392,8 @@ export default function DashboardScreen() {
           const defaultImage = computeTiffinImage(tiffin, "off");
           const firstPrice = tiffin.pricing[0];
           const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
+          const prices = tiffin.pricing.map((p: any) => p.monthlyDelivery || 0);
+          const highestPrice = Math.max(...prices, 0).toString();
           const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
             type: m.mealType,
             time: `${m.startTime} - ${m.endTime}`,
@@ -419,6 +422,7 @@ export default function DashboardScreen() {
             mealPreferences,
             overallTiming,
             foodType: tiffin.foodType,
+            highestPrice,
           };
         });
         return mapped;
@@ -496,6 +500,8 @@ const fetchTiffinRecentSearch = async (
         const defaultImage = computeTiffinImage(tiffin, "off");
         const firstPrice = tiffin.pricing?.[0];
         const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
+        const prices = tiffin.pricing?.map((p: any) => p.monthlyDelivery || 0) || [];
+        const highestPrice = Math.max(...prices, 0).toString();
         const mealTimings = tiffin.mealTimings || [];
         let overallStart = '-';
         let overallEnd = '-';
@@ -520,6 +526,7 @@ const fetchTiffinRecentSearch = async (
           mealPreferences,
           overallTiming,
           foodType: tiffin.foodType || "",
+          highestPrice,
         };
       });
       return mapped;

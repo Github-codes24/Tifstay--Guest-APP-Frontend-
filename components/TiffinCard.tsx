@@ -160,7 +160,7 @@ export default function TiffinCard({
               ]}
             />
             <Text style={styles.vegTypeText}>
-              {vegType === "both" ? "Both" : vegType === "veg" ? "Veg" : "Non-Veg"}
+              {vegType === "both" ? "Both Veg & Non-Veg" : vegType === "veg" ? "Veg" : "Non-Veg"}
             </Text>
             {/* Optional: Overlay icons if needed, but dot for compact */}
           </View>
@@ -203,8 +203,8 @@ export default function TiffinCard({
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
             <View style={styles.priceRow}>
-              <Text style={styles.price}>{service.price}</Text>
-              <Text style={styles.perWeek}>/week</Text>
+              {/* <Text style={styles.price}>{service.price}</Text> */}
+              {/* <Text style={styles.perWeek}>/week</Text> */}
             </View>
             {service?.oldPrice && ( // same
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
