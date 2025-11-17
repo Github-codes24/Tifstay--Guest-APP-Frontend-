@@ -9,8 +9,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   Image,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -42,6 +42,9 @@ export default function TiffinOrderDetails() {
   const [skippedMealsHistory, setSkippedMealsHistory] = useState<SkippedMeal[]>(
     []
   );
+  const [fullExtensionAllocations, setFullExtensionAllocations] = useState([]);
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [selectedExtension, setSelectedExtension] = useState(null);
   const { id, bookingId, type } = params;
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -62,6 +65,25 @@ export default function TiffinOrderDetails() {
   });
 
   const [skips, setSkips] = useState([]);
+
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const formatDate = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatShortDate = (isoString: string) => {
+    const date = new Date(isoString);
+    const d = date.getDate().toString().padStart(2, "0");
+    const m = (date.getMonth() + 1).toString().padStart(2, "0");
+    const y = date.getFullYear().toString().slice(2);
+    return `${d}/${m}/${y}`;
+  };
 
   useEffect(() => {
     const today = new Date();
@@ -93,13 +115,14 @@ export default function TiffinOrderDetails() {
           tiffinServiceName: data.summary.tiffinServiceName || "N/A",
           customer: data.summary.customerName,
           startDate: formatShortDate(data.summary.startDate),
-          mealType: "Lunch & Dinner",
-          plan: "Monthly",
+          mealType: data.summary.planType || "Lunch & Dinner",
+          plan: (data.summary.plan || "Monthly").charAt(0).toUpperCase() + (data.summary.plan || "Monthly").slice(1).toLowerCase(),
           orderType: data.summary.orderType,
           endDate: formatShortDate(data.summary.endDate),
         }));
 
         setSkips(data.skipsThisMonth || []);
+        setFullExtensionAllocations(data.fullExtensionAllocations || []);
 
         const history = (data.skipsThisMonth || []).map((skip: any) => ({
           date: formatDate(new Date(skip.date)),
@@ -110,17 +133,21 @@ export default function TiffinOrderDetails() {
         }));
         setSkippedMealsHistory(history);
       } else {
-        Alert.alert("Error", "Failed to fetch booking details. Please try again.");
+        setModalMessage("Failed to fetch booking details. Please try again.");
+        setIsSuccess(false);
+        setShowModal(true);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
-      Alert.alert("Error", "Unable to load booking details. Please check your connection and try again.");
+      setModalMessage("Unable to load booking details. Please check your connection and try again.");
+      setIsSuccess(false);
+      setShowModal(true);
     }
   }, [id]);
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [id, fetchData]);
 
   const latestSkip = useMemo(() => {
     if (skips.length === 0) return null;
@@ -143,21 +170,6 @@ export default function TiffinOrderDetails() {
 
     return latest;
   }, [skips]);
-
-  const formatDate = (date: Date) => {
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  const formatShortDate = (isoString: string) => {
-    const date = new Date(isoString);
-    const d = date.getDate().toString().padStart(2, "0");
-    const m = (date.getMonth() + 1).toString().padStart(2, "0");
-    const y = date.getFullYear().toString().slice(2);
-    return `${d}/${m}/${y}`;
-  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -207,95 +219,100 @@ export default function TiffinOrderDetails() {
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
- const handleSaveSkipMeal = async () => {
-  // Format selected date as YYYY-MM-DD
-  const date = new Date(selectedDate);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const formattedDate = `${year}-${month}-${day}`;
+  const handleSaveSkipMeal = async () => {
+    // Format selected date as YYYY-MM-DD
+    const date = new Date(selectedDate);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const formattedDate = `${year}-${month}-${day}`;
 
-  // Collect selected meals
-  const selectedMeals: string[] = [];
-  if (skipMeals.lunch) selectedMeals.push("lunch");
-  if (skipMeals.dinner) selectedMeals.push("dinner");
+    // Collect selected meals
+    const selectedMeals: string[] = [];
+    if (skipMeals.lunch) selectedMeals.push("lunch");
+    if (skipMeals.dinner) selectedMeals.push("dinner");
 
-  // Prepare request body
-  const body: any = { date: formattedDate };
-  if (selectedMeals.length === 1) {
-    body.mealType = selectedMeals[0]; // single string
-  } else if (selectedMeals.length > 1) {
-    body.mealType = selectedMeals; // array when both selected
-  } else if (selectedMeals.length === 0) {
-    body.mealType = "all"; // if none selected, perhaps skip all? But adjust as needed
-  }
+    // Prepare request body
+    const body: any = { date: formattedDate };
+    if (selectedMeals.length === 1) {
+      body.mealType = selectedMeals[0]; // single string
+    } else if (selectedMeals.length > 1) {
+      body.mealType = selectedMeals; // array when both selected
+    } else if (selectedMeals.length === 0) {
+      body.mealType = "all"; // if none selected, perhaps skip all? But adjust as needed
+    }
 
-  console.log("Saving skip meal with body:", body);
+    console.log("Saving skip meal with body:", body);
 
-  try {
-    const saveResponse = await fetch(
-      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      }
-    );
-
-    if (!saveResponse.ok) {
-      let errorMessage = "Failed to skip meal. Please try again.";
-      try {
-        const errText = await saveResponse.text();
-        console.error("Server response:", errText);
-
-        // Map server error messages to user-friendly ones
-        if (errText.toLowerCase().includes("limit") || errText.toLowerCase().includes("exceed")) {
-          errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
-        } else if (errText.toLowerCase().includes("invalid date") || errText.toLowerCase().includes("date")) {
-          errorMessage = "The selected date is invalid or outside the booking period. Please choose a valid date.";
-        } else if (errText.toLowerCase().includes("already")) {
-          errorMessage = "Meals for this date have already been skipped. No changes made.";
-        } else if (errText.toLowerCase().includes("network") || errText.toLowerCase().includes("connection")) {
-          errorMessage = "Network issue. Please check your connection and try again.";
-        } else {
-          errorMessage = errText || "You have reached the skip meal limit. Please upgrade your plan for more skips.";
+    try {
+      const saveResponse = await fetch(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
         }
-      } catch (parseError) {
-        console.error("Error parsing server error:", parseError);
-        errorMessage = "An unexpected error occurred. Please try again.";
+      );
+
+      if (!saveResponse.ok) {
+        let errorMessage = "Failed to skip meal. Please try again.";
+        try {
+          const errText = await saveResponse.text();
+          console.error("Server response:", errText);
+
+          // Map server error messages to user-friendly ones
+          if (errText.toLowerCase().includes("limit") || errText.toLowerCase().includes("exceed")) {
+            errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
+          } else if (errText.toLowerCase().includes("invalid date") || errText.toLowerCase().includes("date")) {
+            errorMessage = "The selected date is invalid or outside the booking period. Please choose a valid date.";
+          } else if (errText.toLowerCase().includes("already")) {
+            errorMessage = "Meals for this date have already been skipped. No changes made.";
+          } else if (errText.toLowerCase().includes("network") || errText.toLowerCase().includes("connection")) {
+            errorMessage = "Network issue. Please check your connection and try again.";
+          } else {
+            errorMessage = errText || "You have reached the skip meal limit. Please upgrade your plan for more skips.";
+          }
+        } catch (parseError) {
+          console.error("Error parsing server error:", parseError);
+          errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        setModalMessage(errorMessage);
+        setIsSuccess(false);
+        setShowModal(true);
+        return; // Exit early without refreshing data
       }
-      Alert.alert("Error", errorMessage);
-      return; // Exit early without refreshing data
+
+      await fetchData();
+      setShowSkipMeal(false);
+      setSkipMeals({ lunch: false, dinner: false });
+
+      setModalMessage("Meal skip preferences saved successfully!");
+      setIsSuccess(true);
+      setShowModal(true);
+    } catch (error: any) {
+      console.error("Error saving skip meal:", error);
+      let errorMessage = "Failed to skip meal. Please try again.";
+
+      // Handle common network or other errors
+      if (error.message.includes("network") || error.message.includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.message.includes("limit")) {
+        errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
+      } else if (error.message.includes("invalid") || error.message.includes("date")) {
+        errorMessage = "Invalid date selected. Please choose a date within your booking period.";
+      } else {
+        errorMessage =
+          error?.message ||
+          (typeof error === "string" ? error : "An unexpected error occurred. Please try again later.");
+      }
+
+      setModalMessage(errorMessage);
+      setIsSuccess(false);
+      setShowModal(true);
     }
-
-    await fetchData();
-    setShowSkipMeal(false);
-    setSkipMeals({ lunch: false, dinner: false });
-
-    Alert.alert("Success", "Meal skip preferences saved successfully!");
-  } catch (error: any) {
-    console.error("Error saving skip meal:", error);
-    let errorMessage = "Failed to save skip meal. Please try again.";
-
-    // Handle common network or other errors
-    if (error.message.includes("network") || error.message.includes("fetch")) {
-      errorMessage = "Network error. Please check your internet connection and try again.";
-    } else if (error.message.includes("limit")) {
-      errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
-    } else if (error.message.includes("invalid") || error.message.includes("date")) {
-      errorMessage = "Invalid date selected. Please choose a date within your booking period.";
-    } else {
-      errorMessage =
-        error?.message ||
-        (typeof error === "string" ? error : "An unexpected error occurred. Please try again later.");
-    }
-
-    Alert.alert("Error", errorMessage);
-  }
-};
-
+  };
 
   const handleProfilePress = () => {
     router.push("/account/profile");
@@ -316,7 +333,10 @@ export default function TiffinOrderDetails() {
         dinner: false,
       };
       const mealType = skip.mealType;
-      if (mealType === "all") {
+      if (Array.isArray(mealType)) {
+        skipped.lunch = mealType.includes("lunch");
+        skipped.dinner = mealType.includes("dinner");
+      } else if (mealType === "all") {
         skipped.lunch = true;
         skipped.dinner = true;
       } else if (mealType === "lunch") {
@@ -327,6 +347,26 @@ export default function TiffinOrderDetails() {
       return skipped;
     }
     return null;
+  };
+
+  const getAllocatedMealsForExtension = (ext: any) => {
+    const allocated = {
+      lunch: false,
+      dinner: false,
+    };
+    const mealType = ext.mealType;
+    if (Array.isArray(mealType)) {
+      allocated.lunch = mealType.includes("lunch");
+      allocated.dinner = mealType.includes("dinner");
+    } else if (mealType === "all") {
+      allocated.lunch = true;
+      allocated.dinner = true;
+    } else if (mealType === "lunch") {
+      allocated.lunch = true;
+    } else if (mealType === "dinner") {
+      allocated.dinner = true;
+    }
+    return allocated;
   };
 
   const isDateSkipped = (day: number) => {
@@ -375,6 +415,14 @@ export default function TiffinOrderDetails() {
         dateForMeals.getDate() === skipDate.getDate()
       );
     });
+    const isExtensionDate = fullExtensionAllocations.some((ext: any) => {
+      const extDate = new Date(ext.date);
+      return (
+        dateForMeals.getFullYear() === extDate.getFullYear() &&
+        dateForMeals.getMonth() === extDate.getMonth() &&
+        dateForMeals.getDate() === extDate.getDate()
+      );
+    });
 
     let dayStyle = [styles.calendarDay];
     let textStyle = [styles.calendarDayText];
@@ -382,6 +430,8 @@ export default function TiffinOrderDetails() {
 
     if (isSkippedDate) {
       textStyle.push(styles.calendarDayTextSkipped);
+    } else if (isExtensionDate) {
+      textStyle.push(styles.calendarDayTextExtension);
     } else if (isEndDate) {
       textStyle.push(styles.calendarDayTextEnd);
     } else if (isInPeriod) {
@@ -403,6 +453,19 @@ export default function TiffinOrderDetails() {
                 setSelectedDate(newDate);
                 setShowSkipMeal(true);
                 setSkipMeals({ lunch: false, dinner: false });
+              }
+            : isExtensionDate
+            ? () => {
+                const ext = fullExtensionAllocations.find((e: any) => {
+                  const extDate = new Date(e.date);
+                  return (
+                    dateForMeals.getFullYear() === extDate.getFullYear() &&
+                    dateForMeals.getMonth() === extDate.getMonth() &&
+                    dateForMeals.getDate() === extDate.getDate()
+                  );
+                });
+                setSelectedExtension(ext);
+                setShowExtensionModal(true);
               }
             : undefined
         }
@@ -462,6 +525,59 @@ export default function TiffinOrderDetails() {
     );
   };
 
+  const renderExtensionModal = () => {
+    if (!selectedExtension) return null;
+    const allocatedMeals = getAllocatedMealsForExtension(selectedExtension);
+
+    return (
+      <Modal
+        visible={showExtensionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowExtensionModal(false);
+          setSelectedExtension(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalText}>Extension Details</Text>
+            <Text style={[styles.modalText, { fontSize: 14, marginBottom: 20 }]}>
+              Date: {selectedExtension.dateLocal}
+            </Text>
+            <View style={styles.mealStatusRow}>
+              <View style={styles.mealStatus}>
+                <Text style={styles.mealStatusLabel}>Lunch</Text>
+                {allocatedMeals.lunch ? (
+                  <Ionicons name="checkmark" size={20} color="#10B981" />
+                ) : (
+                  <Ionicons name="close" size={20} color="#EF4444" />
+                )}
+              </View>
+              <View style={styles.mealStatus}>
+                <Text style={styles.mealStatusLabel}>Dinner</Text>
+                {allocatedMeals.dinner ? (
+                  <Ionicons name="checkmark" size={20} color="#10B981" />
+                ) : (
+                  <Ionicons name="close" size={20} color="#EF4444" />
+                )}
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setShowExtensionModal(false);
+                setSelectedExtension(null);
+              }}
+              style={styles.modalButton}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerWrapper}>
@@ -513,7 +629,7 @@ export default function TiffinOrderDetails() {
               <Text style={styles.detailValue}>{bookingData.endDate}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Meal Type:</Text>
+              <Text style={styles.detailLabel}>Plan Type:</Text>
               <Text style={styles.detailValue}>{bookingData.mealType}</Text>
             </View>
             <View style={styles.detailRow}>
@@ -564,7 +680,7 @@ export default function TiffinOrderDetails() {
 
           {renderSelectedDateMeals()}
 
-          {bookingData?.plan === "Monthly" && (
+          {bookingData?.plan?.toLowerCase() === "monthly" && (
             <View style={styles.skipMealSection}>
               <View style={styles.skipMealHeader}>
                 <View style={styles.skipMealIcon}>
@@ -691,6 +807,24 @@ export default function TiffinOrderDetails() {
           }}
         />
       )}
+
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={[styles.modalText, { color: isSuccess ? "#000" : "#EF4444" }]}>{modalMessage}</Text>
+            <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {renderExtensionModal()}
     </SafeAreaView>
   );
 }
@@ -843,6 +977,10 @@ const styles = StyleSheet.create({
   calendarDayTextSkipped: {
     color: "#E51A1A",
   },
+  calendarDayTextExtension: {
+    color: "#0000FF",
+    fontWeight: "500",
+  },
   selectedDateMeals: {
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
@@ -990,5 +1128,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: "500",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContainer: {
+    backgroundColor: "#ffffff",
+    padding: 20,
+    borderRadius: 10,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+    fontWeight: "500",
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

@@ -10,6 +10,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -143,6 +144,9 @@ export default function ContinueSubscriptionScreen() {
   const [fullBooking, setFullBooking] = useState<any>(null); // New: Full booking object
   const [userData, setUserData] = useState<any>(null); // Updated: Full guest object from booking or profile
   const [parsedRoomsState, setParsedRoomsState] = useState<any[]>(parsedRooms); // Initialize with memoized parsedRooms
+  // Error modal states
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const hostelData = {
     id: hostelId,
     name: serviceName,
@@ -677,32 +681,39 @@ export default function ContinueSubscriptionScreen() {
       console.log("🍱 Entering Tiffin branch.");
       // Tiffin validations
       if (!date) {
-        Alert.alert("Error", "Please select a start date.");
+        setErrorMessage("Please select a start date.");
+        setShowErrorModal(true);
         return;
       }
       if (!tiffinPlan) {
-        Alert.alert("Error", "Please select a subscription type.");
+        setErrorMessage("Please select a subscription type.");
+        setShowErrorModal(true);
         return;
       }
       if (selectedMealPackage === 0) {
-        Alert.alert("Error", "Please select a meal package.");
+        setErrorMessage("Please select a meal package.");
+        setShowErrorModal(true);
         return;
       }
       const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
       if (hasPeriodic && !endDate) {
-        Alert.alert("Error", "Please select an end date.");
+        setErrorMessage("Please select an end date.");
+        setShowErrorModal(true);
         return;
       }
       if (currentPlanPrice === 0) {
-        Alert.alert("Error", "No pricing available for this selection. Please try different options.");
+        setErrorMessage("No pricing available for this selection. Please try different options.");
+        setShowErrorModal(true);
         return;
       }
       if (!token) {
-        Alert.alert("Error", "Authentication required.");
+        setErrorMessage("Authentication required.");
+        setShowErrorModal(true);
         return;
       }
       if (!effectiveServiceId && !orderId) {
-        Alert.alert("Error", "Service ID or Order ID not available.");
+        setErrorMessage("Service ID or Order ID not available.");
+        setShowErrorModal(true);
         return;
       }
       // Build payload
@@ -775,17 +786,19 @@ export default function ContinueSubscriptionScreen() {
           console.log("✅ Navigation to checkout complete!");
         } else {
           console.log("❌ API success false:", response.data.message);
-          Alert.alert("Error", response.data.message || "Failed to create tiffin subscription.");
+          setErrorMessage(response.data.message || "Failed to create tiffin subscription.");
+          setShowErrorModal(true);
         }
       } catch (error) {
         console.error("❌ Tiffin Subscription API Error:", error);
+        let errMsg = "An unexpected error occurred.";
         if (axios.isAxiosError(error)) {
           console.log(" - Response status:", error.response?.status);
           console.log(" - Response data:", error.response?.data);
-          Alert.alert("Error", error.response?.data?.message || "Network error occurred.");
-        } else {
-          Alert.alert("Error", "An unexpected error occurred.");
+          errMsg = error.response?.data?.message || "Network error occurred.";
         }
+        setErrorMessage(errMsg);
+        setShowErrorModal(true);
       }
       return;
     }
@@ -793,12 +806,14 @@ export default function ContinueSubscriptionScreen() {
     console.log("🏠 Entering Hostel branch.");
     if (!checkInDate || !checkOutDate || !token || !orderId) {
       console.log("❌ Validation failed: Missing required info.");
-      Alert.alert("Error", "Missing required information. Please fill all fields.");
+      setErrorMessage("Missing required information. Please fill all fields.");
+      setShowErrorModal(true);
       return;
     }
     if (selectedRooms.length === 0) {
       console.log("❌ No rooms selected.");
-      Alert.alert("Error", "Please select at least one room and bed.");
+      setErrorMessage("Please select at least one room and bed.");
+      setShowErrorModal(true);
       return;
     }
     console.log("✅ Validation passed and rooms selected.");
@@ -920,17 +935,19 @@ export default function ContinueSubscriptionScreen() {
   console.log("✅ Navigation to checkout complete!");
 }else {
         console.log("❌ API success false:", response.data.message);
-        Alert.alert("Error", response.data.message || "Failed to continue subscription.");
+        setErrorMessage(response.data.message || "Failed to continue subscription.");
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error("❌ Continue Subscription API Error:", error);
+      let errMsg = "An unexpected error occurred.";
       if (axios.isAxiosError(error)) {
         console.log(" - Response status:", error.response?.status);
         console.log(" - Response data:", error.response?.data);
-        Alert.alert("Error", error.response?.data?.message || "Network error occurred.");
-      } else {
-        Alert.alert("Error", "An unexpected error occurred.");
+        errMsg = error.response?.data?.message || "Network error occurred.";
       }
+      setErrorMessage(errMsg);
+      setShowErrorModal(true);
     }
   };
   // Tiffin helpers (restored from BookingScreen)
@@ -1282,23 +1299,14 @@ export default function ContinueSubscriptionScreen() {
             <>
               <Text style={styles.label}>Select End Date *</Text>
               <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowEndDatePicker(true)}
+                style={[styles.datePickerButton, styles.disabledDateButton]}
+                pointerEvents="none"
               >
-                <Text style={styles.datePickerText}>
+                <Text style={[styles.datePickerText, { color: "#999" }]}>
                   {formatDate(endDate)}
                 </Text>
-                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Ionicons name="calendar-outline" size={20} color="#999" />
               </TouchableOpacity>
-              {showEndDatePicker && (
-                <DateTimePicker
-                  value={endDate || new Date(date || new Date())}
-                  mode="date"
-                  display="default"
-                  onChange={onChangeEndDate}
-                  minimumDate={date || new Date()}
-                />
-              )}
             </>
           )}
           {/* New: Delivery Instructions */}
@@ -1470,6 +1478,25 @@ export default function ContinueSubscriptionScreen() {
           token={token} // Pass the token
         />
       )}
+      {/* Error Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showErrorModal}
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalText}>{errorMessage}</Text>
+            <TouchableOpacity
+              style={[styles.submitButton, styles.closeButton]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.submitButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1788,5 +1815,40 @@ const styles = StyleSheet.create({
   primaryGuestName: {
     fontWeight: "600",
     color: "#000",
+  },
+  // Error Modal Styles
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 35,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    width: "80%",
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: "center",
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  closeButton: {
+    borderRadius: 8,
+    padding: 10,
+    elevation: 2,
+    width: "100%",
   },
 });
