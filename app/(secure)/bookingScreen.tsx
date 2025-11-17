@@ -1284,6 +1284,7 @@ export default function BookingScreen() {
           <TextInput
             style={[styles.input, errors.fullName && styles.inputError]}
             placeholder="Enter your full name"
+            placeholderTextColor="#000"
             value={fullName}
             onChangeText={(text) => {
               setFullName(text);
@@ -1303,6 +1304,7 @@ export default function BookingScreen() {
           <TextInput
             style={[styles.input, errors.phoneNumber && styles.inputError]}
             placeholder="Enter your phone number"
+            placeholderTextColor="#000"
             keyboardType="phone-pad"
             value={phoneNumber}
             onChangeText={(text) => {
@@ -1418,6 +1420,7 @@ export default function BookingScreen() {
           <TextInput
             style={[styles.input, { height: 80 }]}
             placeholder="Any special requests or messages"
+            placeholderTextColor="#000"
             multiline
             value={message}
             onChangeText={setMessage}
@@ -1582,6 +1585,7 @@ export default function BookingScreen() {
                 errors.street && styles.inputError,
               ]}
               placeholder="Enter your street address"
+              placeholderTextColor="#000"
               value={street}
               onChangeText={(text) => {
                 setStreet(text);
@@ -1604,6 +1608,7 @@ export default function BookingScreen() {
                 styles.input,
               ]}
               placeholder="Enter nearby landmark"
+              placeholderTextColor="#000"
               value={landmark}
               onChangeText={(text) => {
                 setLandmark(text);
@@ -1619,6 +1624,7 @@ export default function BookingScreen() {
                 errors.locality && styles.inputError,
               ]}
               placeholder="Enter locality or area"
+              placeholderTextColor="#000"
               value={locality}
               onChangeText={(text) => {
                 setLocality(text);
@@ -1644,6 +1650,7 @@ export default function BookingScreen() {
                 errors.pincode && styles.inputError,
               ]}
               placeholder="Enter pincode (6 digits)"
+              placeholderTextColor="#000"
               value={pincode}
               onChangeText={(text) => {
                 setPincode(text.replace(/[^0-9]/g, "").slice(0, 6));
@@ -1669,6 +1676,7 @@ export default function BookingScreen() {
                 { height: 80 },
               ]}
               placeholder="Any dietary preferences, spice level, or special requests"
+              placeholderTextColor="#000"
               multiline
               value={specialInstructions}
               onChangeText={setSpecialInstructions}

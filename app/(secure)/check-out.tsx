@@ -922,6 +922,7 @@ const Checkout: React.FC = () => {
                 <TextInput
                   style={styles.couponInput}
                   placeholder="Enter Coupon Code"
+                  placeholderTextColor="#000"
                   value={couponCode}
                   onChangeText={setCouponCode}
                 />
