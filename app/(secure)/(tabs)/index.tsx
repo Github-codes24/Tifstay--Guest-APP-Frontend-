@@ -126,6 +126,7 @@ export default function DashboardScreen() {
   const searchInputRef = useRef<TextInput>(null);
   const allHostelsRef = useRef<Hostel[]>([]);
   const allTiffinsRef = useRef<TiffinService[]>([]);
+  const isNavigatingRef = useRef(false);
   const imageMapping: { [key: string]: any } = {
     food1,
     hostel1,
@@ -327,7 +328,6 @@ export default function DashboardScreen() {
                   : hostel.pricing?.perDay
                     ? `₹${hostel.pricing.perDay} / PER DAY`
                     : "N/A",
-
             amenities: hostel.facilities || [],
             rating: hostel.averageRating || 0,
             reviews: hostel.totalReviews || 0,
@@ -1051,19 +1051,27 @@ export default function DashboardScreen() {
   };
   // Navigate to tiffin details with ID via params
   const handleTiffinPress = (service: TiffinService) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     router.push({
       pathname: "/tiffin-details/[id]",
       params: { id: service.id, type: "tiffin", fullServiceData: JSON.stringify(service) },
     });
+    setTimeout(() => { isNavigatingRef.current = false; }, 500);
   };
   // Navigate to hostel details
   const handleHostelPress = (hostel: Hostel) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     router.push({
       pathname: "/hostel-details/[id]", // match folder + dynamic file
       params: { id: hostel.id, type: "hostel", fullServiceData: JSON.stringify(hostel) },
     });
+    setTimeout(() => { isNavigatingRef.current = false; }, 500);
   };
   const handleBookPress = (item: Hostel | TiffinService) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     if ("amenities" in item) {
       router.push({
         pathname: "/hostel-details/[id]",
@@ -1080,6 +1088,7 @@ export default function DashboardScreen() {
         },
       });
     }
+    setTimeout(() => { isNavigatingRef.current = false; }, 500);
   };
   const handleClearSearch = () => setSearchQuery("");
   const handleProfilePress = () => router.push("/account");
