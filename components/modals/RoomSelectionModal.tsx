@@ -341,14 +341,26 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
             size={20}
             color={isAvailable ? "#1F2937" : "#9CA3AF"}
           />
-          <Text style={[styles.bedNumber, !isAvailable && styles.occupiedText]}>
+          <Text
+            style={[styles.bedNumber, !isAvailable && styles.occupiedText]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             Bed {item.bedNumber}
           </Text>
         </View>
-        <Text style={[styles.status, !isAvailable && styles.occupiedText]}>
+        <Text
+          style={[styles.status, !isAvailable && styles.occupiedText]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {item.status}
         </Text>
-        <Text style={[styles.availability, !isAvailable && styles.occupiedText]}>
+        <Text
+          style={[styles.availability, !isAvailable && styles.occupiedText]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {item.Availability}
         </Text>
         <TouchableOpacity
@@ -538,10 +550,10 @@ const styles = StyleSheet.create({
   },
   totalBedsText: { fontSize: 14, color: "#6B7280", fontWeight: "500" },
   bedRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
-  bedInfo: { flex: 2, flexDirection: "row", alignItems: "center", gap: 8 },
-  bedNumber: { fontSize: 14, color: "#1F2937" },
-  status: { flex: 2, fontSize: 14, color: "#1F2937" },
-  availability: { flex: 2.5, fontSize: 14, color: "#1F2937" },
+  bedInfo: { flex: 2, flexDirection: "row", alignItems: "center" }, // removed gap
+  bedNumber: { fontSize: 14, color: "#1F2937", marginLeft: 8, flexShrink: 1 },
+  status: { flex: 2, fontSize: 14, color: "#1F2937", flexShrink: 1 },
+  availability: { flex: 2.5, fontSize: 14, color: "#1F2937", flexShrink: 1 },
   selectContainer: { flex: 1, alignItems: "center" },
   checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, borderColor: colors.primary, backgroundColor: "#fff", justifyContent: "center", alignItems: "center" },
   checkboxSelected: { backgroundColor: colors.primary },

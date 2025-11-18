@@ -334,7 +334,7 @@ export default function DashboardScreen() {
             availableBeds: hostel.availableBeds || 0,
             occupiedBeds: hostel.occupiedBeds || 0,
             subLocation: hostel.nearbyLandmarks || "",
-            deposit: `₹${hostel.securityDeposit || hostel.weeklyDeposit}`,
+            deposit: `₹${hostel.securityDeposit || hostel.weeklyDeposit || 0}`,
             image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
             planType: hostel.planType || "",
             roomType: hostel.roomType || "",

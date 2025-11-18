@@ -249,6 +249,29 @@ export default function ProductDetails() {
           const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
           const dailyPrice = typeof apiData.pricing?.perDay === 'number' ? apiData.pricing.perDay : Math.floor(monthlyPrice / 30);
           const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
+          // Determine primary pricing tier (monthly > weekly > daily)
+          let primaryAmount = 0;
+          let primaryPeriod = '';
+          let depositAmount = apiData.securityDeposit || apiData.weeklyDeposit || 0; 
+
+          if (monthlyPrice > 0) {
+            primaryAmount = monthlyPrice;
+            primaryPeriod = 'MONTH';
+            depositAmount = apiData.securityDeposit || 0;
+          } else if (weeklyPrice > 0) {
+            primaryAmount = weeklyPrice;
+            primaryPeriod = 'WEEK';
+            depositAmount = apiData.weeklyDeposit || 0;
+          } else if (dailyPrice > 0) {
+            primaryAmount = dailyPrice;
+            primaryPeriod = 'DAY';
+            depositAmount = 0; // No deposit for daily, or adjust as needed
+          }
+
+          const priceText = `₹${primaryAmount}/${primaryPeriod}`;
+          // Deposits from API
+          const securityDeposit = typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0;
+          const weeklyDeposit = typeof apiData.weeklyDeposit === 'number' ? apiData.weeklyDeposit : 0;
           // Images
           const images = Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos.map((p: string) => ({ uri: p })) : [];
           processedData = {
@@ -260,7 +283,9 @@ export default function ProductDetails() {
             totalRooms: typeof apiData.totalRooms === 'number' ? apiData.totalRooms : rooms.length,
             totalBeds,
             availableBeds,
-            deposit: typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0,
+            deposit: depositAmount,
+            securityDeposit,
+            weeklyDeposit,
             offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
             amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
             fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Not available",
@@ -271,7 +296,8 @@ export default function ProductDetails() {
             reviewCount: typeof apiData.totalReviews === 'number' ? apiData.totalReviews : 0,
             rating: typeof apiData.averageRating === 'number' ? apiData.averageRating : 0,
             reviews: 0, // Fallback
-            price: `₹${monthlyPrice}/MONTH`,
+            price: priceText,
+            primaryPeriod,
             daily: dailyPrice,
             weekly: weeklyPrice,
             rooms: rooms, // Keep for potential use
@@ -670,12 +696,18 @@ export default function ProductDetails() {
     if (paramType === "hostel") {
       return (
         <View style={styles.pricingBox}>
-          <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>₹{mappedData.daily}/day</Text>
-          </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>₹{mappedData.weekly}/week</Text>
-          </View>
+          {/* Show daily as old price if primary is weekly or monthly */}
+          {(mappedData.primaryPeriod === 'WEEK' || mappedData.primaryPeriod === 'MONTH') && mappedData.daily > 0 && (
+            <View style={styles.priceRow}>
+              <Text style={styles.oldPrice}>₹{mappedData.daily}/day</Text>
+            </View>
+          )}
+          {/* Show weekly as old price only if primary is monthly */}
+          {mappedData.primaryPeriod === 'MONTH' && mappedData.weekly > 0 && (
+            <View style={styles.priceRow}>
+              <Text style={styles.oldPrice}>₹{mappedData.weekly}/week</Text>
+            </View>
+          )}
           <View style={styles.priceMainRow}>
             <Text style={styles.currentPrice}>{mappedData.price}</Text>
             {mappedData.offer && (
@@ -684,10 +716,19 @@ export default function ProductDetails() {
               </View>
             )}
           </View>
-          <Text style={styles.depositNote}>
-            Note: You have to pay security deposit of {mappedData.deposit} on monthly
-            booking. It will be refunded to you on check-out.
-          </Text>
+          {/* Deposit notes */}
+          <View style={{ marginTop: 8 }}>
+            {mappedData.securityDeposit > 0 && (
+              <Text style={styles.depositNote}>
+                Note: Security deposit of ₹{mappedData.securityDeposit} for monthly booking. It will be refunded to you on check-out.
+              </Text>
+            )}
+            {mappedData.weeklyDeposit > 0 && (
+              <Text style={[styles.depositNote, { marginTop: 4 }]}>
+                Note: Weekly deposit of ₹{mappedData.weeklyDeposit} for weekly booking. It will be refunded to you on check-out.
+              </Text>
+            )}
+          </View>
         </View>
       );
     } else {
@@ -1309,7 +1350,6 @@ const styles = StyleSheet.create({
   depositNote: {
     fontSize: 13,
     color: "#666",
-    marginTop: 8,
     lineHeight: 18,
   },
   // Tiffin pricing styles
