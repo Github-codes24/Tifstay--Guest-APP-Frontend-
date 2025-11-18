@@ -224,7 +224,7 @@ export default function HostelCard({
           <View style={styles.priceContainer}>
             <View style={styles.priceRow}>
               <Text style={styles.price}>{hostel.price || '₹0'}</Text>
-              <Text style={styles.perMonth}>/month</Text>
+              {/* <Text style={styles.perMonth}>/month</Text> */}
             </View>
             <Text style={styles.deposit}>Deposit: {hostel.deposit || "Contact"}</Text> {/* तुम्हारा deposit same */}
           </View>

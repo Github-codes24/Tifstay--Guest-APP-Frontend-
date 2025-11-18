@@ -319,14 +319,22 @@ export default function DashboardScreen() {
             name: hostel.hostelName || "Unknown Hostel",
             type: hostel.hostelType || "Unknown",
             location: hostel.fullAddress || "Unknown Location",
-            price: `₹${hostel.pricing?.monthly || 0}/MONTH`,
+            price:
+              hostel.pricing?.monthly
+                ? `₹${hostel.pricing.monthly} /MONTHLY`
+                : hostel.pricing?.weekly
+                  ? `₹${hostel.pricing.weekly} /WEEKLY`
+                  : hostel.pricing?.perDay
+                    ? `₹${hostel.pricing.perDay} / PER DAY`
+                    : "N/A",
+
             amenities: hostel.facilities || [],
             rating: hostel.averageRating || 0,
             reviews: hostel.totalReviews || 0,
             availableBeds: hostel.availableBeds || 0,
             occupiedBeds: hostel.occupiedBeds || 0,
             subLocation: hostel.nearbyLandmarks || "",
-            deposit: `₹${hostel.securityDeposit || 0}`,
+            deposit: `₹${hostel.securityDeposit || hostel.weeklyDeposit}`,
             image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
             planType: hostel.planType || "",
             roomType: hostel.roomType || "",
@@ -434,105 +442,118 @@ export default function DashboardScreen() {
       return [];
     }
   };
-const fetchTiffinRecentSearch = async (
-  query: string,
-  priceSort = "",
-  minRating = 0,
-  foodTypeParam?: string,
-  allData: TiffinService[] = []
-): Promise<TiffinService[]> => {
-  if (!query.trim()) {
-    return [];
-  }
-  setIsSearching(true);
-  const trimmedQuery = query.trim().toLowerCase();
-  const encodedQuery = encodeURIComponent(query.trim());
-  const token = await getAuthToken();
-  const headers: any = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const params = new URLSearchParams({
-    search: encodedQuery,
-  });
-  if (minRating > 0) {
-    // Normalized to simple number like fetchHostels
-    params.append("minRating", minRating.toString());
-  }
-  if (foodTypeParam) {
-    params.append("foodType", foodTypeParam);
-  }
-  // priceSort handled client-side, not sent to backend
-  const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
-  console.log("🔍 Tiffin Search URL:", url);
-  console.log("🔍 Decoded Query for Debug:", decodeURIComponent(encodedQuery));
-  try {
-    const response = await fetch(url, { headers });
-    const result = await response.json();
-    console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
-    if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
-      // Backend success with data → extra client-side partial/case-insensitive filter (name + desc + location)
-      const backendFiltered = result.data.filter((tiffin: any) => {
-        const lowerQuery = trimmedQuery;
-        const nameMatch = (tiffin.tiffinName || "").toLowerCase().includes(lowerQuery);
-        const descMatch = (tiffin.description || "").toLowerCase().includes(lowerQuery);
-        const locMatch = (tiffin.location?.fullAddress || "").toLowerCase().includes(lowerQuery);
-        return nameMatch || descMatch || locMatch;
-      });
-      // Map with FULL data (offers in desc, pricing array, mealPreferences, etc.) for consistency with allTiffinServicesData
-      const mapped = backendFiltered.map((tiffin: any) => {
-        const foodTags: string[] = [];
-        const offersText = tiffin.pricing?.map((p: any) => p.offers || "").join(" ") || "";
-        const fullDesc = `${tiffin.description || ""} ${offersText}`.trim();
-        tiffin.pricing?.forEach((p: any) => {
-          const ft = p.foodType?.toLowerCase();
-          if (ft === "veg") foodTags.push("veg");
-          if (ft === "both veg & non-veg") {
-            foodTags.push("veg");
-            foodTags.push("non-veg");
-          }
-          if (ft === "non-veg") foodTags.push("non-veg");
+  const fetchTiffinRecentSearch = async (
+    query: string,
+    priceSort = "",
+    minRating = 0,
+    foodTypeParam?: string,
+    allData: TiffinService[] = []
+  ): Promise<TiffinService[]> => {
+    if (!query.trim()) {
+      return [];
+    }
+    setIsSearching(true);
+    const trimmedQuery = query.trim().toLowerCase();
+    const encodedQuery = encodeURIComponent(query.trim());
+    const token = await getAuthToken();
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const params = new URLSearchParams({
+      search: encodedQuery,
+    });
+    if (minRating > 0) {
+      // Normalized to simple number like fetchHostels
+      params.append("minRating", minRating.toString());
+    }
+    if (foodTypeParam) {
+      params.append("foodType", foodTypeParam);
+    }
+    // priceSort handled client-side, not sent to backend
+    const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
+    console.log("🔍 Tiffin Search URL:", url);
+    console.log("🔍 Decoded Query for Debug:", decodeURIComponent(encodedQuery));
+    try {
+      const response = await fetch(url, { headers });
+      const result = await response.json();
+      console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
+      if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
+        // Backend success with data → extra client-side partial/case-insensitive filter (name + desc + location)
+        const backendFiltered = result.data.filter((tiffin: any) => {
+          const lowerQuery = trimmedQuery;
+          const nameMatch = (tiffin.tiffinName || "").toLowerCase().includes(lowerQuery);
+          const descMatch = (tiffin.description || "").toLowerCase().includes(lowerQuery);
+          const locMatch = (tiffin.location?.fullAddress || "").toLowerCase().includes(lowerQuery);
+          return nameMatch || descMatch || locMatch;
         });
-        const uniqueTags = [...new Set(foodTags)];
-        const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
-          type: m.mealType,
-          time: `${m.startTime} - ${m.endTime}`,
-        })) || [];
-        // Default image (any available, no filter applied here)
-        const defaultImage = computeTiffinImage(tiffin, "off");
-        const firstPrice = tiffin.pricing?.[0];
-        const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
-        const prices = tiffin.pricing?.map((p: any) => p.monthlyDelivery || 0) || [];
-        const highestPrice = Math.max(...prices, 0).toString();
-        const mealTimings = tiffin.mealTimings || [];
-        let overallStart = '-';
-        let overallEnd = '-';
-        if (mealTimings.length > 0) {
-          overallStart = mealTimings[0].startTime || '-';
-          overallEnd = mealTimings[mealTimings.length - 1].endTime || '-';
-        }
-        const overallTiming = `${overallStart} → ${overallEnd}`;
-        return {
-          id: tiffin._id,
-          name: tiffin.tiffinName,
-          description: fullDesc,
-          location: tiffin.location?.fullAddress || "Unknown",
-          price,
-          tags: uniqueTags,
-          rating: tiffin.averageRating || 0,
-          reviews: tiffin.totalReviews || 0,
-          image: defaultImage,
-          vegPhotos: tiffin.vegPhotos || [],
-          nonVegPhotos: tiffin.nonVegPhotos || [],
-          pricing: tiffin.pricing || [],
-          mealPreferences,
-          overallTiming,
-          foodType: tiffin.foodType || "",
-          highestPrice,
-        };
-      });
-      return mapped;
-    } else {
-      // Backend empty / failed → fallback to client-side on allTiffinServicesData
-      console.warn("Backend tiffin search empty or failed, falling back to client-side filter");
+        // Map with FULL data (offers in desc, pricing array, mealPreferences, etc.) for consistency with allTiffinServicesData
+        const mapped = backendFiltered.map((tiffin: any) => {
+          const foodTags: string[] = [];
+          const offersText = tiffin.pricing?.map((p: any) => p.offers || "").join(" ") || "";
+          const fullDesc = `${tiffin.description || ""} ${offersText}`.trim();
+          tiffin.pricing?.forEach((p: any) => {
+            const ft = p.foodType?.toLowerCase();
+            if (ft === "veg") foodTags.push("veg");
+            if (ft === "both veg & non-veg") {
+              foodTags.push("veg");
+              foodTags.push("non-veg");
+            }
+            if (ft === "non-veg") foodTags.push("non-veg");
+          });
+          const uniqueTags = [...new Set(foodTags)];
+          const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
+            type: m.mealType,
+            time: `${m.startTime} - ${m.endTime}`,
+          })) || [];
+          // Default image (any available, no filter applied here)
+          const defaultImage = computeTiffinImage(tiffin, "off");
+          const firstPrice = tiffin.pricing?.[0];
+          const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
+          const prices = tiffin.pricing?.map((p: any) => p.monthlyDelivery || 0) || [];
+          const highestPrice = Math.max(...prices, 0).toString();
+          const mealTimings = tiffin.mealTimings || [];
+          let overallStart = '-';
+          let overallEnd = '-';
+          if (mealTimings.length > 0) {
+            overallStart = mealTimings[0].startTime || '-';
+            overallEnd = mealTimings[mealTimings.length - 1].endTime || '-';
+          }
+          const overallTiming = `${overallStart} → ${overallEnd}`;
+          return {
+            id: tiffin._id,
+            name: tiffin.tiffinName,
+            description: fullDesc,
+            location: tiffin.location?.fullAddress || "Unknown",
+            price,
+            tags: uniqueTags,
+            rating: tiffin.averageRating || 0,
+            reviews: tiffin.totalReviews || 0,
+            image: defaultImage,
+            vegPhotos: tiffin.vegPhotos || [],
+            nonVegPhotos: tiffin.nonVegPhotos || [],
+            pricing: tiffin.pricing || [],
+            mealPreferences,
+            overallTiming,
+            foodType: tiffin.foodType || "",
+            highestPrice,
+          };
+        });
+        return mapped;
+      } else {
+        // Backend empty / failed → fallback to client-side on allTiffinServicesData
+        console.warn("Backend tiffin search empty or failed, falling back to client-side filter");
+        return allData.filter((service) => {
+          const lowerQuery = trimmedQuery;
+          const nameMatch = service.name.toLowerCase().includes(lowerQuery);
+          const descMatch = service.description.toLowerCase().includes(lowerQuery);
+          const locMatch = service.location.toLowerCase().includes(lowerQuery);
+          const tagsMatch = service.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
+          return nameMatch || descMatch || locMatch || tagsMatch;
+        });
+      }
+    } catch (err) {
+      console.error("❌ Tiffin Search Error:", err);
+      // Error → client fallback
+      console.warn("Tiffin search network/error fallback to client-side");
       return allData.filter((service) => {
         const lowerQuery = trimmedQuery;
         const nameMatch = service.name.toLowerCase().includes(lowerQuery);
@@ -541,23 +562,10 @@ const fetchTiffinRecentSearch = async (
         const tagsMatch = service.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
         return nameMatch || descMatch || locMatch || tagsMatch;
       });
+    } finally {
+      setIsSearching(false);
     }
-  } catch (err) {
-    console.error("❌ Tiffin Search Error:", err);
-    // Error → client fallback
-    console.warn("Tiffin search network/error fallback to client-side");
-    return allData.filter((service) => {
-      const lowerQuery = trimmedQuery;
-      const nameMatch = service.name.toLowerCase().includes(lowerQuery);
-      const descMatch = service.description.toLowerCase().includes(lowerQuery);
-      const locMatch = service.location.toLowerCase().includes(lowerQuery);
-      const tagsMatch = service.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
-      return nameMatch || descMatch || locMatch || tagsMatch;
-    });
-  } finally {
-    setIsSearching(false);
-  }
-};
+  };
   // --- Fetch cities ---
   const fetchCitiesQuery = async (): Promise<string[]> => {
     const token = await getAuthToken();
@@ -819,10 +827,10 @@ const fetchTiffinRecentSearch = async (
     }
   }, [profileData, fetchProfile]);
   useFocusEffect(
-  React.useCallback(() => {
-    fetchProfile(); // Refetch on focus to ensure fresh data
-  }, [fetchProfile])
-);
+    React.useCallback(() => {
+      fetchProfile(); // Refetch on focus to ensure fresh data
+    }, [fetchProfile])
+  );
   // --- Data mappings ---
   const tiffinServices = allTiffinServicesData;
   // --- Filtering logic (Tiffin updated to override image based on vegFilter) ---
@@ -1777,7 +1785,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
     zIndex: 10,
-    width:235
+    width: 235
   },
   filterItem: {
     flex: 1,

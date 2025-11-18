@@ -210,7 +210,7 @@ export default function TiffinCard({
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
             )}
             {service?.highestPrice && ( // extra for up to
-              <Text style={styles.highestPrice}>Up to ₹{service.highestPrice}</Text>
+              <Text style={styles.highestPrice}>Up to ₹{service.highestPrice}/-</Text>
             )}
           </View>
           <TouchableOpacity
@@ -441,9 +441,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   highestPrice: {
-    fontSize: 10,
-    color: "#6B7280",
+    fontSize: 20,
+    color: "#2563EB",
     marginTop: 2,
+    fontWeight:800
   },
   bookButton: {
     backgroundColor: colors.primary,

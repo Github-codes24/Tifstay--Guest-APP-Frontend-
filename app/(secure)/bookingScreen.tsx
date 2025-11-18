@@ -260,8 +260,7 @@ export default function BookingScreen() {
   const validateTiffinForm = () => {
     const newErrors: Record<string, string> = {};
     if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
-    if (!phoneNumber.trim())
-      newErrors.phoneNumber = "Phone Number is required!";
+    if (!phoneNumber.trim() || phoneNumber.length !== 10) newErrors.phoneNumber = "Enter a valid 10-digit mobile number!";
     if (orderType === "delivery") {
       if (!street.trim())
         newErrors.street = "Street address is required for delivery!";
@@ -285,8 +284,7 @@ export default function BookingScreen() {
   const validateHostelForm = () => {
     const newErrors: Record<string, string> = {};
     if (!fullName.trim()) newErrors.fullName = "Full Name is required!";
-    if (!phoneNumber.trim())
-      newErrors.phoneNumber = "Phone Number is required!";
+    if (!phoneNumber.trim() || phoneNumber.length !== 10) newErrors.phoneNumber = "Enter a valid 10-digit mobile number!";
     if (!checkInDate) newErrors.checkInDate = "Check-in date is required!";
     if (!checkOutDate) newErrors.checkOutDate = "Check-out date is required!";
     if (checkInDate && checkOutDate && checkInDate >= checkOutDate)
@@ -348,8 +346,11 @@ export default function BookingScreen() {
         // Handle user data structure: direct or nested under 'guest'
         const userName =
           parsedUserData.name || parsedUserData.guest?.name || "";
-        const userPhone =
+        let userPhone =
           parsedUserData.phoneNumber || parsedUserData.guest?.phoneNumber || "";
+        // NEW: Strip +91 if present during autofill
+        const strippedPhone = userPhone.replace(/^\+91\s*/, '');
+        userPhone = strippedPhone;
         const userEmail =
           parsedUserData.email || parsedUserData.guest?.email || "";
         const userWorkType =
@@ -888,7 +889,7 @@ export default function BookingScreen() {
     const planTypeStr = selectedPlanType;
     const payload = {
       fullName,
-      phoneNumber,
+      phoneNumber: phoneNumber ? `+91 ${phoneNumber}` : '',
       address: {
         fullAddress: combinedAddress,
         street: street || "",
@@ -1030,7 +1031,7 @@ export default function BookingScreen() {
       // Create FormData for file uploads
       const formData = new FormData();
       formData.append('fullName', fullName);
-      formData.append('phoneNumber', phoneNumber);
+      formData.append('phoneNumber', phoneNumber ? `+91 ${phoneNumber}` : '');
       formData.append('email', serviceData.email || "example@example.com");
       formData.append('checkInDate', checkInDate.toISOString());
       formData.append('checkOutDate', checkOutDate.toISOString());
@@ -1303,17 +1304,30 @@ export default function BookingScreen() {
           <Text style={styles.label}>Phone Number *</Text>
           <TextInput
             style={[styles.input, errors.phoneNumber && styles.inputError]}
-            placeholder="Enter your phone number"
-            placeholderTextColor="#000"
+            placeholder="+91 XXXXXXXXXX"
+            placeholderTextColor="#999"
             keyboardType="phone-pad"
-            value={phoneNumber}
+            value={phoneNumber ? '+91 ' + phoneNumber : ''}
             onChangeText={(text) => {
-              setPhoneNumber(text);
-              clearError('phoneNumber');
+              const numberPart = text.replace(/^\+91\s*/, '');
+              const cleanNumber = numberPart.replace(/[^0-9]/g, '').slice(0, 10);
+              setPhoneNumber(cleanNumber);
+              clearError("phoneNumber");
             }}
             onBlur={() => {
-              if (!phoneNumber.trim()) setErrors(prev => ({ ...prev, phoneNumber: "Phone Number is required!" }));
+              if (phoneNumber.length !== 10) {
+                setErrors((prev) => ({
+                  ...prev,
+                  phoneNumber: "Enter a valid 10-digit mobile number",
+                }));
+              } else if (!phoneNumber.trim()) {
+                setErrors((prev) => ({
+                  ...prev,
+                  phoneNumber: "Phone Number is required!",
+                }));
+              }
             }}
+            editable={true}
           />
           {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
         </View>
@@ -1551,19 +1565,28 @@ export default function BookingScreen() {
             <Text style={styles.label}>Phone Number *</Text>
             <TextInput
               style={[styles.input, errors.phoneNumber && styles.inputError]}
-              placeholder="Enter your phone number"
+              placeholder="+91 XXXXXXXXXX"
+              placeholderTextColor="#999"
               keyboardType="phone-pad"
-              value={phoneNumber}
+              value={phoneNumber ? '+91 ' + phoneNumber : ''}
               onChangeText={(text) => {
-                setPhoneNumber(text);
+                const numberPart = text.replace(/^\+91\s*/, '');
+                const cleanNumber = numberPart.replace(/[^0-9]/g, '').slice(0, 10);
+                setPhoneNumber(cleanNumber);
                 clearError("phoneNumber");
               }}
               onBlur={() => {
-                if (!phoneNumber.trim())
+                if (phoneNumber.length !== 10) {
+                  setErrors((prev) => ({
+                    ...prev,
+                    phoneNumber: "Enter a valid 10-digit mobile number",
+                  }));
+                } else if (!phoneNumber.trim()) {
                   setErrors((prev) => ({
                     ...prev,
                     phoneNumber: "Phone Number is required!",
                   }));
+                }
               }}
               editable={true}
             />

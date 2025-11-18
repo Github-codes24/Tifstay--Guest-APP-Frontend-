@@ -764,7 +764,7 @@ const handleContinueSubscription = (order: Order) => {
               setDetailsOrder(order);
               setShowFullDetailsModal(true);
             }}
-            style={[styles.primaryButtonStyle,{ marginBottom:8}]}
+            style={[styles.primaryButtonStyle,{ marginBottom:4}]}
             height={48}
           />
         </View>

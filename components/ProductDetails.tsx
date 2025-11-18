@@ -19,6 +19,7 @@ import * as Clipboard from 'expo-clipboard';
 // import * as Sharing from 'expo-sharing'; // Commented out due to missing module
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query"; // Add this import
+import Toast from "react-native-toast-message";
 import Button from "./Buttons";
 import colors from "@/constants/colors";
 import { AMENITY_ICONS, DEFAULT_AMENITY_ICON } from "@/constants/iconMappings";
@@ -450,9 +451,16 @@ export default function ProductDetails() {
             data: mappedData,
           });
         }
-        Alert.alert('Sync Error', 'Local and server state mismatch. Please try again.');
+        Toast.show({
+          type: 'error',
+          text1: 'Sync Error',
+          text2: 'Local and server state mismatch. Please try again.',
+        });
       } else {
-        Alert.alert('Success', wasFavorite ? 'Removed from favorites' : 'Added to favorites');
+        Toast.show({
+          type: 'success',
+          text1: wasFavorite ? 'Removed from favorites' : 'Added to favorites',
+        });
       }
     } else {
       // Revert local state on failure
@@ -465,7 +473,11 @@ export default function ProductDetails() {
           data: mappedData,
         });
       }
-      Alert.alert('Error', 'Failed to update favorites. Please try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to update favorites. Please try again.',
+      });
     }
   };
 

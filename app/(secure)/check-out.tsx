@@ -961,6 +961,13 @@ const Checkout: React.FC = () => {
             Orders are non-refundable once placed.
           </Text>
         </View>
+         <View style={styles.policySection}>
+          <Text style={styles.policyTitle}>Note:</Text>
+          <Text style={styles.policyText}>
+            The deposit is refundable & payable only at the owner’s property. When you visit, the owner will collect the deposit amount as part of the check-in process.
+         
+          </Text>
+        </View>
         <View style={styles.bottomSpacer} />
       </ScrollView>
       {/* Payment Method */}
@@ -1005,6 +1012,7 @@ const Checkout: React.FC = () => {
             <Text style={styles.depositModalTitle}>Important Notice</Text>
             <Text style={styles.depositModalText}>
               You have to pay ₹{depositAmount} at the owner property.
+              and it is refundable
             </Text>
             <TouchableOpacity
               style={styles.depositContinueButton}

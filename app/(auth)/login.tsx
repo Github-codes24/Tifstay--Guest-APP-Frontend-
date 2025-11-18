@@ -110,75 +110,92 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGetOTP = async () => {
-    if (isLoading) return;
-    setIsLoading(true);
-    Keyboard.dismiss();
+ const handleGetOTP = async () => {
+  if (isLoading) return;
+  setIsLoading(true);
+  Keyboard.dismiss();
 
-    if (!acceptedTerms) {
+  if (!acceptedTerms) {
+    Toast.show({
+      type: "error",
+      text1: "Terms Not Accepted",
+      text2: "Please accept our Terms of Service to continue.",
+    });
+    setIsLoading(false);
+    return;
+  }
+
+  if (!phoneRegex.test(phoneNumber.trim())) {
+    Toast.show({
+      type: "error",
+      text1: "Invalid Number",
+      text2: "Please enter a valid 10-digit phone number.",
+    });
+    setIsLoading(false);
+    return;
+  }
+
+  const formattedPhoneNumber = `${selectedCountry.dialCode} ${phoneNumber.trim()}`;
+
+  try {
+    const response = await axios.post(
+      "https://tifstay-project-be.onrender.com/api/guest/login",
+      { phoneNumber: formattedPhoneNumber }
+    );
+
+    if (response.data.success) {
+      const otpCode = response.data.data?.guest?.otpCode;
       Toast.show({
-        type: "error",
-        text1: "Terms Not Accepted",
-        text2: "Please accept our Terms of Service to continue.",
+        type: "success",
+        text1: "OTP Sent Successfully",
+        text2: `Your OTP is ${otpCode}`,
       });
-      setIsLoading(false);
-      return;
-    }
-
-    if (!phoneRegex.test(phoneNumber.trim())) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Number",
-        text2: "Please enter a valid 10-digit phone number.",
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    const formattedPhoneNumber = `${selectedCountry.dialCode} ${phoneNumber.trim()}`;
-
-    try {
-      const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/login",
-        { phoneNumber: formattedPhoneNumber }
-      );
-
-      if (response.data.success) {
-        const otpCode = response.data.data?.guest?.otpCode;
-
-        Toast.show({
-          type: "success",
-          text1: "OTP Sent Successfully",
-          text2: `Your OTP is ${otpCode}`,
-        });
-
-        setTimeout(() => {
-          router.push({
-            pathname: "/verify",
-            params: {
-              phoneNumber: phoneNumber.trim(),
-              dialCode: selectedCountry.dialCode,
-            },
-          });
-          setIsLoading(false);
-        }, 2000);
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Guest Not Found",
-          text2: "Please register to continue.",
+      setTimeout(() => {
+        router.push({
+          pathname: "/verify",
+          params: {
+            phoneNumber: phoneNumber.trim(),
+            dialCode: selectedCountry.dialCode,
+          },
         });
         setIsLoading(false);
-      }
-    } catch (error) {
+      }, 2000);
+    } else {
+      // Handle non-success responses that didn't throw (e.g., 2xx with success: false)
+      Toast.show({
+        type: "error",
+        text1: "Guest Not Found",
+        text2: "Please register to continue.",
+      });
+      setIsLoading(false);
+    }
+  } catch (error) {
+    // Inspect error for unregistered guest case
+    const errorData = error.response?.data;
+    const isUnregisteredGuest =
+      errorData &&
+      (errorData.success === false ||
+       errorData.message?.toLowerCase().includes("guest not found") ||
+       errorData.message?.toLowerCase().includes("not registered") ||
+       error.response?.status === 404);
+
+    if (isUnregisteredGuest) {
+      Toast.show({
+        type: "error",
+        text1: "Guest Not Registered",
+        text2: "Please register first.",
+      });
+    } else {
+      // Generic server/network error
       Toast.show({
         type: "error",
         text1: "Server Error",
         text2: "Something went wrong. Please try again later.",
       });
-      setIsLoading(false);
     }
-  };
+    setIsLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>

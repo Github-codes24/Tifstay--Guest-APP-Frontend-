@@ -47,6 +47,8 @@ export default function TiffinOrderDetails() {
   const [fullExtensionAllocations, setFullExtensionAllocations] = useState([]);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [selectedExtension, setSelectedExtension] = useState(null);
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [selectedSkip, setSelectedSkip] = useState(null);
   const { id, bookingId, type } = params;
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -466,6 +468,25 @@ export default function TiffinOrderDetails() {
                 setShowSkipMeal(true);
                 setSkipMeals({ lunch: false, dinner: false });
               }
+            : isSkippedDate
+            ? () => {
+                const newDate = new Date(
+                  currentMonth.getFullYear(),
+                  currentMonth.getMonth(),
+                  day
+                );
+                setSelectedDate(newDate);
+                const skip = skips.find((s: any) => {
+                  const skipDate = new Date(s.skipDateLocal);
+                  return (
+                    dateForMeals.getFullYear() === skipDate.getFullYear() &&
+                    dateForMeals.getMonth() === skipDate.getMonth() &&
+                    dateForMeals.getDate() === skipDate.getDate()
+                  );
+                });
+                setSelectedSkip(skip);
+                setShowSkipModal(true);
+              }
             : isExtensionDate
             ? () => {
                 const ext = fullExtensionAllocations.find((e: any) => {
@@ -579,6 +600,75 @@ export default function TiffinOrderDetails() {
               onPress={() => {
                 setShowExtensionModal(false);
                 setSelectedExtension(null);
+              }}
+              style={styles.modalButton}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderSkipModal = () => {
+    if (!selectedSkip) return null;
+
+    const skippedMeals = {
+      lunch: false,
+      dinner: false,
+    };
+    const mealType = selectedSkip.mealType;
+    if (Array.isArray(mealType)) {
+      if (mealType.includes("lunch")) skippedMeals.lunch = true;
+      if (mealType.includes("dinner")) skippedMeals.dinner = true;
+    } else if (mealType === "all") {
+      skippedMeals.lunch = true;
+      skippedMeals.dinner = true;
+    } else if (mealType === "lunch") {
+      skippedMeals.lunch = true;
+    } else if (mealType === "dinner") {
+      skippedMeals.dinner = true;
+    }
+
+    return (
+      <Modal
+        visible={showSkipModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSkipModal(false);
+          setSelectedSkip(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalText}>Skipped Meals</Text>
+            <Text style={[styles.modalText, { fontSize: 14, marginBottom: 20 }]}>
+              Date: {formatShortDate(selectedSkip.skipDateLocal)}
+            </Text>
+            <View style={styles.mealStatusRow}>
+              <View style={styles.mealStatus}>
+                <Text style={styles.mealStatusLabel}>Lunch</Text>
+                {skippedMeals.lunch ? (
+                  <Ionicons name="close" size={20} color="#EF4444" />
+                ) : (
+                  <Ionicons name="checkmark" size={20} color="#10B981" />
+                )}
+              </View>
+              <View style={styles.mealStatus}>
+                <Text style={styles.mealStatusLabel}>Dinner</Text>
+                {skippedMeals.dinner ? (
+                  <Ionicons name="close" size={20} color="#EF4444" />
+                ) : (
+                  <Ionicons name="checkmark" size={20} color="#10B981" />
+                )}
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setShowSkipModal(false);
+                setSelectedSkip(null);
               }}
               style={styles.modalButton}
             >
@@ -839,6 +929,7 @@ export default function TiffinOrderDetails() {
       </Modal>
 
       {renderExtensionModal()}
+      {renderSkipModal()}
     </SafeAreaView>
   );
 }

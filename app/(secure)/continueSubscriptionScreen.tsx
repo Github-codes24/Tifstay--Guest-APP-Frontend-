@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -919,21 +920,21 @@ export default function ContinueSubscriptionScreen() {
       );
       console.log("📥 API Response:", response.data);
       if (response.data.success) {
-  const newBookingData = response.data.data;
-  console.log("✅ Continue subscription success:", newBookingData);
-  const checkoutParams = {
-    bookingId: newBookingData._id,
-    serviceType: "hostel",
-    rooms: JSON.stringify(selectedRooms),
-    serviceId: newBookingData.hostelId,
-  };
-  console.log("📤 Navigating to checkout with params:", checkoutParams);
-  router.push({
-    pathname: "/(secure)/check-out",
-    params: checkoutParams,
-  });
-  console.log("✅ Navigation to checkout complete!");
-}else {
+        const newBookingData = response.data.data;
+        console.log("✅ Continue subscription success:", newBookingData);
+        const checkoutParams = {
+          bookingId: newBookingData._id,
+          serviceType: "hostel",
+          rooms: JSON.stringify(selectedRooms),
+          serviceId: newBookingData.hostelId,
+        };
+        console.log("📤 Navigating to checkout with params:", checkoutParams);
+        router.push({
+          pathname: "/(secure)/check-out",
+          params: checkoutParams,
+        });
+        console.log("✅ Navigation to checkout complete!");
+      } else {
         console.log("❌ API success false:", response.data.message);
         setErrorMessage(response.data.message || "Failed to continue subscription.");
         setShowErrorModal(true);
@@ -1183,7 +1184,7 @@ export default function ContinueSubscriptionScreen() {
   const renderTiffinForm = () => {
     const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
     return (
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.section}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Ionicons name="calendar-outline" size={18} color="#000" />
@@ -1342,7 +1343,7 @@ export default function ContinueSubscriptionScreen() {
     setSelectedRooms(prev => prev.map((room, i) => i === index ? { ...room, name: newName } : room));
   };
   const renderHostelForm = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.section}>
         <Text style={styles.hostelName}>
           {serviceName || "Scholars Den Boys Hostel"}
@@ -1426,6 +1427,7 @@ export default function ContinueSubscriptionScreen() {
                   <TextInput
                     style={styles.nameInput}
                     placeholder="Guest Name *"
+                    placeholderTextColor='#000'
                     value={room.name || ''}
                     onChangeText={(text) => updateBedName(index, text)}
                   />
@@ -1440,6 +1442,7 @@ export default function ContinueSubscriptionScreen() {
         <TextInput
           style={[styles.input, { height: 80 }]}
           placeholder="Enter your complete delivery address with landmarks"
+          placeholderTextColor='#000'
           multiline
           value={message}
           onChangeText={setMessage}
@@ -1462,9 +1465,13 @@ export default function ContinueSubscriptionScreen() {
         showBackButton={true}
       />
       {/* Main Content */}
-      <View style={styles.content}>
+      <KeyboardAvoidingView 
+        style={styles.content} 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
         {serviceType === "tiffin" ? renderTiffinForm() : renderHostelForm()}
-      </View>
+      </KeyboardAvoidingView>
       {/* Room Selection Modal for Hostel */}
       {serviceType === "hostel" && userData && ( // Ensure userData for modal
         <RoomSelectionModal
