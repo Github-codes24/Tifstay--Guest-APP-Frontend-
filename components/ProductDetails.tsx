@@ -724,13 +724,13 @@ export default function ProductDetails() {
                   <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
                 </View>
               )}
-              {mappedData.deposit > 0 && (
+              {/* {mappedData.deposit > 0 && (
                 <View style={styles.depositContainer}>
                   <Text style={styles.depositAmount}>
                     + ₹{mappedData.deposit} {mappedData.primaryPeriod === 'MONTH' ? 'security' : 'weekly'} deposit
                   </Text>
                 </View>
-              )}
+              )} */}
             </View>
           </View>
           {/* Deposit notes */}
@@ -738,8 +738,9 @@ export default function ProductDetails() {
             {mappedData.weeklyDeposit > 0 && (
               <View style={styles.depositNoteRow}>
                 <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
+                
                 <Text style={styles.depositNote}>
-                  Weekly deposit: ₹{mappedData.weeklyDeposit} (fully refundable on checkout)
+                  Weekly Deposit: <Text style={styles.depositamt}>₹{mappedData.weeklyDeposit} </Text>(fully refundable)
                 </Text>
               </View>
             )}
@@ -747,7 +748,7 @@ export default function ProductDetails() {
               <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
                 <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
                 <Text style={styles.depositNote}>
-                  Security deposit for monthly: ₹{mappedData.securityDeposit} (fully refundable on checkout)
+                  Monthly Deposit : <Text style={styles.depositamt}>₹{mappedData.securityDeposit} </Text>(fully refundable)
                 </Text>
               </View>
             )}
@@ -1392,11 +1393,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   depositNote: {
-    fontSize: 12,
+    fontSize: 15,
     color: "#666",
     lineHeight: 16,
     flex: 1,
     marginLeft: 4,
+    fontWeight:500
   },
   // Tiffin pricing styles
   tiffinPricing: {
@@ -1748,4 +1750,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+  depositamt:{
+    fontSize:18,
+    fontWeight:800,
+    color:"#1976D2"
+  }
 });

@@ -384,18 +384,52 @@ const Booking: React.FC = () => {
     }, 0);
   };
 // Updated handleContinueSubscription in Booking screen
+// Updated handleContinueSubscription in Booking screen
 const handleContinueSubscription = (order: Order) => {
   if (!order.id) { // Enforce _id as mandatory for all orders (esp. tiffin)
     console.error("Missing _id (orderId) – cannot continue subscription");
     return; // Early exit; handle UI error as needed
   }
   console.log("Continue subscription:", order.id);
+
   // Helper to clean and format price (reusable for price/planPrice)
   const formatPrice = (rawPrice?: string): string => {
     if (!rawPrice) return "₹8000";
     const cleaned = rawPrice.replace('₹', '').trim();
     return `₹${cleaned}`;
   };
+
+  // NEW: Helper to add 1 day to a "DD/MM/YYYY" date string and return formatted
+  const addOneDay = (dateStr?: string): string => {
+    if (!dateStr || dateStr.trim() === '') {
+      // Fallback: Use current date +1 day if endDate missing (format as DD/MM/YYYY)
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      return `${String(tomorrow.getDate()).padStart(2, '0')}/${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${tomorrow.getFullYear()}`;
+    }
+
+    // Parse DD/MM/YYYY
+    const [day, month, year] = dateStr.split('/').map(Number);
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      console.warn("Invalid endDate format, using fallback");
+      return addOneDay(); // Recursive fallback to current +1
+    }
+
+    const endDate = new Date(year, month - 1, day); // JS months 0-indexed
+    if (isNaN(endDate.getTime())) {
+      console.warn("Invalid endDate, using fallback");
+      return addOneDay(); // Fallback
+    }
+
+    // Add 1 day
+    const newStart = new Date(endDate);
+    newStart.setDate(endDate.getDate() + 1);
+
+    // Format back to DD/MM/YYYY
+    return `${String(newStart.getDate()).padStart(2, '0')}/${String(newStart.getMonth() + 1).padStart(2, '0')}/${newStart.getFullYear()}`;
+  };
+
   let params: any = {
     serviceType: order.serviceType,
     serviceName: order.serviceName || order.tiffinServiceName || "", // Fallback for tiffin
@@ -406,6 +440,7 @@ const handleContinueSubscription = (order: Order) => {
     bookingId: order.bookingId || "",
     fullName: order.customer || "You", // Keep fallback; fetch full guest in screen via guestId
   };
+
   // Branch for tiffin-specific params (no rooms/hostelId, use dates from tiffin response)
   if (order.serviceType === 'tiffin') {
     // Tiffin-specific details including service ID and guest info
@@ -416,12 +451,16 @@ const handleContinueSubscription = (order: Order) => {
     params.foodType = order.foodType || "";
     params.status = order.status || "";
    
-    params.checkInDate = order.startDate || ""; // Map startDate to checkInDate for UI consistency
-    params.checkOutDate = order.endDate || ""; // Map endDate to checkOutDate
+    // UPDATED: For continuation, auto-set checkInDate as endDate +1 day (new start)
+    // Keep original checkOutDate for reference/UI context
+    const originalCheckOut = order.endDate || ""; 
+    params.checkOutDate = originalCheckOut;
+    params.checkInDate = addOneDay(originalCheckOut); // Auto-fill start as next day after checkout
+    
     // Skip rooms and hostelId – they remain undefined (not passed)
-    console.log("Tiffin-specific params applied");
+    console.log("Tiffin-specific params applied with auto-forwarded checkInDate");
   } else {
-    // Hostel/default: Existing rooms/hostel logic
+    // Hostel/default: Existing rooms/hostel logic (unchanged)
     const roomsData = order.rooms?.map((room) => ({
       roomId: room.roomId,
       roomNumber: room.roomNumber,
@@ -436,21 +475,23 @@ const handleContinueSubscription = (order: Order) => {
     params.checkOutDate = order.checkOutDate || "";
     params.rooms = JSON.stringify(roomsData); // Stringify for params
   }
+
   console.log("Continue Subscription Params:", params);
   console.log("Full Order Details Passed:", {
     id: order.id,
     bookingId: order.bookingId,
     serviceName: order.serviceName || order.tiffinServiceName,
     customer: order.serviceType === 'tiffin' ? order.guestName : order.customer, // Use guestName for tiffin
-    checkInDate: params.checkInDate, // Log mapped dates
-    checkOutDate: params.checkOutDate,
+    // UPDATED: Log old vs. new dates for debugging
+    originalCheckIn: order.startDate,
+    originalCheckOut: order.endDate,
+    newCheckInDate: params.checkInDate, // Should be originalCheckOut +1
+    checkOutDate: params.checkOutDate, // Original for reference
     rooms: params.rooms || "N/A (tiffin)",
     entityId: order.entityId || "N/A",
     plan: params.plan,
     price: order.price,
     planPrice: order.planPrice,
-    startDate: order.startDate, // Log raw for tiffin
-    endDate: order.endDate,
     // Additional tiffin details for logging
     ...(order.serviceType === 'tiffin' && {
       tiffinServiceId: order.tiffinServiceId,
@@ -460,6 +501,7 @@ const handleContinueSubscription = (order: Order) => {
       status: order.status,
     }),
   });
+
   router.push({
     pathname: "/continueSubscriptionScreen",
     params,

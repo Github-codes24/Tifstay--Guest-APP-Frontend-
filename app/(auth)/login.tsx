@@ -156,6 +156,7 @@ export default function LoginScreen() {
           params: {
             phoneNumber: phoneNumber.trim(),
             dialCode: selectedCountry.dialCode,
+            otpCode: otpCode,
           },
         });
         setIsLoading(false);
