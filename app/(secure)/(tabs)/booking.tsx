@@ -621,7 +621,14 @@ const handleContinueSubscription = (order: Order) => {
     });
     console.log("Track button should show:", activeTab === "confirmed" && order.status === "confirmed" && !isHistoryOrder(order.status) && order.serviceType === "tiffin");
     return (
-      <View key={order.id} style={styles.orderCard}>
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() => {
+          setDetailsOrder(order);
+          setShowFullDetailsModal(true);
+        }}
+        activeOpacity={0.7}
+      >
         <View style={styles.orderHeader}>
           <Text style={styles.bookingId}>
             {order.serviceType === "hostel"
@@ -798,18 +805,6 @@ const handleContinueSubscription = (order: Order) => {
             </>
           )}
         </View>
-        {/* Full details button (opens modal) - show for all tabs */}
-        <View style={{ marginTop: 8 }}>
-          <Button
-            title="Full details"
-            onPress={() => {
-              setDetailsOrder(order);
-              setShowFullDetailsModal(true);
-            }}
-            style={[styles.primaryButtonStyle,{ marginBottom:5}]}
-            height={48}
-          />
-        </View>
         {activeTab === "pending" ? null : (
           <>
             {order.status === "confirmed" && !isHistoryOrder(order.status) && (
@@ -910,7 +905,7 @@ const handleContinueSubscription = (order: Order) => {
             )}
           </>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
   if (loading) {

@@ -52,7 +52,8 @@ interface TiffinCardProps {
     tags?: string[];
     mealPreferences?: { type: string; time: string }[];
     location?: any;
-    highestPrice?: string;
+    highestPrice?: string | number;
+    timing?: string; // Fallback for single timing
   };
   onPress?: () => void;
   onBookPress?: () => void;
@@ -85,9 +86,9 @@ export default function TiffinCard({
   };
   const vegType = getVegType();
 
-  // Compute combined timing (तुम्हारा full logic same)
+  // Compute combined timing (updated to use service.mealPreferences or fallback to timing)
   const computeTiming = (preferences: { type: string; time: string }[] | undefined): string => {
-    if (!preferences || preferences.length === 0) return "-";
+    if (!preferences || preferences.length === 0) return service.timing || "-";
     const parseStartTime = (timeStr: string): number => {
       const start = timeStr.split(" - ")[0];
       const [timePart, period] = start.split(" ");
@@ -111,8 +112,13 @@ export default function TiffinCard({
   const locationText = service?.location
     ? typeof service.location === "string"
       ? service.location
-      : service.location.fullAddress || JSON.stringify(service.location) // तुम्हारा handling same
+      : service.location.fullAddress || JSON.stringify(service.location) 
     : "-";
+
+  // Format highestPrice if it's a number
+  const formattedHighestPrice = typeof service.highestPrice === "number" 
+    ? `${service.highestPrice}` 
+    : service.highestPrice || "-";
 
   return (
     <TouchableOpacity
@@ -199,18 +205,18 @@ export default function TiffinCard({
             </Text>
           </View>
         </View>
-        {/* Price & Book Button (पुराना) */}
+        {/* Price & Book Button (updated to show price details + highest pricing) */}
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
-            <View style={styles.priceRow}>
-              {/* <Text style={styles.price}>{service.price}</Text> */}
-              {/* <Text style={styles.perWeek}>/week</Text> */}
+            {/* <View style={styles.priceRow}>
+              <Text style={styles.price}>{service.price}</Text>
+              <Text style={styles.perWeek}>/month</Text>
             </View>
             {service?.oldPrice && ( // same
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
-            )}
+            )} */}
             {service?.highestPrice && ( // extra for up to
-              <Text style={styles.highestPrice}>Up to ₹{service.highestPrice}/-</Text>
+              <Text style={[styles.price,{fontSize:21}]}>Up to ₹{formattedHighestPrice}/-</Text>
             )}
           </View>
           <TouchableOpacity
@@ -441,10 +447,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   highestPrice: {
-    fontSize: 20,
-    color: "#2563EB",
+    fontSize: 14,
+    color: "#10B981",
     marginTop: 2,
-    fontWeight:800
+    fontWeight: "700",
   },
   bookButton: {
     backgroundColor: colors.primary,

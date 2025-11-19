@@ -348,6 +348,9 @@ export default function FavoritesScreen() {
   // ==================== MAPPERS ====================
   const mapTiffinService = (item: any) => {
     const allPhotos = [...(item.vegPhotos || []), ...(item.nonVegPhotos || [])];
+    // Compute highest price from all pricing options
+    const allPrices = (item.pricing || []).map((p: any) => p.monthlyDelivery || 0);
+    const highestPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
     return {
       id: item._id || item.id,
       serviceType: "tiffin",
@@ -363,11 +366,12 @@ export default function FavoritesScreen() {
       tags: item.pricing?.[0]?.foodType ? [item.pricing[0].foodType] : ["Both"],
       image: allPhotos.length ? { uri: allPhotos[0] } : undefined,
       price: item.pricing?.[0]?.monthlyDelivery
-        ? `₹${item.pricing[0].monthlyDelivery}/month`
+        ? `₹${item.pricing[0].monthlyDelivery}`
         : "-",
       oldPrice: item.pricing?.[0]?.monthlyDining
-        ? `₹${item.pricing[0].monthlyDining}/month`
+        ? `₹${item.pricing[0].monthlyDining}`
         : "-",
+      highestPrice,
       timing: item.mealTimings?.[0]
         ? `${item.mealTimings[0].startTime} - ${item.mealTimings[0].endTime}`
         : "-",
