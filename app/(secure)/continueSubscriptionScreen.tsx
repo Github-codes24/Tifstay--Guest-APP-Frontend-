@@ -1413,6 +1413,7 @@ export default function ContinueSubscriptionScreen() {
           <TextInput
             style={[styles.input, { height: 80 }]}
             placeholder="Enter any special instructions (e.g., Call before delivery)"
+            placeholderTextColor="#000"
             multiline
             value={deliveryInstructions}
             onChangeText={setDeliveryInstructions}

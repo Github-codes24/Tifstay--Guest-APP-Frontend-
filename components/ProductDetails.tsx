@@ -224,6 +224,7 @@ export default function ProductDetails() {
           // Always fetch full data from API to ensure complete fields like whatsIncludes, serviceFeatures, contactInfo, etc.
           fullApiData = await fetchTiffinById(paramId);
         } else if (paramType === "hostel") {
+          // Fixed: Use paramId instead of hardcoded ID to fetch the correct hostel with weeklyDeposit
           fullApiData = await fetchHostelById(paramId);
         }
         if (!fullApiData) {
@@ -302,6 +303,13 @@ export default function ProductDetails() {
             weekly: weeklyPrice,
             rooms: rooms, // Keep for potential use
           };
+          // Debug log for deposits
+          console.log('🔍 MappedData Deposits:', {
+            securityDeposit,
+            weeklyDeposit,
+            deposit: depositAmount,
+            primaryPeriod
+          });
         } else if (paramType === "tiffin") {
           // Handle images from vegPhotos, nonVegPhotos, or fallback
           const vegPhotos = fullApiData.vegPhotos || [];
@@ -710,23 +718,38 @@ export default function ProductDetails() {
           )}
           <View style={styles.priceMainRow}>
             <Text style={styles.currentPrice}>{mappedData.price}</Text>
-            {mappedData.offer && (
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
-              </View>
-            )}
+            <View style={styles.rightSideContent}>
+              {mappedData.offer && (
+                <View style={styles.discountBadge}>
+                  <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
+                </View>
+              )}
+              {mappedData.deposit > 0 && (
+                <View style={styles.depositContainer}>
+                  <Text style={styles.depositAmount}>
+                    + ₹{mappedData.deposit} {mappedData.primaryPeriod === 'MONTH' ? 'security' : 'weekly'} deposit
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
           {/* Deposit notes */}
-          <View style={{ marginTop: 8 }}>
-            {mappedData.securityDeposit > 0 && (
-              <Text style={styles.depositNote}>
-                Note: Security deposit of ₹{mappedData.securityDeposit} for monthly booking. It will be refunded to you on check-out.
-              </Text>
-            )}
+          <View style={styles.depositNotesContainer}>
             {mappedData.weeklyDeposit > 0 && (
-              <Text style={[styles.depositNote, { marginTop: 4 }]}>
-                Note: Weekly deposit of ₹{mappedData.weeklyDeposit} for weekly booking. It will be refunded to you on check-out.
-              </Text>
+              <View style={styles.depositNoteRow}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
+                <Text style={styles.depositNote}>
+                  Weekly deposit: ₹{mappedData.weeklyDeposit} (fully refundable on checkout)
+                </Text>
+              </View>
+            )}
+            {mappedData.securityDeposit > 0 && (
+              <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
+                <Text style={styles.depositNote}>
+                  Security deposit for monthly: ₹{mappedData.securityDeposit} (fully refundable on checkout)
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -1051,7 +1074,7 @@ export default function ProductDetails() {
                     }),
                     userData: JSON.stringify(userDataObj), // ✅ Now autofills real name/phone if stored
                     defaultPlan: "monthly",
-                    date: new Date().toISOString().split('T')[0], // 2025-10-09 (today)
+                    date: new Date().toISOString().split('T')[0], // 2025-11-19 (today)
                   },
                 });
               } catch (error) {
@@ -1321,8 +1344,12 @@ const styles = StyleSheet.create({
   },
   priceMainRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+  },
+  rightSideContent: {
+    alignItems: "flex-end",
+    gap: 8,
   },
   oldPrice: {
     fontSize: 14,
@@ -1347,10 +1374,29 @@ const styles = StyleSheet.create({
     color: "#1976D2",
     fontWeight: "600",
   },
-  depositNote: {
+  depositContainer: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  depositAmount: {
     fontSize: 13,
     color: "#666",
-    lineHeight: 18,
+    fontWeight: "600",
+  },
+  depositNotesContainer: {
+    marginTop: 12,
+  },
+  depositNoteRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  depositNote: {
+    fontSize: 12,
+    color: "#666",
+    lineHeight: 16,
+    flex: 1,
+    marginLeft: 4,
   },
   // Tiffin pricing styles
   tiffinPricing: {

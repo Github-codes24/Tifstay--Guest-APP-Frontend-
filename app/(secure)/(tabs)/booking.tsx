@@ -40,7 +40,7 @@ interface Order {
   checkOutDate?: string;
   price?: string;
   planPrice?: string; // New: Base plan price (e.g., "₹900")
-  image?: string;
+  // image?: string;
   entityId?: string; // Actual _id string for the service/hostel (for reviews/navigation)
   rooms?: Array<{
     roomId: string;
@@ -105,7 +105,7 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
         ? new Date(item.checkOutDate).toLocaleDateString()
         : "",
       status: item.status.toLowerCase() as Order["status"],
-      image: item.userPhoto,
+      // image: item.userPhoto,
       price: formatPrice(priceValue),
       planPrice: formatPrice(selectPlan.price), // New: Base plan price
       plan: selectPlan.name || "monthly", // New: Pass plan name (e.g., "monthly", "weekly")
@@ -157,7 +157,7 @@ const fetchTiffinOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
       orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
       status: (item.status || "").toLowerCase() as Order["status"],
       price: item.price ? `₹${item.price}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
-      image: undefined,
+      // image: undefined,
       // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
       entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
       // NEW: Tiffin-specific fields
@@ -764,7 +764,7 @@ const handleContinueSubscription = (order: Order) => {
               setDetailsOrder(order);
               setShowFullDetailsModal(true);
             }}
-            style={[styles.primaryButtonStyle,{ marginBottom:4}]}
+            style={[styles.primaryButtonStyle,{ marginBottom:5}]}
             height={48}
           />
         </View>
@@ -1097,10 +1097,10 @@ const handleContinueSubscription = (order: Order) => {
                       <Text style={styles.modalLabel}>Order Type</Text>
                       <Text style={styles.modalValue}>{detailsOrder.orderType || "N/A"}</Text>
                     </View>
-                    <View style={styles.modalRow}>
+                    {/* <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Tiffin Service ID</Text>
                       <Text style={styles.modalValue}>{detailsOrder.tiffinServiceId || detailsOrder.entityId || "N/A"}</Text>
-                    </View>
+                    </View> */}
                   </>
                 ) : (
                   <>
@@ -1128,10 +1128,10 @@ const handleContinueSubscription = (order: Order) => {
                         )}
                       </View>
                     </View>
-                    <View style={styles.modalRow}>
+                    {/* <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Hostel ID</Text>
                       <Text style={styles.modalValue}>{detailsOrder.entityId || "N/A"}</Text>
-                    </View>
+                    </View> */}
                   </>
                 )}
                 {/* Optionally show image */}

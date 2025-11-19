@@ -336,172 +336,364 @@ export default function BookingScreen() {
     });
   };
   useEffect(() => {
-    const isHostelBooking =
-      bookingType === "hostel" || bookingType === "reserve";
-    const isTiffinBooking = bookingType === "tiffin";
-    if ((isHostelBooking || isTiffinBooking) && !ranAutofill.current) {
-      ranAutofill.current = true;
-      try {
-        const parsedUserData = safeParse(userDataStr);
-        // Handle user data structure: direct or nested under 'guest'
-        const userName =
-          parsedUserData.name || parsedUserData.guest?.name || "";
-        let userPhone =
-          parsedUserData.phoneNumber || parsedUserData.guest?.phoneNumber || "";
-        // NEW: Strip +91 if present during autofill
-        const strippedPhone = userPhone.replace(/^\+91\s*/, '');
-        userPhone = strippedPhone;
-        const userEmail =
-          parsedUserData.email || parsedUserData.guest?.email || "";
-        const userWorkType =
-          parsedUserData.workType || parsedUserData.guest?.workType || "";
-        const userAdharPhoto =
-          parsedUserData.adharCardPhoto ||
-          parsedUserData.guest?.adharCardPhoto ||
-          "";
-        const userPhotoUrl =
-          parsedUserData.userPhoto || parsedUserData.guest?.userPhoto || "";
-        // Common user autofill for both
-        setFullName(userName);
-        setPhoneNumber(userPhone);
-        if (isHostelBooking) {
-          const parsedHostelData = safeParse(hostelDataStr);
-          const parsedPlan = safeParse(planStr);
-          // NEW: Handle multiple rooms via roomsData, fallback to single room
-          let rooms: RoomData[] = [];
-          try {
-            const parsedRoomsData = safeParse(roomsDataStr);
-            if (Array.isArray(parsedRoomsData) && parsedRoomsData.length > 0) {
-              rooms = parsedRoomsData;
-            } else {
-              // Backward compat: single room
-              const parsedRoomData = safeParse(roomDataStr);
-              const parsedSelectedBeds = safeParse(selectedBedsStr);
-              rooms = [
-                {
-                  roomId: parsedRoomData._id,
-                  roomNumber: parsedRoomData.roomNumber,
-                  beds: parsedSelectedBeds, // [{bedId, bedNumber}]
-                },
-              ];
+    const autofill = async () => {
+      const isHostelBooking = bookingType === "hostel" || bookingType === "reserve";
+      const isTiffinBooking = bookingType === "tiffin";
+      if ((isHostelBooking || isTiffinBooking) && !ranAutofill.current) {
+        ranAutofill.current = true;
+        try {
+          const token = await AsyncStorage.getItem("token");
+          if (!token) {
+            console.warn("No token for profile fetch");
+            handleParamsAutofill();
+            return;
+          }
+          // Fetch profile from API
+          const profileResponse = await axios.get(
+            "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
             }
-          } catch (parseErr) {
-            console.error("Error parsing rooms data:", parseErr);
-            rooms = [];
-          }
-          // Update serviceData with minimal data
-          setServiceData((prev) => ({
-            ...prev,
-            hostelId: parsedHostelData.id,
-            hostelName: parsedHostelData.name || prev.hostelName, // For UI
-            rooms, // NEW: Array of rooms
-            monthlyPrice: parsedPlan.price,
-            deposit: parsedPlan.depositAmount,
-            email: userEmail || prev.email,
-            workType: userWorkType || prev.workType,
-            adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
-            userPhoto: userPhotoUrl || prev.userPhoto,
-          }));
-          setTimeout(() => prefillFirstBedName(rooms, userName), 0);
-          setHostelPlan(parsedPlan.name || "monthly");
-          setAadhaarPhoto(userAdharPhoto || "");
-          setUserPhoto(userPhotoUrl || "");
-          const workTypeNormalized = userWorkType.toLowerCase();
-          let purpose = "work"; // default
-          if (workTypeNormalized.includes("student")) purpose = "student";
-          else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
-          else if (workTypeNormalized.includes("work")) purpose = "work";
-          setPurposeType(purpose);
-        }
-        if (isTiffinBooking) {
-          const parsedServiceData = safeParse(serviceDataStr);
-          console.log('Parsed service data for tiffin:', parsedServiceData); // FIXED: Debug log for ID
-          // Update serviceData for tiffin
-          setServiceData((prev) => ({
-            ...prev,
-            serviceId: parsedServiceData.serviceId || parsedServiceData.id || params.serviceId, // FIXED: Fallback to params.serviceId
-            serviceName:
-              parsedServiceData.serviceName || parsedServiceData.name,
-            price: parsedServiceData.price,
-            foodType: parsedServiceData.foodType,
-            mealPreferences: parsedServiceData.mealPreferences,
-            orderTypes: parsedServiceData.orderTypes,
-            pricing: parsedServiceData.pricing, // This is now used directly
-            location:
-              parsedServiceData.location || parsedServiceData.fullAddress,
-            contactInfo: parsedServiceData.contactInfo,
-          }));
-          // FIXED: No prefill for meals or food type - start blank
-          setSelectedfood("");
-          setOrderType("delivery");
-          if (parsedServiceData.serviceId || parsedServiceData.id) {
-            const fetchTiffinService = async () => {
-              try {
-                const token = await AsyncStorage.getItem("token");
-                if (!token) return;
-                const serviceIdToUse = parsedServiceData.serviceId || parsedServiceData.id;
-                console.log('Fetching tiffin with ID:', serviceIdToUse); // FIXED: Debug log
-                const response = await axios.get(
-                  `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceIdToUse}`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                  }
-                );
-                if (response.data.success) {
-                  console.log('dattttttaaaa', response.data.data);
-                  setTiffinService(response.data.data);
-                  // Set initial order type
-                  const types = response.data.data.orderTypes || [];
-                  if (types.length > 0) {
-                    const initialType = types.includes("Delivery")
-                      ? "delivery"
-                      : types[0].toLowerCase().replace(" ", "");
-                    setOrderType(initialType as "dining" | "delivery");
-                  }
-                  // Set meal labels from mealTimings
-                  const newMealLabels: Record<MealType, string> = {
-                    breakfast: "",
-                    lunch: "",
-                    dinner: "",
-                  };
-                  response.data.data.mealTimings?.forEach((mt: any) => {
-                    const key = mt.mealType.toLowerCase() as MealType;
-                    if (key in newMealLabels) {
-                      const titleCaseMealType = mt.mealType.charAt(0).toUpperCase() + mt.mealType.slice(1).toLowerCase();
-                      newMealLabels[key] =
-                        `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
-                    }
-                  });
-                  setMealLabels(newMealLabels);
-                  // FIXED: Auto-set initial food type based on service
-                  const serviceFoodType = response.data.data.foodType;
-                  let initialFoodValue = "";
-                  if (serviceFoodType === "Veg") {
-                    initialFoodValue = "Veg";
-                  } else if (serviceFoodType === "Non-Veg") {
-                    initialFoodValue = "Non-Veg";
-                  } else if (serviceFoodType === "Both Veg & Non-Veg") {
-                    initialFoodValue = "Both";
-                  }
-                  setSelectedfood(initialFoodValue);
-                }
-              } catch (error) {
-                console.error("Error fetching tiffin service:", error);
+          );
+          console.log('-------> Profile Response Full:', profileResponse.data);
+          if (profileResponse.data.success) {
+            const rawData = profileResponse.data.data;
+            const profileData = rawData?.guest;
+            console.log('-------> profileData:', profileData);
+            if (!profileData) {
+              console.warn("No guest data in profile response - falling back to params");
+              handleParamsAutofill();
+              return;
+            }
+            // Now safe to access
+            const userName = profileData.name || "";
+            let userPhone = profileData.phoneNumber || "";
+            // Strip +91 if present during autofill
+            const strippedPhone = userPhone.replace(/^\+91\s*/, '');
+            userPhone = strippedPhone;
+            // Autofill common fields
+            setFullName(userName);
+            setPhoneNumber(userPhone);
+            // Autofill address for tiffin
+            if (isTiffinBooking && profileData.addresses && profileData.addresses.length > 0) {
+              const firstAddress = profileData.addresses[0];
+              setStreet(firstAddress.street || "");
+              setPincode(firstAddress.postCode || "");
+              // Parse locality from address (e.g., "F6H7+8MH, Kanpur" -> "Kanpur")
+              const addressParts = firstAddress.address.split(',');
+              if (addressParts.length > 1) {
+                setLocality(addressParts[1].trim());
+              } else {
+                setLocality(firstAddress.address);
               }
-            };
-            fetchTiffinService();
+            }
+            // Handle other user data from params (unchanged)
+            const parsedUserData = safeParse(userDataStr);
+            const userEmail = parsedUserData.email || parsedUserData.guest?.email || "";
+            const userWorkType = parsedUserData.workType || parsedUserData.guest?.workType || "";
+            const userAdharPhoto = parsedUserData.adharCardPhoto || parsedUserData.guest?.adharCardPhoto || "";
+            const userPhotoUrl = parsedUserData.userPhoto || parsedUserData.guest?.userPhoto || "";
+            if (isHostelBooking) {
+              setServiceData((prev) => ({
+                ...prev,
+                email: userEmail || prev.email,
+                workType: userWorkType || prev.workType,
+                adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
+                userPhoto: userPhotoUrl || prev.userPhoto,
+              }));
+              setAadhaarPhoto(userAdharPhoto || "");
+              setUserPhoto(userPhotoUrl || "");
+              const workTypeNormalized = userWorkType.toLowerCase();
+              let purpose = "work"; // default
+              if (workTypeNormalized.includes("student")) purpose = "student";
+              else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
+              else if (workTypeNormalized.includes("work")) purpose = "work";
+              setPurposeType(purpose);
+            }
+            // Rest of the autofill logic for service/hostel data remains the same
+            if (isHostelBooking) {
+              const parsedHostelData = safeParse(hostelDataStr);
+              const parsedPlan = safeParse(planStr);
+              // NEW: Handle multiple rooms via roomsData, fallback to single room
+              let rooms: RoomData[] = [];
+              try {
+                const parsedRoomsData = safeParse(roomsDataStr);
+                if (Array.isArray(parsedRoomsData) && parsedRoomsData.length > 0) {
+                  rooms = parsedRoomsData;
+                } else {
+                  // Backward compat: single room
+                  const parsedRoomData = safeParse(roomDataStr);
+                  const parsedSelectedBeds = safeParse(selectedBedsStr);
+                  rooms = [
+                    {
+                      roomId: parsedRoomData._id,
+                      roomNumber: parsedRoomData.roomNumber,
+                      beds: parsedSelectedBeds, // [{bedId, bedNumber}]
+                    },
+                  ];
+                }
+              } catch (parseErr) {
+                console.error("Error parsing rooms data:", parseErr);
+                rooms = [];
+              }
+              // Update serviceData with minimal data
+              setServiceData((prev) => ({
+                ...prev,
+                hostelId: parsedHostelData.id,
+                hostelName: parsedHostelData.name || prev.hostelName, // For UI
+                rooms, // NEW: Array of rooms
+                monthlyPrice: parsedPlan.price,
+                deposit: parsedPlan.depositAmount,
+              }));
+              setTimeout(() => prefillFirstBedName(rooms, userName), 0);
+              setHostelPlan(parsedPlan.name || "monthly");
+            }
+            if (isTiffinBooking) {
+              const parsedServiceData = safeParse(serviceDataStr);
+              console.log('Parsed service data for tiffin:', parsedServiceData); // FIXED: Debug log for ID
+              // Update serviceData for tiffin
+              setServiceData((prev) => ({
+                ...prev,
+                serviceId: parsedServiceData.serviceId || parsedServiceData.id || params.serviceId, // FIXED: Fallback to params.serviceId
+                serviceName:
+                  parsedServiceData.serviceName || parsedServiceData.name,
+                price: parsedServiceData.price,
+                foodType: parsedServiceData.foodType,
+                mealPreferences: parsedServiceData.mealPreferences,
+                orderTypes: parsedServiceData.orderTypes,
+                pricing: parsedServiceData.pricing, // This is now used directly
+                location:
+                  parsedServiceData.location || parsedServiceData.fullAddress,
+                contactInfo: parsedServiceData.contactInfo,
+              }));
+              // FIXED: No prefill for meals or food type - start blank
+              setSelectedfood("");
+              setOrderType("delivery");
+              if (parsedServiceData.serviceId || parsedServiceData.id) {
+                const fetchTiffinService = async () => {
+                  try {
+                    const token = await AsyncStorage.getItem("token");
+                    if (!token) return;
+                    const serviceIdToUse = parsedServiceData.serviceId || parsedServiceData.id;
+                    console.log('Fetching tiffin with ID:', serviceIdToUse); // FIXED: Debug log
+                    const response = await axios.get(
+                      `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceIdToUse}`,
+                      {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    );
+                    if (response.data.success) {
+                      console.log('dattttttaaaa', response.data.data);
+                      setTiffinService(response.data.data);
+                      // Set initial order type
+                      const types = response.data.data.orderTypes || [];
+                      if (types.length > 0) {
+                        const initialType = types.includes("Delivery")
+                          ? "delivery"
+                          : types[0].toLowerCase().replace(" ", "");
+                        setOrderType(initialType as "dining" | "delivery");
+                      }
+                      // Set meal labels from mealTimings
+                      const newMealLabels: Record<MealType, string> = {
+                        breakfast: "",
+                        lunch: "",
+                        dinner: "",
+                      };
+                      response.data.data.mealTimings?.forEach((mt: any) => {
+                        const key = mt.mealType.toLowerCase() as MealType;
+                        if (key in newMealLabels) {
+                          const titleCaseMealType = mt.mealType.charAt(0).toUpperCase() + mt.mealType.slice(1).toLowerCase();
+                          newMealLabels[key] =
+                            `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
+                        }
+                      });
+                      setMealLabels(newMealLabels);
+                      // FIXED: Auto-set initial food type based on service
+                      const serviceFoodType = response.data.data.foodType;
+                      let initialFoodValue = "";
+                      if (serviceFoodType === "Veg") {
+                        initialFoodValue = "Veg";
+                      } else if (serviceFoodType === "Non-Veg") {
+                        initialFoodValue = "Non-Veg";
+                      } else if (serviceFoodType === "Both Veg & Non-Veg") {
+                        initialFoodValue = "Both";
+                      }
+                      setSelectedfood(initialFoodValue);
+                    }
+                  } catch (error) {
+                    console.error("Error fetching tiffin service:", error);
+                  }
+                };
+                fetchTiffinService();
+              } else {
+                console.warn('No service ID found for tiffin fetch'); // FIXED: Warn if no ID
+              }
+              // Default date from params - but set to null for user selection
+              setDate(null);
+            }
           } else {
-            console.warn('No service ID found for tiffin fetch'); // FIXED: Warn if no ID
+            console.warn("Profile fetch unsuccessful - falling back to params");
+            handleParamsAutofill();
           }
-          // Default date from params - but set to null for user selection
-          setDate(null);
+        } catch (error) {
+          console.error("Error in autofill useEffect:", error);
+          handleParamsAutofill();
         }
-      } catch (error) {
-        console.error("Error in autofill useEffect:", error);
       }
-    }
+    };
+    const handleParamsAutofill = () => {
+      const parsedUserData = safeParse(userDataStr);
+      console.log('-------> Params parsedUserData:', parsedUserData);
+      // Use params for basics (no API data)
+      setFullName(parsedUserData.name || "");
+      setPhoneNumber((parsedUserData.phoneNumber || "").replace(/^\+91\s*/, '') || "");
+      // Hostel/tiffin specific from params (unchanged logic, but safe)
+      if (isHostelBooking) {
+        const userEmail = parsedUserData.email || "";
+        const userWorkType = parsedUserData.workType || "";
+        const userAdharPhoto = parsedUserData.adharCardPhoto || "";
+        const userPhotoUrl = parsedUserData.userPhoto || "";
+        setServiceData((prev) => ({
+          ...prev,
+          email: userEmail || prev.email,
+          workType: userWorkType || prev.workType,
+          adharCardPhoto: userAdharPhoto || prev.adharCardPhoto,
+          userPhoto: userPhotoUrl || prev.userPhoto,
+        }));
+        setAadhaarPhoto(userAdharPhoto || "");
+        setUserPhoto(userPhotoUrl || "");
+        const workTypeNormalized = userWorkType.toLowerCase();
+        let purpose = "work";
+        if (workTypeNormalized.includes("student")) purpose = "student";
+        else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
+        else if (workTypeNormalized.includes("work")) purpose = "work";
+        setPurposeType(purpose);
+        // ... (rooms parsing, etc.)
+        const parsedHostelData = safeParse(hostelDataStr);
+        const parsedPlan = safeParse(planStr);
+        let rooms: RoomData[] = [];
+        try {
+          const parsedRoomsData = safeParse(roomsDataStr);
+          if (Array.isArray(parsedRoomsData) && parsedRoomsData.length > 0) {
+            rooms = parsedRoomsData;
+          } else {
+            // Backward compat: single room
+            const parsedRoomData = safeParse(roomDataStr);
+            const parsedSelectedBeds = safeParse(selectedBedsStr);
+            rooms = [
+              {
+                roomId: parsedRoomData._id,
+                roomNumber: parsedRoomData.roomNumber,
+                beds: parsedSelectedBeds,
+              },
+            ];
+          }
+        } catch (parseErr) {
+          console.error("Error parsing rooms data:", parseErr);
+          rooms = [];
+        }
+        setServiceData((prev) => ({
+          ...prev,
+          hostelId: parsedHostelData.id,
+          hostelName: parsedHostelData.name || prev.hostelName,
+          rooms,
+          monthlyPrice: parsedPlan.price,
+          deposit: parsedPlan.depositAmount,
+        }));
+        setTimeout(() => prefillFirstBedName(rooms, parsedUserData.name || ""), 0);
+        setHostelPlan(parsedPlan.name || "monthly");
+      }
+      // Tiffin address from params if no API
+      if (isTiffinBooking) {
+        // Params don't have addresses, so skip or use empty
+        setStreet("");
+        setLocality("");
+        setPincode("");
+        const parsedServiceData = safeParse(serviceDataStr);
+        console.log('Parsed service data for tiffin:', parsedServiceData);
+        setServiceData((prev) => ({
+          ...prev,
+          serviceId: parsedServiceData.serviceId || parsedServiceData.id || params.serviceId,
+          serviceName: parsedServiceData.serviceName || parsedServiceData.name,
+          price: parsedServiceData.price,
+          foodType: parsedServiceData.foodType,
+          mealPreferences: parsedServiceData.mealPreferences,
+          orderTypes: parsedServiceData.orderTypes,
+          pricing: parsedServiceData.pricing,
+          location: parsedServiceData.location || parsedServiceData.fullAddress,
+          contactInfo: parsedServiceData.contactInfo,
+        }));
+        setSelectedfood("");
+        setOrderType("delivery");
+        if (parsedServiceData.serviceId || parsedServiceData.id) {
+          const fetchTiffinService = async () => {
+            try {
+              const token = await AsyncStorage.getItem("token");
+              if (!token) return;
+              const serviceIdToUse = parsedServiceData.serviceId || parsedServiceData.id;
+              console.log('Fetching tiffin with ID:', serviceIdToUse);
+              const response = await axios.get(
+                `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceIdToUse}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+              if (response.data.success) {
+                console.log('dattttttaaaa', response.data.data);
+                setTiffinService(response.data.data);
+                // Set initial order type
+                const types = response.data.data.orderTypes || [];
+                if (types.length > 0) {
+                  const initialType = types.includes("Delivery")
+                    ? "delivery"
+                    : types[0].toLowerCase().replace(" ", "");
+                  setOrderType(initialType as "dining" | "delivery");
+                }
+                // Set meal labels from mealTimings
+                const newMealLabels: Record<MealType, string> = {
+                  breakfast: "",
+                  lunch: "",
+                  dinner: "",
+                };
+                response.data.data.mealTimings?.forEach((mt: any) => {
+                  const key = mt.mealType.toLowerCase() as MealType;
+                  if (key in newMealLabels) {
+                    const titleCaseMealType = mt.mealType.charAt(0).toUpperCase() + mt.mealType.slice(1).toLowerCase();
+                    newMealLabels[key] =
+                      `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
+                  }
+                });
+                setMealLabels(newMealLabels);
+                // FIXED: Auto-set initial food type based on service
+                const serviceFoodType = response.data.data.foodType;
+                let initialFoodValue = "";
+                if (serviceFoodType === "Veg") {
+                  initialFoodValue = "Veg";
+                } else if (serviceFoodType === "Non-Veg") {
+                  initialFoodValue = "Non-Veg";
+                } else if (serviceFoodType === "Both Veg & Non-Veg") {
+                  initialFoodValue = "Both";
+                }
+                setSelectedfood(initialFoodValue);
+              }
+            } catch (error) {
+              console.error("Error fetching tiffin service:", error);
+            }
+          };
+          fetchTiffinService();
+        } else {
+          console.warn('No service ID found for tiffin fetch');
+        }
+        setDate(null);
+      }
+    };
+    autofill();
   }, [
     bookingType,
     serviceDataStr,

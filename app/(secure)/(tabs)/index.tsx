@@ -1307,12 +1307,23 @@ export default function DashboardScreen() {
             </TouchableOpacity>
             <Text style={styles.locationSubtext}>{userLocation || "Unknown Location"}</Text>
           </View>
-          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress} accessibilityRole="button" accessibilityLabel="View profile">
-            <Image
-              source={profileSource} // Updated to use conditional source with local fallback
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+               <TouchableOpacity 
+              style={styles.cartButton} 
+              onPress={() => router.push("/(secure)/Cartscreen")} 
+              accessibilityRole="button" 
+              accessibilityLabel="View cart"
+            >
+              <Ionicons name="cart-outline" size={29} color="#000" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress} accessibilityRole="button" accessibilityLabel="View profile">
+              <Image
+                source={profileSource} // Updated to use conditional source with local fallback
+                style={styles.profileImage}
+              />
+            </TouchableOpacity>
+         
+          </View>
         </View>
       </SafeAreaView>
       <FlatList
@@ -1639,6 +1650,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   searchBackButton: {
     width: 32,
     height: 32,
@@ -1647,6 +1662,15 @@ const styles = StyleSheet.create({
     borderColor: colors.title,
     justifyContent: "center",
     alignItems: "center",
+  },
+  cartButton: {
+    marginLeft: 12,
+    width: 45,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   locationContainer: {
     flex: 1,
