@@ -97,12 +97,41 @@ export default function HostelCard({
     onFavoritePress?.(); // तुम्हारा handler same
   };
 
+  // --- Add this helper and debug logging ---
+const _logSubLocation = () => {
+  // quick one-time debug — remove later if noisy
+  if (typeof hostel?.subLocation === 'undefined' || hostel?.subLocation === null) {
+    console.log('HostelCard: subLocation is undefined/null for hostel id:', hostel?.id ?? hostel?._id);
+    return;
+  }
+  console.log('HostelCard: subLocation type for hostel id', hostel?.id ?? hostel?._id, ':', typeof hostel.subLocation, Array.isArray(hostel.subLocation) ? 'Array' : '');
+};
+
+// Call it (optional — useful while debugging during dev)
+_logSubLocation();
+
+function normalizeSubLocation(subLocation: any) : string {
+  if (subLocation === null || typeof subLocation === 'undefined') return '';
+  if (typeof subLocation === 'string') return subLocation;
+  if (Array.isArray(subLocation)) return subLocation.join(', ');
+  if (typeof subLocation === 'object') {
+    // if the backend returns an object like { name: 'XYZ' } — adapt as needed:
+    if ('name' in subLocation && typeof subLocation.name === 'string') return subLocation.name;
+    // fallback to safe stringify (short)
+    try { return JSON.stringify(subLocation); } catch { return String(subLocation); }
+  }
+  return String(subLocation);
+}
+
+
   const totalBeds = (hostel?.availableBeds || 0) + (hostel?.occupiedBeds || 0); // नया: total calc
 
   const displayAmenities = (hostel.amenities ?? []).slice(0, MAX_AMENITIES); // पुराना UI logic
   const remainingAmenities = Math.max(0, (hostel.amenities ?? []).length - MAX_AMENITIES);
 
-  const compactLocation = hostel.subLocation ? `${hostel.location} • ${hostel.subLocation.split(",")[0]}` : hostel.location; // पुराना compact
+  const normalizedSubLoc = normalizeSubLocation(hostel?.subLocation);
+const compactLocation = (hostel?.location || '') + (normalizedSubLoc ? ` • ${normalizedSubLoc.split(',')[0].trim()}` : '');
+
 
   return (
     <TouchableOpacity

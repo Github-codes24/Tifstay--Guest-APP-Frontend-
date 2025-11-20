@@ -245,6 +245,7 @@ const Confirmation: React.FC = () => {
     hostelBooking: bookingDetails.hostelName,
     customer: bookingDetails.guestName,
     checkInDate: formatDate(bookingDetails.checkInDate),
+    checkOutDate: formatDate(bookingDetails.checkOutDate),
     amount: bookingDetails.amount,
   } : {
     id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
@@ -441,7 +442,7 @@ const Confirmation: React.FC = () => {
                 </Text>
               </View>
               {/* <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Meal Type:</Text>
+                <Text style={styles.detailLabel}>End Type:</Text>
                 <Text style={styles.detailValue}>
                   {tiffinBookingDetails.mealType}
                 </Text>
@@ -494,6 +495,12 @@ const Confirmation: React.FC = () => {
                 <Text style={styles.detailLabel}>Check-in date :</Text>
                 <Text style={styles.detailValue}>
                   {hostelBookingDetails.checkInDate}
+                </Text>
+              </View>
+               <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Check-Out date :</Text>
+                <Text style={styles.detailValue}>
+                  {hostelBookingDetails.checkOutDate}
                 </Text>
               </View>
               <View style={styles.detailRow}>

@@ -38,14 +38,26 @@ const fetchPendingHostel = async () => {
 };
 
 const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: () => void }) => {
+  const createdDateFromApi = booking.createdDate || (booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : null);
+  const createdTimeFromApi = booking.createdTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : null);
   return (
     <View style={pendingCardStyles.card}>
       <View style={pendingCardStyles.cardContent}>
         <Text style={pendingCardStyles.name}>{booking.tiffinServiceName}</Text>
+        {/* created date/time */}
+        {(createdDateFromApi || createdTimeFromApi) && (
+          <View style={pendingCardStyles.createdRow}>
+            <Text style={pendingCardStyles.createdLabel}>Booked on:</Text>
+            <Text style={pendingCardStyles.createdValue}>
+              {createdDateFromApi ? createdDateFromApi : ''}{createdDateFromApi && createdTimeFromApi ? ' • ' : ''}{createdTimeFromApi ? createdTimeFromApi : ''}
+            </Text>
+          </View>
+        )}
         <View style={pendingCardStyles.row}>
           <Text style={pendingCardStyles.label}>Plan Type:</Text>
           <Text style={pendingCardStyles.value}>{booking.planType}</Text>
         </View>
+
         <View style={pendingCardStyles.row}>
           <Text style={pendingCardStyles.label}>Food Type:</Text>
           <Text style={pendingCardStyles.value}>{booking.foodType}</Text>
@@ -78,10 +90,22 @@ const PendingHostelCard = ({ booking, onContinue }: { booking: any; onContinue: 
   const planName = booking.selectPlan?.[0]?.name || 'N/A';
   const planPrice = booking.selectPlan?.[0]?.price || 'N/A';
   const roomNumber = booking.rooms?.[0]?.roomNumber || 'N/A';
+  const createdDateFromApi = booking.createdDate || (booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : null);
+  const createdTimeFromApi = booking.createdTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : null);
   return (
     <View style={pendingCardStyles.card}>
       <View style={pendingCardStyles.cardContent}>
         <Text style={pendingCardStyles.name}>{booking.hostelId?.hostelName}</Text>
+        {(createdDateFromApi || createdTimeFromApi) && (
+          <View style={pendingCardStyles.createdRow}>
+            <Text style={pendingCardStyles.createdLabel}>Booked on:</Text>
+            <Text style={pendingCardStyles.createdValue}>
+              {createdDateFromApi ? createdDateFromApi : ''}
+              {createdDateFromApi && createdTimeFromApi ? ' • ' : ''}
+              {createdTimeFromApi ? createdTimeFromApi : ''}
+            </Text>
+          </View>
+        )}
         <View style={pendingCardStyles.row}>
           <Text style={pendingCardStyles.label}>Room:</Text>
           <Text style={pendingCardStyles.value}>{roomNumber}</Text>
@@ -402,6 +426,10 @@ const pendingCardStyles = StyleSheet.create({
     marginTop: 8,
   },
   continueText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
+  createdRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  createdLabel: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
+  createdValue: { fontSize: 12, color: '#1A1A1A', textAlign: 'right', flex: 1 },
+
 });
 
 export default CartScreen;

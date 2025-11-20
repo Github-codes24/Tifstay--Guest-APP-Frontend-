@@ -533,9 +533,10 @@ const Checkout: React.FC = () => {
 
   // FIXED: Adjust paymentAmount to exclude deposit from finalPricing (workaround for backend including it)
   // Use transaction.deposit as primary source for deposit amount
-  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0;
-  const adjustedFinalPrice = finalPricing?.finalPrice ? Math.max(0, finalPricing.finalPrice - depositAmount) : null;
-  const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
+// FIXED: No subtraction needed—API finalPrice is rent-only (excludes deposit)
+const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0; // Keep for modal display
+const adjustedFinalPrice = finalPricing?.finalPrice ?? null; // Direct use of rent-only finalPrice
+const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
   console.log("=== PAYMENT CALC DEBUG ===");
   console.log("transaction.net/total:", transaction?.net ?? transaction?.total ?? 0);
   console.log("finalPricing.finalPrice (raw):", finalPricing?.finalPrice ?? 0);

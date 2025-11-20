@@ -665,23 +665,60 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [tiffinOrder, tiffinService, mealPackages, params.plan]);
   // Handle room selection from modal (for continue mode) - Set full updated selection to support add/remove
-  const handleRoomSelection = (data: ContinueRoomSelectionData) => {
-    const updatedSelected = data.roomsData.flatMap((room) =>
-      room.beds.map((bed) => ({
+ // Handle room selection from modal (for continue mode) - Set full updated selection to support add/remove
+const handleRoomSelection = (data: ContinueRoomSelectionData) => {
+  // Cache existing names and track original order by key
+  const nameCache = new Map();
+  const existingOrder = new Map(); // key -> original index for stable order
+  selectedRooms.forEach((room, originalIndex) => {
+    const key = getBedKey(room.roomId, room.bedId, room.bedNumber);
+    if (room.name && room.name.trim() !== '') {
+      nameCache.set(key, room.name);
+    }
+    existingOrder.set(key, originalIndex);
+  });
+
+  // Build full updated list with merged names
+  const allUpdated = data.roomsData.flatMap((room) =>
+    room.beds.map((bed) => {
+      const key = getBedKey(room.roomId, bed.bedId, Number(bed.bedNumber));
+      // Merge: cached name > modal's bed.name > ''
+      const preservedName = nameCache.get(key) || bed.name || '';
+      return {
         roomNumber: room.roomNumber.toString(),
         bedNumber: Number(bed.bedNumber),
         roomId: room.roomId,
         bedId: bed.bedId,
-        name: bed.name || '',
-      }))
-    );
-    // Set first bed name if not set
-    if (updatedSelected.length > 0 && (!updatedSelected[0].name || updatedSelected[0].name.trim() === '')) {
-      updatedSelected[0].name = fullName || userData?.name || bookingData?.fullName || '';
+        name: preservedName,
+        tempKey: key, // Temp for sorting
+      };
+    })
+  );
+
+  // Split into existing (preserve original order) and new
+  const existingBeds = [];
+  const newBeds = [];
+  allUpdated.forEach((bed) => {
+    const originalIndex = existingOrder.get(bed.tempKey);
+    if (originalIndex !== undefined) {
+      existingBeds[originalIndex] = { ...bed, tempKey: undefined }; // Place in original slot
+    } else {
+      newBeds.push({ ...bed, tempKey: undefined });
     }
-    setSelectedRooms(updatedSelected); // Set full updated list (supports deselection/removal)
-    console.log("Updated selected rooms from modal:", updatedSelected); // Debug
-  };
+  });
+
+  // Filter out undefined slots and append new
+  const orderedExisting = existingBeds.filter(Boolean);
+  const finalUpdated = [...orderedExisting, ...newBeds];
+
+  // Existing fallback for primary guest (first bed)
+  if (finalUpdated.length > 0 && (!finalUpdated[0].name || finalUpdated[0].name.trim() === '')) {
+    finalUpdated[0].name = fullName || userData?.name || bookingData?.fullName || '';
+  }
+
+  setSelectedRooms(finalUpdated); // Set full updated list (supports deselection/removal)
+  console.log("Updated selected rooms from modal (existing first, new appended):", finalUpdated); // Debug
+};
   const fetchHostelPlanTypes = async () => {
     if (!token) return;
     setIsFetchingHostelPlans(true);

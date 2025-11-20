@@ -54,6 +54,8 @@ interface Order {
   tiffinServiceId?: string; // Tiffin-specific: Service ID
   guestId?: string; // Tiffin-specific: Guest ID
   guestName?: string; // Tiffin-specific: Guest full name
+  createdDate?: string; // NEW: Created date (e.g., "15/11/2025")
+  createdTime?: string; // NEW: Created time (e.g., "05:24:05")
 }
 const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Promise<Order[]> => {
   const token = await AsyncStorage.getItem("token");
@@ -112,6 +114,9 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
       // FIXED: Extract _id as string; handle object or string input
       entityId: typeof item.hostelId === "object" ? item.hostelId?._id : (typeof item.hostelId === "string" ? item.hostelId : undefined),
       rooms: item.rooms || [],
+      // NEW: Map created date and time
+      createdDate: item.createdDate || "",
+      createdTime: item.createdTime || "",
     };
   });
   // DEBUG: Log hostel orders statuses
@@ -164,6 +169,9 @@ const fetchTiffinOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
       tiffinServiceId: item.tiffinServiceId || "",
       guestId: item.guestId || "",
       guestName: item.guestName || "",
+      // NEW: Map created date and time
+      createdDate: item.createdDate || "",
+      createdTime: item.createdTime || "",
     };
   });
   // DEBUG: Log tiffin orders statuses (especially for "confirmed" tab)
@@ -648,9 +656,17 @@ const handleContinueSubscription = (order: Order) => {
             </Text>
           </View>
         </View>
-        {order.serviceType !== "hostel" && (
-          <Text style={styles.orderedOneLbl}>Order On {order.startDate}</Text>
+        {/* NEW: Created date and time display (for all tabs, both types) */}
+        {(order.createdDate || order.createdTime) && (
+          <View style={styles.createdAtContainer}>
+            <Text style={styles.createdAtText}>
+              Booked on {order.createdDate || "N/A"} at {order.createdTime || "N/A"}
+            </Text>
+          </View>
         )}
+        {/* {order.serviceType !== "hostel" && (
+          <Text style={styles.orderedOneLbl}>Order On {order.startDate}</Text>
+        )} */}
         <View style={styles.orderDetails}>
           {order.serviceType === "hostel" ? (
             <>
@@ -1312,6 +1328,14 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  // NEW: Styles for created date/time
+  createdAtContainer: {
+    marginBottom: 12,
+  },
+  createdAtText: {
+    fontSize: 12,
+    color: "#9CA3AF",
   },
   orderDetails: {
     paddingVertical: 0,
