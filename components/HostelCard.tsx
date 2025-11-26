@@ -111,14 +111,27 @@ const _logSubLocation = () => {
 _logSubLocation();
 
 function normalizeSubLocation(subLocation: any) : string {
-  if (subLocation === null || typeof subLocation === 'undefined') return '';
+  if (subLocation === null || typeof subLocation === 'undefined' || subLocation === '') return '';
   if (typeof subLocation === 'string') return subLocation;
-  if (Array.isArray(subLocation)) return subLocation.join(', ');
+  if (Array.isArray(subLocation)) {
+    if (subLocation.length === 0) return '';
+    // Extract names from array of objects (nearbyLandmarks)
+    const names = subLocation
+      .filter((item: any) => item && typeof item === 'object' && 'name' in item && typeof item.name === 'string')
+      .map((item: any) => item.name)
+      .slice(0, 2); // Limit to first 2 for compactness
+    if (names.length > 0) {
+      return names.join(', ');
+    } else {
+      // Fallback: join stringified items (but avoid [object Object])
+      return subLocation.slice(0, 2).map((item: any) => String(item.name || item || '')).filter(Boolean).join(', ') || '';
+    }
+  }
   if (typeof subLocation === 'object') {
-    // if the backend returns an object like { name: 'XYZ' } — adapt as needed:
+    // Single object case
     if ('name' in subLocation && typeof subLocation.name === 'string') return subLocation.name;
-    // fallback to safe stringify (short)
-    try { return JSON.stringify(subLocation); } catch { return String(subLocation); }
+    // Fallback to safe stringify
+    try { return JSON.stringify(subLocation).replace(/["{}]/g, ''); } catch { return String(subLocation); }
   }
   return String(subLocation);
 }

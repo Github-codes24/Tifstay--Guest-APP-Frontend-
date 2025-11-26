@@ -27,7 +27,7 @@ const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
 const CARD_MARGIN = 10;
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
-  const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount } = params;
+  const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount, checkInDate: paramCheckIn, checkOutDate: paramCheckOut } = params;
   const isTiffin = serviceType === "tiffin";
   const [bookingDetails, setBookingDetails] = useState(null);
   const [tiffinDetails, setTiffinDetails] = useState(null);
@@ -35,6 +35,7 @@ const Confirmation: React.FC = () => {
   const [randomTiffins, setRandomTiffins] = useState([]);
   const [randomHostels, setRandomHostels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | null>(null);
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -60,6 +61,7 @@ const Confirmation: React.FC = () => {
           const token = await AsyncStorage.getItem("token");
           if (!token) {
             setLoading(false);
+            setPaymentStatus('unpaid');
             return;
           }
           let response;
@@ -72,6 +74,9 @@ const Confirmation: React.FC = () => {
             );
             if (response.data.success) {
               setTiffinDetails(response.data.data);
+              setPaymentStatus('paid');
+            } else {
+              setPaymentStatus('unpaid');
             }
           } else {
             response = await axios.get(
@@ -82,19 +87,29 @@ const Confirmation: React.FC = () => {
             );
             if (response.data.success) {
               setBookingDetails(response.data.data);
+              setPaymentStatus('paid');
+            } else {
+              setPaymentStatus('unpaid');
             }
           }
         } catch (error) {
           console.error("Error fetching booking details:", error);
+          setPaymentStatus('unpaid');
         } finally {
           setLoading(false);
         }
       } else {
         setLoading(false);
+        setPaymentStatus('unpaid');
       }
     };
     fetchBookingDetails();
   }, [id, isTiffin]);
+  useEffect(() => {
+    if (!id) {
+      setPaymentStatus('unpaid');
+    }
+  }, [id]);
   useEffect(() => {
     const fetchRandomTiffins = async () => {
       if (!isTiffin) {
@@ -253,7 +268,8 @@ const Confirmation: React.FC = () => {
     )}`,
     hostelBooking: serviceName || "Scholars Den Boys Hostel",
     customer: paramGuestName || "Onil Karmokar",
-    checkInDate: "01/08/25",
+    checkInDate: formatDate(paramCheckIn) || "01/08/25",
+    checkOutDate: formatDate(paramCheckOut) || "01/09/25",
     amount: paramAmount || 'N/A',
   };
   const handlePrintInvoice = async () => {
@@ -400,6 +416,8 @@ const Confirmation: React.FC = () => {
       </SafeAreaView>
     );
   }
+  const statusColor = paymentStatus === 'paid' ? '#22c55e' : '#ef4444';
+  const statusText = paymentStatus === 'paid' ? 'Paid' : 'Unpaid';
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -471,6 +489,12 @@ const Confirmation: React.FC = () => {
                   ₹{tiffinBookingDetails.amount || 'N/A'}
                 </Text>
               </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <Text style={[styles.detailValue, { color: statusColor }]}>
+                  {statusText}
+                </Text>
+              </View>
               <View style={[styles.detailRow]}>
                 <Text style={styles.detailLabel}>Order ID:</Text>
                 <Text style={styles.orderId}>#{tiffinBookingDetails.bookingId}</Text>
@@ -507,6 +531,12 @@ const Confirmation: React.FC = () => {
                 <Text style={styles.detailLabel}>Amount :</Text>
                 <Text style={styles.detailValue}>
                   ₹{hostelBookingDetails.amount || 'N/A'}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status:</Text>
+                <Text style={[styles.detailValue, { color: statusColor }]}>
+                  {statusText}
                 </Text>
               </View>
               <View style={[styles.detailRow]}>

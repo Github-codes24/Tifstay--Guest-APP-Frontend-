@@ -180,7 +180,18 @@ export default function LoginScreen() {
        errorData.message?.toLowerCase().includes("not registered") ||
        error.response?.status === 404);
 
-    if (isUnregisteredGuest) {
+    // Check for blocked account
+    const isBlockedAccount =
+      errorData &&
+      errorData.message?.toLowerCase().includes("blocked");
+
+    if (isBlockedAccount) {
+      Toast.show({
+        type: "error",
+        text1: "Account Blocked",
+        text2: "Guest account is blocked. Please contact support.",
+      });
+    } else if (isUnregisteredGuest) {
       Toast.show({
         type: "error",
         text1: "Guest Not Registered",

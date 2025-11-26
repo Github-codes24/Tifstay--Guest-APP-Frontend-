@@ -52,7 +52,7 @@ interface TiffinCardProps {
     tags?: string[];
     mealPreferences?: { type: string; time: string }[];
     location?: any;
-    highestPrice?: string | number;
+    lowestPrice?: string | number;
     timing?: string; // Fallback for single timing
   };
   onPress?: () => void;
@@ -115,10 +115,10 @@ export default function TiffinCard({
       : service.location.fullAddress || JSON.stringify(service.location) 
     : "-";
 
-  // Format highestPrice if it's a number
-  const formattedHighestPrice = typeof service.highestPrice === "number" 
-    ? `${service.highestPrice}` 
-    : service.highestPrice || "-";
+  // Format lowestPrice if it's a number
+  const formattedLowestPrice = typeof service.lowestPrice === "number" 
+    ? `${service.lowestPrice}` 
+    : service.lowestPrice || "-";
 
   return (
     <TouchableOpacity
@@ -179,7 +179,7 @@ export default function TiffinCard({
           <Text style={styles.serviceName} numberOfLines={1} ellipsizeMode="tail">
             {service.name}
           </Text>
-          {service?.highestPrice && ( // same condition
+          {service?.lowestPrice && ( // same condition
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>10% OFF</Text>
             </View>
@@ -205,7 +205,7 @@ export default function TiffinCard({
             </Text>
           </View>
         </View>
-        {/* Price & Book Button (updated to show price details + highest pricing) */}
+        {/* Price & Book Button (updated to show price details + lowest pricing) */}
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
             {/* <View style={styles.priceRow}>
@@ -215,8 +215,8 @@ export default function TiffinCard({
             {service?.oldPrice && ( // same
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
             )} */}
-            {service?.highestPrice && ( // extra for up to
-              <Text style={[styles.price,{fontSize:21}]}>Up to ₹{formattedHighestPrice}/-</Text>
+            {service?.lowestPrice && ( // extra for up to
+              <Text style={[styles.price,{fontSize:21}]}>From ₹{formattedLowestPrice}/-</Text>
             )}
           </View>
           <TouchableOpacity

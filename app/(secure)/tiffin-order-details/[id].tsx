@@ -20,7 +20,6 @@ import Button from "@/components/Buttons";
 import Header from "@/components/Header";
 import { useAuthStore } from "@/store/authStore";
 import fallbackDp from "@/assets/images/fallbackdp.png";
-
 interface SkippedMeal {
   date: string;
   meals: {
@@ -28,7 +27,6 @@ interface SkippedMeal {
     dinner: boolean;
   };
 }
-
 export default function TiffinOrderDetails() {
   const params = useLocalSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -45,17 +43,12 @@ export default function TiffinOrderDetails() {
     []
   );
   const [fullExtensionAllocations, setFullExtensionAllocations] = useState([]);
-  const [showExtensionModal, setShowExtensionModal] = useState(false);
-  const [selectedExtension, setSelectedExtension] = useState(null);
   const [showSkipModal, setShowSkipModal] = useState(false);
   const [selectedSkip, setSelectedSkip] = useState(null);
   const { id, bookingId, type } = params;
-
   const [currentMonth, setCurrentMonth] = useState(new Date());
-
   const [startDateFull, setStartDateFull] = useState(new Date());
   const [endDateFull, setEndDateFull] = useState(new Date());
-
   const [bookingData, setBookingData] = useState({
     bookingId: "5648904",
     orderedOn: "13/10/2025",
@@ -67,24 +60,18 @@ export default function TiffinOrderDetails() {
     orderType: "Delivery",
     endDate: "2025-10-17",
   });
-
   const [skips, setSkips] = useState([]);
-
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
-
   const { profileData, fetchProfile } = useAuthStore();
-
   const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
-
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   };
-
   const formatShortDate = (isoString: string) => {
     const date = new Date(isoString);
     const d = date.getDate().toString().padStart(2, "0");
@@ -92,19 +79,16 @@ export default function TiffinOrderDetails() {
     const y = date.getFullYear().toString().slice(2);
     return `${d}/${m}/${y}`;
   };
-
   useEffect(() => {
     if (!profileData) {
       fetchProfile();
     }
   }, [profileData, fetchProfile]);
-
   useEffect(() => {
     const today = new Date();
     setSkipFromDate(formatDate(today));
     setSkipToDate(formatDate(today));
   }, []);
-
   const fetchData = useCallback(async () => {
     console.log("Fetching data for ID:", id);
     if (!id) return;
@@ -122,7 +106,7 @@ export default function TiffinOrderDetails() {
         setEndDateFull(new Date(data.summary.endDate));
         setCurrentMonth(new Date(data.summary.startDate));
         setSelectedDate(new Date(data.summary.startDate));
-        
+       
         setBookingData((prev) => ({
           ...prev,
           bookingId: data.summary.bookingId,
@@ -134,10 +118,8 @@ export default function TiffinOrderDetails() {
           orderType: data.summary.orderType,
           endDate: formatShortDate(data.summary.endDate),
         }));
-
         setSkips(data.fullSkipHistory || []);
         setFullExtensionAllocations(data.fullExtensionAllocations || []);
-
         const history = (data.fullSkipHistory || []).map((skip: any) => ({
           date: formatDate(new Date(skip.skipDateLocal)),
           meals: {
@@ -158,33 +140,41 @@ export default function TiffinOrderDetails() {
       setShowModal(true);
     }
   }, [id]);
-
   useEffect(() => {
     fetchData();
   }, [id, fetchData]);
-
   const latestSkip = useMemo(() => {
     if (skips.length === 0) return null;
-
     const today = new Date();
     today.setHours(23, 59, 59, 999);
-
     let latest = null;
     let latestDate = new Date(0);
-
     skips.forEach((skip) => {
       const skipDate = new Date(skip.skipDateLocal);
       skipDate.setHours(0, 0, 0, 0);
-
       if (skipDate <= today && skipDate > latestDate) {
         latestDate = skipDate;
         latest = skip;
       }
     });
-
     return latest;
   }, [skips]);
-
+  const isSelectedInPeriod = useMemo(() => {
+    const sel = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    const start = new Date(startDateFull.getFullYear(), startDateFull.getMonth(), startDateFull.getDate());
+    const end = new Date(endDateFull.getFullYear(), endDateFull.getMonth(), endDateFull.getDate());
+    return sel >= start && sel <= end;
+  }, [selectedDate, startDateFull, endDateFull]);
+  const isSelectedExtension = useMemo(() => {
+    return fullExtensionAllocations.some((e: any) => {
+      const extDate = new Date(e.dateLocal);
+      return (
+        selectedDate.getFullYear() === extDate.getFullYear() &&
+        selectedDate.getMonth() === extDate.getMonth() &&
+        selectedDate.getDate() === extDate.getDate()
+      );
+    });
+  }, [selectedDate, fullExtensionAllocations]);
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -192,7 +182,6 @@ export default function TiffinOrderDetails() {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-
     const days = [];
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
@@ -202,19 +191,34 @@ export default function TiffinOrderDetails() {
     }
     return days;
   };
-
   const handlePreviousMonth = () => {
     const newMonth = new Date(currentMonth);
     newMonth.setMonth(newMonth.getMonth() - 1);
+    const startMonthYear = new Date(startDateFull.getFullYear(), startDateFull.getMonth(), 1);
+    if (newMonth < startMonthYear) {
+      return;
+    }
     setCurrentMonth(newMonth);
   };
-
   const handleNextMonth = () => {
     const newMonth = new Date(currentMonth);
     newMonth.setMonth(newMonth.getMonth() + 1);
+    const endMonthYear = new Date(endDateFull.getFullYear(), endDateFull.getMonth() + 1, 0);
+    if (newMonth > endMonthYear) {
+      return;
+    }
     setCurrentMonth(newMonth);
   };
-
+  const canGoPrevious = useMemo(() => {
+    const currentMonthYear = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const startMonthYear = new Date(startDateFull.getFullYear(), startDateFull.getMonth(), 1);
+    return currentMonthYear > startMonthYear;
+  }, [currentMonth, startDateFull]);
+  const canGoNext = useMemo(() => {
+    const currentMonthYear = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    const endMonthYear = new Date(endDateFull.getFullYear(), endDateFull.getMonth() + 1, 0);
+    return currentMonthYear < endMonthYear;
+  }, [currentMonth, endDateFull]);
   const getMonthYearString = (date: Date) => {
     const months = [
       "January",
@@ -232,7 +236,6 @@ export default function TiffinOrderDetails() {
     ];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
-
   const handleSaveSkipMeal = async () => {
     // Format selected date as YYYY-MM-DD
     const date = new Date(selectedDate);
@@ -240,12 +243,10 @@ export default function TiffinOrderDetails() {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const formattedDate = `${year}-${month}-${day}`;
-
     // Collect selected meals
     const selectedMeals: string[] = [];
     if (skipMeals.lunch) selectedMeals.push("lunch");
     if (skipMeals.dinner) selectedMeals.push("dinner");
-
     // Prepare request body
     const body: any = { date: formattedDate };
     if (selectedMeals.length === 1) {
@@ -255,9 +256,7 @@ export default function TiffinOrderDetails() {
     } else if (selectedMeals.length === 0) {
       body.mealType = "all"; // if none selected, perhaps skip all? But adjust as needed
     }
-
     console.log("Saving skip meal with body:", body);
-
     try {
       const saveResponse = await fetch(
         `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`,
@@ -269,13 +268,11 @@ export default function TiffinOrderDetails() {
           body: JSON.stringify(body),
         }
       );
-
       if (!saveResponse.ok) {
         let errorMessage = "Failed to skip meal. Please try again.";
         try {
           const errText = await saveResponse.text();
           console.error("Server response:", errText);
-
           // Map server error messages to user-friendly ones
           if (errText.toLowerCase().includes("limit") || errText.toLowerCase().includes("exceed")) {
             errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
@@ -297,18 +294,15 @@ export default function TiffinOrderDetails() {
         setShowModal(true);
         return; // Exit early without refreshing data
       }
-
       await fetchData();
       setShowSkipMeal(false);
       setSkipMeals({ lunch: false, dinner: false });
-
       setModalMessage("Meal skip preferences saved successfully!");
       setIsSuccess(true);
       setShowModal(true);
     } catch (error: any) {
       console.error("Error saving skip meal:", error);
       let errorMessage = "Failed to skip meal. Please try again.";
-
       // Handle common network or other errors
       if (error.message.includes("network") || error.message.includes("fetch")) {
         errorMessage = "Network error. Please check your internet connection and try again.";
@@ -321,17 +315,14 @@ export default function TiffinOrderDetails() {
           error?.message ||
           (typeof error === "string" ? error : "An unexpected error occurred. Please try again later.");
       }
-
       setModalMessage(errorMessage);
       setIsSuccess(false);
       setShowModal(true);
     }
   };
-
   const handleProfilePress = () => {
     router.push("/account/profile");
   };
-
   const getSkippedMealsForDate = (targetDate: Date) => {
     const skip = skips.find((s: any) => {
       const skipDate = new Date(s.skipDateLocal);
@@ -362,7 +353,6 @@ export default function TiffinOrderDetails() {
     }
     return null;
   };
-
   const getAllocatedMealsForExtension = (ext: any) => {
     const allocated = {
       lunch: false,
@@ -382,7 +372,6 @@ export default function TiffinOrderDetails() {
     }
     return allocated;
   };
-
   const isDateSkipped = (day: number) => {
     const date = new Date(
       currentMonth.getFullYear(),
@@ -400,17 +389,14 @@ export default function TiffinOrderDetails() {
     });
     return !!skip;
   };
-
   const renderCalendarDay = (day: number | null, index: number) => {
     if (!day) {
       return <View key={`empty-${index}`} style={styles.calendarDayEmpty} />;
     }
-
     const isToday =
       day === new Date().getDate() &&
       currentMonth.getMonth() === new Date().getMonth() &&
       currentMonth.getFullYear() === new Date().getFullYear();
-
     const dateForMeals = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth(),
@@ -437,11 +423,9 @@ export default function TiffinOrderDetails() {
         dateForMeals.getDate() === extDate.getDate()
       );
     });
-
     let dayStyle = [styles.calendarDay];
     let textStyle = [styles.calendarDayText];
     // console.log("Rendering day:", day, { dateForMeals });
-
     if (isSkippedDate) {
       textStyle.push(styles.calendarDayTextSkipped);
     } else if (isExtensionDate) {
@@ -451,7 +435,6 @@ export default function TiffinOrderDetails() {
     } else if (isInPeriod) {
       textStyle.push(styles.calendarDayTextPeriod);
     }
-
     return (
       <TouchableOpacity
         key={`day-${day}`}
@@ -489,16 +472,12 @@ export default function TiffinOrderDetails() {
               }
             : isExtensionDate
             ? () => {
-                const ext = fullExtensionAllocations.find((e: any) => {
-                  const extDate = new Date(e.dateLocal);
-                  return (
-                    dateForMeals.getFullYear() === extDate.getFullYear() &&
-                    dateForMeals.getMonth() === extDate.getMonth() &&
-                    dateForMeals.getDate() === extDate.getDate()
-                  );
-                });
-                setSelectedExtension(ext);
-                setShowExtensionModal(true);
+                const newDate = new Date(
+                  currentMonth.getFullYear(),
+                  currentMonth.getMonth(),
+                  day
+                );
+                setSelectedDate(newDate);
               }
             : undefined
         }
@@ -507,30 +486,28 @@ export default function TiffinOrderDetails() {
       </TouchableOpacity>
     );
   };
-
   const renderSelectedDateMeals = () => {
     const skippedMeals = getSkippedMealsForDate(selectedDate);
-
-    if (!skippedMeals) {
+    const ext = fullExtensionAllocations.find((e: any) => {
+      const extDate = new Date(e.dateLocal);
       return (
-        <View style={styles.selectedDateMeals}>
-          <Text style={styles.selectedDateText}>
-            Date: {formatDate(selectedDate)}
-          </Text>
-          <View style={styles.mealStatusRow}>
-            <View style={styles.mealStatus}>
-              <Text style={styles.mealStatusLabel}>Lunch</Text>
-              <Ionicons name="checkmark" size={20} color="#10B981" />
-            </View>
-            <View style={styles.mealStatus}>
-              <Text style={styles.mealStatusLabel}>Dinner</Text>
-              <Ionicons name="checkmark" size={20} color="#10B981" />
-            </View>
-          </View>
-        </View>
+        selectedDate.getFullYear() === extDate.getFullYear() &&
+        selectedDate.getMonth() === extDate.getMonth() &&
+        selectedDate.getDate() === extDate.getDate()
       );
+    });
+    let mealsStatus = {
+      lunch: true,
+      dinner: true,
+    };
+    if (skippedMeals) {
+      mealsStatus.lunch = !skippedMeals.lunch;
+      mealsStatus.dinner = !skippedMeals.dinner;
+    } else if (ext) {
+      const allocatedMeals = getAllocatedMealsForExtension(ext);
+      mealsStatus.lunch = allocatedMeals.lunch;
+      mealsStatus.dinner = allocatedMeals.dinner;
     }
-
     return (
       <View style={styles.selectedDateMeals}>
         <Text style={styles.selectedDateText}>
@@ -539,81 +516,26 @@ export default function TiffinOrderDetails() {
         <View style={styles.mealStatusRow}>
           <View style={styles.mealStatus}>
             <Text style={styles.mealStatusLabel}>Lunch</Text>
-            {skippedMeals.lunch ? (
-              <Ionicons name="close" size={20} color="#EF4444" />
-            ) : (
+            {mealsStatus.lunch ? (
               <Ionicons name="checkmark" size={20} color="#10B981" />
+            ) : (
+              <Ionicons name="close" size={20} color="#EF4444" />
             )}
           </View>
           <View style={styles.mealStatus}>
             <Text style={styles.mealStatusLabel}>Dinner</Text>
-            {skippedMeals.dinner ? (
-              <Ionicons name="close" size={20} color="#EF4444" />
-            ) : (
+            {mealsStatus.dinner ? (
               <Ionicons name="checkmark" size={20} color="#10B981" />
+            ) : (
+              <Ionicons name="close" size={20} color="#EF4444" />
             )}
           </View>
         </View>
       </View>
     );
   };
-
-  const renderExtensionModal = () => {
-    if (!selectedExtension) return null;
-    const allocatedMeals = getAllocatedMealsForExtension(selectedExtension);
-
-    return (
-      <Modal
-        visible={showExtensionModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          setShowExtensionModal(false);
-          setSelectedExtension(null);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalText}>Extension Details</Text>
-            <Text style={[styles.modalText, { fontSize: 14, marginBottom: 20 }]}>
-              Date: {selectedExtension.dateLocal}
-            </Text>
-            <View style={styles.mealStatusRow}>
-              <View style={styles.mealStatus}>
-                <Text style={styles.mealStatusLabel}>Lunch</Text>
-                {allocatedMeals.lunch ? (
-                  <Ionicons name="checkmark" size={20} color="#10B981" />
-                ) : (
-                  <Ionicons name="close" size={20} color="#EF4444" />
-                )}
-              </View>
-              <View style={styles.mealStatus}>
-                <Text style={styles.mealStatusLabel}>Dinner</Text>
-                {allocatedMeals.dinner ? (
-                  <Ionicons name="checkmark" size={20} color="#10B981" />
-                ) : (
-                  <Ionicons name="close" size={20} color="#EF4444" />
-                )}
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                setShowExtensionModal(false);
-                setSelectedExtension(null);
-              }}
-              style={styles.modalButton}
-            >
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
   const renderSkipModal = () => {
     if (!selectedSkip) return null;
-
     const skippedMeals = {
       lunch: false,
       dinner: false,
@@ -630,7 +552,6 @@ export default function TiffinOrderDetails() {
     } else if (mealType === "dinner") {
       skippedMeals.dinner = true;
     }
-
     return (
       <Modal
         visible={showSkipModal}
@@ -679,7 +600,6 @@ export default function TiffinOrderDetails() {
       </Modal>
     );
   };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerWrapper}>
@@ -697,7 +617,9 @@ export default function TiffinOrderDetails() {
         </View>
         <Text style={styles.headerSubtitle}>Track your tiffin bookings</Text>
       </View>
-
+      <View style={styles.noteContainer}>
+        <Text style={styles.noteText}> Note : Select a date to skip meal for that day</Text>
+      </View>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -710,7 +632,6 @@ export default function TiffinOrderDetails() {
           <Text style={styles.orderedOn}>
             Ordered on {bookingData.orderedOn}
           </Text>
-
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Tiffin Service:</Text>
@@ -742,29 +663,32 @@ export default function TiffinOrderDetails() {
               <Text style={styles.detailLabel}>Order Type:</Text>
               <Text style={styles.detailValue}>{bookingData.orderType}</Text>
             </View>
+            
           </View>
-
           <View style={styles.calendarSection}>
             <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={handlePreviousMonth}>
-                <Ionicons
-                  name="chevron-back"
-                  size={24}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
+              {canGoPrevious && (
+                <TouchableOpacity onPress={handlePreviousMonth}>
+                  <Ionicons
+                    name="chevron-back"
+                    size={24}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
               <Text style={styles.calendarMonth}>
                 {getMonthYearString(currentMonth)}
               </Text>
-              <TouchableOpacity onPress={handleNextMonth}>
-                <Ionicons
-                  name="chevron-forward"
-                  size={24}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
+              {canGoNext && (
+                <TouchableOpacity onPress={handleNextMonth}>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={24}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
-
             <View style={styles.calendarDaysHeader}>
               {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
                 <Text key={day} style={styles.calendarDayHeader}>
@@ -772,17 +696,14 @@ export default function TiffinOrderDetails() {
                 </Text>
               ))}
             </View>
-
             <View style={styles.calendarGrid}>
               {getDaysInMonth(currentMonth).map((day, index) =>
                 renderCalendarDay(day, index)
               )}
             </View>
           </View>
-
           {renderSelectedDateMeals()}
-
-          {bookingData?.plan?.toLowerCase() === "monthly" && (
+          {isSelectedInPeriod && !isSelectedExtension && bookingData?.plan?.toLowerCase() === "monthly" && (
             <View style={styles.skipMealSection}>
               <View style={styles.skipMealHeader}>
                 <View style={styles.skipMealIcon}>
@@ -796,16 +717,13 @@ export default function TiffinOrderDetails() {
                   thumbColor="#fff"
                 />
               </View>
-
               {showSkipMeal && (
                 <View style={styles.skipMealForm}>
                   <Text style={styles.datePickerLabel}>
                     Date: {formatDate(selectedDate)}
                   </Text>
-
                   <View style={styles.mealCheckboxes}>
                     <Text style={styles.checkboxLabel}>Select Meal</Text>
-
                     <TouchableOpacity
                       style={styles.mealCheckbox}
                       onPress={() =>
@@ -824,7 +742,6 @@ export default function TiffinOrderDetails() {
                       </View>
                       <Text style={styles.checkboxLabel}>Lunch</Text>
                     </TouchableOpacity>
-
                     <TouchableOpacity
                       style={styles.mealCheckbox}
                       onPress={() =>
@@ -847,7 +764,6 @@ export default function TiffinOrderDetails() {
                       <Text style={styles.checkboxLabel}>Dinner</Text>
                     </TouchableOpacity>
                   </View>
-
                   <Button
                     title="Save"
                     onPress={handleSaveSkipMeal}
@@ -858,7 +774,6 @@ export default function TiffinOrderDetails() {
               )}
             </View>
           )}
-
           {latestSkip && (
             <View style={styles.skipHistorySection}>
               <View key={latestSkip.date} style={styles.skipHistoryItem}>
@@ -883,7 +798,6 @@ export default function TiffinOrderDetails() {
           )}
         </View>
       </ScrollView>
-
       {showFromDatePicker && (
         <DateTimePicker
           value={new Date()}
@@ -897,7 +811,6 @@ export default function TiffinOrderDetails() {
           }}
         />
       )}
-
       {showToDatePicker && (
         <DateTimePicker
           value={new Date()}
@@ -911,7 +824,6 @@ export default function TiffinOrderDetails() {
           }}
         />
       )}
-
       <Modal
         visible={showModal}
         transparent={true}
@@ -927,13 +839,10 @@ export default function TiffinOrderDetails() {
           </View>
         </View>
       </Modal>
-
-      {renderExtensionModal()}
       {renderSkipModal()}
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -971,6 +880,18 @@ const styles = StyleSheet.create({
     marginTop: -14,
     width: "100%",
     flex: 1,
+  },
+  noteContainer: {
+    paddingHorizontal: 26,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  noteText: {
+    fontSize: 16,
+    color: "#000",
+    justifyContent:"flex-start",
+    marginBottom:10
+   
   },
   scrollView: {
     flex: 1,

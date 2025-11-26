@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl, // Add this import for pull-to-refresh
   Modal,
+  useWindowDimensions, // Added import for dynamic button width calculation
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -189,6 +190,7 @@ const Booking: React.FC = () => {
   const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
   const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
   const { profileData, fetchProfile } = useAuthStore();
+  const { width: screenWidth } = useWindowDimensions(); // Added for dynamic button width
   // --- Fetch profile if not loaded ---
   React.useEffect(() => {
     if (!profileData) {
@@ -616,6 +618,8 @@ const handleContinueSubscription = (order: Order) => {
   const isHistoryOrder = (status: string) =>
     ["delivered", "completed"].includes(status);
   const handleProfilePress = () => router.push("/account/profile");
+  // Calculate dynamic button width for consistent alignment (only used for Confirmed Tiffin buttons)
+  const dynamicButtonWidth = Math.floor((screenWidth - 32 - 12) / 2);
   const renderOrderCard = (order: Order) => {
     // DEBUG: Log order details and conditions for button visibility
     console.log("=== DEBUG: Rendering Order Card ===");
@@ -833,14 +837,14 @@ const handleContinueSubscription = (order: Order) => {
                         onPress={() => handleRateNow(order)}
                         style={styles.rateButtonStyle}
                         textStyle={styles.secondaryButtonTextStyle}
-                        width={160}
+                        width={dynamicButtonWidth}
                         height={48}
                       />
                       <Button
                         title="See Details"
                         onPress={() => handleSeeDetails(order)}
                         style={styles.repeatButtonStyle}
-                        width={160}
+                        width={dynamicButtonWidth}
                         height={48}
                       />
                     </View>
@@ -1391,7 +1395,6 @@ const styles = StyleSheet.create({
   backgroundColor: "transparent",
   borderWidth: 1,
   borderColor: colors.primary,
-  width: 230,
   alignSelf: "center",
 },
   repeatButtonStyle: {

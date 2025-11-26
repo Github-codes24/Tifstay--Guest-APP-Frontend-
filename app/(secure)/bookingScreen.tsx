@@ -138,7 +138,7 @@ export default function BookingScreen() {
   const [isLoadingHostel, setIsLoadingHostel] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const ranAutofill = useRef(false);
-  const [expandedTiffin, setExpandedTiffin] = useState<number | null>(bookingType === "hostel" ? 0 : null);
+  const [expandedTiffin, setExpandedTiffin] = useState<number | null>(bookingType === "hostel" || bookingType === "reserve" ? 0 : null);
   // NEW: Single tiffin meal preferences
   const [tiffinMeals, setTiffinMeals] = useState<Record<MealType, boolean>>({
     breakfast: false,
@@ -151,6 +151,26 @@ export default function BookingScreen() {
   const [selectedPlanType, setSelectedPlanType] = useState(""); // e.g., "Lunch & dinner"
   // NEW: Meal package selection
   const [selectedMealPackage, setSelectedMealPackage] = useState<number>(0);
+  // Refs for auto-scroll
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fullNameRef = useRef<TextInput>(null);
+  const phoneNumberRef = useRef<TextInput>(null);
+  // Tiffin refs
+  const streetRef = useRef<TextInput>(null);
+  const localityRef = useRef<TextInput>(null);
+  const pincodeRef = useRef<TextInput>(null);
+  const datePickerRef = useRef<TouchableOpacity>(null);
+  const endDateDisplayRef = useRef<View>(null);
+  const foodTypeSectionRef = useRef<View>(null);
+  const mealPackageSectionRef = useRef<View>(null);
+  const subscriptionTypeSectionRef = useRef<View>(null);
+  // Hostel refs
+  const checkInDateRef = useRef<TouchableOpacity>(null);
+  const checkOutDateRef = useRef<View>(null);
+  const aadhaarSectionRef = useRef<View>(null);
+  const userSectionRef = useRef<View>(null);
+  const bedSectionRef = useRef<View>(null);
+  const bedNameRefs = useRef<Record<string, TextInput>>({});
   const getMealsFromPlanType = (
     planType: string
   ): Record<MealType, boolean> => {
@@ -278,7 +298,9 @@ export default function BookingScreen() {
     if (!tiffinPlan) newErrors.tiffinPlan = "Subscription type is required!";
     if (!selectedPlanType) newErrors.selectedPlanType = "Selected meal package invalid!"; // FIXED: New check
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const valid = Object.keys(newErrors).length === 0;
+    const firstError = valid ? undefined : Object.keys(newErrors)[0];
+    return { valid, firstError };
   };
   // UPDATED: Validate hostel form (add bed names check)
   const validateHostelForm = () => {
@@ -293,6 +315,7 @@ export default function BookingScreen() {
       newErrors.aadhaarPhoto = "Aadhaar Card Photo is required!";
     if (!userPhoto) newErrors.userPhoto = "User Photo is required!";
     // UPDATED: Validate at least one room with beds AND all bed names filled
+    let missingNames: string[] = [];
     if (
       !serviceData.rooms ||
       serviceData.rooms.length === 0 ||
@@ -304,7 +327,7 @@ export default function BookingScreen() {
       const allBedKeys = serviceData.rooms.flatMap((room) =>
         room.beds.map((bed) => getBedKey(room.roomId, bed.bedId))
       );
-      const missingNames = allBedKeys.filter((key) => !bedNames[key]?.trim());
+      missingNames = allBedKeys.filter((key) => !bedNames[key]?.trim());
       if (missingNames.length > 0) {
         missingNames.forEach((key) => {
           newErrors[key] = `Name is required for this bed!`;
@@ -312,7 +335,98 @@ export default function BookingScreen() {
       }
     }
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const valid = Object.keys(newErrors).length === 0;
+    const firstError = valid ? undefined : Object.keys(newErrors)[0];
+    return { valid, firstError, hasBedErrors: !!newErrors.rooms || missingNames.length > 0 };
+  };
+  const scrollToField = (fieldKey: string) => {
+    if (fieldKey === 'rooms') {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    let targetRef: React.RefObject<View | TextInput | TouchableOpacity> | null = null;
+    switch (fieldKey) {
+      case 'fullName':
+        targetRef = fullNameRef;
+        break;
+      case 'phoneNumber':
+        targetRef = phoneNumberRef;
+        break;
+      case 'street':
+        targetRef = streetRef;
+        break;
+      case 'locality':
+        targetRef = localityRef;
+        break;
+      case 'pincode':
+        targetRef = pincodeRef;
+        break;
+      case 'date':
+        targetRef = datePickerRef;
+        break;
+      case 'endDate':
+        targetRef = endDateDisplayRef;
+        break;
+      case 'selectedfood':
+        targetRef = foodTypeSectionRef;
+        break;
+      case 'mealPackage':
+      case 'selectedPlanType':
+        targetRef = mealPackageSectionRef;
+        break;
+      case 'tiffinPlan':
+        targetRef = subscriptionTypeSectionRef;
+        break;
+      case 'checkInDate':
+        targetRef = checkInDateRef;
+        break;
+      case 'checkOutDate':
+        targetRef = checkOutDateRef;
+        break;
+      case 'aadhaarPhoto':
+        targetRef = aadhaarSectionRef;
+        break;
+      case 'userPhoto':
+        targetRef = userSectionRef;
+        break;
+      case 'rooms':
+        targetRef = bedSectionRef;
+        break;
+      default:
+        if (bedNameRefs.current[fieldKey]) {
+          targetRef = { current: bedNameRefs.current[fieldKey] };
+        }
+        break;
+    }
+    if (targetRef?.current && scrollViewRef.current) {
+      targetRef.current.measureLayout(
+        scrollViewRef.current,
+        (x, y, width, height) => {
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, y - 120),
+            animated: true,
+          });
+        },
+        (error) => {
+          console.warn('Error measuring layout for scroll:', error);
+          // Fallback to scrolling to top of section if possible
+          if (fieldKey === 'rooms' || fieldKey.includes('-')) {
+            if (bedSectionRef.current) {
+              bedSectionRef.current.measureLayout(
+                scrollViewRef.current,
+                (sx, sy, sw, sh) => {
+                  scrollViewRef.current?.scrollTo({
+                    y: Math.max(0, sy - 120),
+                    animated: true,
+                  });
+                },
+                () => {}
+              );
+            }
+          }
+        }
+      );
+    }
   };
   // NEW: Safe JSON parse helper to prevent errors
   const safeParse = (str: string): any => {
@@ -552,7 +666,7 @@ export default function BookingScreen() {
       setFullName(parsedUserData.name || "");
       setPhoneNumber((parsedUserData.phoneNumber || "").replace(/^\+91\s*/, '') || "");
       // Hostel/tiffin specific from params (unchanged logic, but safe)
-      if (isHostelBooking) {
+      if (bookingType === "hostel" || bookingType === "reserve") {
         const userEmail = parsedUserData.email || "";
         const userWorkType = parsedUserData.workType || "";
         const userAdharPhoto = parsedUserData.adharCardPhoto || "";
@@ -608,7 +722,7 @@ export default function BookingScreen() {
         setHostelPlan(parsedPlan.name || "monthly");
       }
       // Tiffin address from params if no API
-      if (isTiffinBooking) {
+      if (bookingType === "tiffin") {
         // Params don't have addresses, so skip or use empty
         setStreet("");
         setLocality("");
@@ -1026,7 +1140,11 @@ export default function BookingScreen() {
   };
   // FIXED: Updated handleTiffinSubmit with exact planName, removed redundant meal check, added ID log
   const handleTiffinSubmit = async () => {
-  if (!validateTiffinForm()) {
+  const validation = validateTiffinForm();
+  if (!validation.valid) {
+    if (validation.firstError) {
+      scrollToField(validation.firstError);
+    }
     return;
   }
   try {
@@ -1168,14 +1286,17 @@ export default function BookingScreen() {
     console.log("userPhoto:", userPhoto);
     console.log("rooms:", serviceData.rooms);
     console.log("bedNames:", bedNames);
-    if (!validateHostelForm()) {
-      // NEW: Auto-expand beds section if bed name errors are present for better UX
-      const allBedKeys = serviceData.rooms.flatMap(room =>
-        room.beds.map(bed => getBedKey(room.roomId, bed.bedId))
-      );
-      const hasMissingBedNames = allBedKeys.some(key => !bedNames[key]?.trim());
-      if (hasMissingBedNames) {
+    const validation = validateHostelForm();
+    if (!validation.valid) {
+      if (validation.hasBedErrors) {
         setExpandedTiffin(0);
+        setTimeout(() => {
+          if (validation.firstError) {
+            scrollToField(validation.firstError);
+          }
+        }, 300);
+      } else if (validation.firstError) {
+        scrollToField(validation.firstError);
       }
       return;
     }
@@ -1357,7 +1478,7 @@ export default function BookingScreen() {
       const firstBed = firstBedRoom?.beds[0];
       const isFirstBed = (room: RoomData, bed: { bedId: string }) => room === firstBedRoom && bed.bedId === firstBed?.bedId;
       return (
-        <View style={styles.bedNamesSection}>
+        <View ref={bedSectionRef} style={styles.bedNamesSection}>
           <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => setExpandedTiffin(prev => prev === 0 ? null : 0)} // Reuse expandedTiffin as toggle (0 for beds)
@@ -1393,6 +1514,7 @@ export default function BookingScreen() {
                         </View>
                         <View style={styles.bedNameContainer}>
                           <TextInput
+                            ref={(ref) => { if (ref) bedNameRefs.current[bedKey] = ref; }}
                             style={[styles.bedNameInput, error && styles.inputError]}
                             placeholder={`Guest name for Bed ${bed.bedNumber}`}
                             value={bedName}
@@ -1475,6 +1597,7 @@ export default function BookingScreen() {
           </View>
           <Text style={styles.label}>Full Name *</Text>
           <TextInput
+            ref={fullNameRef}
             style={[styles.input, errors.fullName && styles.inputError]}
             placeholder="Enter your full name"
             placeholderTextColor="#000"
@@ -1495,6 +1618,7 @@ export default function BookingScreen() {
           {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
           <Text style={styles.label}>Phone Number *</Text>
           <TextInput
+            ref={phoneNumberRef}
             style={[styles.input, errors.phoneNumber && styles.inputError]}
             placeholder="+91 XXXXXXXXXX"
             placeholderTextColor="#999"
@@ -1528,27 +1652,29 @@ export default function BookingScreen() {
             <Ionicons name="id-card-outline" size={18} color="#004AAD" style={styles.icon} />
             <Text style={styles.sectionTitle}>Upload Aadhaar Card Photo *</Text>
           </View>
-          {aadhaarPhoto ? (
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: aadhaarPhoto }} style={styles.uploadedImage} />
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setAadhaarPhoto('');
-                  clearError('aadhaarPhoto');
-                }}
-              >
-                <Ionicons name="close" size={20} color="white" />
+          <View ref={aadhaarSectionRef}>
+            {aadhaarPhoto ? (
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: aadhaarPhoto }} style={styles.uploadedImage} />
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => {
+                    setAadhaarPhoto('');
+                    clearError('aadhaarPhoto');
+                  }}
+                >
+                  <Ionicons name="close" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
+                <Text style={styles.uploadButtonText}>Upload photo</Text>
+                <Text style={styles.uploadSubtext}>
+                  Upload clear photo of your Aadhaar card
+                </Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.uploadButton} onPress={pickAadhaarPhoto}>
-              <Text style={styles.uploadButtonText}>Upload photo</Text>
-              <Text style={styles.uploadSubtext}>
-                Upload clear photo of your Aadhaar card
-              </Text>
-            </TouchableOpacity>
-          )}
+            )}
+          </View>
           {errors.aadhaarPhoto && <Text style={styles.errorText}>{errors.aadhaarPhoto}</Text>}
         </View>
         <View style={styles.section}>
@@ -1556,27 +1682,29 @@ export default function BookingScreen() {
             <Ionicons name="person-circle-outline" size={18} color="#004AAD" style={styles.icon} />
             <Text style={styles.sectionTitle}>Upload Your Photo *</Text>
           </View>
-          {userPhoto ? (
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: userPhoto }} style={styles.uploadedImage} />
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setUserPhoto('');
-                  clearError('userPhoto');
-                }}
-              >
-                <Ionicons name="close" size={20} color="white" />
+          <View ref={userSectionRef}>
+            {userPhoto ? (
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: userPhoto }} style={styles.uploadedImage} />
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => {
+                    setUserPhoto('');
+                    clearError('userPhoto');
+                  }}
+                >
+                  <Ionicons name="close" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.uploadButton} onPress={pickUserPhoto}>
+                <Text style={styles.uploadButtonText}>Upload photo</Text>
+                <Text style={styles.uploadSubtext}>
+                  Upload clear photo of your selfie or photo from gallery
+                </Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.uploadButton} onPress={pickUserPhoto}>
-              <Text style={styles.uploadButtonText}>Upload photo</Text>
-              <Text style={styles.uploadSubtext}>
-                Upload clear photo of your selfie or photo from gallery
-              </Text>
-            </TouchableOpacity>
-          )}
+            )}
+          </View>
           {errors.userPhoto && <Text style={styles.errorText}>{errors.userPhoto}</Text>}
         </View>
         <View style={styles.section}>
@@ -1586,6 +1714,7 @@ export default function BookingScreen() {
           </View>
           <Text style={styles.label}>Check-in date *</Text>
           <TouchableOpacity
+            ref={checkInDateRef}
             style={[styles.datePickerButton, errors.checkInDate && styles.inputError]}
             onPress={() => setShowCheckInPicker(true)}
           >
@@ -1597,6 +1726,7 @@ export default function BookingScreen() {
           {errors.checkInDate && <Text style={styles.errorText}>{errors.checkInDate}</Text>}
           <Text style={styles.label}>Check-out date *</Text>
           <View
+            ref={checkOutDateRef}
             style={[
               styles.dateDisplay,
               errors.checkOutDate && styles.inputError
@@ -1735,6 +1865,7 @@ export default function BookingScreen() {
             </View>
             <Text style={styles.label}>Full Name *</Text>
             <TextInput
+              ref={fullNameRef}
               style={[styles.input, errors.fullName && styles.inputError]}
               placeholder="Enter your full name"
               value={fullName}
@@ -1756,6 +1887,7 @@ export default function BookingScreen() {
             )}
             <Text style={styles.label}>Phone Number *</Text>
             <TextInput
+              ref={phoneNumberRef}
               style={[styles.input, errors.phoneNumber && styles.inputError]}
               placeholder="+91 XXXXXXXXXX"
               placeholderTextColor="#999"
@@ -1795,6 +1927,7 @@ export default function BookingScreen() {
               Street Address {orderType === "delivery" && "*"}
             </Text>
             <TextInput
+              ref={streetRef}
               style={[
                 styles.input,
                 errors.street && styles.inputError,
@@ -1834,6 +1967,7 @@ export default function BookingScreen() {
               Locality / Area {orderType === "delivery" && "*"}
             </Text>
             <TextInput
+              ref={localityRef}
               style={[
                 styles.input,
                 errors.locality && styles.inputError,
@@ -1860,6 +1994,7 @@ export default function BookingScreen() {
               Pincode {orderType === "delivery" && "*"}
             </Text>
             <TextInput
+              ref={pincodeRef}
               style={[
                 styles.input,
                 errors.pincode && styles.inputError,
@@ -1905,19 +2040,21 @@ export default function BookingScreen() {
             <View style={styles.tiffinSelectorsContainer}>
               <View style={styles.expandedContent}>
                 {/* Food Type */}
-                <Text style={styles.sectionTitle}>Food Type</Text>
-                {currentFoodOptions.length > 0 && currentFoodOptions.map((opt) => (
-                  <RadioButton
-                    key={opt.value}
-                    label={opt.label}
-                    value={opt.value}
-                    selected={selectedfood}
-                    onPress={(value) => {
-                      setSelectedfood(value);
-                      clearError("selectedfood");
-                    }}
-                  />
-                ))}
+                <View ref={foodTypeSectionRef}>
+                  <Text style={styles.sectionTitle}>Food Type</Text>
+                  {currentFoodOptions.length > 0 && currentFoodOptions.map((opt) => (
+                    <RadioButton
+                      key={opt.value}
+                      label={opt.label}
+                      value={opt.value}
+                      selected={selectedfood}
+                      onPress={(value) => {
+                        setSelectedfood(value);
+                        clearError("selectedfood");
+                      }}
+                    />
+                  ))}
+                </View>
                 {errors.selectedfood && (
                   <Text style={styles.errorText}>{errors.selectedfood}</Text>
                 )}
@@ -1936,56 +2073,60 @@ export default function BookingScreen() {
                     }}
                   />
                 ))}
-                <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
-                  Select Meal Package *
-                </Text>
-                {mealPackages.map((pkg) => (
-                  <RadioButton
-                    key={pkg.id}
-                    label={pkg.label}
-                    value={pkg.id.toString()}
-                    selected={selectedMealPackage.toString()}
-                    onPress={(value) => {
-                      const id = parseInt(value);
-                      setSelectedMealPackage(id);
-                      const selectedPkg = mealPackages.find((p) => p.id === id);
-                      if (selectedPkg) {
-                        setTiffinMeals(selectedPkg.meals);
-                        // FIXED: Set exact planType for backend match
-                        setSelectedPlanType(selectedPkg.planType);
-                        // Reset food type if not compatible
-                        const availableValues = getAvailableFoodOptions(
-                          selectedPkg.foodType
-                        ).map((o) => o.value);
-                        if (!availableValues.includes(selectedfood)) {
-                          setSelectedfood(availableValues[0] || "Both");
+                <View ref={mealPackageSectionRef}>
+                  <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                    Select Meal Package *
+                  </Text>
+                  {mealPackages.map((pkg) => (
+                    <RadioButton
+                      key={pkg.id}
+                      label={pkg.label}
+                      value={pkg.id.toString()}
+                      selected={selectedMealPackage.toString()}
+                      onPress={(value) => {
+                        const id = parseInt(value);
+                        setSelectedMealPackage(id);
+                        const selectedPkg = mealPackages.find((p) => p.id === id);
+                        if (selectedPkg) {
+                          setTiffinMeals(selectedPkg.meals);
+                          // FIXED: Set exact planType for backend match
+                          setSelectedPlanType(selectedPkg.planType);
+                          // Reset food type if not compatible
+                          const availableValues = getAvailableFoodOptions(
+                            selectedPkg.foodType
+                          ).map((o) => o.value);
+                          if (!availableValues.includes(selectedfood)) {
+                            setSelectedfood(availableValues[0] || "Both");
+                          }
                         }
-                      }
-                      clearError("mealPreferences");
-                    }}
-                  />
-                ))}
+                        clearError("mealPreferences");
+                      }}
+                    />
+                  ))}
+                </View>
                 {errors.mealPackage && (
                   <Text style={styles.errorText}>{errors.mealPackage}</Text>
                 )}
                 {errors.selectedPlanType && (
                   <Text style={styles.errorText}>{errors.selectedPlanType}</Text>
                 )}
-                <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
-                  Subscription Type *
-                </Text>
-                {getPlanOptions().map((option) => (
-                  <RadioButton
-                    key={option.value}
-                    label={option.label}
-                    value={option.value}
-                    selected={tiffinPlan || ""}
-                    onPress={(value) => {
-                      setTiffinPlan(value);
-                      clearError("tiffinPlan");
-                    }}
-                  />
-                ))}
+                <View ref={subscriptionTypeSectionRef}>
+                  <Text style={[styles.sectionTitle, { marginTop: 15 }]}>
+                    Subscription Type *
+                  </Text>
+                  {getPlanOptions().map((option) => (
+                    <RadioButton
+                      key={option.value}
+                      label={option.label}
+                      value={option.value}
+                      selected={tiffinPlan || ""}
+                      onPress={(value) => {
+                        setTiffinPlan(value);
+                        clearError("tiffinPlan");
+                      }}
+                    />
+                  ))}
+                </View>
                 {errors.tiffinPlan && (
                   <Text style={styles.errorText}>{errors.tiffinPlan}</Text>
                 )}
@@ -2015,6 +2156,7 @@ export default function BookingScreen() {
                   Select Start Date *
                 </Text>
                 <TouchableOpacity
+                  ref={datePickerRef}
                   style={[
                     styles.datePickerButton,
                     errors.date && styles.inputError,
@@ -2041,7 +2183,7 @@ export default function BookingScreen() {
                 {hasPeriodic && (
                   <>
                     <Text style={styles.label}>End Date</Text>
-                    <View style={styles.dateDisplay}>
+                    <View ref={endDateDisplayRef} style={styles.dateDisplay}>
                       <Text style={styles.dateDisplayText}>
                         {endDate ? endDate.toLocaleDateString('en-IN') : 'DD/MM/YYYY'}
                       </Text>
@@ -2077,6 +2219,7 @@ export default function BookingScreen() {
         />
         <View style={styles.container}>
           <ScrollView
+            ref={scrollViewRef}
             scrollEnabled={true}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"

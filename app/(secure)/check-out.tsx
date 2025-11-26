@@ -686,7 +686,7 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
        
         console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
         console.log("confirmationId (booking/order ID):", confirmationId);
-        console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+        console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
         console.log("========================================================");
         setTimeout(() => {
           router.push({
@@ -697,6 +697,8 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
               serviceName: confirmationServiceName,
               guestName: confirmationGuestName,
               amount: confirmationAmount,
+              checkInDate,
+              checkOutDate,
             },
           });
         }, 2000); // Delay to simulate processing
@@ -784,7 +786,7 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
      
       console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
       console.log("confirmationId (booking/order ID):", confirmationId);
-      console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+      console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
       console.log("========================================================");
       setTimeout(() => {
         router.push({
@@ -795,6 +797,8 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
             serviceName: confirmationServiceName,
             guestName: confirmationGuestName,
             amount: confirmationAmount,
+            checkInDate,
+            checkOutDate,
           },
         });
       }, 2000);

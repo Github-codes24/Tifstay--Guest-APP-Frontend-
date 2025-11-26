@@ -253,7 +253,7 @@ export default function ProductDetails() {
           // Determine primary pricing tier (monthly > weekly > daily)
           let primaryAmount = 0;
           let primaryPeriod = '';
-          let depositAmount = apiData.securityDeposit || apiData.weeklyDeposit || 0; 
+          let depositAmount = apiData.securityDeposit || apiData.weeklyDeposit || apiData.perDayDeposit || 0; 
 
           if (monthlyPrice > 0) {
             primaryAmount = monthlyPrice;
@@ -266,13 +266,14 @@ export default function ProductDetails() {
           } else if (dailyPrice > 0) {
             primaryAmount = dailyPrice;
             primaryPeriod = 'DAY';
-            depositAmount = 0; // No deposit for daily, or adjust as needed
+            depositAmount = apiData.perDayDeposit || 0;
           }
 
           const priceText = `₹${primaryAmount}/${primaryPeriod}`;
           // Deposits from API
           const securityDeposit = typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0;
           const weeklyDeposit = typeof apiData.weeklyDeposit === 'number' ? apiData.weeklyDeposit : 0;
+          const perDayDeposit = typeof apiData.perDayDeposit === 'number' ? apiData.perDayDeposit : 0;
           // Images
           const images = Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos.map((p: string) => ({ uri: p })) : [];
           processedData = {
@@ -287,6 +288,7 @@ export default function ProductDetails() {
             deposit: depositAmount,
             securityDeposit,
             weeklyDeposit,
+            perDayDeposit,
             offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
             amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
             fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Not available",
@@ -307,6 +309,7 @@ export default function ProductDetails() {
           console.log('🔍 MappedData Deposits:', {
             securityDeposit,
             weeklyDeposit,
+            perDayDeposit,
             deposit: depositAmount,
             primaryPeriod
           });
@@ -735,10 +738,17 @@ export default function ProductDetails() {
           </View>
           {/* Deposit notes */}
           <View style={styles.depositNotesContainer}>
-            {mappedData.weeklyDeposit > 0 && (
+            {mappedData.perDayDeposit > 0 && (
               <View style={styles.depositNoteRow}>
                 <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
-                
+                <Text style={styles.depositNote}>
+                  Daily Deposit: <Text style={styles.depositamt}>₹{mappedData.perDayDeposit} </Text>(fully refundable)
+                </Text>
+              </View>
+            )}
+            {mappedData.weeklyDeposit > 0 && (
+              <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
                 <Text style={styles.depositNote}>
                   Weekly Deposit: <Text style={styles.depositamt}>₹{mappedData.weeklyDeposit} </Text>(fully refundable)
                 </Text>
@@ -899,12 +909,12 @@ export default function ProductDetails() {
           </Text>
           {mappedData.contactInfo && Object.values(mappedData.contactInfo).some(Boolean) && (
             <View style={styles.contactInfo}>
-              {mappedData.contactInfo.phone && (
+              {/* {mappedData.contactInfo.phone && (
                 <Text style={styles.contactText}>Phone: {mappedData.contactInfo.phone}</Text>
               )}
               {mappedData.contactInfo.whatsapp && (
                 <Text style={styles.contactText}>WhatsApp: {mappedData.contactInfo.whatsapp}</Text>
-              )}
+              )} */}
             </View>
           )}
         </View>

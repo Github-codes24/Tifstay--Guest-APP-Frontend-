@@ -183,6 +183,7 @@ export default function RegisterScreen() {
             params: {
               phoneNumber: trimmedPhone,
               dialCode: selectedCountry.dialCode,
+               otpCode: otpCode,
             },
           });
         }, 2000);

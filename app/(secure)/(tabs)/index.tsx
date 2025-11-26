@@ -70,7 +70,7 @@ interface TiffinService {
   nonVegPhotos?: string[];
   mealPreferences?: { type: string; time: string }[];
   overallTiming?: string;
-  highestPrice?: string;
+  lowestPrice?: string;
 }
 interface Filters {
   rating?: number;
@@ -400,8 +400,7 @@ export default function DashboardScreen() {
           const defaultImage = computeTiffinImage(tiffin, "off");
           const firstPrice = tiffin.pricing[0];
           const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
-          const prices = tiffin.pricing.map((p: any) => p.monthlyDelivery || 0);
-          const highestPrice = Math.max(...prices, 0).toString();
+          const lowestPrice = tiffin.lowestPricing?.toString() || "0";
           const mealPreferences = tiffin.mealTimings?.map((m: any) => ({
             type: m.mealType,
             time: `${m.startTime} - ${m.endTime}`,
@@ -430,7 +429,7 @@ export default function DashboardScreen() {
             mealPreferences,
             overallTiming,
             foodType: tiffin.foodType,
-            highestPrice,
+            lowestPrice,
           };
         });
         return mapped;
@@ -508,8 +507,7 @@ export default function DashboardScreen() {
           const defaultImage = computeTiffinImage(tiffin, "off");
           const firstPrice = tiffin.pricing?.[0];
           const price = firstPrice ? `₹${firstPrice.monthlyDelivery || 0}` : "₹0";
-          const prices = tiffin.pricing?.map((p: any) => p.monthlyDelivery || 0) || [];
-          const highestPrice = Math.max(...prices, 0).toString();
+          const lowestPrice = tiffin.lowestPricing?.toString() || "0";
           const mealTimings = tiffin.mealTimings || [];
           let overallStart = '-';
           let overallEnd = '-';
@@ -534,7 +532,7 @@ export default function DashboardScreen() {
             mealPreferences,
             overallTiming,
             foodType: tiffin.foodType || "",
-            highestPrice,
+            lowestPrice,
           };
         });
         return mapped;
@@ -1818,7 +1816,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
     zIndex: 10,
-    width: 235
+    width: '100%'
   },
   filterItem: {
     flex: 1,
@@ -1828,8 +1826,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#374151",
     fontWeight: "500",
-    marginBottom: 6,
+    marginBottom: 9,
     zIndex: 1,
+    marginLeft:5
   },
   servicesSection: {
     marginTop: 24,
