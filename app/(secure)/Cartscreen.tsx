@@ -77,6 +77,7 @@ const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: 
         <View style={pendingCardStyles.priceRow}>
           <Text style={pendingCardStyles.price}>₹{booking.price}</Text>
         </View>
+        
         <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
           <Text style={pendingCardStyles.continueText}>Continue Booking</Text>
         </TouchableOpacity>
@@ -133,6 +134,9 @@ const PendingHostelCard = ({ booking, onContinue }: { booking: any; onContinue: 
           <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
           <Text style={pendingCardStyles.locationText}>{booking.hostelId?.location?.fullAddress || 'N/A'}</Text>
         </View>
+          <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
+          <Text style={pendingCardStyles.continueText}>Edit</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
           <Text style={pendingCardStyles.continueText}>Continue Booking</Text>
         </TouchableOpacity>

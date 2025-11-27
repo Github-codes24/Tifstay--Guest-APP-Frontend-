@@ -237,24 +237,41 @@ export default function TiffinOrderDetails() {
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
   const handleSaveSkipMeal = async () => {
+    // Frontend validation: Prevent skipping for today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    const selDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    selDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    if (selDate.getTime() === today.getTime()) {
+      setModalMessage("You cannot skip meals for today. Please select a future date within your booking period.");
+      setIsSuccess(false);
+      setShowModal(true);
+      return;
+    }
+
+    // Frontend validation: Ensure at least one meal is selected
+    const selectedMeals: string[] = [];
+    if (skipMeals.lunch) selectedMeals.push("lunch");
+    if (skipMeals.dinner) selectedMeals.push("dinner");
+    if (selectedMeals.length === 0) {
+      setModalMessage("Please select at least one meal (Lunch or Dinner) to skip.");
+      setIsSuccess(false);
+      setShowModal(true);
+      return;
+    }
+
     // Format selected date as YYYY-MM-DD
     const date = new Date(selectedDate);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const formattedDate = `${year}-${month}-${day}`;
-    // Collect selected meals
-    const selectedMeals: string[] = [];
-    if (skipMeals.lunch) selectedMeals.push("lunch");
-    if (skipMeals.dinner) selectedMeals.push("dinner");
     // Prepare request body
     const body: any = { date: formattedDate };
     if (selectedMeals.length === 1) {
       body.mealType = selectedMeals[0]; // single string
     } else if (selectedMeals.length > 1) {
       body.mealType = selectedMeals; // array when both selected
-    } else if (selectedMeals.length === 0) {
-      body.mealType = "all"; // if none selected, perhaps skip all? But adjust as needed
     }
     console.log("Saving skip meal with body:", body);
     try {
@@ -282,6 +299,10 @@ export default function TiffinOrderDetails() {
             errorMessage = "Meals for this date have already been skipped. No changes made.";
           } else if (errText.toLowerCase().includes("network") || errText.toLowerCase().includes("connection")) {
             errorMessage = "Network issue. Please check your connection and try again.";
+          } else if (errText.toLowerCase().includes("cannot skip") || errText.toLowerCase().includes("can not skip")) {
+            errorMessage = "You cannot skip meals for the selected date. Please choose another date.";
+          } else if (errText.toLowerCase().includes("invalid mealtype") || errText.toLowerCase().includes("mealtype")) {
+            errorMessage = "Invalid meal selection. Please select Lunch, Dinner, or both.";
           } else {
             errorMessage = errText || "You have reached the skip meal limit. Please upgrade your plan for more skips.";
           }
@@ -423,7 +444,14 @@ export default function TiffinOrderDetails() {
         dateForMeals.getDate() === extDate.getDate()
       );
     });
+    const isSelected =
+      selectedDate.getFullYear() === currentMonth.getFullYear() &&
+      selectedDate.getMonth() === currentMonth.getMonth() &&
+      selectedDate.getDate() === day;
     let dayStyle = [styles.calendarDay];
+    if (isSelected) {
+      dayStyle.push(styles.selectedDay);
+    }
     let textStyle = [styles.calendarDayText];
     // console.log("Rendering day:", day, { dateForMeals });
     if (isSkippedDate) {
@@ -478,6 +506,8 @@ export default function TiffinOrderDetails() {
                   day
                 );
                 setSelectedDate(newDate);
+                setShowSkipMeal(true);
+                setSkipMeals({ lunch: false, dinner: false });
               }
             : undefined
         }
@@ -617,9 +647,6 @@ export default function TiffinOrderDetails() {
         </View>
         <Text style={styles.headerSubtitle}>Track your tiffin bookings</Text>
       </View>
-      <View style={styles.noteContainer}>
-        <Text style={styles.noteText}> Note : Select a date to skip meal for that day</Text>
-      </View>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -665,6 +692,9 @@ export default function TiffinOrderDetails() {
             </View>
             
           </View>
+          <View style={styles.noteContainer}>
+            <Text style={styles.noteText}>Note : Select a date to skip meal for that day</Text>
+          </View>
           <View style={styles.calendarSection}>
             <View style={styles.calendarHeader}>
               {canGoPrevious && (
@@ -703,7 +733,7 @@ export default function TiffinOrderDetails() {
             </View>
           </View>
           {renderSelectedDateMeals()}
-          {isSelectedInPeriod && !isSelectedExtension && bookingData?.plan?.toLowerCase() === "monthly" && (
+          {(isSelectedInPeriod || isSelectedExtension) && bookingData?.plan?.toLowerCase() === "monthly" && (
             <View style={styles.skipMealSection}>
               <View style={styles.skipMealHeader}>
                 <View style={styles.skipMealIcon}>
@@ -882,16 +912,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noteContainer: {
-    paddingHorizontal: 26,
-    paddingVertical: 8,
-    alignItems: "center",
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    marginVertical: 16,
+    alignItems: 'center',
   },
   noteText: {
     fontSize: 16,
-    color: "#000",
-    justifyContent:"flex-start",
-    marginBottom:10
-   
+    color: '#6B7280',
+    textAlign: 'center',
   },
   scrollView: {
     flex: 1,
@@ -973,9 +1006,13 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius:25,
     marginBottom: 1,
     paddingVertical: 2,
+  },
+  selectedDay: {
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   calendarDayEmpty: {
     width: "14.28%",

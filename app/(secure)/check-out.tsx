@@ -147,6 +147,7 @@ const Checkout: React.FC = () => {
         // mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
         foodType: tiffinOrderDetails.foodType || "Veg",
         startDate: tiffinOrderDetails.startDate ? new Date(tiffinOrderDetails.startDate).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+        endDate: tiffinOrderDetails.endDate ? new Date(tiffinOrderDetails.endDate).toLocaleDateString('en-IN') : (endDate ? new Date(endDate as string).toLocaleDateString('en-IN') : "28/07/25"),
         plan: tiffinOrderDetails.planType || planType || "Per meal",
         orderType: tiffinOrderDetails.orderType || orderType || "Delivery",
         price: `₹${(tiffinOrderDetails.price || tiffinOrderDetails.choosePlanType?.price || parseInt(firstParam(totalPrice) || '120') || 120).toFixed(0)}/meal`,
@@ -161,6 +162,7 @@ const Checkout: React.FC = () => {
         // mealType: firstParam(mealPreference) || "Lunch",
         foodType: firstParam(foodType) || tiffinService.foodType || "Veg",
         startDate: startDate ? new Date(firstParam(startDate) as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(firstParam(checkInDate) as string).toLocaleDateString('en-IN') : "21/07/25"),
+        endDate: endDate ? new Date(firstParam(endDate) as string).toLocaleDateString('en-IN') : (checkOutDate ? new Date(firstParam(checkOutDate) as string).toLocaleDateString('en-IN') : "28/07/25"),
         plan: firstParam(planType) || "Per meal",
         orderType: firstParam(orderType) || "Delivery",
         price: `₹${parseInt(firstParam(totalPrice) || (tiffinService.price || '120').toString()) || 120}/meal`,
@@ -174,11 +176,12 @@ const Checkout: React.FC = () => {
       // mealType: mealPreference || "Lunch",
       foodType: foodType || "Veg",
       startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+      endDate: endDate ? new Date(endDate as string).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "28/07/25"),
       plan: planType || "Per meal",
       orderType: orderType || "Delivery",
       price: `₹${parseInt(firstParam(totalPrice) || '120')}/meal`,
     };
-  }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate]);
+  }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate, checkOutDate]);
 
   console.log("Constructed tiffinData:", tiffinData);
 
@@ -684,10 +687,10 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
         const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
         const confirmationAmount = paymentAmount;
        
-        console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
-        console.log("confirmationId (booking/order ID):", confirmationId);
-        console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
-        console.log("========================================================");
+        // console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
+        // console.log("confirmationId (booking/order ID):", confirmationId);
+        // console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
+        // console.log("========================================================");
         setTimeout(() => {
           router.push({
             pathname: "/(secure)/Confirmation",
@@ -699,6 +702,12 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
               amount: confirmationAmount,
               checkInDate,
               checkOutDate,
+              startDate,
+              endDate,
+              foodType,
+              orderType,
+              planType,
+              mealType: mealPreference,
             },
           });
         }, 2000); // Delay to simulate processing
@@ -799,6 +808,12 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
             amount: confirmationAmount,
             checkInDate,
             checkOutDate,
+            startDate,
+            endDate,
+            foodType,
+            orderType,
+            planType,
+            mealType: mealPreference,
           },
         });
       }, 2000);

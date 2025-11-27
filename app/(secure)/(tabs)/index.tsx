@@ -1557,12 +1557,12 @@ export default function DashboardScreen() {
               <Text style={styles.servicesCount}>
                 {isHostel
                   ? hasFilters
-                    ? `${filteredHostels.length} filtered results`
+                    ? `${filteredHostels.length} Available results`
                     : searchQuery
                       ? `${filteredHostels.length} results found`
                       : `${filteredHostels.length} properties found in ${userLocation || "Unknown Location"}`
                   : isFiltered
-                    ? `${filteredTiffinServices.length} filtered results`
+                    ? `${filteredTiffinServices.length} Available results`
                     : searchQuery || isVegFiltered
                       ? `${filteredTiffinServices.length} results found`
                       : `${tiffinServices.length} services found in ${userLocation || "Unknown Location"}`}

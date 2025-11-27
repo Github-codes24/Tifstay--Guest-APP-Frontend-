@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   Linking,
+  Alert, // UPDATED: Added for potential alerts if needed
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
@@ -27,7 +28,7 @@ const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
 const CARD_MARGIN = 10;
 const Confirmation: React.FC = () => {
   const params = useLocalSearchParams();
-  const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount, checkInDate: paramCheckIn, checkOutDate: paramCheckOut } = params;
+  const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount, checkInDate: paramCheckIn, checkOutDate: paramCheckOut, startDate: paramStartDate, endDate: paramEndDate, foodType: paramFoodType, orderType: paramOrderType, planType: paramPlanType, mealType: paramMealType } = params;
   const isTiffin = serviceType === "tiffin";
   const [bookingDetails, setBookingDetails] = useState(null);
   const [tiffinDetails, setTiffinDetails] = useState(null);
@@ -36,13 +37,49 @@ const Confirmation: React.FC = () => {
   const [randomHostels, setRandomHostels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | null>(null);
-  const formatDate = (dateString) => {
+  const [callNumber, setCallNumber] = useState<string>('');
+  const [whatsappNumber, setWhatsappNumber] = useState<string>('');
+  const formatDate = (dateString: string): string => {
     if (!dateString) return '';
+    
+    // Handle DD/MM/YYYY format (common in your API)
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      
+      // Validate parts (optional but recommended to avoid NaN)
+      if (isNaN(day) || isNaN(month) || isNaN(year) || month < 1 || month > 12 || day < 1 || day > 31) {
+        console.warn(`Invalid date: ${dateString}`);
+        return dateString; // Fallback to raw string
+      }
+      
+      const date = new Date(year, month - 1, day);
+      
+      // Double-check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date after parsing: ${dateString}`);
+        return dateString;
+      }
+      
+      const formattedDay = date.getDate().toString().padStart(2, '0');
+      const formattedMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+      const formattedYear = date.getFullYear().toString().slice(-2);
+      
+      return `${formattedDay}/${formattedMonth}/${formattedYear}`;
+    }
+    
+    // Fallback for other formats (e.g., ISO or MM/DD/YYYY)
     const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear().toString().slice(-2);
-    return `${day}/${month}/${year}`;
+    if (!isNaN(date.getTime())) {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear().toString().slice(-2);
+      return `${day}/${month}/${year}`;
+    }
+    
+    return dateString; // Ultimate fallback
   };
   const cleanImageUrl = (url: string): string => {
     if (!url) return url;
@@ -75,7 +112,12 @@ const Confirmation: React.FC = () => {
             if (response.data.success) {
               setTiffinDetails(response.data.data);
               setPaymentStatus('paid');
+              const data = response.data.data;
+              setCallNumber(data.contactInfoforcall ? `+91${data.contactInfoforcall}` : '');
+              setWhatsappNumber(data.contactInfoforwhatsapp ? `+91${data.contactInfoforwhatsapp}` : '');
             } else {
+              // UPDATED: Handle "No payment record found" or similar errors explicitly
+              console.warn("Payment verification failed:", response.data.message || "Unknown error");
               setPaymentStatus('unpaid');
             }
           } else {
@@ -88,7 +130,12 @@ const Confirmation: React.FC = () => {
             if (response.data.success) {
               setBookingDetails(response.data.data);
               setPaymentStatus('paid');
+              const data = response.data.data;
+              setCallNumber(data.contactforcall ? `+91${data.contactforcall}` : '');
+              setWhatsappNumber(data.contactForWhatsapp ? `+91${data.contactForWhatsapp}` : '');
             } else {
+              // UPDATED: Handle "No payment record found" or similar errors explicitly
+              console.warn("Payment verification failed:", response.data.message || "Unknown error");
               setPaymentStatus('unpaid');
             }
           }
@@ -238,6 +285,7 @@ const Confirmation: React.FC = () => {
     customer: tiffinDetails.guestName,
     amount: tiffinDetails.amount,
     startDate: formatDate(tiffinDetails.startDate),
+    endDate: formatDate(tiffinDetails.endDate),
     mealType: tiffinDetails.mealType || "Lunch",
     foodType: tiffinDetails.foodType || "Veg",
     orderType: tiffinDetails.orderType || "Delivery",
@@ -249,11 +297,12 @@ const Confirmation: React.FC = () => {
     tiffinService: serviceName || "Maharashtrian Ghar Ka Khana",
     customer: paramGuestName || "Onil Karmokar",
     amount: paramAmount || 'N/A',
-    startDate: "21/07/25",
-    mealType: "Lunch",
-    foodType: "Veg",
-    orderType: "Delivery",
-    planType: "Daily",
+    startDate: formatDate(paramStartDate as string),
+    endDate: formatDate(paramEndDate as string),
+    mealType: paramMealType as string,
+    foodType: paramFoodType as string,
+    orderType: paramOrderType as string,
+    planType: paramPlanType as string,
   };
   const hostelBookingDetails = bookingDetails ? {
     id: id,
@@ -268,10 +317,20 @@ const Confirmation: React.FC = () => {
     )}`,
     hostelBooking: serviceName || "Scholars Den Boys Hostel",
     customer: paramGuestName || "Onil Karmokar",
-    checkInDate: formatDate(paramCheckIn) || "01/08/25",
-    checkOutDate: formatDate(paramCheckOut) || "01/09/25",
+    checkInDate: formatDate(paramCheckIn as string),
+    checkOutDate: formatDate(paramCheckOut as string),
     amount: paramAmount || 'N/A',
   };
+  // UPDATED: New handler for cart button (navigates back to cart/booking based on serviceType)
+  const handleRetryBooking = () => {
+    // Navigate to cart or booking screen based on serviceType
+    const cartPath = isTiffin ? "/(secure)/Cartscreen" : "/(secure)/Cartscreen"; // Adjust paths as per your app structure
+    router.push({
+      pathname: cartPath,
+      params: { serviceType: isTiffin ? "tiffin" : "hostel" }, // Pass serviceType to resume
+    });
+  };
+
   const handlePrintInvoice = async () => {
   const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
   const filteredDetails = Object.entries(details).filter(([key]) => key !== 'mealType');
@@ -373,7 +432,15 @@ const Confirmation: React.FC = () => {
   };
   const recommendations = getRecommendations();
   const handleCallAdmin = () => {
-    Linking.openURL("tel:5146014598");
+    const number = callNumber || '5146014598';
+    Linking.openURL(`tel:${number}`);
+  };
+  const handleWhatsappChat = () => {
+    if (!whatsappNumber) {
+      Alert.alert('WhatsApp not available', 'Please contact via call or in-app chat.');
+      return;
+    }
+    Linking.openURL(`whatsapp://send?phone=${whatsappNumber}`);
   };
   const handleChatAdmin = () => {
     router.push('/account/chatScreen');
@@ -434,11 +501,24 @@ const Confirmation: React.FC = () => {
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.sectionTitle}>Booking Summary</Text>
-          <TouchableOpacity style={styles.invoiceButton} onPress={handlePrintInvoice}>
-    <Ionicons name="download-outline" size={16} color="#fff" />
-    <Text style={styles.invoiceText}>Invoice</Text>
-  </TouchableOpacity>
+            {/* UPDATED: Conditionally render Invoice button only if paymentStatus === 'paid' */}
+            {paymentStatus === 'paid' && (
+              <TouchableOpacity style={styles.invoiceButton} onPress={handlePrintInvoice}>
+                <Ionicons name="download-outline" size={16} color="#fff" />
+                <Text style={styles.invoiceText}>Invoice</Text>
+              </TouchableOpacity>
+            )}
           </View>
+          {/* UPDATED: Conditionally render error message and cart button if paymentStatus === 'unpaid' */}
+          {paymentStatus === 'unpaid' && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle-outline" size={20} color="#ef4444" style={styles.errorIcon} />
+              <Text style={styles.errorText}>Booking unsuccessful—payment not confirmed. Let's try again!</Text>
+              <TouchableOpacity style={styles.cartButton} onPress={handleRetryBooking}>
+                <Ionicons name="cart-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          )}
           {isTiffin ? (
             <>
               <View style={styles.detailRow}>
@@ -457,6 +537,12 @@ const Confirmation: React.FC = () => {
                 <Text style={styles.detailLabel}>Start Date:</Text>
                 <Text style={styles.detailValue}>
                   {tiffinBookingDetails.startDate}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>End Date:</Text>
+                <Text style={styles.detailValue}>
+                  {tiffinBookingDetails.endDate}
                 </Text>
               </View>
               {/* <View style={styles.detailRow}>
@@ -560,6 +646,13 @@ const Confirmation: React.FC = () => {
           >
             <Ionicons name="chatbubble-outline" size={20} color="#004AAD" />
             <Text style={styles.contactButtonText}>Chat with Admin</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.contactButton}
+            onPress={handleWhatsappChat}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+            <Text style={styles.contactButtonText}>Chat on WhatsApp</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.contactNote}>
@@ -726,6 +819,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     marginLeft: 4,
+  },
+  // UPDATED: New styles for error banner and cart button
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2', // Light red background
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  errorIcon: {
+    marginRight: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#dc2626', // Red text
+    fontWeight: '500',
+  },
+  cartButton: {
+    backgroundColor: '#ef4444', // Red button to match theme
+    padding: 8,
+    borderRadius: 6,
   },
   detailRow: {
     flexDirection: "row",

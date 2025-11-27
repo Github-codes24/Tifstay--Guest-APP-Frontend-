@@ -12,6 +12,7 @@ export interface TiffinCheckoutData {
   plan: string;
   orderType: string;
   price: string;
+  endDate: string
 }
 
 export interface HostelCheckoutData {
@@ -57,6 +58,10 @@ const CheckoutItemCard: React.FC<CheckoutItemCardProps> = ({
             <DetailRow
               label="Start Date"
               value={(data as TiffinCheckoutData).startDate}
+            />
+               <DetailRow
+              label="End Date"
+              value={(data as TiffinCheckoutData).endDate}
             />
             <DetailRow label="Plan" value={(data as TiffinCheckoutData).plan} />
             <DetailRow
