@@ -334,7 +334,7 @@ export default function DashboardScreen() {
             availableBeds: hostel.availableBeds || 0,
             occupiedBeds: hostel.occupiedBeds || 0,
             subLocation: hostel.nearbyLandmarks || "",
-            deposit: `₹${hostel.securityDeposit || hostel.weeklyDeposit || 0}`,
+            deposit: `₹${hostel.securityDeposit || hostel.weeklyDeposit || hostel.perDayDepost || 0}`,
             image: imageUrl ? { uri: imageUrl } : imageMapping["hostel1"],
             planType: hostel.planType || "",
             roomType: hostel.roomType || "",
@@ -1306,10 +1306,10 @@ export default function DashboardScreen() {
             <Text style={styles.locationSubtext}>{userLocation || "Unknown Location"}</Text>
           </View>
           <View style={styles.headerRight}>
-               <TouchableOpacity 
-              style={styles.cartButton} 
-              onPress={() => router.push("/(secure)/Cartscreen")} 
-              accessibilityRole="button" 
+               <TouchableOpacity
+              style={styles.cartButton}
+              onPress={() => router.push("/(secure)/Cartscreen")}
+              accessibilityRole="button"
               accessibilityLabel="View cart"
             >
               <Ionicons name="cart-outline" size={29} color="#000" />
@@ -1320,7 +1320,7 @@ export default function DashboardScreen() {
                 style={styles.profileImage}
               />
             </TouchableOpacity>
-         
+       
           </View>
         </View>
       </SafeAreaView>

@@ -179,11 +179,11 @@ export default function TiffinCard({
           <Text style={styles.serviceName} numberOfLines={1} ellipsizeMode="tail">
             {service.name}
           </Text>
-          {service?.lowestPrice && ( // same condition
+          {/* {service?.lowestPrice && ( // same condition
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>10% OFF</Text>
             </View>
-          )}
+          )} */}
         </View>
         {/* Description (same) */}
         <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">

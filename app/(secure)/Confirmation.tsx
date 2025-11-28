@@ -90,6 +90,39 @@ const Confirmation: React.FC = () => {
     // Fallback for non-Cloudinary: minimal cleanup if needed
     return url;
   };
+  const fetchBeforeDetails = async (token: string) => {
+    const beforeUrl = isTiffin
+      ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${id}`
+      : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${id}`;
+    try {
+      const beforeResponse = await axios.get(beforeUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (beforeResponse.data.success) {
+        const data = beforeResponse.data.data;
+        if (isTiffin) {
+          setTiffinDetails({
+            ...data,
+            amount: data.totalAmount,
+          });
+        } else {
+          setBookingDetails({
+            ...data,
+            amount: data.totalPayment,
+          });
+        }
+        setCallNumber(data.contact || '');
+        setWhatsappNumber(data.contact || '');
+        setPaymentStatus('unpaid');
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("Error fetching before payment details:", error);
+      return false;
+    }
+  };
   useEffect(() => {
     const fetchBookingDetails = async () => {
       if (id) {
@@ -101,47 +134,49 @@ const Confirmation: React.FC = () => {
             setPaymentStatus('unpaid');
             return;
           }
-          let response;
-          if (isTiffin) {
-            response = await axios.get(
-              `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdafterPayment/${id}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            );
-            if (response.data.success) {
-              setTiffinDetails(response.data.data);
-              setPaymentStatus('paid');
-              const data = response.data.data;
+          const afterUrl = isTiffin
+            ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdafterPayment/${id}`
+            : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`;
+          const response = await axios.get(afterUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.data.success) {
+            const data = response.data.data;
+            if (isTiffin) {
+              setTiffinDetails(data);
               setCallNumber(data.contactInfoforcall ? `+91${data.contactInfoforcall}` : '');
               setWhatsappNumber(data.contactInfoforwhatsapp ? `+91${data.contactInfoforwhatsapp}` : '');
             } else {
-              // UPDATED: Handle "No payment record found" or similar errors explicitly
-              console.warn("Payment verification failed:", response.data.message || "Unknown error");
-              setPaymentStatus('unpaid');
-            }
-          } else {
-            response = await axios.get(
-              `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            );
-            if (response.data.success) {
-              setBookingDetails(response.data.data);
-              setPaymentStatus('paid');
-              const data = response.data.data;
+              setBookingDetails(data);
               setCallNumber(data.contactforcall ? `+91${data.contactforcall}` : '');
               setWhatsappNumber(data.contactForWhatsapp ? `+91${data.contactForWhatsapp}` : '');
-            } else {
-              // UPDATED: Handle "No payment record found" or similar errors explicitly
-              console.warn("Payment verification failed:", response.data.message || "Unknown error");
+            }
+            setPaymentStatus('paid');
+          } else {
+            // Fetch before payment details
+            const beforeSuccess = await fetchBeforeDetails(token);
+            if (!beforeSuccess) {
+              console.warn("Payment verification failed and before details unavailable:", response.data.message || "Unknown error");
               setPaymentStatus('unpaid');
             }
           }
         } catch (error) {
-          console.error("Error fetching booking details:", error);
-          setPaymentStatus('unpaid');
+          console.error("Error fetching after payment details:", error);
+          // Fetch before payment details on error
+          try {
+            const token = await AsyncStorage.getItem("token");
+            if (token) {
+              const beforeSuccess = await fetchBeforeDetails(token);
+              if (!beforeSuccess) {
+                setPaymentStatus('unpaid');
+              }
+            } else {
+              setPaymentStatus('unpaid');
+            }
+          } catch (beforeError) {
+            console.error("Error fetching before payment details:", beforeError);
+            setPaymentStatus('unpaid');
+          }
         } finally {
           setLoading(false);
         }
@@ -491,13 +526,16 @@ const Confirmation: React.FC = () => {
         <View style={styles.logoContainer}>
           <Logo />
         </View>
-        <View style={styles.titleSection}>
-          <Text style={styles.mainTitle}>Booking Submitted!</Text>
-          <Text style={styles.subtitle}>
-            Your {isTiffin ? "tiffin" : "hostel"} booking request has been sent
-            successfully.
-          </Text>
-        </View>
+        {/* UPDATED: Conditionally render success title only if payment successful */}
+        {paymentStatus === 'paid' && (
+          <View style={styles.titleSection}>
+            <Text style={styles.mainTitle}>Booking Submitted!</Text>
+            <Text style={styles.subtitle}>
+              Your {isTiffin ? "tiffin" : "hostel"} booking request has been sent
+              successfully.
+            </Text>
+          </View>
+        )}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.sectionTitle}>Booking Summary</Text>
@@ -991,14 +1029,14 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     borderRadius: 16,
     backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    // shadowColor: "#000",
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 4,
+    // },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 8,
+    // elevation: 4,
     overflow: "hidden",
   },
   actionButtons: {

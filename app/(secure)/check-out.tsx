@@ -348,26 +348,42 @@ const Checkout: React.FC = () => {
         }
       } else {
         if (coupon && coupon.trim()) {
-          Alert.alert("Error", response.data?.message || "Failed to apply coupon");
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: response.data?.message || "Failed to apply coupon"
+          });
         }
       }
     } catch (error: any) {
       console.error("Error fetching/applying pricing:", error);
       if (coupon && coupon.trim()) {
-        Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: error.response?.data?.message || "Failed to apply coupon"
+        });
       }
     }
   };
 
   const handleRemoveCoupon = async () => {
     if (!bookingId) {
-      Alert.alert("Error", "Booking ID missing");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: "Booking ID missing"
+      });
       return;
     }
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert("Error", "Token missing");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: "Token missing"
+        });
         return;
       }
       let url;
@@ -397,11 +413,19 @@ const Checkout: React.FC = () => {
           text2: response.data.message || "Coupon removed successfully"
         });
       } else {
-        Alert.alert("Error", response.data?.message || "Failed to remove coupon");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response.data?.message || "Failed to remove coupon"
+        });
       }
     } catch (error: any) {
       console.error("Error removing coupon:", error);
-      Alert.alert("Error", error.response?.data?.message || "Failed to remove coupon");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.response?.data?.message || "Failed to remove coupon"
+      });
     }
   };
 
@@ -588,7 +612,11 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
       }
     } catch (error: any) {
       console.error("Error fetching coupons:", error);
-      Alert.alert("Error", "Failed to fetch coupons");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: "Failed to fetch coupons"
+      });
       setCoupons([]);
     } finally {
       setLoadingCoupons(false);
@@ -597,7 +625,11 @@ const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.tot
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
-      Alert.alert('Please enter a coupon code');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please enter a coupon code'
+      });
       return;
     }
     await fetchFinalPricing(couponCode.trim());
@@ -1673,4 +1705,4 @@ couponInput: {
   },
 });
 
-export default Checkout;
+export default Checkout; 

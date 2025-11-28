@@ -863,8 +863,8 @@ export default function BookingScreen() {
               weekly: data.pricing?.weekly || 0,
               monthly: data.pricing?.monthly || 0,
             });
-            setSecurityDeposit(data.securityDeposit || 0);
-            setWeeklyDeposit(data.weeklyDeposit || 0);
+            setSecurityDeposit(data.perDayDeposit || data.securityDeposit || 0);
+            setWeeklyDeposit(data.weeklyDeposit || data.perDayDeposit || 0);
             // Dynamically create picker items based on available plans
             const items = [];
             if (data.pricing?.perDay > 0) {
@@ -881,15 +881,9 @@ export default function BookingScreen() {
               items.push({ label: "Monthly", value: "monthly" });
             }
             setPickerItems(items);
-            // Set initial price for monthly if available (will be multiplied by beds in price useEffect)
-            if (data.pricing?.monthly > 0) {
-              setCurrentPlanPrice(data.pricing.monthly);
-              setCurrentDeposit(data.securityDeposit || 0);
-            } else {
-              // Default fallback
-              setCurrentPlanPrice(3200);
-              setCurrentDeposit(5000);
-            }
+            // FIXED: Set initial plan to first available
+            setHostelPlan(items[0]?.value || "monthly");
+            // FIXED: Remove manual currentPlanPrice set - let useEffect handle
           } else {
             console.error("API returned false success:", response.data.message);
             // FIXED: Set defaults on API failure
@@ -945,12 +939,14 @@ export default function BookingScreen() {
             ? pricingData.weekly
             : pricingData.monthly;
       newPrice = basePlanPrice;
-      newDeposit =
-        hostelPlan === "weekly"
-          ? weeklyDeposit
-          : hostelPlan === "daily"
-            ? 0
-            : securityDeposit;
+      // FIXED: Use securityDeposit (perDayDeposit) for daily as well
+      if (hostelPlan === "daily") {
+        newDeposit = securityDeposit;
+      } else if (hostelPlan === "weekly") {
+        newDeposit = weeklyDeposit;
+      } else {
+        newDeposit = securityDeposit;
+      }
     }
     setCurrentPlanPrice(newPrice);
     setCurrentDeposit(newDeposit);
@@ -1271,8 +1267,6 @@ export default function BookingScreen() {
       showCustomToast(errorMsg);
     }
   };
-  // UPDATED: Handle hostel submit (add bed names to payload)
-  // UPDATED: Handle hostel submit (add bed names to payload)
   const handleHostelSubmit = async () => {
     console.log("=== Hostel Submit Debug ===");
     console.log("serviceData:", serviceData);
@@ -1324,9 +1318,10 @@ export default function BookingScreen() {
         return;
       }
       // FIXED: Use flat price and deposit for the plan (no per-bed division)
+      const planName = hostelPlan === 'daily' ? 'perDay' : hostelPlan; // Fix: Map daily to perDay for backend
       const selectPlan = [
         {
-          name: hostelPlan,
+          name: planName,
           price: currentPlanPrice,
           depositAmount: currentDeposit,
         },
@@ -1369,12 +1364,14 @@ export default function BookingScreen() {
           name: 'user.jpg',
         } as any);
       }
+      const checkInDateStr = checkInDate.toISOString().split('T')[0];
+      const checkOutDateStr = checkOutDate.toISOString().split('T')[0];
       console.log("Full FormData Payload: (logged as object for debug)");
       console.log({
         fullName,
         phoneNumber,
         email: serviceData.email || "example@example.com",
-       checkInDate: checkInDateStr,  // Now properly defined
+       checkInDate: checkInDateStr, // Now properly defined
     checkOutDate: checkOutDateStr,
         workType: purposeType,
         guestId,
@@ -2286,7 +2283,7 @@ const styles = StyleSheet.create({
   pickerWrapper: {
     borderWidth: 1,
     borderColor: "#aaa",
-    borderRadius: 6,
+    borderRadius: 1,
     marginBottom: 15,
   },
   pickerInput: {
