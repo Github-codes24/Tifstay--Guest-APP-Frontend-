@@ -300,16 +300,16 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* FOOTER */}
-            <View style={styles.footer}>
+            {/* <View style={styles.footer}>
               <Text style={styles.footerText}>
                 Don’t have an account?{" "}
               </Text>
               <TouchableOpacity
-                onPress={() => !isLoading && router.replace("/register")}
+                onPress={() => !isLoading && router.replace("/PersonalDetailsScreen")}
               >
                 <Text style={styles.footerLink}>Register</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </ImageBackground>
         </View>
       </KeyboardAwareScrollView>

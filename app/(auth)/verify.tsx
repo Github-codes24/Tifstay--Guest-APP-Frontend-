@@ -1,3 +1,4 @@
+// Updated VerifyScreen.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -212,13 +213,15 @@ export default function VerifyScreen() {
 
       if (response.data.success) {
         const token = response.data.token;
-        const guest = response.data.data.guest;
+        const data = response.data.data;
+        const guest = data.guest;
         const guestId = guest._id;
+        const newUser = data.newUser;
 
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("guestId", guestId);
         await AsyncStorage.setItem("userProfile", JSON.stringify({ guest }));
-        login(response.data.data, token);
+        login(data, token);
 
         Toast.show({
           type: "success",
@@ -227,7 +230,11 @@ export default function VerifyScreen() {
         });
 
         setTimeout(() => {
-          router.replace("/(secure)/(tabs)");
+          if (newUser) {
+            router.replace('/(auth)/PersonalDetailsScreen');
+          } else {
+            router.replace('/(secure)/(tabs)');
+          }
         }, 1200);
       } else {
         Toast.show({
