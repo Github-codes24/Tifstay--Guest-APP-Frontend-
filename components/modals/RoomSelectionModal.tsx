@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import Header from "../Header";
 import colors from "@/constants/colors";
 import Buttons from "../Buttons";
@@ -33,6 +34,7 @@ type SelectedRoom = {
   bedNumber: number;
   roomId?: string;
   bedId?: string;
+  name?: string;  // Added for guest name
 };
 
 type RoomData = Array<{
@@ -62,7 +64,10 @@ interface RoomSelectionModalProps {
   };
   roomsData?: RoomData;
   isContinueMode?: boolean;
-  selectedRooms?: SelectedRoom[];
+  selectedRooms?: SelectedRoom[];  // Typed
+  bookingId?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
   onContinueSelection?: (selectedData: {
     roomsData: Array<{
       roomId: string;
@@ -83,6 +88,9 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   roomsData: propRoomsData,
   isContinueMode = false,
   selectedRooms = [],
+  bookingId,
+  checkInDate: propCheckInDate,
+  checkOutDate: propCheckOutDate,
   onContinueSelection,
 }) => {
   const router = useRouter();
@@ -91,6 +99,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   const [userLoading, setUserLoading] = useState<boolean>(true);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedBedsByRoom, setSelectedBedsByRoom] = useState<Record<string, string[]>>({});
+  const [bedNames, setBedNames] = useState<Record<string, string>>({});  // Added for guest names
   const [userData, setUserData] = useState<{
     name?: string;
     phoneNumber?: string;
@@ -112,10 +121,13 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       if (propRoomsData && propRoomsData.length > 0) {
         data = propRoomsData;
       } else {
-        const response = await fetch(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`
+        const token = await AsyncStorage.getItem("token");
+        if (!token) throw new Error("No token found");
+        const response = await axios.get(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        const apiData = await response.json();
+        const apiData = response.data;
         if (apiData.success) {
           data = apiData.data;
         }
@@ -156,11 +168,12 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     }
   };
 
-  // Initialize pre-selections for continue mode
+  // Updated pre-selection useEffect with bedNames
   useEffect(() => {
     if (visible && isContinueMode && selectedRooms.length > 0 && rooms.length > 0) {
       const newSelectedBedsByRoom: Record<string, string[]> = {};
-      selectedRooms.forEach((selRoom) => {
+      const newBedNames: Record<string, string> = {};
+      selectedRooms.forEach((selRoom: SelectedRoom) => {
         const room = rooms.find(r => r._id === selRoom.roomId || r.roomNumber.toString() === selRoom.roomNumber);
         if (room) {
           const roomId = room._id;
@@ -168,14 +181,20 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
             (b._id === selRoom.bedId) ||
             (b.bedNumber.toString() === selRoom.bedNumber.toString())
           );
-          if (bed && !newSelectedBedsByRoom[roomId]) {
-            newSelectedBedsByRoom[roomId] = [bed._id];
-          } else if (bed) {
-            newSelectedBedsByRoom[roomId] = [...(newSelectedBedsByRoom[roomId] || []), bed._id];
+          if (bed) {
+            if (!newSelectedBedsByRoom[roomId]) {
+              newSelectedBedsByRoom[roomId] = [bed._id];
+            } else {
+              newSelectedBedsByRoom[roomId] = [...newSelectedBedsByRoom[roomId], bed._id];
+            }
+            if (selRoom.name) {
+              newBedNames[bed._id] = selRoom.name;
+            }
           }
         }
       });
       setSelectedBedsByRoom(newSelectedBedsByRoom);
+      setBedNames(newBedNames);
       console.log("Pre-selected beds initialized:", newSelectedBedsByRoom);
     }
   }, [visible, isContinueMode, selectedRooms, rooms]);
@@ -268,14 +287,18 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       planData.depositAmount = Number(planData.depositAmount);
     }
 
-    const today = new Date();
-    const checkInDateObj = new Date(today);
-    checkInDateObj.setDate(today.getDate() + 1);
+    const today = new Date("2025-12-02"); // Use provided current date
+    let checkInDateObj = propCheckInDate ? new Date(propCheckInDate) : new Date(today);
+    if (!propCheckInDate) {
+      checkInDateObj.setDate(today.getDate() + 1);
+    }
     checkInDateObj.setHours(0, 0, 0, 0);
     const checkInDateStr = checkInDateObj.toISOString();
 
-    const checkOutDateObj = new Date(checkInDateObj);
-    checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
+    let checkOutDateObj = propCheckOutDate ? new Date(propCheckOutDate) : new Date(checkInDateObj);
+    if (!propCheckOutDate) {
+      checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
+    }
     checkOutDateObj.setHours(0, 0, 0, 0);
     const checkOutDateStr = checkOutDateObj.toISOString();
 
@@ -285,10 +308,11 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       checkInDate: checkInDateStr,
       checkOutDate: checkOutDateStr,
       userData,
+      bedNames,  // Add this line
     };
   };
 
-  const handleBook = () => {
+  const handleBook = async () => {
     if (loading || userLoading || !userData) {
       Alert.alert("Loading", "Please wait for data to load.");
       return;
@@ -300,8 +324,36 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       return;
     }
 
-    onContinueSelection?.(selectedData);
-    onClose();
+    if (isContinueMode && bookingId) {
+      // For edit mode, navigate to booking screen with bookingId and hostel id
+      const params = {
+        bookingId,
+        hostelId: hostelData.id,
+        hostelData: JSON.stringify(hostelData),
+        roomsData: JSON.stringify(selectedData.roomsData),
+        bedNames: JSON.stringify(selectedData.bedNames),  // Add this line
+        plan: JSON.stringify(selectedData.plan),
+        checkInDate: selectedData.checkInDate,
+        checkOutDate: selectedData.checkOutDate,
+        userData: JSON.stringify(selectedData.userData),
+        bookingType: "edit",
+        isEdit: "true",
+      };
+
+      console.log("Params being passed to booking screen for edit:", params);
+
+      onClose(); // Close modal first
+      setTimeout(() => {
+        router.push({
+          pathname: "/bookingScreen",
+          params,
+        });
+      }, 300); // Small delay to allow modal to dismiss
+    } else {
+      // Fallback to onContinueSelection if not in edit mode or no bookingId
+      onContinueSelection?.(selectedData);
+      onClose();
+    }
   };
 
   const handleReserve = async () => {
@@ -321,6 +373,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     const params = {
       hostelData: JSON.stringify(hostelData),
       roomsData: JSON.stringify(selectedData.roomsData),
+      bedNames: JSON.stringify(selectedData.bedNames),  // Add this line
       plan: JSON.stringify(selectedData.plan),
       checkInDate: selectedData.checkInDate,
       checkOutDate: selectedData.checkOutDate,
@@ -334,14 +387,17 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       pathname: "/bookingScreen",
       params,
     });
+    onClose();
   };
 
+  // Updated renderBedRow with guest name display
   const renderBedRow = ({ item }: { item: any }) => {
     const isAvailable = isContinueMode
       ? true
       : item.status.toLowerCase() === "unoccupied" && item.Availability.toLowerCase() === "available";
     const currentRoomBeds = selectedBedsByRoom[selectedRoomId || ''] || [];
     const isSelected = currentRoomBeds.includes(item._id);
+    const bedName = isSelected ? bedNames[item._id] : undefined;  // Get guest name if selected
 
     return (
       <View style={styles.bedRow}>
@@ -356,7 +412,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            Bed {item.bedNumber}
+            {`Bed ${item.bedNumber}${isSelected && bedName ? ` (${bedName})` : ''}`}
           </Text>
         </View>
         <Text
@@ -554,6 +610,8 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     </Modal>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },

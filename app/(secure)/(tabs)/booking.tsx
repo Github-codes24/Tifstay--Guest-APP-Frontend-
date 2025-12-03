@@ -59,6 +59,8 @@ interface Order {
   guestName?: string; // Tiffin-specific: Guest full name
   createdDate?: string; // NEW: Created date (e.g., "15/11/2025")
   createdTime?: string; // NEW: Created time (e.g., "05:24:05")
+  approvedByGuest?: string; // NEW: Approval status by guest (e.g., "pending", "accepted")
+  approvedByOwner?: string; // NEW: Approval status by owner (e.g., "pending", "accepted")
 }
 
 const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Promise<Order[]> => {
@@ -121,11 +123,14 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
       // NEW: Map created date and time
       createdDate: item.createdDate || "",
       createdTime: item.createdTime || "",
+      // NEW: Map approval statuses
+      approvedByGuest: item.approvedByGuest || "pending",
+      approvedByOwner: item.approvedByOwner || "pending",
     };
   });
   // DEBUG: Log hostel orders statuses
   if (__DEV__) {
-    console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType, plan: o.plan })));
+    console.log("Fetched Hostel Orders:", fetchedHostelOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType, plan: o.plan, approvedByGuest: o.approvedByGuest, approvedByOwner: o.approvedByOwner })));
   }
   return fetchedHostelOrders;
 };
@@ -185,6 +190,22 @@ const fetchTiffinOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
     console.log("Fetched Tiffin Orders:", fetchedTiffinOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
   }
   return fetchedTiffinOrders;
+};
+
+// NEW: Function to update deposit status
+const updateDepositStatus = async (bookingId: string, status: "accepted" | "rejected") => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+  const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/updateGiveDeposit/${bookingId}`;
+  const response = await axios.put(url, { status }, { headers });
+  if (__DEV__) console.log("Update Deposit Response:", response.data);
+  if (!response.data.success) {
+    throw new Error("Failed to update deposit status");
+  }
+  return response.data;
 };
 
 const Booking: React.FC = () => {
@@ -402,6 +423,24 @@ const Booking: React.FC = () => {
     const fiveDaysBefore = new Date(end.getTime() - 5 * 24 * 60 * 60 * 1000);
     const now = new Date();
     return now >= fiveDaysBefore && now < end;
+  };
+
+  // NEW: Handler for deposit confirmation
+  const handleDepositConfirmation = async (order: Order, confirmed: boolean) => {
+    if (!order.id || order.serviceType !== 'hostel') {
+      Alert.alert("Error", "Invalid booking details.");
+      return;
+    }
+    try {
+      const status = confirmed ? "accepted" : "rejected"; // Assuming backend supports "rejected"; adjust if needed
+      await updateDepositStatus(order.id, status);
+      Alert.alert("Success", confirmed ? "Deposit received confirmed!" : "Deposit not received noted.");
+      // Refetch to update UI
+      await refetchCurrentHostel();
+    } catch (error) {
+      console.error("Error updating deposit:", error);
+      Alert.alert("Error", "Failed to update deposit status. Please try again.");
+    }
   };
 
   const handleTrackOrder = (order: Order) => {
@@ -689,9 +728,18 @@ const Booking: React.FC = () => {
         isNotHistory: !isHistoryOrder(order.status),
         isTiffin: order.serviceType === "tiffin",
         within5Days: isWithin5DaysOfEnd(order),
+        // NEW: Deposit prompt conditions
+        isHostel: order.serviceType === "hostel",
+        ownerApproved: order.approvedByOwner === "accepted",
+        guestPending: order.approvedByGuest === "pending",
       });
+      console.log("Deposit prompt should show:", activeTab === "confirmed" && order.status === "confirmed" && order.serviceType === "hostel" && order.approvedByOwner === "accepted" && order.approvedByGuest === "pending");
       console.log("Track button should show:", activeTab === "confirmed" && order.status === "confirmed" && !isHistoryOrder(order.status) && order.serviceType === "tiffin");
     }
+
+    // NEW: Check if deposit prompt should show (confirmed hostel, owner approved, guest pending)
+    const showDepositPrompt = activeTab === "confirmed" && order.status === "confirmed" && order.serviceType === "hostel" && order.approvedByOwner === "accepted" && order.approvedByGuest === "pending";
+
     return (
       <TouchableOpacity
         style={styles.orderCard}
@@ -884,6 +932,30 @@ const Booking: React.FC = () => {
         </View>
         {activeTab === "pending" ? null : (
           <>
+            {/* NEW: Deposit Prompt Section (Only for qualifying hostel bookings) */}
+            {showDepositPrompt && (
+              <View style={styles.depositPromptContainer}>
+                <Text style={styles.depositPromptText}>Did you get your deposit?</Text>
+                <View style={styles.depositButtonRow}>
+                  <Button
+                    title="Yes"
+                    onPress={() => handleDepositConfirmation(order, true)}
+                    style={[styles.depositButton, { backgroundColor: "#10B981" }]}
+                    textStyle={styles.depositButtonText}
+                    width={100}
+                    height={40}
+                  />
+                  <Button
+                    title="No"
+                    onPress={() => handleDepositConfirmation(order, false)}
+                    style={[styles.depositButton, { backgroundColor: "#EF4444" }]}
+                    textStyle={[styles.depositButtonText, { color: "#fff" }]}
+                    width={100}
+                    height={40}
+                  />
+                </View>
+              </View>
+            )}
             {order.status === "confirmed" && !isHistoryOrder(order.status) && (
               <View>
                 {order.serviceType === "tiffin" ? (
@@ -1184,6 +1256,19 @@ const Booking: React.FC = () => {
                   <Text style={styles.modalLabel}>Status</Text>
                   <Text style={styles.modalValue}>{getStatusText(detailsOrder.status)}</Text>
                 </View>
+                {/* NEW: Approval statuses in modal */}
+                {detailsOrder.serviceType === "hostel" && (
+                  <>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Approved by Guest</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.approvedByGuest || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Approved by Owner</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.approvedByOwner || "N/A"}</Text>
+                    </View>
+                  </>
+                )}
                 {activeTab === "rejected" && (
                   <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Price</Text>
@@ -1501,6 +1586,35 @@ const styles = StyleSheet.create({
   repeatButtonStyle: {
     backgroundColor: colors.primary,
     flex: 1,
+  },
+  // NEW: Styles for Deposit Prompt
+  depositPromptContainer: {
+    backgroundColor: "#FFF7ED",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+  },
+  depositPromptText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#92400E",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  depositButtonRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  depositButton: {
+    borderRadius: 6,
+    borderWidth: 0,
+  },
+  depositButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
   },
   // Modal styles for Full details
   modalOverlay: {

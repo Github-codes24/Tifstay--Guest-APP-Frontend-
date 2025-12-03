@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
+import RoomSelectionModal from "@/components/modals/RoomSelectionModal"; // Adjust path as needed
 
 const fetchPendingTiffin = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -86,7 +87,7 @@ const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: 
   );
 };
 
-const PendingHostelCard = ({ booking, onContinue }: { booking: any; onContinue: () => void }) => {
+const PendingHostelCard = ({ booking, onContinue, onEdit }: { booking: any; onContinue: () => void; onEdit: () => void }) => {
   const bedsList = booking.rooms?.[0]?.bedNumber?.map((bed: any) => `${bed.bedNumber} (${bed.name})`).join(', ') || 'N/A';
   const planName = booking.selectPlan?.[0]?.name || 'N/A';
   const planPrice = booking.selectPlan?.[0]?.price || 'N/A';
@@ -134,7 +135,7 @@ const PendingHostelCard = ({ booking, onContinue }: { booking: any; onContinue: 
           <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
           <Text style={pendingCardStyles.locationText}>{booking.hostelId?.location?.fullAddress || 'N/A'}</Text>
         </View>
-          <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
+        <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onEdit}>
           <Text style={pendingCardStyles.continueText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
@@ -170,6 +171,8 @@ const CartScreen = () => {
   );
 
   const [activeTab, setActiveTab] = useState('tiffin');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<any>(null);
 
   useEffect(() => {
     if (!tiffinLoading && !hostelLoading) {
@@ -199,6 +202,7 @@ const CartScreen = () => {
       params,
     });
   };
+
   const handleContinueHostel = (id: string) => {
     const params = { bookingId: id, type: "hostel" };
     console.log("Navigating to checkout with params:", params);
@@ -207,11 +211,29 @@ const CartScreen = () => {
       params,
     });
   };
+
+  const handleEditHostel = (booking: any) => {
+    console.log("Opening edit modal for booking:", booking._id); // Debug log
+    setEditingBooking(booking);
+    setEditModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    console.log("Closing edit modal"); // Debug log
+    setEditModalVisible(false);
+    setEditingBooking(null);
+  };
+
   const renderTiffinItem = ({ item }: { item: any }) => (
     <PendingTiffinCard booking={item} onContinue={() => handleContinueTiffin(item._id)} />
   );
+
   const renderHostelItem = ({ item }: { item: any }) => (
-    <PendingHostelCard booking={item} onContinue={() => handleContinueHostel(item._id)} />
+    <PendingHostelCard 
+      booking={item} 
+      onContinue={() => handleContinueHostel(item._id)} 
+      onEdit={() => handleEditHostel(item)} 
+    />
   );
 
   const renderTabContent = () => {
@@ -251,6 +273,17 @@ const CartScreen = () => {
       }
     }
   };
+
+  // Updated selectedRooms with name
+  const selectedRooms = editingBooking?.rooms?.flatMap((room: any) =>
+    room.bedNumber?.map((bed: any) => ({
+      roomNumber: room.roomNumber,
+      bedNumber: bed.bedNumber,
+      roomId: room.roomId,
+      bedId: bed.bedId,
+      name: bed.name,  // Pass guest name
+    })) || []
+  ) || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -304,9 +337,29 @@ const CartScreen = () => {
           </>
         )}
       </ScrollView>
+
+      {editingBooking && editModalVisible && (
+        <RoomSelectionModal
+          visible={editModalVisible}
+          onClose={handleModalClose}
+          hostelData={{
+            id: editingBooking.hostelId?._id,
+            name: editingBooking.hostelId?.hostelName,
+            price: `₹${editingBooking.selectPlan?.[0]?.price || 0}`,
+            deposit: `₹${editingBooking.selectPlan?.[0]?.depositAmount || 0}`,
+          }}
+          isContinueMode={true}
+          selectedRooms={selectedRooms}
+          bookingId={editingBooking._id}
+          checkInDate={editingBooking.checkInDate}
+          checkOutDate={editingBooking.checkOutDate}
+        />
+      )}
     </SafeAreaView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f7f4f4" },

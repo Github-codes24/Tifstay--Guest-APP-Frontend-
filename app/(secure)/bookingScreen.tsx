@@ -41,12 +41,22 @@ type MealPackage = {
 export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const bookingType = (params.bookingType as BookingType) || "tiffin";
+  const bookingId = params.bookingId || ''; // NEW: Extract bookingId for edit mode
+  const isEditMode = params.isEdit === 'true' && !!bookingId; // FIXED: Use params.isEdit and bookingId
+  // FIXED: Handle bookingType for edit mode (assume hostel edit)
+  let effectiveBookingType: BookingType;
+  if (isEditMode) {
+    effectiveBookingType = "hostel"; // Assume edit is for hostel based on context
+  } else {
+    effectiveBookingType = (params.bookingType as BookingType) || "tiffin";
+  }
+  const bookingType = effectiveBookingType;
   // Extract primitive strings for stable dependencies
   const serviceDataStr = params.serviceData || "{}"; // For tiffin
   const hostelDataStr = params.hostelData || "{}";
   const roomDataStr = params.roomData || "{}";
   const roomsDataStr = params.roomsData || "[]"; // NEW: For multiple rooms
+  const bedNamesStr = params.bedNames || "{}"; // Add this line
   const userDataStr = params.userData || "{}";
   const planStr = params.plan || "{}";
   const selectedBedsStr = params.selectedBeds || "[]";
@@ -95,10 +105,12 @@ export default function BookingScreen() {
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
   const [currentDeposit, setCurrentDeposit] = useState(0);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-  // FIXED: Set default picker items for hostel to ensure plans show
+  // FIXED: Set default picker items for hostel to ensure plans show (all options)
   const [pickerItems, setPickerItems] = useState([
+    { label: "Per Day", value: "daily" },
+    { label: "Weekly", value: "weekly" },
     { label: "Monthly", value: "monthly" },
-  ]); // Default to monthly
+  ]);
   // Tiffin-specific states
   // FIXED: Fixed to single tiffin
   const [mealLabels, setMealLabels] = useState<Record<MealType, string>>({});
@@ -171,6 +183,112 @@ export default function BookingScreen() {
   const userSectionRef = useRef<View>(null);
   const bedSectionRef = useRef<View>(null);
   const bedNameRefs = useRef<Record<string, TextInput>>({});
+  // NEW: Function to fetch existing booking details for edit mode
+  const fetchExistingBooking = async () => {
+    if (!bookingId) return;
+    console.log("Attempting to fetch booking for ID:", bookingId); // DEBUG: Add this
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.warn("No token for fetching booking");
+        return;
+      }
+      const response = await axios.get(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getDummyHostelBookingById/${bookingId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      console.log("Booking API response:", response.data); // DEBUG: Add this
+      if (response.data.success) {
+        const data = response.data.data;
+        console.log("Fetched booking details:", data);
+        // Prefill user details
+        setFullName(data.fullName || "");
+        setPhoneNumber((data.phoneNumber || "").replace(/^\+91\s*/, ""));
+        setServiceData((prev) => ({ ...prev, email: data.email || prev.email }));
+        // Prefill dates
+        if (data.checkInDate) setCheckInDate(new Date(data.checkInDate));
+        if (data.checkOutDate) setCheckOutDate(new Date(data.checkOutDate));
+        // Prefill purpose type
+        const workTypeNormalized = (data.workType || "work").toLowerCase();
+        let purpose = "work";
+        if (workTypeNormalized.includes("student")) purpose = "student";
+        else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
+        setPurposeType(purpose as any);
+        // Prefill photos (URLs)
+        setAadhaarPhoto(data.addharCardPhoto || "");
+        setUserPhoto(data.userPhoto || "");
+        // Prefill rooms and bed names
+        let rooms: RoomData[] = [];
+        const parsedRoomsFromParams = safeParse(roomsDataStr);
+        if (Array.isArray(parsedRoomsFromParams) && parsedRoomsFromParams.length > 0) {
+          rooms = parsedRoomsFromParams; // Prioritize updated from modal
+        } else {
+          rooms = data.rooms?.map((r: any) => ({
+            roomId: r.roomId,
+            roomNumber: r.roomNumber,
+            beds: r.bedNumber?.map((b: any) => ({ bedId: b.bedId, bedNumber: b.bedNumber })) || [],
+          })) || [];
+        }
+        setServiceData((prev) => ({ ...prev, rooms }));
+        // For bed names
+        let newBedNames: Record<string, string> = safeParse(bedNamesStr);
+        if (Object.keys(newBedNames).length === 0) {
+          // Fallback to API only if no params
+          data.rooms?.forEach((r: any) => {
+            r.bedNumber?.forEach((b: any) => {
+              const key = getBedKey(r.roomId, b.bedId);
+              newBedNames[key] = b.name || "";
+            });
+          });
+        }
+        setBedNames(newBedNames);
+        // Prefill hostel plan and pricing
+        if (data.selectPlan && data.selectPlan.length > 0) {
+          const plan = data.selectPlan[0];
+          const planName = plan.name === "perDay" ? "daily" : plan.name;
+          setHostelPlan(planName);
+          setCurrentPlanPrice(plan.price || 0);
+          setCurrentDeposit(plan.depositAmount || 0);
+          // Update pricingData for consistency
+          setPricingData((prev) => ({
+            ...prev,
+            [planName]: plan.price || 0,
+          }));
+        }
+        // Update serviceData with hostel details if needed
+        setServiceData((prev) => ({
+          ...prev,
+          hostelId: params.hostelId || data.hostelId?._id || prev.hostelId,
+          hostelName: data.hostelId?.hostelName || prev.hostelName,
+          monthlyPrice: data.selectPlan?.[0]?.price || prev.monthlyPrice,
+          deposit: data.selectPlan?.[0]?.depositAmount || prev.deposit,
+        }));
+        // Prefill message/special instructions if available
+        setMessage(data.remark || data.Remark || ""); // Assuming Remark field
+      } else {
+        console.error("Failed to fetch booking:", response.data.message);
+        // FALLBACK: Use params for dates and other fields if API fails in edit mode
+        if (isEditMode) {
+          console.log("API fetch failed in edit mode - falling back to params for dates");
+          if (checkInDateStr) setCheckInDate(new Date(checkInDateStr));
+          if (checkOutDateStr) setCheckOutDate(new Date(checkOutDateStr));
+          // Also ensure plan and rooms from params (already done in handleParamsAutofill)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching booking details:", error);
+      // FALLBACK: Use params for dates if error in edit mode
+      if (isEditMode) {
+        console.log("Fetch error in edit mode - falling back to params for dates");
+        if (checkInDateStr) setCheckInDate(new Date(checkInDateStr));
+        if (checkOutDateStr) setCheckOutDate(new Date(checkOutDateStr));
+      }
+    }
+  };
   const getMealsFromPlanType = (
     planType: string
   ): Record<MealType, boolean> => {
@@ -449,6 +567,49 @@ export default function BookingScreen() {
       text2: message,
     });
   };
+  // NEW: Always prefill dates and basic fields from params (before any fetches)
+  useEffect(() => {
+    // Set dates from params immediately (for both new and edit modes)
+    if (checkInDateStr) {
+      try {
+        setCheckInDate(new Date(checkInDateStr));
+      } catch (e) {
+        console.warn("Invalid checkInDate from params:", checkInDateStr);
+      }
+    }
+    if (checkOutDateStr) {
+      try {
+        setCheckOutDate(new Date(checkOutDateStr));
+      } catch (e) {
+        console.warn("Invalid checkOutDate from params:", checkOutDateStr);
+      }
+    }
+    if (defaultDateStr && bookingType === "tiffin") {
+      try {
+        setDate(new Date(defaultDateStr));
+      } catch (e) {
+        console.warn("Invalid date from params:", defaultDateStr);
+      }
+    }
+    // Basic user fields from params (fallback if no profile/API)
+    const parsedUserData = safeParse(userDataStr);
+    if (parsedUserData.name) setFullName(parsedUserData.name);
+    if (parsedUserData.phoneNumber) {
+      setPhoneNumber((parsedUserData.phoneNumber || "").replace(/^\+91\s*/, ""));
+    }
+    // For hostel: purpose from params
+    if ((bookingType === "hostel" || bookingType === "reserve") && parsedUserData.workType) {
+      const workTypeNormalized = parsedUserData.workType.toLowerCase();
+      let purpose = "work";
+      if (workTypeNormalized.includes("student")) purpose = "student";
+      else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
+      else if (workTypeNormalized.includes("work")) purpose = "work";
+      setPurposeType(purpose);
+    }
+    // Add this block for bedNames
+    const parsedBedNames = safeParse(bedNamesStr);
+    setBedNames(parsedBedNames);
+  }, [checkInDateStr, checkOutDateStr, defaultDateStr, userDataStr, bookingType, bedNamesStr]); // Add bedNamesStr to deps
   useEffect(() => {
     const autofill = async () => {
       const isHostelBooking = bookingType === "hostel" || bookingType === "reserve";
@@ -487,7 +648,7 @@ export default function BookingScreen() {
             // Strip +91 if present during autofill
             const strippedPhone = userPhone.replace(/^\+91\s*/, '');
             userPhone = strippedPhone;
-            // Autofill common fields
+            // Autofill common fields (override params if profile has better data)
             setFullName(userName);
             setPhoneNumber(userPhone);
             // Autofill address for tiffin
@@ -503,12 +664,11 @@ export default function BookingScreen() {
                 setLocality(firstAddress.address);
               }
             }
-            // Handle other user data from params (unchanged)
-            const parsedUserData = safeParse(userDataStr);
-            const userEmail = parsedUserData.email || parsedUserData.guest?.email || "";
-            const userWorkType = parsedUserData.workType || parsedUserData.guest?.workType || "";
-            const userAdharPhoto = parsedUserData.adharCardPhoto || parsedUserData.guest?.adharCardPhoto || "";
-            const userPhotoUrl = parsedUserData.userPhoto || parsedUserData.guest?.userPhoto || "";
+            // Handle other user data from profile (override params)
+            const userEmail = profileData.email || "";
+            const userWorkType = profileData.workType || "";
+            const userAdharPhoto = profileData.adharCardPhoto || "";
+            const userPhotoUrl = profileData.userPhoto || "";
             if (isHostelBooking) {
               setServiceData((prev) => ({
                 ...prev,
@@ -561,7 +721,11 @@ export default function BookingScreen() {
                 monthlyPrice: parsedPlan.price,
                 deposit: parsedPlan.depositAmount,
               }));
-              setTimeout(() => prefillFirstBedName(rooms, userName), 0);
+              setTimeout(() => {
+                if (Object.keys(bedNames).length === 0 && rooms.length > 0) {
+                  prefillFirstBedName(rooms, userName);
+                }
+              }, 0);
               setHostelPlan(parsedPlan.name || "monthly");
             }
             if (isTiffinBooking) {
@@ -657,6 +821,10 @@ export default function BookingScreen() {
           console.error("Error in autofill useEffect:", error);
           handleParamsAutofill();
         }
+        // NEW: Fetch existing booking if in edit mode (after basic autofill)
+        if (isEditMode) {
+          await fetchExistingBooking();
+        }
       }
     };
     const handleParamsAutofill = () => {
@@ -718,7 +886,11 @@ export default function BookingScreen() {
           monthlyPrice: parsedPlan.price,
           deposit: parsedPlan.depositAmount,
         }));
-        setTimeout(() => prefillFirstBedName(rooms, parsedUserData.name || ""), 0);
+        setTimeout(() => {
+          if (Object.keys(bedNames).length === 0 && rooms.length > 0) {
+            prefillFirstBedName(rooms, parsedUserData.name || "");
+          }
+        }, 0);
         setHostelPlan(parsedPlan.name || "monthly");
       }
       // Tiffin address from params if no API
@@ -820,6 +992,8 @@ export default function BookingScreen() {
     defaultDateStr,
     checkInDateStr,
     checkOutDateStr,
+    bookingId, // NEW: Depend on bookingId for edit fetch
+    isEditMode, // NEW: Depend on isEditMode
   ]);
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
   useEffect(() => {
@@ -842,7 +1016,11 @@ export default function BookingScreen() {
             setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
             setSecurityDeposit(5000);
             setWeeklyDeposit(1000);
-            setPickerItems([{ label: "Monthly", value: "monthly" }]);
+            setPickerItems([
+              { label: "Per Day", value: "daily" },
+              { label: "Weekly", value: "weekly" },
+              { label: "Monthly", value: "monthly" },
+            ]);
             setCurrentPlanPrice(3200);
             setCurrentDeposit(5000);
             return;
@@ -865,21 +1043,12 @@ export default function BookingScreen() {
             });
             setSecurityDeposit(data.perDayDeposit || data.securityDeposit || 0);
             setWeeklyDeposit(data.weeklyDeposit || data.perDayDeposit || 0);
-            // Dynamically create picker items based on available plans
-            const items = [];
-            if (data.pricing?.perDay > 0) {
-              items.push({ label: "Per Day", value: "daily" });
-            }
-            if (data.pricing?.weekly > 0) {
-              items.push({ label: "Weekly", value: "weekly" });
-            }
-            if (data.pricing?.monthly > 0) {
-              items.push({ label: "Monthly", value: "monthly" });
-            }
-            // FIXED: Ensure at least monthly if no items
-            if (items.length === 0) {
-              items.push({ label: "Monthly", value: "monthly" });
-            }
+            // FIXED: Always create picker items for all plans (show even if price === 0)
+            const items = [
+              { label: "Per Day", value: "daily" },
+              { label: "Weekly", value: "weekly" },
+              { label: "Monthly", value: "monthly" },
+            ];
             setPickerItems(items);
             // FIXED: Set initial plan to first available
             setHostelPlan(items[0]?.value || "monthly");
@@ -890,7 +1059,11 @@ export default function BookingScreen() {
             setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
             setSecurityDeposit(5000);
             setWeeklyDeposit(1000);
-            setPickerItems([{ label: "Monthly", value: "monthly" }]);
+            setPickerItems([
+              { label: "Per Day", value: "daily" },
+              { label: "Weekly", value: "weekly" },
+              { label: "Monthly", value: "monthly" },
+            ]);
             setCurrentPlanPrice(3200);
             setCurrentDeposit(5000);
           }
@@ -899,7 +1072,11 @@ export default function BookingScreen() {
           setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
           setSecurityDeposit(5000);
           setWeeklyDeposit(1000);
-          setPickerItems([{ label: "Monthly", value: "monthly" }]);
+          setPickerItems([
+            { label: "Per Day", value: "daily" },
+            { label: "Weekly", value: "weekly" },
+            { label: "Monthly", value: "monthly" },
+          ]);
           setCurrentPlanPrice(3200);
           setCurrentDeposit(5000);
         }
@@ -909,7 +1086,11 @@ export default function BookingScreen() {
         setPricingData({ daily: 0, weekly: 0, monthly: 3200 });
         setSecurityDeposit(5000);
         setWeeklyDeposit(1000);
-        setPickerItems([{ label: "Monthly", value: "monthly" }]);
+        setPickerItems([
+          { label: "Per Day", value: "daily" },
+          { label: "Weekly", value: "weekly" },
+          { label: "Monthly", value: "monthly" },
+        ]);
         setCurrentPlanPrice(3200);
         setCurrentDeposit(5000);
       } finally {
@@ -1267,121 +1448,206 @@ export default function BookingScreen() {
       showCustomToast(errorMsg);
     }
   };
-  const handleHostelSubmit = async () => {
-    console.log("=== Hostel Submit Debug ===");
-    console.log("serviceData:", serviceData);
-    console.log("hostelPlan:", hostelPlan);
-    console.log("fullName:", fullName);
-    console.log("phoneNumber:", phoneNumber);
-    console.log("checkInDate:", checkInDate);
-    console.log("checkOutDate:", checkOutDate);
-    console.log("purposeType:", purposeType);
-    console.log("aadhaarPhoto:", aadhaarPhoto);
-    console.log("userPhoto:", userPhoto);
-    console.log("rooms:", serviceData.rooms);
-    console.log("bedNames:", bedNames);
-    const validation = validateHostelForm();
-    if (!validation.valid) {
-      if (validation.hasBedErrors) {
-        setExpandedTiffin(0);
-        setTimeout(() => {
-          if (validation.firstError) {
-            scrollToField(validation.firstError);
-          }
-        }, 300);
-      } else if (validation.firstError) {
-        scrollToField(validation.firstError);
-      }
+const handleHostelSubmit = async () => {
+  console.log("=== Hostel Submit Debug ===");
+  console.log("serviceData:", serviceData);
+  console.log("hostelPlan:", hostelPlan);
+  console.log("fullName:", fullName);
+  console.log("phoneNumber:", phoneNumber);
+  console.log("checkInDate:", checkInDate);
+  console.log("checkOutDate:", checkOutDate);
+  console.log("purposeType:", purposeType);
+  console.log("aadhaarPhoto:", aadhaarPhoto);
+  console.log("userPhoto:", userPhoto);
+  console.log("rooms:", serviceData.rooms);
+  console.log("bedNames:", bedNames);
+  const validation = validateHostelForm();
+  if (!validation.valid) {
+    if (validation.hasBedErrors) {
+      setExpandedTiffin(0);
+      setTimeout(() => {
+        if (validation.firstError) {
+          scrollToField(validation.firstError);
+        }
+      }, 300);
+    } else if (validation.firstError) {
+      scrollToField(validation.firstError);
+    }
+    return;
+  }
+  setIsLoadingHostel(true);
+  try {
+    if (!serviceData.hostelId) {
+      console.error("Error: Hostel ID is missing!");
+      console.log("hostelId:", serviceData.hostelId);
+      setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
       return;
     }
-    setIsLoadingHostel(true);
-    try {
-      if (!serviceData.hostelId) {
-        console.error("Error: Hostel ID is missing!");
-        console.log("hostelId:", serviceData.hostelId);
-        setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
-        return;
-      }
-      // NEW: No need for single roomId validation
-      if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
-        console.error("Error: No rooms or beds selected!");
-        setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
-        return;
-      }
-      const token = await AsyncStorage.getItem("token");
-      const guestId = await AsyncStorage.getItem("guestId");
-      console.log("token:", token ? "Present" : "Missing");
-      console.log("guestId:", guestId ? "Present" : "Missing");
-      if (!token || !guestId) {
-        console.error("Error: Authentication token or guest ID is missing!");
-        setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
-        return;
-      }
-      // FIXED: Use flat price and deposit for the plan (no per-bed division)
-      const planName = hostelPlan === 'daily' ? 'perDay' : hostelPlan; // Fix: Map daily to perDay for backend
-      const selectPlan = [
-        {
-          name: planName,
-          price: currentPlanPrice,
-          depositAmount: currentDeposit,
-        },
-      ];
-      // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
-      const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
-        roomId: room.roomId,
-        roomNumber: String(room.roomNumber || ""), // e.g., "101"
-        bedNumber: room.beds.map(bed => ({
-          bedId: bed.bedId,
-          bedNumber: bed.bedNumber,
-          name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
-        })),
-      }));
-      // Create FormData for file uploads
-      const formData = new FormData();
-      formData.append('fullName', fullName);
-      formData.append('phoneNumber', phoneNumber ? `+91 ${phoneNumber}` : '');
-      formData.append('email', serviceData.email || "example@example.com");
-      formData.append('checkInDate', checkInDate.toISOString());
-      formData.append('checkOutDate', checkOutDate.toISOString());
-      formData.append('workType', purposeType);
-      formData.append('guestId', guestId);
-      // Append rooms as JSON string (now with names)
-      formData.append('rooms', JSON.stringify(roomsPayload));
-      // Append plan as JSON string
-      formData.append('selectPlan', JSON.stringify(selectPlan));
-      // Append images as files (if selected)
-      if (aadhaarPhoto) {
+    // NEW: No need for single roomId validation
+    if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+      console.error("Error: No rooms or beds selected!");
+      setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
+      return;
+    }
+    const token = await AsyncStorage.getItem("token");
+    const guestId = await AsyncStorage.getItem("guestId");
+    console.log("token:", token ? "Present" : "Missing");
+    console.log("guestId:", guestId ? "Present" : "Missing");
+    if (!token || !guestId) {
+      console.error("Error: Authentication token or guest ID is missing!");
+      setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+      return;
+    }
+    // FIXED: Use flat price and deposit for the plan (no per-bed division)
+    const planName = hostelPlan === 'daily' ? 'perDay' : hostelPlan; // Fix: Map daily to perDay for backend
+    const selectPlan = [
+      {
+        name: planName,
+        price: currentPlanPrice,
+        depositAmount: currentDeposit,
+      },
+    ];
+    // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
+    const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+      roomId: room.roomId,
+      roomNumber: String(room.roomNumber || ""), // e.g., "101"
+      bedNumber: room.beds.map(bed => ({
+        bedId: bed.bedId,
+        bedNumber: bed.bedNumber,
+        name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
+      })),
+    }));
+    // UPDATED: For update, use 'addRooms'; for create, use 'rooms'
+    const roomsKey = isEditMode ? 'addRooms' : 'rooms';
+    // Create FormData for file uploads ONLY if new images; otherwise prepare JSON
+    let formData: FormData | undefined;
+    let updatePayload: any = {
+      fullName,
+      phoneNumber: phoneNumber ? `+91 ${phoneNumber}` : '', // Standardize with +91 for consistency
+      email: serviceData.email || "example@example.com",
+      workType: purposeType, // Send lowercase to match backend (remove capitalization if backend lowercases)
+      [roomsKey]: roomsPayload, // Direct array (no stringify)
+      selectPlan, // Direct array (no stringify)
+      Remark: message || '',
+    };
+
+    // Date handling: Use full ISO with specific times (check-in 18:00, check-out 12:00) to match backend format
+    let checkInDateStr: string;
+    let checkOutDateStr: string;
+    if (checkInDate) {
+      const checkIn = new Date(checkInDate);
+      checkIn.setHours(18, 30, 0, 0); // Evening arrival
+      checkInDateStr = checkIn.toISOString();
+    } else {
+      checkInDateStr = '';
+    }
+    if (checkOutDate) {
+      const checkOut = new Date(checkOutDate);
+      checkOut.setHours(12, 0, 0, 0); // Noon departure
+      checkOutDateStr = checkOut.toISOString();
+    } else {
+      checkOutDateStr = '';
+    }
+    updatePayload.checkInDate = checkInDateStr;
+    updatePayload.checkOutDate = checkOutDateStr;
+
+    // Flags for existing photos
+    updatePayload.aadhaarPhoto = aadhaarPhoto.startsWith('http') ? 'Existing' : null;
+    updatePayload.userPhoto = userPhoto.startsWith('http') ? 'Existing' : null;
+
+    // If new photos, use FormData and append fields properly
+    const hasNewPhotos = (aadhaarPhoto && !aadhaarPhoto.startsWith('http')) || (userPhoto && !userPhoto.startsWith('http'));
+    if (hasNewPhotos) {
+      formData = new FormData();
+      // Append simple string fields as-is
+      const simpleFields = {
+        fullName: updatePayload.fullName,
+        phoneNumber: updatePayload.phoneNumber,
+        email: updatePayload.email,
+        workType: updatePayload.workType,
+        Remark: updatePayload.Remark,
+        checkInDate: updatePayload.checkInDate,
+        checkOutDate: updatePayload.checkOutDate,
+      };
+      Object.entries(simpleFields).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          formData.append(key, String(value));
+        }
+      });
+      // Append complex fields as JSON strings (backend can parse)
+      formData.append('selectPlan', JSON.stringify(updatePayload.selectPlan));
+      formData.append(roomsKey, JSON.stringify(updatePayload[roomsKey]));
+      // Append photo flags
+      if (updatePayload.aadhaarPhoto) formData.append('aadhaarPhoto', updatePayload.aadhaarPhoto);
+      if (updatePayload.userPhoto) formData.append('userPhoto', updatePayload.userPhoto);
+      // Append new images
+      if (aadhaarPhoto && !aadhaarPhoto.startsWith('http')) {
         formData.append('addharCardPhoto', {
           uri: aadhaarPhoto,
-          type: 'image/jpeg', // Adjust based on actual type (e.g., from result.type)
+          type: 'image/jpeg',
           name: 'aadhar.jpg',
         } as any);
       }
-      if (userPhoto) {
+      if (userPhoto && !userPhoto.startsWith('http')) {
         formData.append('userPhoto', {
           uri: userPhoto,
           type: 'image/jpeg',
           name: 'user.jpg',
         } as any);
       }
-      const checkInDateStr = checkInDate.toISOString().split('T')[0];
-      const checkOutDateStr = checkOutDate.toISOString().split('T')[0];
-      console.log("Full FormData Payload: (logged as object for debug)");
-      console.log({
-        fullName,
-        phoneNumber,
-        email: serviceData.email || "example@example.com",
-       checkInDate: checkInDateStr, // Now properly defined
-    checkOutDate: checkOutDateStr,
-        workType: purposeType,
-        guestId,
-        rooms: roomsPayload,
-        selectPlan,
-        aadhaarPhoto: aadhaarPhoto ? 'Attached' : 'Null',
-        userPhoto: userPhoto ? 'Attached' : 'Null',
-      });
-      // NEW: API URL uses only hostelId (remove roomId query param)
-      const response = await axios.post(
+    }
+
+    if (!isEditMode) {
+      updatePayload.guestId = guestId; // Only for create
+    }
+
+    console.log("Full Payload: (logged as object for debug)");
+    console.log({
+      ...updatePayload,
+      aadhaarPhoto: aadhaarPhoto ? (aadhaarPhoto.startsWith('http') ? 'Existing' : 'New Attached') : 'Null',
+      userPhoto: userPhoto ? (userPhoto.startsWith('http') ? 'Existing' : 'New Attached') : 'Null',
+      hasNewPhotos,
+    });
+
+    let response;
+    if (isEditMode) {
+      // UPDATED: Use PUT for update; prefer JSON if no new photos, else FormData
+      const headers = hasNewPhotos
+        ? { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+        : { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+      const body = hasNewPhotos ? formData : updatePayload;
+
+      response = await axios.put(
+        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/update/${bookingId}`,
+        body,
+        { headers }
+      );
+    } else {
+      // For create, always use FormData (consistent with images)
+      if (!formData) {
+        formData = new FormData();
+        // Append simple string fields as-is
+        const simpleFields = {
+          fullName: updatePayload.fullName,
+          phoneNumber: updatePayload.phoneNumber,
+          email: updatePayload.email,
+          workType: updatePayload.workType,
+          Remark: updatePayload.Remark,
+          checkInDate: updatePayload.checkInDate,
+          checkOutDate: updatePayload.checkOutDate,
+          guestId: updatePayload.guestId,
+        };
+        Object.entries(simpleFields).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            formData.append(key, String(value));
+          }
+        });
+        // Append complex fields as JSON strings
+        formData.append('selectPlan', JSON.stringify(updatePayload.selectPlan));
+        formData.append('rooms', JSON.stringify(updatePayload.rooms)); // For create, always 'rooms'
+      }
+      response = await axios.post(
         `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
         formData,
         {
@@ -1391,43 +1657,73 @@ export default function BookingScreen() {
           },
         }
       );
-      console.log("API Response:", response.data);
-      if (response.data.success) {
-        console.log("Booking successful:", response.data.data);
-        // alert("Hostel booking created successfully!");
-        const bookingId = response.data.data._id;
-        console.log("Navigating to checkout with booking ID:", bookingId);
-        router.push({
-          pathname: "/check-out",
-          params: {
-            serviceType: "hostel",
-            bookingId,
-            serviceId: serviceData.hostelId,
-            checkInDate: checkInDateStr,
-            checkOutDate: checkOutDateStr,
-          },
-        });
-      } else {
-        console.error("Booking failed:", response.data.message || "Unknown error");
-        const errorMsg = response.data.message || "Unknown error";
-        setErrors(prev => ({ ...prev, general: `Booking failed: ${errorMsg}` }));
-        showCustomToast(`Booking failed: ${errorMsg}`);
-      }
-    } catch (error: any) {
-      console.error("Error creating hostel booking:", error.response?.data || error.message);
-      console.error("Full error object:", error);
-      let errorMsg = "Something went wrong while booking. Please try again.";
-      if (axios.isAxiosError(error) && error.response?.data?.message) {
-        errorMsg = error.response.data.message; // Use backend error message
-      } else if (error.response?.status === 400) {
-        errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
-      }
-      setErrors(prev => ({ ...prev, general: errorMsg }));
-      showCustomToast(errorMsg);
-    } finally {
-      setIsLoadingHostel(false);
     }
-  };
+    console.log("API Response:", response.data);
+    if (response.data.success) {
+      console.log("Booking successful:", response.data.data);
+      const updatedData = response.data.data;
+      const updatedBookingId = updatedData._id || bookingId;
+
+      // NEW: Client-side verification for key fields (especially in edit mode)
+      if (isEditMode) {
+        const mismatches: string[] = [];
+        if (updatedData.fullName !== fullName) mismatches.push('Full Name');
+        if (updatedData.phoneNumber !== `+91 ${phoneNumber}`) mismatches.push('Phone Number');
+        const updatedCheckIn = new Date(updatedData.checkInDate);
+        const sentCheckIn = new Date(checkInDateStr);
+        if (updatedCheckIn.toDateString() !== sentCheckIn.toDateString()) mismatches.push('Check-in Date');
+        const updatedCheckOut = new Date(updatedData.checkOutDate);
+        const sentCheckOut = new Date(checkOutDateStr);
+        if (updatedCheckOut.toDateString() !== sentCheckOut.toDateString()) mismatches.push('Check-out Date');
+        if (updatedData.workType !== purposeType) mismatches.push('Work Type');
+
+        if (mismatches.length > 0) {
+          console.warn('Partial update detected:', mismatches);
+          Alert.alert(
+            'Partial Update Warning',
+            `Some fields (${mismatches.join(', ')}) may not have been updated. Please verify your booking details.`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          console.log('Full update verified successfully');
+        }
+      }
+
+      console.log("Navigating to checkout with booking ID:", updatedBookingId);
+      // UPDATED: Use response dates for navigation (in case of adjustments)
+      const navCheckIn = updatedData.checkInDate ? new Date(updatedData.checkInDate).toISOString().split('T')[0] : checkInDateStr;
+      const navCheckOut = updatedData.checkOutDate ? new Date(updatedData.checkOutDate).toISOString().split('T')[0] : checkOutDateStr;
+      router.push({
+        pathname: "/check-out",
+        params: {
+          serviceType: "hostel",
+          bookingId: updatedBookingId,
+          serviceId: serviceData.hostelId,
+          checkInDate: navCheckIn,
+          checkOutDate: navCheckOut,
+        },
+      });
+    } else {
+      console.error("Booking failed:", response.data.message || "Unknown error");
+      const errorMsg = response.data.message || "Unknown error";
+      setErrors(prev => ({ ...prev, general: `Booking failed: ${errorMsg}` }));
+      showCustomToast(`Booking failed: ${errorMsg}`);
+    }
+  } catch (error: any) {
+    console.error("Error creating hostel booking:", error.response?.data || error.message);
+    console.error("Full error object:", error);
+    let errorMsg = "Something went wrong while booking. Please try again.";
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+      errorMsg = error.response.data.message; // Use backend error message
+    } else if (error.response?.status === 400) {
+      errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
+    }
+    setErrors(prev => ({ ...prev, general: errorMsg }));
+    showCustomToast(errorMsg);
+  } finally {
+    setIsLoadingHostel(false);
+  }
+};
   // NEW: Bed name input handler (with sync for first bed)
   const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirstBed: boolean) => {
     const key = getBedKey(roomId, bedId);
@@ -1806,7 +2102,9 @@ export default function BookingScreen() {
         {isLoadingHostel ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.submitButtonText}>Book Now</Text>
+          <Text style={styles.submitButtonText}>
+            {isEditMode ? "Update Booking" : "Book Now"}
+          </Text>
         )}
       </TouchableOpacity>
       <Modal
@@ -2213,7 +2511,7 @@ export default function BookingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking"}
+        title={isEditMode ? "Edit Hostel Booking" : (bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking")}
         style={styles.header}
       />
       <View style={styles.container}>
