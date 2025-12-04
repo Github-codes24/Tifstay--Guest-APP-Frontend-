@@ -3,7 +3,7 @@ import { Dimensions, Image, Platform, StyleSheet, Text, TouchableOpacity, View }
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors"; // तुम्हारा colors import
 import { useFavorites } from "@/context/FavoritesContext";
-import hostel1 from "@/assets/images/image/hostelBanner.png"; // तुम्हारा fallback
+// import hostel1 from "@/assets/images/image/hostelBanner.png"; // तुम्हारा fallback
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -98,18 +98,6 @@ export default function HostelCard({
   };
 
   // --- Add this helper and debug logging ---
-const _logSubLocation = () => {
-  // quick one-time debug — remove later if noisy
-  if (typeof hostel?.subLocation === 'undefined' || hostel?.subLocation === null) {
-    console.log('HostelCard: subLocation is undefined/null for hostel id:', hostel?.id ?? hostel?._id);
-    return;
-  }
-  console.log('HostelCard: subLocation type for hostel id', hostel?.id ?? hostel?._id, ':', typeof hostel.subLocation, Array.isArray(hostel.subLocation) ? 'Array' : '');
-};
-
-// Call it (optional — useful while debugging during dev)
-_logSubLocation();
-
 function normalizeSubLocation(subLocation: any) : string {
   if (subLocation === null || typeof subLocation === 'undefined' || subLocation === '') return '';
   if (typeof subLocation === 'string') return subLocation;
@@ -162,10 +150,10 @@ const compactLocation = (hostel?.location || '') + (normalizedSubLoc ? ` • ${n
             style={styles.image}
             onError={(error) => { // तुम्हारा error handling same
               console.log('Hostel image load failed:', error.nativeEvent.error, 'URL:', hostel.image?.uri);
-              setImageSource(hostel1);
+              // setImageSource(hostel1);
             }}
             onLoad={() => console.log('Hostel image loaded successfully:', hostel.image?.uri)} // तुम्हारा onLoad same
-            defaultSource={hostel1} // extra fallback
+            // defaultSource={hostel1} // extra fallback
             resizeMode="cover"
           />
           {/* Gradient Overlay (पुराना) */}

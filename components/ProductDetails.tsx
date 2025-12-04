@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -39,6 +40,7 @@ export default function ProductDetails() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
   const [reviews, setReviews] = useState([]);
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
@@ -401,6 +403,7 @@ export default function ProductDetails() {
               whatsapp: contactWhatsapp ? `+91${contactWhatsapp}` : '',
             },
             owner: fullApiData.owner,
+            isOpenForSale: fullApiData.isOpenForSale !== undefined ? fullApiData.isOpenForSale : true,
           };
           // Debug logs for tiffin-specific fields
           console.log('🔍 DEBUG - whatsIncluded:', whatsIncluded);
@@ -408,6 +411,7 @@ export default function ProductDetails() {
           console.log('🔍 DEBUG - servingRadius:', servingRadius);
           console.log('🔍 DEBUG - contactInfo phone:', processedData.contactInfo.phone || 'EMPTY');
           console.log('🔍 DEBUG - contactInfo whatsapp:', processedData.contactInfo.whatsapp || 'EMPTY');
+          console.log('🔍 DEBUG - isOpenForSale:', processedData.isOpenForSale);
         }
         setMappedData(processedData);
       } catch (error) {
@@ -416,6 +420,13 @@ export default function ProductDetails() {
     };
     processData();
   }, [paramId, paramType]);
+
+  // Show offline modal if not open for sale
+  useEffect(() => {
+    if (mappedData && paramType === "tiffin" && !mappedData.isOpenForSale) {
+      setShowOfflineModal(true);
+    }
+  }, [mappedData, paramType]);
 
   // Fixed: Now isFavorite is available, use mappedData
   const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
@@ -856,6 +867,15 @@ export default function ProductDetails() {
           </Text>
         </View>
       )}
+      {/* Not open for sale message */}
+      {!mappedData.isOpenForSale && (
+        <View style={styles.offlineWarning}>
+          <Ionicons name="storefront-outline" size={20} color="#FF9800" />
+          <Text style={styles.offlineText}>
+            This store is currently not open for sales. You can still browse the details.
+          </Text>
+        </View>
+      )}
       {/* Meal Preference */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Meal Preference</Text>
@@ -1058,6 +1078,10 @@ export default function ProductDetails() {
             title="Order Now"
             // Inside your Button onPress (full handler)
             onPress={async () => {
+              if (!mappedData.isOpenForSale) {
+                // Optionally show toast or alert, but since disabled, no action
+                return;
+              }
               try {
                 // Fetch real user data from storage
                 const storedUser = await AsyncStorage.getItem('userProfile');
@@ -1095,7 +1119,13 @@ export default function ProductDetails() {
             }}
             width={width - 48}
             height={56}
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              !mappedData.isOpenForSale && {
+                backgroundColor: '#ccc',
+                opacity: 0.7
+              }
+            ]}
           />
           <Button
             title="Share This Meal"
@@ -1129,6 +1159,32 @@ export default function ProductDetails() {
     </View>
   );
 
+  // ==================== OFFLINE MODAL ====================
+  const renderOfflineModal = () => (
+    <Modal
+      visible={showOfflineModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowOfflineModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Ionicons name="storefront-outline" size={60} color={colors.primary} />
+          <Text style={styles.modalTitle}>Store Currently Offline</Text>
+          <Text style={styles.modalMessage}>
+            We're sorry, but this store is temporarily closed for sales. Please check back later for availability!
+          </Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => setShowOfflineModal(false)}
+          >
+            <Text style={styles.modalButtonText}>Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // ==================== MAIN RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
@@ -1144,6 +1200,7 @@ export default function ProductDetails() {
           : renderReviews()}
         {renderBottomButtons()}
       </ScrollView>
+      {paramType === "tiffin" && renderOfflineModal()}
       <ShareModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
@@ -1762,7 +1819,51 @@ const styles = StyleSheet.create({
   },
   depositamt:{
     fontSize:18,
-    fontWeight:800,
+    fontWeight:500,
     color:"#1976D2"
-  }
+  },
+  // Offline modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

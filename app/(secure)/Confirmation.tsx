@@ -90,6 +90,11 @@ const Confirmation: React.FC = () => {
     // Fallback for non-Cloudinary: minimal cleanup if needed
     return url;
   };
+  // NEW: Helper to format nearbyLandmarks array into a readable string
+  const formatNearbyLandmarks = (landmarks: any[]): string => {
+    if (!Array.isArray(landmarks) || landmarks.length === 0) return '';
+    return landmarks.slice(0, 2).map((l: any) => `${l.name}${l.distance ? ` (${l.distance})` : ''}`).join(', ');
+  };
   const fetchBeforeDetails = async (token: string) => {
     const beforeUrl = isTiffin
       ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${id}`
@@ -282,13 +287,15 @@ const Confirmation: React.FC = () => {
               hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
               hostel.deposit = `₹${hostel.securityDeposit || 15000}`;
               hostel.description = hostel.description || "Comfortable stay with all amenities.";
+              // FIXED: Format nearbyLandmarks properly before using in locationString and subLocation
+              const nearbyLandmarksStr = formatNearbyLandmarks(hostel.location?.nearbyLandmarks || []);
               const locationString = hostel.location
-                ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
+                ? `${hostel.location.area || ''}${nearbyLandmarksStr ? `, ${nearbyLandmarksStr}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
               // Trim location to max 60 chars for 1-2 lines
               hostel.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
-              const nearbyLandmarks = hostel.location?.nearbyLandmarks || '';
-              hostel.subLocation = nearbyLandmarks.length > 50 ? nearbyLandmarks.slice(0, 50) + '...' : nearbyLandmarks;
+              // FIXED: Set subLocation as formatted string and trim
+              hostel.subLocation = nearbyLandmarksStr.length > 50 ? nearbyLandmarksStr.substring(0, 50) + '...' : nearbyLandmarksStr;
               // Trim name to max 25 chars for 1 line
               hostel.name = (hostel.hostelName || "Unnamed Hostel").length > 25
                 ? (hostel.hostelName || "Unnamed Hostel").substring(0, 25) + '...'
@@ -422,13 +429,14 @@ const Confirmation: React.FC = () => {
           hostel.amenities = (hostel.facilities || []).map((f: any) => f.name || f).filter(Boolean);
           hostel.deposit = `₹${hostel.securityDeposit || 15000}`;
           hostel.description = hostel.description || "Comfortable stay with all amenities.";
+          // FIXED: Same fix for demoData - format nearbyLandmarks
+          const nearbyLandmarksStr = formatNearbyLandmarks(hostel.location?.nearbyLandmarks || []);
           const locationString = hostel.location
-            ? `${hostel.location.area || ''}${hostel.location.nearbyLandmarks ? `, ${hostel.location.nearbyLandmarks}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
+            ? `${hostel.location.area || ''}${nearbyLandmarksStr ? `, ${nearbyLandmarksStr}` : ''}${hostel.location.fullAddress ? `, ${hostel.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
             : 'Location not available';
           // Trim location to max 60 chars for 1-2 lines
           hostel.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
-          const nearbyLandmarks = hostel.location?.nearbyLandmarks || '';
-          hostel.subLocation = nearbyLandmarks.length > 50 ? nearbyLandmarks.slice(0, 50) + '...' : nearbyLandmarks;
+          hostel.subLocation = nearbyLandmarksStr.length > 50 ? nearbyLandmarksStr.substring(0, 50) + '...' : nearbyLandmarksStr;
           // Trim name to max 25 chars for 1 line
           hostel.name = (hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`).length > 25
             ? (hostel.hostelName || hostel.name || `Demo Hostel ${index + 1}`).substring(0, 25) + '...'
@@ -670,23 +678,26 @@ const Confirmation: React.FC = () => {
             </>
           )}
         </View>
-        <View style={styles.adminContactRow}>
+        {/* FIXED: Updated admin contact layout - first two buttons in a row (half width each), WhatsApp full width below */}
+        <View style={styles.adminContactContainer}>
+          <View style={styles.adminContactRow}>
+            <TouchableOpacity
+              style={[styles.contactButton, styles.halfWidthButton]}
+              onPress={handleCallAdmin}
+            >
+              <Ionicons name="call-outline" size={20} color="#004AAD" />
+              <Text style={styles.contactButtonText}>Call to Owner</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.contactButton, styles.halfWidthButton]}
+              onPress={handleChatAdmin}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="#004AAD" />
+              <Text style={styles.contactButtonText}>Help</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
-            style={styles.contactButton}
-            onPress={handleCallAdmin}
-          >
-            <Ionicons name="call-outline" size={20} color="#004AAD" />
-            <Text style={styles.contactButtonText}>Call to Admin</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.contactButton, styles.chatButton]}
-            onPress={handleChatAdmin}
-          >
-            <Ionicons name="chatbubble-outline" size={20} color="#004AAD" />
-            <Text style={styles.contactButtonText}>Chat with Admin</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.contactButton}
+            style={[styles.contactButton, styles.fullWidthButton]}
             onPress={handleWhatsappChat}
           >
             <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
@@ -907,14 +918,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#004AAD",
   },
-  adminContactRow: {
-    flexDirection: "row",
+  // FIXED: Updated styles for admin contact layout
+  adminContactContainer: {
     gap: 12,
     marginBottom: 12,
     paddingHorizontal: 20,
   },
-  contactButton: {
+  adminContactRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  halfWidthButton: {
     flex: 1,
+  },
+  fullWidthButton: {
+    width: "100%",
+  },
+  contactButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -931,9 +952,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
-  },
-  chatButton: {
-    marginLeft: 0,
   },
   contactButtonText: {
     fontSize: 14,
