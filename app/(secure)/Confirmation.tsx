@@ -8,8 +8,10 @@ import {
   ScrollView,
   Dimensions,
   Linking,
-  Alert, // UPDATED: Added for potential alerts if needed
+  Alert,
+  Modal, // ADDED: For chat modal
 } from "react-native";
+import { WebView } from 'react-native-webview'; // ADDED: For embedding Tawk.to chat
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,6 +33,7 @@ const Confirmation: React.FC = () => {
   const { serviceType, serviceName, id, guestName: paramGuestName, amount: paramAmount, checkInDate: paramCheckIn, checkOutDate: paramCheckOut, startDate: paramStartDate, endDate: paramEndDate, foodType: paramFoodType, orderType: paramOrderType, planType: paramPlanType, mealType: paramMealType } = params;
   const isTiffin = serviceType === "tiffin";
   const [bookingDetails, setBookingDetails] = useState(null);
+  const [PaymentId, setPaymentId] = useState(null)
   const [tiffinDetails, setTiffinDetails] = useState(null);
   const [randomTiffin, setRandomTiffin] = useState(null);
   const [randomTiffins, setRandomTiffins] = useState([]);
@@ -39,37 +42,40 @@ const Confirmation: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | null>(null);
   const [callNumber, setCallNumber] = useState<string>('');
   const [whatsappNumber, setWhatsappNumber] = useState<string>('');
+  // ADDED: State for chat modal visibility
+  const [showChatModal, setShowChatModal] = useState(false);
+  const TAWK_TO_CHAT_URL = 'https://tawk.to/chat/6932c77e9e8c841986888dbb/1jbn5mhoj'; // ADDED: Direct Tawk.to chat URL
   const formatDate = (dateString: string): string => {
     if (!dateString) return '';
-    
+
     // Handle DD/MM/YYYY format (common in your API)
     const parts = dateString.split('/');
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10);
       const year = parseInt(parts[2], 10);
-      
+
       // Validate parts (optional but recommended to avoid NaN)
       if (isNaN(day) || isNaN(month) || isNaN(year) || month < 1 || month > 12 || day < 1 || day > 31) {
         console.warn(`Invalid date: ${dateString}`);
         return dateString; // Fallback to raw string
       }
-      
+
       const date = new Date(year, month - 1, day);
-      
+
       // Double-check if the date is valid
       if (isNaN(date.getTime())) {
         console.warn(`Invalid date after parsing: ${dateString}`);
         return dateString;
       }
-      
+
       const formattedDay = date.getDate().toString().padStart(2, '0');
       const formattedMonth = (date.getMonth() + 1).toString().padStart(2, '0');
       const formattedYear = date.getFullYear().toString().slice(-2);
-      
+
       return `${formattedDay}/${formattedMonth}/${formattedYear}`;
     }
-    
+
     // Fallback for other formats (e.g., ISO or MM/DD/YYYY)
     const date = new Date(dateString);
     if (!isNaN(date.getTime())) {
@@ -78,7 +84,7 @@ const Confirmation: React.FC = () => {
       const year = date.getFullYear().toString().slice(-2);
       return `${day}/${month}/${year}`;
     }
-    
+
     return dateString; // Ultimate fallback
   };
   const cleanImageUrl = (url: string): string => {
@@ -113,7 +119,7 @@ const Confirmation: React.FC = () => {
         } else {
           setBookingDetails({
             ...data,
-            amount: data.totalPayment,
+            amount: data.Rent,
           });
         }
         setCallNumber(data.contact || '');
@@ -231,8 +237,10 @@ const Confirmation: React.FC = () => {
               service.timing = service.mealTimings?.map((m: any) => `${m.startTime} - ${m.endTime}`).join(' | ') || "-";
               // Tags from foodType
               service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
+              // FIXED: Format nearbyLandmarks properly before using in locationString
+              const nearbyLandmarksStr = formatNearbyLandmarks(service.location?.nearbyLandmarks || []);
               const locationString = service.location
-                ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
+                ? `${service.location.area || ''}${nearbyLandmarksStr ? `, ${nearbyLandmarksStr}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
                 : 'Location not available';
               // Trim location to max 60 chars for 1-2 lines
               service.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
@@ -312,15 +320,15 @@ const Confirmation: React.FC = () => {
     fetchRandomHostels();
   }, [isTiffin]);
   useFocusEffect(
-  React.useCallback(() => {
-    const onBackPress = () => {
-      router.replace("/(secure)/(tabs)");
-      return true; // Prevent default back action
-    };
-    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    return () => subscription.remove();
-  }, [])
-);
+    React.useCallback(() => {
+      const onBackPress = () => {
+        router.replace("/(secure)/(tabs)");
+        return true; // Prevent default back action
+      };
+      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
   const tiffinBookingDetails = tiffinDetails ? {
     bookingId: tiffinDetails.bookingId,
     tiffinService: tiffinDetails.tiffinServiceName,
@@ -353,6 +361,7 @@ const Confirmation: React.FC = () => {
     checkInDate: formatDate(bookingDetails.checkInDate),
     checkOutDate: formatDate(bookingDetails.checkOutDate),
     amount: bookingDetails.amount,
+    PaymentId: bookingDetails.PaymentId, // FIXED: Added PaymentId to the loaded booking details object
   } : {
     id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
       Math.random() * 10000000
@@ -362,6 +371,7 @@ const Confirmation: React.FC = () => {
     checkInDate: formatDate(paramCheckIn as string),
     checkOutDate: formatDate(paramCheckOut as string),
     amount: paramAmount || 'N/A',
+    PaymentId: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(Math.random() * 10000000)}`, // FIXED: Set a fallback PaymentId based on id to avoid undefined
   };
   // UPDATED: New handler for cart button (navigates back to cart/booking based on serviceType)
   const handleRetryBooking = () => {
@@ -374,9 +384,9 @@ const Confirmation: React.FC = () => {
   };
 
   const handlePrintInvoice = async () => {
-  const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
-  const filteredDetails = Object.entries(details).filter(([key]) => key !== 'mealType');
-  const htmlContent = `
+    const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+    const filteredDetails = Object.entries(details).filter(([key]) => key !== 'mealType');
+    const htmlContent = `
     <html>
       <body style="font-family: Arial; padding: 20px;">
         <h2 style="text-align: center;">TifStay - Booking Invoice</h2>
@@ -384,31 +394,31 @@ const Confirmation: React.FC = () => {
         <h3>Booking Summary</h3>
         <table style="width: 100%; border-collapse: collapse;">
           ${filteredDetails
-            .map(
-              ([key, value]) => `
+        .map(
+          ([key, value]) => `
               <tr>
                 <td style="padding: 8px; border: 1px solid #ccc;"><b>${key}</b></td>
                 <td style="padding: 8px; border: 1px solid #ccc;">${value}</td>
               </tr>`
-            )
-            .join("")}
+        )
+        .join("")}
         </table>
         <hr />
         <p style="text-align:center;">Thank you for booking with TifStay!</p>
       </body>
     </html>
   `;
-  try {
-    const { uri } = await Print.printToFileAsync({ html: htmlContent });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri);
-    } else {
-      alert("Invoice saved at: " + uri);
+    try {
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      } else {
+        alert("Invoice saved at: " + uri);
+      }
+    } catch (error) {
+      console.error("Error generating invoice:", error);
     }
-  } catch (error) {
-    console.error("Error generating invoice:", error);
-  }
-};
+  };
   const currentBookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
   const getRecommendations = () => {
     if (isTiffin) {
@@ -460,8 +470,10 @@ const Confirmation: React.FC = () => {
         service.description = service.description || "Delicious home-cooked meals.";
         service.timing = service.mealTimings?.map((m: any) => `${m.startTime} - ${m.endTime}`).join(' | ') || "-";
         service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
+        // FIXED: Format nearbyLandmarks properly before using in locationString
+        const nearbyLandmarksStr = formatNearbyLandmarks(service.location?.nearbyLandmarks || []);
         const locationString = service.location
-          ? `${service.location.area || ''}${service.location.nearbyLandmarks ? `, ${service.location.nearbyLandmarks}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
+          ? `${service.location.area || ''}${nearbyLandmarksStr ? `, ${nearbyLandmarksStr}` : ''}${service.location.fullAddress ? `, ${service.location.fullAddress}` : ''}`.replace(/^, /, '').trim()
           : 'Location not available';
         // Trim location to max 60 chars for 1-2 lines
         service.location = locationString.length > 60 ? locationString.substring(0, 60) + '...' : locationString;
@@ -485,8 +497,13 @@ const Confirmation: React.FC = () => {
     }
     Linking.openURL(`whatsapp://send?phone=${whatsappNumber}`);
   };
+  // UPDATED: Modified handler to open Tawk.to chat modal instead of in-app chat
   const handleChatAdmin = () => {
-    router.push('/account/chatScreen');
+    setShowChatModal(true);
+  };
+  // ADDED: Handler to close the chat modal
+  const handleCloseChat = () => {
+    setShowChatModal(false);
   };
   const handleViewPress = (item: any) => {
     const serviceId = item.id || item._id;
@@ -627,10 +644,12 @@ const Confirmation: React.FC = () => {
                   {statusText}
                 </Text>
               </View>
-              <View style={[styles.detailRow]}>
-                <Text style={styles.detailLabel}>Order ID:</Text>
-                <Text style={styles.orderId}>#{tiffinBookingDetails.bookingId}</Text>
-              </View>
+              {paymentStatus === 'paid' && (
+                <View style={[styles.detailRow]}>
+                  <Text style={styles.detailLabel}>Order ID:</Text>
+                  <Text style={styles.orderId}>#{tiffinBookingDetails.bookingId}</Text>
+                </View>
+              )}
             </>
           ) : (
             // Hostel booking summary
@@ -653,7 +672,7 @@ const Confirmation: React.FC = () => {
                   {hostelBookingDetails.checkInDate}
                 </Text>
               </View>
-               <View style={styles.detailRow}>
+              <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Check-Out date :</Text>
                 <Text style={styles.detailValue}>
                   {hostelBookingDetails.checkOutDate}
@@ -671,10 +690,12 @@ const Confirmation: React.FC = () => {
                   {statusText}
                 </Text>
               </View>
-              <View style={[styles.detailRow]}>
-                {/* <Text style={styles.detailLabel}>Order ID:</Text>
-                <Text style={styles.orderId}>#{hostelBookingDetails.id}</Text> */}
-              </View>
+              {paymentStatus === 'paid' && (
+                <View style={[styles.detailRow]}>
+                  <Text style={styles.detailLabel}>Order ID:</Text>
+                  <Text style={styles.orderId}>#{hostelBookingDetails.PaymentId}</Text>
+                </View>
+              )}
             </>
           )}
         </View>
@@ -693,7 +714,7 @@ const Confirmation: React.FC = () => {
               onPress={handleChatAdmin}
             >
               <Ionicons name="chatbubble-outline" size={20} color="#004AAD" />
-              <Text style={styles.contactButtonText}>Help</Text>
+              <Text style={styles.contactButtonText}>Live support </Text> {/* UPDATED: Changed text to "Chat with Human" */}
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -792,6 +813,32 @@ const Confirmation: React.FC = () => {
           />
         </View>
       </ScrollView>
+      {/* ADDED: Modal for Tawk.to Chat WebView */}
+      <Modal
+        visible={showChatModal}
+        animationType="slide"
+        onRequestClose={handleCloseChat}
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          {/* Header with close button */}
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Chat with Support</Text>
+            <TouchableOpacity onPress={handleCloseChat} style={styles.closeButton}>
+              <Ionicons name="close-outline" size={24} color="#004AAD" />
+            </TouchableOpacity>
+          </View>
+          {/* WebView for Tawk.to chat */}
+          <WebView
+            source={{ uri: TAWK_TO_CHAT_URL }}
+            style={styles.webView}
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.warn('WebView error: ', nativeEvent);
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1080,6 +1127,32 @@ const styles = StyleSheet.create({
     color: "#004AAD",
     fontWeight: "600",
     textAlign: "center",
+  },
+  // ADDED: Styles for chat modal
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  webView: {
+    flex: 1,
   },
 });
 export default Confirmation;

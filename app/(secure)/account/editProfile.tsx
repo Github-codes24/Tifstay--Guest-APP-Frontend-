@@ -6,6 +6,8 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  Platform,
+  Modal,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { router } from "expo-router";
@@ -18,6 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore"; // ✅ Import store
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const fetchProfile = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -51,6 +54,9 @@ const EditProfile = () => {
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
   const [profileImage, setProfileImage] = useState<any>(null);
+  const [show, setShow] = useState(false);
+  const [date, setDate] = useState(new Date());
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
 
   React.useEffect(() => {
     if (guest) {
@@ -58,6 +64,9 @@ const EditProfile = () => {
       setEmail(guest.email || "");
       setPhone(guest.phoneNumber || "");
       setDob(guest.dob || "");
+      if (guest.dob) {
+        setDate(new Date(guest.dob));
+      }
       if (guest.profileImage) setProfileImage({ uri: guest.profileImage });
     }
   }, [guest]);
@@ -72,6 +81,13 @@ const EditProfile = () => {
     if (!result.canceled) {
       setProfileImage(result.assets[0]);
     }
+  };
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || date;
+    setShow(Platform.OS === 'ios');
+    setDate(currentDate);
+    setDob(currentDate.toLocaleDateString('en-IN'));
   };
 
   const handleSave = async () => {
@@ -108,15 +124,13 @@ const EditProfile = () => {
       const data = await res.json();
 
       if (data.success) {
-        Alert.alert("Success", "Profile updated successfully");
-
         // ✅ update cached data instantly (no refetch) - for local MyProfile query
         queryClient.setQueryData(["guestProfile"], data.data.guest);
 
         // ✅ Refetch global store profile to update Dashboard header immediately
         await refetchStoreProfile();
 
-        router.back();
+        setSuccessModalVisible(true);
       } else {
         Alert.alert("Error", data.message || "Failed to update profile");
       }
@@ -124,6 +138,11 @@ const EditProfile = () => {
       console.log(err.message);
       Alert.alert("Error", "Something went wrong");
     }
+  };
+
+  const handleModalClose = () => {
+    setSuccessModalVisible(false);
+    router.back();
   };
 
   return (
@@ -191,12 +210,16 @@ const EditProfile = () => {
             onChangeText={setPhone}
             labelStyle={styles.label}
           />
-          <LabeledInput
-            label="Date of Birth"
-            value={dob}
-            onChangeText={setDob}
-            labelStyle={styles.label}
-          />
+          <TouchableOpacity onPress={() => setShow(true)} activeOpacity={1}>
+            <LabeledInput
+              label="Date of Birth"
+              value={dob || "Select Date"}
+              onChangeText={() => {}} // No-op to prevent editing
+              editable={false}
+              labelStyle={styles.label}
+              inputProps={{ pointerEvents: 'none' }} // Assuming LabeledInput accepts inputProps to forward to TextInput
+            />
+          </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
 
@@ -205,6 +228,37 @@ const EditProfile = () => {
         onPress={handleSave}
         style={{ width: "90%", alignSelf: "center", marginVertical: 0 }}
       />
+
+      {show && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={onDateChange}
+        />
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={handleModalClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.successModalContainer}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
+            </View>
+            <Text style={styles.successModalTitle}>Success!</Text>
+            <Text style={styles.successModalMessage}>Profile updated successfully</Text>
+            <TouchableOpacity style={styles.successModalButton} onPress={handleModalClose}>
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -250,7 +304,58 @@ cameraIcon: {
   borderWidth: 2,
   borderColor: "#fff",
 },
-
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  successIconContainer: {
+    marginBottom: 16,
+  },
+  successModalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  successModalButton: {
+    backgroundColor: colors.primary || '#2854C5',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  successModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
 
 export default EditProfile;

@@ -135,16 +135,17 @@ export default function LoginScreen() {
     return;
   }
 
-  const formattedPhoneNumber = `${selectedCountry.dialCode} ${phoneNumber.trim()}`;
-
   try {
     const response = await axios.post(
       "https://tifstay-project-be.onrender.com/api/guest/login",
-      { phoneNumber: formattedPhoneNumber }
+      { 
+        phoneNumber: phoneNumber.trim(),
+        countryCode: selectedCountry.dialCode
+      }
     );
 
     if (response.data.success) {
-      const otpCode = response.data.data?.guest?.otpCode;
+      const otpCode = response.data.otp || response.data.user?.otpCode;
       Toast.show({
         type: "success",
         text1: "OTP Sent Successfully",
@@ -216,7 +217,7 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         extraScrollHeight={Platform.OS === "android" ? 140 : 50}
-        extraHeight={Platform.OS === "android" ? 160 : 60}
+        extraHeight={Platform.OS === "android" ? 100 : 20}
         enableOnAndroid
         keyboardOpeningTime={0}
       >

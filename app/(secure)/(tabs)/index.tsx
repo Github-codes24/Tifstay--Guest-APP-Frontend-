@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -36,6 +37,7 @@ import hostel1 from "@/assets/images/image/hostelBanner.png";
 import { BackHandler } from 'react-native';
 import { useFocusEffect } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
+import { WebView } from "react-native-webview"; // Added import for WebView
 interface Hostel {
   id: string;
   name: string;
@@ -121,6 +123,9 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [searchVisibleCount, setSearchVisibleCount] = useState(10);
+  // New states for Chat modal
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(""); // To pre-fill message if needed
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const vegToggleAnimated = useRef(new Animated.Value(vegFilter !== "off" ? 1 : 0)).current;
   const searchInputRef = useRef<TextInput>(null);
@@ -131,6 +136,7 @@ export default function DashboardScreen() {
     food1,
     hostel1,
   };
+  const chatUrl = 'https://tawk.to/chat/6931375d98a8f2197d548a66/1jbk40hmr';
   // --- Auth token helper ---
   const getAuthToken = async (): Promise<string | null> => {
     try {
@@ -147,6 +153,7 @@ export default function DashboardScreen() {
         );
       }
       console.log("Auth token retrieved:", token ? "Valid token" : "No token");
+      console.log('token',token)
       return token;
     } catch (error) {
       console.error("Error fetching auth token:", error);
@@ -741,16 +748,43 @@ export default function DashboardScreen() {
       if (planTypesData.length === 0 && !isLoadingPlanTypes) refetchHostels();
     }
   }, [showFilterModal, isHostel, citiesData.length, hostelTypesData.length, roomTypesData.length, planTypesData.length, isLoadingCities, isLoadingHostelTypes, isLoadingRoomTypes, isLoadingPlanTypes, refetchHostels]); // FIX: Use .length to avoid re-fetch on same array ref
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isSearchFocused) {
-        handleSearchBack(); // Call your existing back handler
-        return true; // "true" = "I handled it, don't exit app"
-      }
-      return false; // Let normal back happen elsewhere
-    });
-    return () => backHandler.remove(); // Cleanup when unmount
-  }, [isSearchFocused]); // Re-run if search mode changes
+  // --- Enhanced BackHandler with double-back-to-exit ---
+  useFocusEffect(
+    useCallback(() => {
+      let backPressCount = 0;
+
+      const onBackPress = () => {
+        if (isSearchFocused) {
+          handleSearchBack(); // Existing logic for search mode
+          return true;
+        }
+
+        // Root-level double-back-to-exit (handles the stack issue)
+        backPressCount += 1;
+
+        if (backPressCount === 1) {
+          // Toast.show({
+          //   type: "info",
+          //   text1: "Press back again to exit",
+          //   visibilityTime: 2000,
+          // });
+        } else if (backPressCount === 2) {
+          BackHandler.exitApp();
+          return true;
+        }
+
+        // Reset count after 2 seconds
+        setTimeout(() => {
+          backPressCount = 0;
+        }, 2000);
+
+        return true; // Consume the press (prevents stack pop)
+      };
+
+      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => subscription.remove();
+    }, [isSearchFocused, handleSearchBack]) // Dependencies
+  );
   // --- Reset visible count on mode/filter/search changes ---
   useEffect(() => {
     setVisibleCount(10);
@@ -1129,6 +1163,37 @@ export default function DashboardScreen() {
     />
   );
   const keyExtractor = (item: Hostel | TiffinService) => (item.id || Math.random().toString()).toString();
+  // New handlers for help modal (Chat only)
+  const handleOpenHelp = () => {
+    setSelectedMessage(""); // Reset
+    setShowHelpModal(true);
+  };
+  const handleCloseHelp = () => {
+    setShowHelpModal(false);
+    setSelectedMessage(""); // Reset on close
+  };
+  // Injected JS to send pre-selected message if any (only for chat)
+  const injectedJavaScript = useMemo(() => {
+    if (!selectedMessage) {
+      return '';
+    }
+    return `
+      (function() {
+        if (typeof Tawk_API !== 'undefined') {
+          Tawk_API.onLoad = function() {
+            Tawk_API.visitor.sendMessage('${selectedMessage}');
+            // Optional: Set visitor attributes
+            Tawk_API.setAttributes({
+              name: '${user?.name || 'User'}',
+              email: '${user?.email || ''}',
+              location: '${userLocation || ''}'
+            });
+          };
+        }
+      })();
+      true;
+    `;
+  }, [selectedMessage, user, userLocation]);
   // --- Search Focused View (FIX: Ensure <Text> wrappers; stringify suggestions; LIMIT MAP TO 6) ---
   if (isSearchFocused) {
     return (
@@ -1287,6 +1352,31 @@ export default function DashboardScreen() {
             </View>
           )}
         </View>
+        {/* Help FAB - Positioned absolutely to overlay */}
+        <TouchableOpacity style={styles.chatFab} onPress={handleOpenHelp}>
+          <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
+        </TouchableOpacity>
+        {/* Help Modal (Chat only) */}
+        <Modal visible={showHelpModal} animationType="slide" presentationStyle="fullScreen">
+          <SafeAreaView style={styles.modalSafeArea}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={handleCloseHelp} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Apollo AI Assistant</Text>
+            </View>
+            <WebView
+              source={{ uri: chatUrl }}
+              style={styles.webview}
+              scalesPageToFit={true}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              injectedJavaScript={injectedJavaScript}
+              renderLoading={() => <ActivityIndicator size="large" color="#6B7280" style={styles.loadingIndicator} />}
+            />
+          </SafeAreaView>
+        </Modal>
       </View>
     );
   }
@@ -1320,7 +1410,7 @@ export default function DashboardScreen() {
                 style={styles.profileImage}
               />
             </TouchableOpacity>
-       
+   
           </View>
         </View>
       </SafeAreaView>
@@ -1601,8 +1691,33 @@ export default function DashboardScreen() {
             </View>
           )
         }
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: 100 }} // Extra padding for FAB
       />
+      {/* Help FAB - Positioned absolutely to overlay */}
+      <TouchableOpacity style={styles.chatFab} onPress={handleOpenHelp}>
+        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+      {/* Help Modal (Chat only) */}
+      <Modal visible={showHelpModal} animationType="slide" presentationStyle="fullScreen">
+        <SafeAreaView style={styles.modalSafeArea}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={handleCloseHelp} style={styles.modalClose}>
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Apollo AI Assistant</Text>
+          </View>
+          <WebView
+            source={{ uri: chatUrl }}
+            style={styles.webview}
+            scalesPageToFit={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            injectedJavaScript={injectedJavaScript}
+            renderLoading={() => <ActivityIndicator size="large" color="#6B7280" style={styles.loadingIndicator} />}
+          />
+        </SafeAreaView>
+      </Modal>
       <LocationModal
         visible={showLocationModal}
         onClose={handleLocationModalClose}
@@ -1967,5 +2082,48 @@ const styles = StyleSheet.create({
   image: {
     width: 24,
     height: 24,
+  },
+  // New styles for help FAB and modal
+  chatFab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalClose: {
+    marginRight: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+  webview: {
+    flex: 1,
+  },
+  loadingIndicator: {
+    flex: 1,
+    justifyContent: 'center',
   },
 });

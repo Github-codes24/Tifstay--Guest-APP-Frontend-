@@ -131,21 +131,7 @@ export default function VerifyScreen() {
 
     // After updating state, compute sanitized OTP from the "next" array and verify if full.
     // (We use the local next array to avoid waiting for state to commit)
-    const candidate = getSanitizedOtp(
-      digitsOnly.length > 1 ? (() => {
-        // if paste, we already built next above
-        return (digitsOnly.length > 1 ? (() => {
-          const tmp = [...otp];
-          let ii = index;
-          for (const ch of digitsOnly) {
-            if (ii >= DIGITS) break;
-            tmp[ii] = ch;
-            ii++;
-          }
-          return tmp;
-        })() : otp);
-      })() : next
-    );
+    const candidate = getSanitizedOtp(next);
 
     if (candidate.length === DIGITS) {
       // small delay so UI shows last digit before verifying
@@ -205,7 +191,7 @@ export default function VerifyScreen() {
 
     setLoading(true);
     try {
-      const formattedPhoneNumber = `${dialCode} ${phoneNumber}`;
+      const formattedPhoneNumber = `${dialCode}${phoneNumber}`;
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
         { phoneNumber: formattedPhoneNumber, otp: otpCode }
@@ -258,14 +244,16 @@ export default function VerifyScreen() {
     if (isResendDisabled) return;
 
     try {
-      const formattedPhoneNumber = `${dialCode} ${phoneNumber}`;
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/login",
-        { phoneNumber: formattedPhoneNumber }
+        { 
+          phoneNumber,
+          countryCode: dialCode
+        }
       );
 
       if (response.data.success) {
-        const newOtpCode = response.data.data?.guest?.otpCode;
+        const newOtpCode = response.data.otp || response.data.user?.otpCode;
 
         Toast.show({
           type: "success",

@@ -140,9 +140,9 @@ const DepositScreen = () => {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Deposit</Text>
                 </View>
-                <TouchableOpacity onPress={() => router.push("/(secure)/account/AllTransactionsScreen")}>
+                {/* <TouchableOpacity onPress={() => router.push("/(secure)/account/AllTransactionsScreen")}>
                     <Text style={styles.allTransactionsText}>All Transactions</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
             </View>
             <KeyboardAwareScrollView enableOnAndroid extraScrollHeight={80} showsHorizontalScrollIndicator={false}>
                 <ScrollView
@@ -159,14 +159,15 @@ const DepositScreen = () => {
                         <Text style={styles.depositAmount}>
                             ₹{depositAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                         </Text>
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                             style={styles.addDepositButton}
                             onPress={() => router.push("/(secure)/account/depositmoney")}
                         >
                             <Text style={styles.addDepositText}>Add Deposit Amount</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
-                    {/* Withdraw Options */}
+                    {/* Commented out section: Withdraw Options to Send Request */}
+                    {/*
                     <Text style={styles.withdrawTitle}>Select withdraw options</Text>
                     <View style={styles.optionRow}>
                         <View style={styles.radioRow}>
@@ -230,6 +231,7 @@ const DepositScreen = () => {
                         style={{ width: '95%', alignSelf: 'center', marginVertical: 0 }}
                     />
                     {loading && <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 10 }} />}
+                    */}
                 </ScrollView>
             </KeyboardAwareScrollView>
         </SafeAreaView>

@@ -92,17 +92,17 @@ const MyProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           {/* ✅ If no image, show empty circle */}
-        {profile?.profileImage ? (
-  <Image
-    source={{ uri: profile.profileImage }}
-    style={styles.profileImage}
-  />
-) : (
-  <Image
-    source={require("../../../assets/images/fallbackdp.png")}
-    style={styles.profileImage}
-  />
-)}
+          {profile?.profileImage ? (
+            <Image
+              source={{ uri: profile.profileImage }}
+              style={styles.profileImage}
+            />
+          ) : (
+            <Image
+              source={require("../../../assets/images/fallbackdp.png")}
+              style={styles.profileImage}
+            />
+          )}
 
 
           {/* ✅ Only show name if available */}
@@ -136,7 +136,7 @@ const MyProfileScreen = () => {
         </View>
 
         {/* Menu Items */}
-        <MenuItem
+        {/* <MenuItem
           label="Manage Profile"
           icon={require("@/assets/images/manage.png")}
           onPress={() => router.push("/account/editProfile")}
@@ -145,7 +145,7 @@ const MyProfileScreen = () => {
           label="Change Password"
           icon={require("@/assets/images/lock1.png")}
           onPress={() => router.push("/(secure)/account/changepass")}
-        />
+        /> */}
         <MenuItem
           label="Delete Account"
           icon={require("@/assets/images/del.png")}

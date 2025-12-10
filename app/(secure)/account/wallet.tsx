@@ -1,4 +1,3 @@
-// WalletScreen.tsx
 import * as React from "react";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
@@ -29,6 +28,7 @@ type Txn = {
     amount: number;
     status: "Approved" | "Pending" | "Rejected";
     icon?: any;
+    transactionType?: string;
 };
 
 const COLORS = {
@@ -97,7 +97,7 @@ const fetchTransactions = async () => {
 
         return {
             id: txn._id || "",
-            title: isTopUp ? "Wallet Top-up" : txn.title || txn.description || "Transaction",
+            title: isTopUp ? "Wallet Top-up" : txn.remarks || "Transaction",
             subtitle: source,
             date: txn.createdAt
                 ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
@@ -111,6 +111,7 @@ const fetchTransactions = async () => {
             icon: isTopUp
                 ? require("../../../assets/images/visa1.png")
                 : require("../../../assets/images/frame.png"),
+            transactionType: txn.transactionType,
         };
     });
 
@@ -253,8 +254,11 @@ export default function WalletScreen() {
                 <View style={{ gap: 24 }}>
                     {transactions.length > 0 ? (
                         transactions.map((t) => {
-                            const amountColor = t.status === "Approved" ? COLORS.green : COLORS.red;
-                            const amountPrefix = t.status === "Approved" ? "+" : "-";
+                            const isCredit = t.transactionType?.toLowerCase() === "credited";
+                            const amountColor = isCredit ? COLORS.green : COLORS.red;
+                            const amountPrefix = isCredit ? "+" : "-";
+                            const typeLabel = isCredit ? "Credited" : "Debited";
+                            const typeColor = isCredit ? COLORS.green : COLORS.red;
 
                             return (
                                 <Pressable
@@ -284,19 +288,16 @@ export default function WalletScreen() {
                                             {`${amountPrefix} ${formatINR(t.amount, 0)}`}
                                         </Text>
                                         <Text
-                                            style={{
-                                                color:
-                                                    t.status === "Approved"
-                                                        ? COLORS.green
-                                                        : t.status === "Rejected"
-                                                            ? COLORS.red
-                                                            : COLORS.blue,
-                                                fontSize: 10,
-                                                fontWeight: "500",
-                                                marginTop: 2,
-                                            }}
+                                            style={[
+                                                {
+                                                    color: typeColor,
+                                                    fontSize: 10,
+                                                    fontWeight: "500",
+                                                    marginTop: 2,
+                                                }
+                                            ]}
                                         >
-                                            {t.status}
+                                            {typeLabel}
                                         </Text>
                                     </View>
                                 </Pressable>

@@ -294,8 +294,10 @@ export default function ProductDetails() {
             offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
             amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
             fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Not available",
-            sublocation: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Not available",
-            location: typeof apiData.location?.area === 'string' ? apiData.location.area : "Unknown",
+            sublocation: Array.isArray(apiData.location?.nearbyLandmarks) 
+              ? apiData.location.nearbyLandmarks.map((l: any) => `${l.name} - ${l.distance}`).join(', ') 
+              : (typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Not available"),
+            location: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Unknown",
             rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Not available",
             userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
             reviewCount: typeof apiData.totalReviews === 'number' ? apiData.totalReviews : 0,
@@ -364,10 +366,12 @@ export default function ProductDetails() {
           } else {
             fullAddress = fullApiData.location?.fullAddress || "";
             servingRadiusNum = fullApiData.location?.serviceRadius || 5;
-            nearbyLandmarks = fullApiData.location?.area || "";
+            nearbyLandmarks = Array.isArray(fullApiData.location?.nearbyLandmarks) 
+              ? fullApiData.location.nearbyLandmarks.map((l: any) => `${l.name} (${l.distance})`).join(', ') 
+              : fullApiData.location?.area || "";
           }
           const servingRadius = `${servingRadiusNum} km`;
-          const location = nearbyLandmarks || fullAddress || "Unknown";
+         const location = fullAddress || "Not available";
           const isOffline = fullApiData.offlineDetails?.isOffline || false;
           const offlineReason = fullApiData.offlineDetails?.offlineReason || fullApiData.offlineReason || "";
           const comeBackAt = fullApiData.offlineDetails?.comeBackAt || fullApiData.comeBackAt || "";
@@ -386,6 +390,7 @@ export default function ProductDetails() {
             whyChooseUs,
             fullAddress,
             servingRadius,
+            nearbyLandmarks,
             rating,
             reviewCount,
             price,
@@ -639,7 +644,7 @@ export default function ProductDetails() {
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={24}
-            color={isFav ? "#A5A5A5" : "#A5A5A5"}
+            color={isFav ? "red" : "#A5A5A5"}
           />
         </TouchableOpacity>
       </View>
@@ -861,18 +866,18 @@ export default function ProductDetails() {
       {/* Offline warning if applicable */}
       {mappedData.isOffline && (
         <View style={styles.offlineWarning}>
-          <Ionicons name="alert-circle-outline" size={20} color="#FF9800" />
+          <Ionicons name="alert-circle-outline" size={20} color="white" />
           <Text style={styles.offlineText}>
-            Currently offline: {mappedData.offlineReason}. Back on {mappedData.comeBackAt}.
+            Currently offline: Please Check again after sometime.
           </Text>
         </View>
       )}
       {/* Not open for sale message */}
       {!mappedData.isOpenForSale && (
         <View style={styles.offlineWarning}>
-          <Ionicons name="storefront-outline" size={20} color="#FF9800" />
+          <Ionicons name="storefront-outline" size={20} color="white" />
           <Text style={styles.offlineText}>
-            This store is currently not open for sales. You can still browse the details.
+            This store currently exceeded the order limit. Chceck back after sometime.
           </Text>
         </View>
       )}
@@ -923,7 +928,12 @@ export default function ProductDetails() {
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
           <Text style={styles.locationTitle}>{mappedData.location}</Text>
-          <Text style={styles.locationAddress}>{mappedData.fullAddress}</Text>
+          {mappedData.nearbyLandmarks && mappedData.nearbyLandmarks !== "" && (
+            <View style={styles.landmarkContainer}>
+              <Ionicons name="location-outline" size={16} color="#4CAF50" style={styles.landmarkIcon} />
+              <Text style={styles.landmarkText}>Nearby: {mappedData.nearbyLandmarks}</Text>
+            </View>
+          )}
           <Text style={styles.serviceRadius}>
             Service Radius: {mappedData.servingRadius}
           </Text>
@@ -1000,10 +1010,13 @@ export default function ProductDetails() {
       <View style={[styles.section, styles.locationSection]}>
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
-          <Text style={styles.locationTitle}>{mappedData.sublocation}</Text>
-          <Text style={styles.locationAddress}>
-            {mappedData.fullAddress}
-          </Text>
+          <Text style={styles.locationTitle}>{mappedData.location}</Text>
+          {mappedData.sublocation && mappedData.sublocation !== "Not available" && (
+            <View style={styles.landmarkContainer}>
+              <Ionicons name="location-outline" size={16} color="#4CAF50" style={styles.landmarkIcon} />
+              <Text style={styles.landmarkText}>Nearby: {mappedData.sublocation}</Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -1170,9 +1183,9 @@ export default function ProductDetails() {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Ionicons name="storefront-outline" size={60} color={colors.primary} />
-          <Text style={styles.modalTitle}>Store Currently Offline</Text>
+          <Text style={styles.modalTitle}>Currently Not Accepting orders</Text>
           <Text style={styles.modalMessage}>
-            We're sorry, but this store is temporarily closed for sales. Please check back later for availability!
+            We’re online but have reached our order limit. Please check back soon!
           </Text>
           <TouchableOpacity
             style={styles.modalButton}
@@ -1609,6 +1622,25 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     lineHeight: 20,
   },
+  landmarkContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    padding: 8,
+    backgroundColor: "#E8F5E8",
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#4CAF50",
+  },
+  landmarkIcon: {
+    marginRight: 8,
+  },
+  landmarkText: {
+    fontSize: 14,
+    color: "#2E7D32",
+    fontWeight: "500",
+    flex: 1,
+  },
   serviceRadius: {
     fontSize: 12,
     color: "#999",
@@ -1804,16 +1836,16 @@ const styles = StyleSheet.create({
   },
   // Offline warning
   offlineWarning: {
-    backgroundColor: "#FFF3CD",
+    backgroundColor: "red",
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
   offlineText: {
     fontSize: 14,
-    color: "#856404",
+    color: "white",
     marginLeft: 8,
     flex: 1,
   },

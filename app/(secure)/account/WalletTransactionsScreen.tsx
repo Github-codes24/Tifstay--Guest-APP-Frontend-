@@ -26,7 +26,7 @@ type Txn = {
   subtitle: string;
   date: string;
   amount: number;
-  status?: "Approved" | "Pending" | "Rejected";
+  transactionType: "Debited" | "credited";
   icon?: any;
 };
 
@@ -54,15 +54,9 @@ const fetchTransactions = async () => {
     const isTopUp = desc.includes("Wallet top-up");
     const source = txn.source || "Payment";
 
-    // Map backend status to frontend labels
-    let statusLabel: "Approved" | "Pending" | "Rejected";
-    if (txn.status === "paid") statusLabel = "Approved";
-    else if (txn.status === "failed") statusLabel = "Rejected";
-    else statusLabel = "Pending";
-
     return {
       id: txn._id || "",
-      title: isTopUp ? "Wallet Top-up" : txn.title || "Transaction",
+      title: isTopUp ? "Wallet Top-up" : txn.remarks || "Transaction",
       subtitle: source,
       date: txn.createdAt
         ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
@@ -72,7 +66,7 @@ const fetchTransactions = async () => {
           })
         : "",
       amount: txn.amount || 0,
-      status: statusLabel,
+      transactionType: txn.transactionType as "Debited" | "credited",
       icon: isTopUp
         ? require("../../../assets/images/visa1.png")
         : require("../../../assets/images/frame.png"),
@@ -83,9 +77,6 @@ const fetchTransactions = async () => {
 };
 
 const WalletTransactionsScreen = () => {
-  const [filter, setFilter] = useState<"All" | "Approved" | "Pending" | "Rejected">(
-    "All"
-  );
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
@@ -130,34 +121,17 @@ const WalletTransactionsScreen = () => {
     }
   }, [refetch]);
 
-  const filtered =
-    filter === "All"
-      ? transactions
-      : transactions.filter((t) => t.status === filter);
-
   const formatINR = (val: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
       Math.abs(val)
     );
 
   const renderItem = ({ item }: { item: Txn }) => {
-    // Amount color stays green for Approved, red for Rejected, blue for Pending
-    const amountColor =
-      item.status === "Approved"
-        ? colors.green
-        : item.status === "Rejected"
-        ? colors.red
-        : colors.blue;
-
-    const amountPrefix = item.status === "Approved" ? "+" : "-";
-
-    // Status text color: Pending = #FFCC00
-    const statusTextColor =
-      item.status === "Approved"
-        ? colors.green
-        : item.status === "Rejected"
-        ? colors.red
-        : "#FFCC00";
+    const isCredit = item.transactionType === "credited";
+    const amountColor = isCredit ? colors.green : colors.red;
+    const amountPrefix = isCredit ? "+" : "-";
+    const typeLabel = isCredit ? "Credited" : "Debited";
+    const typeColor = isCredit ? colors.green : colors.red;
 
     return (
       <TouchableOpacity
@@ -177,20 +151,20 @@ const WalletTransactionsScreen = () => {
           </Text>
         </View>
 
-        {/* Amount + Status */}
+        {/* Amount + Type Label */}
         <View style={{ alignItems: "flex-end" }}>
           <Text style={[styles.amount, { color: amountColor }]}>
             {amountPrefix} {formatINR(item.amount)}
           </Text>
           <Text
             style={{
-              color: statusTextColor,
+              color: typeColor,
               fontSize: 10,
               fontWeight: "500",
               marginTop: 2,
             }}
           >
-            {item.status}
+            {typeLabel}
           </Text>
         </View>
       </TouchableOpacity>
@@ -206,27 +180,11 @@ const WalletTransactionsScreen = () => {
         <Text style={styles.headerTitle}>All Transactions</Text>
       </View>
 
-      <View style={styles.filterRow}>
-        {["All", "Approved", "Pending", "Rejected"].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.filterBtn, filter === tab && styles.filterBtnActive]}
-            onPress={() => setFilter(tab as any)}
-          >
-            <Text
-              style={[styles.filterText, filter === tab && styles.filterTextActive]}
-            >
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={filtered}
+          data={transactions}
           keyExtractor={(i) => i.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }}
@@ -254,25 +212,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: "600", color: "#000" },
-  filterRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  filterBtn: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginRight: 8,
-  },
-  filterBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterText: { color: "#004AAD", fontSize: 13 },
-  filterTextActive: { color: "#fff", fontWeight: "600" },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",

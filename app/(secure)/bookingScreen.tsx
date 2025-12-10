@@ -568,8 +568,9 @@ export default function BookingScreen() {
     });
   };
   // NEW: Always prefill dates and basic fields from params (before any fetches)
-  useEffect(() => {
-    // Set dates from params immediately (for both new and edit modes)
+useEffect(() => {
+  // Only set dates from params in edit mode, not for new bookings
+  if (isEditMode) {
     if (checkInDateStr) {
       try {
         setCheckInDate(new Date(checkInDateStr));
@@ -584,13 +585,7 @@ export default function BookingScreen() {
         console.warn("Invalid checkOutDate from params:", checkOutDateStr);
       }
     }
-    if (defaultDateStr && bookingType === "tiffin") {
-      try {
-        setDate(new Date(defaultDateStr));
-      } catch (e) {
-        console.warn("Invalid date from params:", defaultDateStr);
-      }
-    }
+  }
     // Basic user fields from params (fallback if no profile/API)
     const parsedUserData = safeParse(userDataStr);
     if (parsedUserData.name) setFullName(parsedUserData.name);

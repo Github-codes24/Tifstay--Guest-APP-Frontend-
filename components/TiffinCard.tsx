@@ -109,15 +109,32 @@ export default function TiffinCard({
     onFavoritePress?.();
   };
 
-  const locationText = service?.location
-    ? typeof service.location === "string"
-      ? service.location
-      : service.location.fullAddress || JSON.stringify(service.location) 
-    : "-";
+  // Safer location text computation
+  const getLocationText = (loc: any): string => {
+    if (!loc) return "-";
+    if (typeof loc === "string") return loc;
+
+    if (loc.fullAddress) return loc.fullAddress;
+
+    const parts = [];
+    if (loc.area) parts.push(loc.area);
+    if (loc.nearbyLandmarks?.length) {
+      const landmark = loc.nearbyLandmarks[0]?.name || "";
+      const distance = loc.nearbyLandmarks[0]?.distance || "";
+      if (landmark && distance) parts.push(`${landmark}, ${distance}`);
+    }
+    if (loc.serviceRadius) parts.push(`${loc.serviceRadius}km radius`);
+
+    return parts.length > 0 ? parts.join(" • ") : "Location not specified";
+  };
+
+
+  const locationText = getLocationText(service?.location);
+
 
   // Format lowestPrice if it's a number
-  const formattedLowestPrice = typeof service.lowestPrice === "number" 
-    ? `${service.lowestPrice}` 
+  const formattedLowestPrice = typeof service.lowestPrice === "number"
+    ? `${service.lowestPrice}`
     : service.lowestPrice || "-";
 
   return (
@@ -196,6 +213,7 @@ export default function TiffinCard({
             <Text style={styles.infoText} numberOfLines={1}>
               {locationText}
             </Text>
+
           </View>
           <View style={styles.infoDivider} />
           <View style={styles.infoItem}>
@@ -216,7 +234,7 @@ export default function TiffinCard({
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
             )} */}
             {service?.lowestPrice && ( // extra for up to
-              <Text style={[styles.price,{fontSize:21}]}>From ₹{formattedLowestPrice}/-</Text>
+              <Text style={[styles.price, { fontSize: 21 }]}>From ₹{formattedLowestPrice}/-</Text>
             )}
           </View>
           <TouchableOpacity
