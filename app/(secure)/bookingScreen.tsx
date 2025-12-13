@@ -1371,7 +1371,7 @@ useEffect(() => {
       const planTypeStr = selectedPlanType;
       const payload = {
         fullName,
-        phoneNumber: phoneNumber ? `+91 ${phoneNumber}` : '',
+        phoneNumber: phoneNumber ? `+91${phoneNumber}` : '',
         address: {
           fullAddress: combinedAddress,
           street: street || "",
@@ -1518,7 +1518,7 @@ const handleHostelSubmit = async () => {
     let formData: FormData | undefined;
     let updatePayload: any = {
       fullName,
-      phoneNumber: phoneNumber ? `+91 ${phoneNumber}` : '', // Standardize with +91 for consistency
+      phoneNumber: phoneNumber ? `+91${phoneNumber}` : '', // Standardize with +91 for consistency
       email: serviceData.email || "example@example.com",
       workType: purposeType, // Send lowercase to match backend (remove capitalization if backend lowercases)
       [roomsKey]: roomsPayload, // Direct array (no stringify)
@@ -1663,7 +1663,7 @@ const handleHostelSubmit = async () => {
       if (isEditMode) {
         const mismatches: string[] = [];
         if (updatedData.fullName !== fullName) mismatches.push('Full Name');
-        if (updatedData.phoneNumber !== `+91 ${phoneNumber}`) mismatches.push('Phone Number');
+        if (updatedData.phoneNumber !== `+91${phoneNumber}`) mismatches.push('Phone Number');
         const updatedCheckIn = new Date(updatedData.checkInDate);
         const sentCheckIn = new Date(checkInDateStr);
         if (updatedCheckIn.toDateString() !== sentCheckIn.toDateString()) mismatches.push('Check-in Date');
@@ -1910,10 +1910,10 @@ const handleHostelSubmit = async () => {
         <TextInput
           ref={phoneNumberRef}
           style={[styles.input, errors.phoneNumber && styles.inputError]}
-          placeholder="+91 XXXXXXXXXX"
+          placeholder="+91XXXXXXXXXX"
           placeholderTextColor="#999"
           keyboardType="phone-pad"
-          value={phoneNumber ? '+91 ' + phoneNumber : ''}
+          value={phoneNumber ? '+91' + phoneNumber : ''}
           onChangeText={(text) => {
             const numberPart = text.replace(/^\+91\s*/, '');
             const cleanNumber = numberPart.replace(/[^0-9]/g, '').slice(0, 10);
@@ -2184,7 +2184,7 @@ const handleHostelSubmit = async () => {
             placeholder="+91 XXXXXXXXXX"
             placeholderTextColor="#999"
             keyboardType="phone-pad"
-            value={phoneNumber ? '+91 ' + phoneNumber : ''}
+            value={phoneNumber ? '+91' + phoneNumber : ''}
             onChangeText={(text) => {
               const numberPart = text.replace(/^\+91\s*/, '');
               const cleanNumber = numberPart.replace(/[^0-9]/g, '').slice(0, 10);

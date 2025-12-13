@@ -47,35 +47,28 @@ const Confirmation: React.FC = () => {
   const TAWK_TO_CHAT_URL = 'https://tawk.to/chat/6932c77e9e8c841986888dbb/1jbn5mhoj'; // ADDED: Direct Tawk.to chat URL
   const formatDate = (dateString: string): string => {
     if (!dateString) return '';
-
     // Handle DD/MM/YYYY format (common in your API)
     const parts = dateString.split('/');
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10);
       const year = parseInt(parts[2], 10);
-
       // Validate parts (optional but recommended to avoid NaN)
       if (isNaN(day) || isNaN(month) || isNaN(year) || month < 1 || month > 12 || day < 1 || day > 31) {
         console.warn(`Invalid date: ${dateString}`);
         return dateString; // Fallback to raw string
       }
-
       const date = new Date(year, month - 1, day);
-
       // Double-check if the date is valid
       if (isNaN(date.getTime())) {
         console.warn(`Invalid date after parsing: ${dateString}`);
         return dateString;
       }
-
       const formattedDay = date.getDate().toString().padStart(2, '0');
       const formattedMonth = (date.getMonth() + 1).toString().padStart(2, '0');
       const formattedYear = date.getFullYear().toString().slice(-2);
-
       return `${formattedDay}/${formattedMonth}/${formattedYear}`;
     }
-
     // Fallback for other formats (e.g., ISO or MM/DD/YYYY)
     const date = new Date(dateString);
     if (!isNaN(date.getTime())) {
@@ -84,7 +77,6 @@ const Confirmation: React.FC = () => {
       const year = date.getFullYear().toString().slice(-2);
       return `${day}/${month}/${year}`;
     }
-
     return dateString; // Ultimate fallback
   };
   const cleanImageUrl = (url: string): string => {
@@ -101,6 +93,15 @@ const Confirmation: React.FC = () => {
     if (!Array.isArray(landmarks) || landmarks.length === 0) return '';
     return landmarks.slice(0, 2).map((l: any) => `${l.name}${l.distance ? ` (${l.distance})` : ''}`).join(', ');
   };
+  // NEW: Helper to convert 24-hour time format to 12-hour format with AM/PM
+  const convert24To12Hour = (time24: string): string => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return time24;
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')}${period}`;
+  };
   const fetchBeforeDetails = async (token: string) => {
     const beforeUrl = isTiffin
       ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${id}`
@@ -115,11 +116,29 @@ const Confirmation: React.FC = () => {
           setTiffinDetails({
             ...data,
             amount: data.totalAmount,
+            guestMobile: data.guestMobile || '',
           });
         } else {
           setBookingDetails({
             ...data,
             amount: data.Rent,
+            guestMobile: data.guestMobile || '',
+            propertyName: data.hostelName,
+            propertyAddress: data.location?.fullAddress || '',
+            propertyMobile: data.contactforcall ? `+91${data.contactforcall}` : '',
+            customerMobile: data.guestMobile || '',
+            transactionId: data.PaymentId || data.id,
+            subtotal: data.Rent,
+            marketplaceFee: data.marketPlacefee || 0,
+            grandTotal: (data.Rent || 0) + (data.marketPlacefee || 0),
+            deposit: data.newDeposit || 0,
+            totalQty: data.newBeds || 1,
+            beds: data.newBeds && data.newBeds > 1 ? Array.from({length: data.newBeds}, (_, i) => ({
+              sr: i + 1,
+              roomNo: data.roomNumber || '101',
+              bedNo: i + 1,
+              amount: (data.Rent || 0) / data.newBeds
+            })) : [{ sr: 1, roomNo: data.roomNumber || 'N/A', bedNo: 1, amount: data.Rent || 0 }]
           });
         }
         setCallNumber(data.contact || '');
@@ -154,11 +173,54 @@ const Confirmation: React.FC = () => {
           if (response.data.success) {
             const data = response.data.data;
             if (isTiffin) {
-              setTiffinDetails(data);
+              setTiffinDetails({
+                ...data,
+                guestMobile: data.contact || '',
+              });
               setCallNumber(data.contactInfoforcall ? `+91${data.contactInfoforcall}` : '');
               setWhatsappNumber(data.contactInfoforwhatsapp ? `+91${data.contactInfoforwhatsapp}` : '');
             } else {
-              setBookingDetails(data);
+              let beds = [];
+              const subtotalForDivision = data.subtotalAmount || data.amount || 0;
+              if (data.roomDetails && Array.isArray(data.roomDetails)) {
+                let bedIndex = 1;
+                data.roomDetails.forEach((room) => {
+                  if (room.bedNumber && Array.isArray(room.bedNumber)) {
+                    room.bedNumber.forEach((bed) => {
+                      beds.push({
+                        sr: bedIndex++,
+                        roomNo: room.roomNumber || 'N/A',
+                        bedNo: bed.bedNumber || 1,
+                        amount: subtotalForDivision / (data.newBeds || 1)
+                      });
+                    });
+                  }
+                });
+              } else {
+                // Fallback if no roomDetails
+                beds = data.newBeds && data.newBeds > 1 ? Array.from({length: data.newBeds}, (_, i) => ({
+                  sr: i + 1,
+                  roomNo: data.roomNumber || '101',
+                  bedNo: i + 1,
+                  amount: subtotalForDivision / data.newBeds
+                })) : [{ sr: 1, roomNo: data.roomNumber || 'N/A', bedNo: 1, amount: subtotalForDivision }];
+              }
+              setBookingDetails({
+                ...data,
+                guestMobile: data.phoneNumber || '',
+                propertyName: data.hostelName,
+                propertyAddress: data.adress || '',
+                propertyMobile: data.contactforcall ? `+91${data.contactforcall}` : '',
+                customerMobile: data.phoneNumber || '',
+                transactionId: data.PaymentId || data.id,
+                subtotal: data.subtotalAmount || data.amount,
+                marketplaceFee: data.marketPlacefee || 0,
+                discountAmount: data.DiscountAmount || 0,
+                grandTotal: data.amount,
+                deposit: data.newDeposit || 0,
+                totalQty: data.newBeds || 1,
+                beds: beds
+              });
               setCallNumber(data.contactforcall ? `+91${data.contactforcall}` : '');
               setWhatsappNumber(data.contactForWhatsapp ? `+91${data.contactForWhatsapp}` : '');
             }
@@ -234,7 +296,7 @@ const Confirmation: React.FC = () => {
               service.reviews = service.totalReviews || 0;
               service.foodType = service.foodType || firstPricing?.foodType || "Both";
               service.description = service.description || "Delicious home-cooked meals.";
-              service.timing = service.mealTimings?.map((m: any) => `${m.startTime} - ${m.endTime}`).join(' | ') || "-";
+              service.timing = service.mealTimings?.map((m: any) => `${convert24To12Hour(m.startTime)} - ${convert24To12Hour(m.endTime)}`).join(' | ') || "-";
               // Tags from foodType
               service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
               // FIXED: Format nearbyLandmarks properly before using in locationString
@@ -340,6 +402,18 @@ const Confirmation: React.FC = () => {
     foodType: tiffinDetails.foodType || "Veg",
     orderType: tiffinDetails.orderType || "Delivery",
     planType: tiffinDetails.planType || "Daily",
+    propertyName: tiffinDetails.tiffinServiceName,
+    propertyAddress: tiffinDetails.tiffinServiceAddress || '',
+    propertyMobile: tiffinDetails.contactInfoforcall ? `+91${tiffinDetails.contactInfoforcall}` : '',
+    customerMobile: tiffinDetails.contact || '',
+    transactionId: tiffinDetails.bookingId,
+    itemDesc: `${tiffinDetails.foodType || 'Veg'} ${tiffinDetails.orderType || 'Delivery'} ${tiffinDetails.planType || 'Daily'} ${tiffinDetails.mealType || 'Lunch'}`,
+    qty: 1,
+    price: tiffinDetails.planPrice || tiffinDetails.amount || 0,
+    totalQty: 1,
+    subtotal: tiffinDetails.planPrice || tiffinDetails.amount || 0,
+    marketplaceFee: tiffinDetails.marketPlaceFee || 0,
+    grandTotal: tiffinDetails.amount || 0,
   } : {
     bookingId: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
       Math.random() * 10000000
@@ -353,6 +427,18 @@ const Confirmation: React.FC = () => {
     foodType: paramFoodType as string,
     orderType: paramOrderType as string,
     planType: paramPlanType as string,
+    propertyName: serviceName || "Maharashtrian Ghar Ka Khana",
+    propertyAddress: '',
+    propertyMobile: callNumber,
+    customerMobile: '',
+    transactionId: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(Math.random() * 10000000)}`,
+    itemDesc: `${paramFoodType || 'Veg'} ${paramOrderType || 'Delivery'} ${paramPlanType || 'Daily'} ${paramMealType || 'Lunch'}`,
+    qty: 1,
+    price: parseFloat(paramAmount || '0'),
+    totalQty: 1,
+    subtotal: parseFloat(paramAmount || '0'),
+    marketplaceFee: 0,
+    grandTotal: parseFloat(paramAmount || '0'),
   };
   const hostelBookingDetails = bookingDetails ? {
     id: id,
@@ -362,6 +448,19 @@ const Confirmation: React.FC = () => {
     checkOutDate: formatDate(bookingDetails.checkOutDate),
     amount: bookingDetails.amount,
     PaymentId: bookingDetails.PaymentId, // FIXED: Added PaymentId to the loaded booking details object
+    propertyName: bookingDetails.propertyName,
+    propertyAddress: bookingDetails.propertyAddress,
+    propertyMobile: bookingDetails.propertyMobile,
+    customerMobile: bookingDetails.customerMobile,
+    customerPhone: bookingDetails.phoneNumber,
+    transactionId: bookingDetails.transactionId,
+    subtotal: bookingDetails.subtotal,
+    marketplaceFee: bookingDetails.marketplaceFee,
+    discountAmount: bookingDetails.discountAmount,
+    grandTotal: bookingDetails.grandTotal,
+    deposit: bookingDetails.deposit,
+    totalQty: bookingDetails.totalQty,
+    beds: bookingDetails.beds,
   } : {
     id: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(
       Math.random() * 10000000
@@ -372,6 +471,17 @@ const Confirmation: React.FC = () => {
     checkOutDate: formatDate(paramCheckOut as string),
     amount: paramAmount || 'N/A',
     PaymentId: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(Math.random() * 10000000)}`, // FIXED: Set a fallback PaymentId based on id to avoid undefined
+    propertyName: serviceName || "Scholars Den Boys Hostel",
+    propertyAddress: '',
+    propertyMobile: callNumber,
+    customerMobile: '',
+    transactionId: id || `${isTiffin ? "mk" : "hkl"}${Math.floor(Math.random() * 10000000)}`,
+    subtotal: parseFloat(paramAmount || '0'),
+    marketplaceFee: 0,
+    grandTotal: parseFloat(paramAmount || '0'),
+    deposit: 0,
+    totalQty: 1,
+    beds: [{ sr: 1, roomNo: 'N/A', bedNo: 1, amount: parseFloat(paramAmount || '0') }]
   };
   // UPDATED: New handler for cart button (navigates back to cart/booking based on serviceType)
   const handleRetryBooking = () => {
@@ -382,43 +492,249 @@ const Confirmation: React.FC = () => {
       params: { serviceType: isTiffin ? "tiffin" : "hostel" }, // Pass serviceType to resume
     });
   };
-
-  const handlePrintInvoice = async () => {
-    const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
-    const filteredDetails = Object.entries(details).filter(([key]) => key !== 'mealType');
-    const htmlContent = `
-    <html>
-      <body style="font-family: Arial; padding: 20px;">
-        <h2 style="text-align: center;">TifStay - Booking Invoice</h2>
-        <hr />
-        <h3>Booking Summary</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          ${filteredDetails
-        .map(
-          ([key, value]) => `
-              <tr>
-                <td style="padding: 8px; border: 1px solid #ccc;"><b>${key}</b></td>
-                <td style="padding: 8px; border: 1px solid #ccc;">${value}</td>
-              </tr>`
-        )
-        .join("")}
-        </table>
-        <hr />
-        <p style="text-align:center;">Thank you for booking with TifStay!</p>
-      </body>
-    </html>
-  `;
-    try {
-      const { uri } = await Print.printToFileAsync({ html: htmlContent });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri);
-      } else {
-        alert("Invoice saved at: " + uri);
+ // paste this helper above your component or near other helpers
+const safe = (v) => {
+  if (v == null) return "";
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "object") return Object.values(v).join(", ");
+  return String(v);
+};
+const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }, isTiffin = false }) => {
+  const date = new Date().toLocaleDateString('en-GB');
+  const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (isTiffin) {
+    const subtotal = Number(details.subtotal) || 0;
+    const fee = Number(details.marketplaceFee) || 0;
+    const total = Number(details.grandTotal) || subtotal + fee;
+    const items = [
+      {
+        desc: details.itemDesc || 'Tiffin Service',
+        qty: details.qty || 1,
+        rate: Number(details.price) || 0,
+        amount: (Number(details.qty) || 1) * (Number(details.price) || 0)
       }
-    } catch (error) {
-      console.error("Error generating invoice:", error);
+    ];
+    const fieldRow = (label, value) =>
+      `<tr><td style="padding:4px 6px; white-space:nowrap;"><b>${label}</b></td><td style="padding:4px 6px;">${safe(value)}</td></tr>`;
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <style>
+      @page { size: 80mm auto; margin: 6mm; } /* narrow receipt width like screenshot */
+      body { font-family: "Courier New", Courier, monospace; font-size: 12px; color:#111; padding:6px; }
+      .center { text-align:center; }
+      .small { font-size:11px; color:#444; }
+      .sep { border-top:1px dashed #000; margin:6px 0; }
+      table { width:100%; border-collapse:collapse; font-size:12px; }
+      .fields td { padding:6px 4px; vertical-align:top; }
+      .items th, .items td { padding:6px 4px; border-top:1px dashed #000; text-align:left; }
+      .items th { font-weight:700; }
+      .right { text-align:right; }
+      .total-row { border-top:2px dashed #000; font-weight:700; padding-top:8px; }
+    </style>
+  </head>
+  <body>
+    <div class="center">
+      <div style="font-weight:700; font-size:14px;">${company.name}</div>
+      <div class="small">${company.addr}</div>
+    </div>
+    <div class="sep"></div>
+    <div style="padding: 0 4px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div>Date: ${date}</div>
+        <div>Time: ${time}</div>
+      </div>
+      <div style="text-align: right; font-weight: 500;">[PAID]</div>
+    </div>
+    <div class="sep"></div>
+    <div class="center">
+      <div style="font-weight:700; font-size: 14px;">RETAIL INVOICE</div>
+    </div>
+    <div class="sep"></div>
+    <table class="fields">
+      ${fieldRow("Property Name", details.propertyName || '')}
+      ${fieldRow("Property Address", details.propertyAddress || '')}
+      ${fieldRow("Property Mobile No", details.propertyMobile || '')}
+      ${fieldRow("Transaction ID", details.transactionId || '')}
+      ${fieldRow("Customer Name", details.customer || '')}
+      ${fieldRow("Customer Mobile No", details.customerMobile || '')}
+    </table>
+    <div class="sep"></div>
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width: 60%; text-align: left;">No. of Item</th>
+          <th style="width: 15%; text-align: right;">Qty</th>
+          <th style="width: 25%; text-align: right;">Price Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((it, idx) => `
+          <tr>
+            <td style="padding: 4px 0;">${safe(it.desc)}</td>
+            <td class="right">${it.qty}</td>
+            <td class="right">₹${it.amount.toFixed(0)}</td>
+          </tr>
+          ${idx === 0 ? '<tr><td colspan="3" style="border-top:1px dashed #000; height:20px;">&nbsp;</td></tr>' : ''}
+        `).join('')}
+      </tbody>
+    </table>
+    <div class="sep"></div>
+    <div style="padding: 4px 0;">
+      <div style="display: flex; justify-content: space-between;">
+        <b>Total Qty:</b> <b class="right">${details.totalQty || 1}</b>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <b>Subtotal:</b> <b class="right">₹${subtotal.toFixed(0)}</b>
+      </div>
+      ${fee > 0 ? `
+        <div style="display: flex; justify-content: space-between;">
+          <b>Marketplace Fee:</b> <b class="right">₹${fee.toFixed(0)}</b>
+        </div>
+      ` : ''}
+    </div>
+    <div class="sep"></div>
+    <div style="display: flex; justify-content: space-between; font-weight:700;">
+      <b>GRAND TOTAL:</b> <b class="right">₹${total.toFixed(0)}</b>
+    </div>
+    <div class="sep"></div>
+    <div class="center small">Thanks for Ordering</div>
+  </body>
+</html>`;
+  } else {
+    // Updated hostel format
+    const subtotal = Number(details.subtotal) || 0;
+    const fee = Number(details.marketplaceFee) || 0;
+    const discount = Number(details.discountAmount) || 0;
+    const total = Number(details.grandTotal) || subtotal + fee + discount;
+    const deposit = Number(details.deposit) || 0;
+    const beds = details.beds || [{ sr: 1, roomNo: 'N/A', bedNo: 1, amount: subtotal }];
+    const fieldRow = (label, value) =>
+      `<tr><td style="padding:4px 6px; white-space:nowrap;"><b>${label}</b></td><td style="padding:4px 6px;">${safe(value)}</td></tr>`;
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <style>
+      @page { size: 80mm auto; margin: 6mm; } /* narrow receipt width like screenshot */
+      body { font-family: "Courier New", Courier, monospace; font-size: 12px; color:#111; padding:6px; }
+      .center { text-align:center; }
+      .small { font-size:11px; color:#444; }
+      .sep { border-top:1px dashed #000; margin:6px 0; }
+      table { width:100%; border-collapse:collapse; font-size:12px; }
+      .fields td { padding:6px 4px; vertical-align:top; }
+      .items th, .items td { padding:6px 4px; border-top:1px dashed #000; text-align:left; }
+      .items th { font-weight:700; }
+      .right { text-align:right; }
+      .total-row { border-top:2px dashed #000; font-weight:700; padding-top:8px; }
+    </style>
+  </head>
+  <body>
+    <div class="center">
+      <div style="font-weight:700; font-size:14px;">${company.name}</div>
+      <div class="small">${company.addr}</div>
+    </div>
+    <div class="sep"></div>
+    <div style="padding: 0 4px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div>Date: ${date}</div>
+        <div>Time: ${time}</div>
+      </div>
+      <div style="text-align: right; font-weight: 500;">[PAID]</div>
+    </div>
+    <div class="sep"></div>
+    <div class="center">
+      <div style="font-weight:700; font-size: 14px;">RETAIL INVOICE</div>
+    </div>
+    <div class="sep"></div>
+    <table class="fields">
+      ${fieldRow("Property Name", details.propertyName || '')}
+      ${fieldRow("Property Address", details.propertyAddress || '')}
+      ${fieldRow("Property Mobile No", details.propertyMobile || '')}
+      ${fieldRow("Transaction ID", details.transactionId || '')}
+      ${fieldRow("Customer Name", details.customer || '')}
+      ${fieldRow("Customer Mobile No", details.customerMobile || '')}
+     
+    </table>
+    <div class="sep"></div>
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width: 20%; text-align: left;">SR No</th>
+          <th style="width: 25%; text-align: left;">Room No</th>
+          <th style="width: 25%; text-align: left;">Bed No</th>
+          <th style="width: 30%; text-align: right;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${beds.map((bed) => `
+          <tr>
+            <td style="padding: 4px 0;">${safe(bed.sr)}</td>
+            <td style="padding: 4px 0;">${safe(bed.roomNo)}</td>
+            <td style="padding: 4px 0;">${safe(bed.bedNo)}</td>
+            <td class="right">₹${Number(bed.amount).toFixed(0)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <div class="sep"></div>
+    <div style="padding: 4px 0;">
+      <div style="display: flex; justify-content: space-between;">
+        <b>Total Qty:</b> <b class="right">${details.totalQty || 1}</b>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <b>Subtotal:</b> <b class="right">₹${subtotal.toFixed(0)}</b>
+      </div>
+      ${fee > 0 ? `
+        <div style="display: flex; justify-content: space-between;">
+          <b>Marketplace Fee:</b> <b class="right">₹${fee.toFixed(0)}</b>
+        </div>
+      ` : ''}
+      ${discount !== 0 ? `
+        <div style="display: flex; justify-content: space-between;">
+          <b>Discount:</b> <b class="right">₹${Math.abs(discount).toFixed(0)}</b>
+        </div>
+      ` : ''}
+    </div>
+    <div class="sep"></div>
+    <div style="display: flex; justify-content: space-between; font-weight:700;">
+      <b>GRAND TOTAL:</b> <b class="right">₹${total.toFixed(0)}</b>
+    </div>
+    <div class="sep"></div>
+    <div style="display: flex; justify-content: space-between; font-weight:700; margin-top: 4px;">
+      <b>Deposit Amount (Refundable):</b> <b class="right">₹${deposit.toFixed(0)}</b>
+    </div>
+    <div class="sep"></div>
+    <div class="center small">Thanks for Booking</div>
+  </body>
+</html>`;
+  }
+};
+// replace your existing handlePrintInvoice with this:
+const handlePrintInvoice = async () => {
+  const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+  if (!details || typeof details !== "object") {
+    alert("No booking details to print.");
+    return;
+  }
+  // pass company info if you want address or change name
+  const company = { name: "TifStay", addr: "Your Address Line, City" };
+  const html = makeReceiptHtml({ details, company, isTiffin });
+  try {
+    const { uri } = await Print.printToFileAsync({ html });
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri);
+    } else {
+      alert("Invoice saved at: " + uri);
     }
-  };
+  } catch (error) {
+    console.error("Error generating invoice:", error);
+    alert("Could not generate invoice: " + (error?.message || error));
+  }
+};
   const currentBookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
   const getRecommendations = () => {
     if (isTiffin) {
@@ -468,7 +784,7 @@ const Confirmation: React.FC = () => {
         service.reviews = service.totalReviews || 0;
         service.foodType = service.foodType || firstPricing?.foodType || "Both";
         service.description = service.description || "Delicious home-cooked meals.";
-        service.timing = service.mealTimings?.map((m: any) => `${m.startTime} - ${m.endTime}`).join(' | ') || "-";
+        service.timing = service.mealTimings?.map((m: any) => `${convert24To12Hour(m.startTime)} - ${convert24To12Hour(m.endTime)}`).join(' | ') || "-";
         service.tags = [service.foodType?.includes('Veg') ? 'Veg' : '', service.foodType?.includes('Non-Veg') ? 'Non-Veg' : ''].filter(Boolean);
         // FIXED: Format nearbyLandmarks properly before using in locationString
         const nearbyLandmarksStr = formatNearbyLandmarks(service.location?.nearbyLandmarks || []);
@@ -1096,8 +1412,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     // shadowColor: "#000",
     // shadowOffset: {
-    //   width: 0,
-    //   height: 4,
+    // width: 0,
+    // height: 4,
     // },
     // shadowOpacity: 0.1,
     // shadowRadius: 8,

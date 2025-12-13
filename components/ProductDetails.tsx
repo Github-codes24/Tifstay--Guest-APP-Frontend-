@@ -1612,7 +1612,7 @@ const styles = StyleSheet.create({
   },
   locationTitle: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "300",
     marginBottom: 4,
     color: "#000",
   },

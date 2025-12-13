@@ -153,7 +153,7 @@ export default function DashboardScreen() {
         );
       }
       console.log("Auth token retrieved:", token ? "Valid token" : "No token");
-      console.log('token',token)
+      console.log('token', token)
       return token;
     } catch (error) {
       console.error("Error fetching auth token:", error);
@@ -1396,7 +1396,7 @@ export default function DashboardScreen() {
             <Text style={styles.locationSubtext}>{userLocation || "Unknown Location"}</Text>
           </View>
           <View style={styles.headerRight}>
-               <TouchableOpacity
+            <TouchableOpacity
               style={styles.cartButton}
               onPress={() => router.push("/(secure)/Cartscreen")}
               accessibilityRole="button"
@@ -1410,7 +1410,7 @@ export default function DashboardScreen() {
                 style={styles.profileImage}
               />
             </TouchableOpacity>
-   
+
           </View>
         </View>
       </SafeAreaView>
@@ -1834,6 +1834,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 15,
     color: "#1F2937",
+    paddingTop: 0,        // Add these
+    paddingBottom: 0,     // Add these
+    textAlignVertical: "center", // Android-specific
+    includeFontPadding: false,
   },
   micButton: {
     marginLeft: 8,
@@ -1943,7 +1947,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 9,
     zIndex: 1,
-    marginLeft:5
+    marginLeft: 5
   },
   servicesSection: {
     marginTop: 24,

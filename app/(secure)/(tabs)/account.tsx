@@ -22,6 +22,7 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/store/authStore";
@@ -40,11 +41,24 @@ const fetchProfile = async () => {
   return response.data.data.guest;
 };
 
+const fetchProfileImage = async (guestId: string) => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+  const response = await axios.get(
+    `https://tifstay-project-be.onrender.com/api/guest/viewProfileImage/${guestId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data.data.profileImage;
+};
+
 const AccountScreen = () => {
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [fullImageUrl, setFullImageUrl] = useState<string>("");
   const [cachedProfile, setCachedProfile] = useState<any>(null);
   const { logout } = useAuthStore();
   const queryClient = useQueryClient();
+  const { width, height } = useWindowDimensions();
 
   useEffect(() => {
     (async () => {
@@ -78,6 +92,24 @@ const AccountScreen = () => {
     }, [refetch])
   );
 
+  const handleImagePress = async () => {
+    if (profileData?._id) {
+      try {
+        const imageUrl = await fetchProfileImage(profileData._id);
+        if (imageUrl) {
+          setFullImageUrl(imageUrl);
+          setShowImageModal(true);
+        }
+      } catch (error) {
+        // Fallback to cached image if API fails
+        if (profileData?.profileImage) {
+          setFullImageUrl(profileData.profileImage);
+          setShowImageModal(true);
+        }
+      }
+    }
+  };
+
   const handleLogout = async () => {
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("guestId");
@@ -86,6 +118,8 @@ const AccountScreen = () => {
     logout();
     router.replace("/(auth)/login");
   };
+
+  const closeImageModal = () => setShowImageModal(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,7 +138,10 @@ const AccountScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileHeader}>
-          <View style={styles.profileImageContainer}>
+          <TouchableOpacity
+            style={styles.profileImageContainer}
+            onPress={handleImagePress}
+          >
             {profileData?.profileImage ? (
               <Image
                 source={{ uri: profileData.profileImage }}
@@ -116,7 +153,7 @@ const AccountScreen = () => {
                 style={styles.largeImage}
               />
             )}
-          </View>
+          </TouchableOpacity>
 
           {profileData?.name ? (
             <Text style={styles.title}>{profileData.name}</Text>
@@ -232,6 +269,46 @@ const AccountScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* 🔹 Profile Image Modal */}
+      <Modal
+        transparent
+        visible={showImageModal}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity
+            style={styles.imageViewer}
+            activeOpacity={1}
+            onPress={closeImageModal}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => {}}
+              style={styles.imageContainer}
+            >
+              <Image
+                source={{ uri: fullImageUrl }}
+                style={[
+                  styles.fullImage,
+                  {
+                    width: width * 0.9,
+                    height: height * 0.7,
+                  },
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.imageCloseButton}
+            onPress={closeImageModal}
+          >
+            <Ionicons name="close" size={30} color="white" />
+          </TouchableOpacity>
         </View>
       </Modal>
     </SafeAreaView>
@@ -365,6 +442,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 16, color: "#000" },
+  // Image Modal Styles
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+  },
+  imageViewer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullImage: {
+    resizeMode: "contain",
+  },
+  imageCloseButton: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    zIndex: 1,
+    padding: 10,
+  },
 });
 
 export default AccountScreen;

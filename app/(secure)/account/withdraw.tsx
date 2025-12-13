@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,9 +32,27 @@ const COLORS = {
 };
 
 export default function DocumentsScreen() {
-  // ← Removed imageUri & loading states (now from React Query)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalImageUrl, setModalImageUrl] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
+
+  // ── Fetch profile for guest ID ──────────────────────────────────────
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return null;
+
+      const res = await axios.get(
+        "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      return res.data?.data?.guest || null;
+    },
+    staleTime: 5 * 60 * 1000, // Same as your global default
+  });
 
   // ── Cached fetch of existing Aadhaar ───────────────────────────────
   const { data: aadhaarUrl, isLoading: fetchLoading } = useQuery<string | null>({
@@ -90,7 +109,7 @@ export default function DocumentsScreen() {
     },
   });
 
-  const loading = fetchLoading || uploadMutation.isPending;
+  const loading = fetchLoading || uploadMutation.isPending || profileLoading;
 
   // ── Pick image → trigger mutation ─────────────────────────────────
   const pickAndUploadImage = async () => {
@@ -113,6 +132,31 @@ export default function DocumentsScreen() {
       uploadMutation.mutate(uri); // ← Triggers cached update
     } catch (err) {
       console.log("Image pick error:", err);
+    }
+  };
+
+  // ── Open modal with Aadhaar image via API ─────────────────────────
+  const openModal = async () => {
+    const token = await AsyncStorage.getItem("token");
+    if (!token || !profile?._id) {
+      Alert.alert("Error", "Please log in again.");
+      return;
+    }
+
+    try {
+      const res = await axios.get(
+        `https://tifstay-project-be.onrender.com/api/guest/viewAdharCard/${profile._id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.success) {
+        setModalImageUrl(res.data.aadhaarCard);
+        setModalVisible(true);
+      } else {
+        Alert.alert("Error", "Failed to fetch Aadhaar.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to fetch Aadhaar image.");
     }
   };
 
@@ -154,7 +198,9 @@ export default function DocumentsScreen() {
           ) : (
             <View style={styles.dashedArea}>
               {aadhaarUrl ? (
-                <Image source={{ uri: aadhaarUrl }} style={styles.preview} resizeMode="cover" />
+                <Pressable onPress={openModal} style={styles.previewContainer}>
+                  <Image source={{ uri: aadhaarUrl }} style={styles.preview} resizeMode="cover" />
+                </Pressable>
               ) : (
                 <View style={{ alignItems: "center" }}>
                   <Text style={styles.uploadTitle}>No Aadhaar uploaded</Text>
@@ -183,6 +229,23 @@ export default function DocumentsScreen() {
           <Text style={styles.digilockerText}>Verify with DigiLocker</Text>
         </Pressable> */}
       </ScrollView>
+
+      {/* Aadhaar Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalClose} onPress={() => setModalVisible(false)}>
+            <Ionicons name="close" size={24} color="white" />
+          </Pressable>
+          {modalImageUrl && (
+            <Image source={{ uri: modalImageUrl }} style={styles.modalImage} resizeMode="contain" />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -245,6 +308,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
+  previewContainer: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
+  },
   preview: { width: "100%", height: "100%" },
   uploadTitle: { marginTop: 6, fontSize: 12, color: colors.grey, fontWeight: "600" },
   uploadHint: { marginTop: 4, fontSize: 10, color: colors.grey },
@@ -270,4 +339,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   digilockerText: { color: colors.primary, fontWeight: "700", fontSize: 14 },
+  // ── Modal Styles ───────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalClose: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 1,
+  },
+  modalImage: {
+    width: "90%",
+    height: "70%",
+    borderRadius: 12,
+  },
 });
