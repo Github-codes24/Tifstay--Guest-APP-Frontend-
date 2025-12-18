@@ -42,11 +42,12 @@ export default function BookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const bookingId = params.bookingId || ''; // NEW: Extract bookingId for edit mode
+  const tiffinServiceId = params.tiffinServiceId || '';
   const isEditMode = params.isEdit === 'true' && !!bookingId; // FIXED: Use params.isEdit and bookingId
   // FIXED: Handle bookingType for edit mode (assume hostel edit)
   let effectiveBookingType: BookingType;
   if (isEditMode) {
-    effectiveBookingType = "hostel"; // Assume edit is for hostel based on context
+    effectiveBookingType = tiffinServiceId ? "tiffin" : "hostel";
   } else {
     effectiveBookingType = (params.bookingType as BookingType) || "tiffin";
   }
@@ -102,6 +103,7 @@ export default function BookingScreen() {
   });
   const [securityDeposit, setSecurityDeposit] = useState(0);
   const [weeklyDeposit, setWeeklyDeposit] = useState(0);
+  const [dailyDeposit, setDailyDeposit] = useState(0);
   const [currentPlanPrice, setCurrentPlanPrice] = useState(0);
   const [currentDeposit, setCurrentDeposit] = useState(0);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
@@ -287,6 +289,96 @@ export default function BookingScreen() {
         if (checkInDateStr) setCheckInDate(new Date(checkInDateStr));
         if (checkOutDateStr) setCheckOutDate(new Date(checkOutDateStr));
       }
+    }
+  };
+  // NEW: Function to fetch existing tiffin booking details for edit mode
+  // NEW: Function to fetch existing tiffin booking details for edit mode
+  const fetchExistingTiffinBooking = async () => {
+    if (!bookingId || !tiffinServiceId) return;
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(
+        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getdummybookingById/${bookingId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        const data = response.data.data;
+        console.log("Prefilling from existing tiffin booking:", data);
+
+        // Name & Phone
+        setFullName(data.fullName || "");
+        setPhoneNumber((data.phoneNumber || "").replace(/^\+91\s*/, ""));
+
+        // Address
+        if (data.address) {
+          setStreet(data.address.street || "");
+          setPincode(data.address.pinCode?.toString() || "");
+
+          // Extract locality (e.g., "Kanpur")
+          let localityValue = "";
+          const fullAddr = data.address.fullAddress || "";
+          if (fullAddr) {
+            // Remove street (plus code), pincode, dashes
+            let cleaned = fullAddr
+              .replace(data.address.street || "", "")
+              .replace(/-\s*\d{6}/, "")
+              .replace(/\d{6}/, "")
+              .replace(/,/g, " ")
+              .trim();
+
+            // Remove plus code if still there
+            cleaned = cleaned.replace(/^[A-Za-z0-9+]+\s*/, "").trim();
+
+            localityValue = cleaned || "Kanpur"; // fallback if needed
+          }
+          setLocality(localityValue);
+        }
+
+        // Dates
+        if (data.date) {
+          const startDate = new Date(data.date);
+          startDate.setHours(12, 0, 0, 0); // avoid timezone shift
+          setDate(startDate);
+        }
+        if (data.endDate) {
+          const endDateVal = new Date(data.endDate);
+          endDateVal.setHours(12, 0, 0, 0);
+          setEndDate(endDateVal);
+        }
+
+        // Food Type
+        if (data.foodType) {
+          let foodVal = "Veg";
+          if (data.foodType === "Non-veg" || data.foodType === "Non-Veg") foodVal = "Non-Veg";
+          else if (data.foodType.includes("Both")) foodVal = "Both";
+          setSelectedfood(foodVal);
+        }
+
+        // Order Type
+        if (data.chooseOrderType) {
+          const orderVal = data.chooseOrderType.toLowerCase() === "dining" ? "dining" : "delivery";
+          setOrderType(orderVal);
+        }
+
+        // Subscription Type
+        if (data.subscribtionType?.subscribtion) {
+          setTiffinPlan(data.subscribtionType.subscribtion); // "weekly"
+        }
+
+        // Plan Type (Meal Package) – store for later matching
+        if (data.planType) {
+          setSelectedPlanType(data.planType); // "Breakfast & dinner"
+        }
+
+        // Instructions
+        setSpecialInstructions(data.deliveryInstructions || "");
+      }
+    } catch (error) {
+      console.error("Error fetching existing tiffin booking:", error);
     }
   };
   const getMealsFromPlanType = (
@@ -568,24 +660,24 @@ export default function BookingScreen() {
     });
   };
   // NEW: Always prefill dates and basic fields from params (before any fetches)
-useEffect(() => {
-  // Only set dates from params in edit mode, not for new bookings
-  if (isEditMode) {
-    if (checkInDateStr) {
-      try {
-        setCheckInDate(new Date(checkInDateStr));
-      } catch (e) {
-        console.warn("Invalid checkInDate from params:", checkInDateStr);
+  useEffect(() => {
+    // Only set dates from params in edit mode, not for new bookings
+    if (isEditMode) {
+      if (checkInDateStr) {
+        try {
+          setCheckInDate(new Date(checkInDateStr));
+        } catch (e) {
+          console.warn("Invalid checkInDate from params:", checkInDateStr);
+        }
+      }
+      if (checkOutDateStr) {
+        try {
+          setCheckOutDate(new Date(checkOutDateStr));
+        } catch (e) {
+          console.warn("Invalid checkOutDate from params:", checkOutDateStr);
+        }
       }
     }
-    if (checkOutDateStr) {
-      try {
-        setCheckOutDate(new Date(checkOutDateStr));
-      } catch (e) {
-        console.warn("Invalid checkOutDate from params:", checkOutDateStr);
-      }
-    }
-  }
     // Basic user fields from params (fallback if no profile/API)
     const parsedUserData = safeParse(userDataStr);
     if (parsedUserData.name) setFullName(parsedUserData.name);
@@ -725,88 +817,70 @@ useEffect(() => {
             }
             if (isTiffinBooking) {
               const parsedServiceData = safeParse(serviceDataStr);
-              console.log('Parsed service data for tiffin:', parsedServiceData); // FIXED: Debug log for ID
-              // Update serviceData for tiffin
+              console.log('Parsed service data for tiffin:', parsedServiceData);
+
+              // CRITICAL: Use tiffinServiceId from params (comes from booking data)
+              const serviceIdToUse = tiffinServiceId || parsedServiceData.serviceId || parsedServiceData.id || params.serviceId;
+              console.log('TIFFIN SERVICE ID RESOLVED:', serviceIdToUse); // Should log 693976faa1535eab8cdbd878
+
               setServiceData((prev) => ({
                 ...prev,
-                serviceId: parsedServiceData.serviceId || parsedServiceData.id || params.serviceId, // FIXED: Fallback to params.serviceId
-                serviceName:
-                  parsedServiceData.serviceName || parsedServiceData.name,
-                price: parsedServiceData.price,
-                foodType: parsedServiceData.foodType,
-                mealPreferences: parsedServiceData.mealPreferences,
-                orderTypes: parsedServiceData.orderTypes,
-                pricing: parsedServiceData.pricing, // This is now used directly
-                location:
-                  parsedServiceData.location || parsedServiceData.fullAddress,
-                contactInfo: parsedServiceData.contactInfo,
+                serviceId: serviceIdToUse,
+                serviceName: parsedServiceData.serviceName || parsedServiceData.name || prev.serviceName,
+                // ... keep other fields
               }));
-              // FIXED: No prefill for meals or food type - start blank
+
+              // Reset defaults first
               setSelectedfood("");
               setOrderType("delivery");
-              if (parsedServiceData.serviceId || parsedServiceData.id) {
+              setTiffinPlan("");
+              setSelectedMealPackage(0);
+              setDate(null);
+              setEndDate(null);
+
+              if (serviceIdToUse) {
                 const fetchTiffinService = async () => {
                   try {
                     const token = await AsyncStorage.getItem("token");
                     if (!token) return;
-                    const serviceIdToUse = parsedServiceData.serviceId || parsedServiceData.id;
-                    console.log('Fetching tiffin with ID:', serviceIdToUse); // FIXED: Debug log
+
                     const response = await axios.get(
                       `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceIdToUse}`,
-                      {
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                        },
-                      }
+                      { headers: { Authorization: `Bearer ${token}` } }
                     );
+
                     if (response.data.success) {
-                      console.log('dattttttaaaa', response.data.data);
-                      setTiffinService(response.data.data);
+                      const service = response.data.data;
+                      setTiffinService(service);
+
                       // Set initial order type
-                      const types = response.data.data.orderTypes || [];
-                      if (types.length > 0) {
-                        const initialType = types.includes("Delivery")
-                          ? "delivery"
-                          : types[0].toLowerCase().replace(" ", "");
-                        setOrderType(initialType as "dining" | "delivery");
-                      }
-                      // Set meal labels from mealTimings
-                      const newMealLabels: Record<MealType, string> = {
-                        breakfast: "",
-                        lunch: "",
-                        dinner: "",
-                      };
-                      response.data.data.mealTimings?.forEach((mt: any) => {
+                      const types = service.orderTypes || [];
+                      const initialOrderType = types.includes("Dining") ? "dining" : "delivery";
+                      setOrderType(initialOrderType as "dining" | "delivery");
+
+                      // Set meal labels
+                      const newMealLabels: Record<MealType, string> = { breakfast: "", lunch: "", dinner: "" };
+                      service.mealTimings?.forEach((mt: any) => {
                         const key = mt.mealType.toLowerCase() as MealType;
                         if (key in newMealLabels) {
-                          const titleCaseMealType = mt.mealType.charAt(0).toUpperCase() + mt.mealType.slice(1).toLowerCase();
-                          newMealLabels[key] =
-                            `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
+                          newMealLabels[key] = `${mt.mealType} (${mt.startTime} - ${mt.endTime})`;
                         }
                       });
                       setMealLabels(newMealLabels);
-                      // FIXED: Auto-set initial food type based on service
-                      const serviceFoodType = response.data.data.foodType;
-                      let initialFoodValue = "";
-                      if (serviceFoodType === "Veg") {
-                        initialFoodValue = "Veg";
-                      } else if (serviceFoodType === "Non-Veg") {
-                        initialFoodValue = "Non-Veg";
-                      } else if (serviceFoodType === "Both Veg & Non-Veg") {
-                        initialFoodValue = "Both";
-                      }
-                      setSelectedfood(initialFoodValue);
+
+                      // Set default food type
+                      let food = "Veg";
+                      if (service.foodType === "Non-Veg") food = "Non-Veg";
+                      else if (service.foodType.includes("Both")) food = "Both";
+                      setSelectedfood(food);
                     }
                   } catch (error) {
-                    console.error("Error fetching tiffin service:", error);
+                    console.error("Failed to fetch tiffin service:", error);
                   }
                 };
+
                 fetchTiffinService();
-              } else {
-                console.warn('No service ID found for tiffin fetch'); // FIXED: Warn if no ID
               }
-              // Default date from params - but set to null for user selection
-              setDate(null);
             }
           } else {
             console.warn("Profile fetch unsuccessful - falling back to params");
@@ -817,17 +891,24 @@ useEffect(() => {
           handleParamsAutofill();
         }
         // NEW: Fetch existing booking if in edit mode (after basic autofill)
+        // NEW: Fetch existing booking if in edit mode (after basic autofill)
         if (isEditMode) {
-          await fetchExistingBooking();
+          if (tiffinServiceId) {
+            await fetchExistingTiffinBooking(); // For tiffin edit
+          } else {
+            await fetchExistingBooking(); // For hostel edit
+          }
         }
       }
     };
     const handleParamsAutofill = () => {
       const parsedUserData = safeParse(userDataStr);
       console.log('-------> Params parsedUserData:', parsedUserData);
+
       // Use params for basics (no API data)
       setFullName(parsedUserData.name || "");
       setPhoneNumber((parsedUserData.phoneNumber || "").replace(/^\+91\s*/, '') || "");
+
       // Hostel/tiffin specific from params (unchanged logic, but safe)
       if (bookingType === "hostel" || bookingType === "reserve") {
         const userEmail = parsedUserData.email || "";
@@ -849,6 +930,7 @@ useEffect(() => {
         else if (workTypeNormalized.includes("leisure")) purpose = "leisure";
         else if (workTypeNormalized.includes("work")) purpose = "work";
         setPurposeType(purpose);
+
         // ... (rooms parsing, etc.)
         const parsedHostelData = safeParse(hostelDataStr);
         const parsedPlan = safeParse(planStr);
@@ -888,17 +970,24 @@ useEffect(() => {
         }, 0);
         setHostelPlan(parsedPlan.name || "monthly");
       }
+
       // Tiffin address from params if no API
       if (bookingType === "tiffin") {
         // Params don't have addresses, so skip or use empty
         setStreet("");
         setLocality("");
         setPincode("");
+
         const parsedServiceData = safeParse(serviceDataStr);
         console.log('Parsed service data for tiffin:', parsedServiceData);
+
+        // FIXED: Prioritize tiffinServiceId from edit mode params
+        const serviceIdToUse = tiffinServiceId || parsedServiceData.serviceId || parsedServiceData.id || params.serviceId;
+        console.log('Resolved serviceIdToUse:', serviceIdToUse);
+
         setServiceData((prev) => ({
           ...prev,
-          serviceId: parsedServiceData.serviceId || parsedServiceData.id || params.serviceId,
+          serviceId: serviceIdToUse, // FIXED: Use resolved serviceId
           serviceName: parsedServiceData.serviceName || parsedServiceData.name,
           price: parsedServiceData.price,
           foodType: parsedServiceData.foodType,
@@ -908,14 +997,17 @@ useEffect(() => {
           location: parsedServiceData.location || parsedServiceData.fullAddress,
           contactInfo: parsedServiceData.contactInfo,
         }));
+
         setSelectedfood("");
         setOrderType("delivery");
-        if (parsedServiceData.serviceId || parsedServiceData.id) {
+
+        // FIXED: Use resolved serviceIdToUse for condition check
+        if (serviceIdToUse) {
           const fetchTiffinService = async () => {
             try {
               const token = await AsyncStorage.getItem("token");
               if (!token) return;
-              const serviceIdToUse = parsedServiceData.serviceId || parsedServiceData.id;
+
               console.log('Fetching tiffin with ID:', serviceIdToUse);
               const response = await axios.get(
                 `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceIdToUse}`,
@@ -925,9 +1017,11 @@ useEffect(() => {
                   },
                 }
               );
+
               if (response.data.success) {
-                console.log('dattttttaaaa', response.data.data);
+                console.log('Tiffin Service Data:', response.data.data);
                 setTiffinService(response.data.data);
+
                 // Set initial order type
                 const types = response.data.data.orderTypes || [];
                 if (types.length > 0) {
@@ -936,6 +1030,7 @@ useEffect(() => {
                     : types[0].toLowerCase().replace(" ", "");
                   setOrderType(initialType as "dining" | "delivery");
                 }
+
                 // Set meal labels from mealTimings
                 const newMealLabels: Record<MealType, string> = {
                   breakfast: "",
@@ -946,11 +1041,11 @@ useEffect(() => {
                   const key = mt.mealType.toLowerCase() as MealType;
                   if (key in newMealLabels) {
                     const titleCaseMealType = mt.mealType.charAt(0).toUpperCase() + mt.mealType.slice(1).toLowerCase();
-                    newMealLabels[key] =
-                      `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
+                    newMealLabels[key] = `${titleCaseMealType} (${mt.startTime} - ${mt.endTime})`;
                   }
                 });
                 setMealLabels(newMealLabels);
+
                 // FIXED: Auto-set initial food type based on service
                 const serviceFoodType = response.data.data.foodType;
                 let initialFoodValue = "";
@@ -971,6 +1066,7 @@ useEffect(() => {
         } else {
           console.warn('No service ID found for tiffin fetch');
         }
+
         setDate(null);
       }
     };
@@ -989,6 +1085,7 @@ useEffect(() => {
     checkOutDateStr,
     bookingId, // NEW: Depend on bookingId for edit fetch
     isEditMode, // NEW: Depend on isEditMode
+    tiffinServiceId,
   ]);
   // Fetch pricing only for hostel (skip for tiffin to avoid 404)
   useEffect(() => {
@@ -1036,18 +1133,26 @@ useEffect(() => {
               weekly: data.pricing?.weekly || 0,
               monthly: data.pricing?.monthly || 0,
             });
-            setSecurityDeposit(data.perDayDeposit || data.securityDeposit || 0);
-            setWeeklyDeposit(data.weeklyDeposit || data.perDayDeposit || 0);
-            // FIXED: Always create picker items for all plans (show even if price === 0)
-            const items = [
-              { label: "Per Day", value: "daily" },
-              { label: "Weekly", value: "weekly" },
-              { label: "Monthly", value: "monthly" },
-            ];
+            setSecurityDeposit(data.securityDeposit ?? 0);
+            setWeeklyDeposit(data.weeklyDeposit ?? 0);
+            setDailyDeposit(data.perDayDeposit ?? 0);
+            const items = [];
+            if (data.pricing?.perDay > 0) {
+              items.push({ label: "Per Day", value: "daily" });
+            }
+            if (data.pricing?.weekly > 0) {
+              items.push({ label: "Weekly", value: "weekly" });
+            }
+            if (data.pricing?.monthly > 0) {
+              items.push({ label: "Monthly", value: "monthly" });
+            }
+            // if (items.length === 0) {
+            //   items.push({ label: "Monthly", value: "monthly" });
+            // }
+
             setPickerItems(items);
-            // FIXED: Set initial plan to first available
-            setHostelPlan(items[0]?.value || "monthly");
-            // FIXED: Remove manual currentPlanPrice set - let useEffect handle
+            setHostelPlan(items[0].value); // Pehla available plan select ho jayega
+            // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
           } else {
             console.error("API returned false success:", response.data.message);
             // FIXED: Set defaults on API failure
@@ -1116,13 +1221,16 @@ useEffect(() => {
             : pricingData.monthly;
       newPrice = basePlanPrice;
       // FIXED: Use securityDeposit (perDayDeposit) for daily as well
-      if (hostelPlan === "daily") {
-        newDeposit = securityDeposit;
-      } else if (hostelPlan === "weekly") {
-        newDeposit = weeklyDeposit;
-      } else {
-        newDeposit = securityDeposit;
-      }
+     // Final correct logic: har plan ke liye apna deposit, nahi to 0
+if (hostelPlan === "monthly") {
+  newDeposit = securityDeposit;  // ₹3000 ya jo bhi ho, nahi to 0
+} else if (hostelPlan === "weekly") {
+  newDeposit = weeklyDeposit;    // ₹300 ya nahi to 0
+} else if (hostelPlan === "daily") {
+  newDeposit = dailyDeposit;     // perDayDeposit ya nahi to 0
+} else {
+  newDeposit = 0;
+}
     }
     setCurrentPlanPrice(newPrice);
     setCurrentDeposit(newDeposit);
@@ -1307,6 +1415,29 @@ useEffect(() => {
       setFetchedPricing({ perDay: 0, weekly: 0, monthly: 0, offers: "" });
     }
   }, [selectedMealPackage, selectedfood, orderType, tiffinPlan, selectedPlanType]); // FIXED: Add selectedPlanType dep
+
+  // NEW: Match meal package when mealPackages become available (for edit mode)
+  useEffect(() => {
+    console.log("Matching useEffect triggered:", {
+      isEditMode,
+      hasTiffinServiceId: !!tiffinServiceId,
+      selectedPlanType,
+      mealPackagesLength: mealPackages.length,
+      currentSelectedMealPackage: selectedMealPackage,
+      availablePlanTypes: mealPackages.map(p => p.planType)
+    });
+
+    if (isEditMode && tiffinServiceId && selectedPlanType && mealPackages.length > 0 && selectedMealPackage === 0) {
+      const matchingPkg = mealPackages.find(p => p.planType === selectedPlanType);
+      if (matchingPkg) {
+        console.log("AUTO-SELECTED MEAL PACKAGE:", matchingPkg.label, matchingPkg.id);
+        setSelectedMealPackage(matchingPkg.id);
+        setTiffinMeals(matchingPkg.meals);
+      } else {
+        console.warn("No matching meal package found for:", selectedPlanType);
+      }
+    }
+  }, [isEditMode, tiffinServiceId, selectedPlanType, mealPackages, selectedMealPackage]);
   const handleBack = () => {
     router.back();
   };
@@ -1319,6 +1450,7 @@ useEffect(() => {
       }
       return;
     }
+
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
@@ -1328,26 +1460,29 @@ useEffect(() => {
         }));
         return;
       }
+
       if (!serviceData.serviceId) {
-        console.error("Service ID is falsy:", serviceData.serviceId);
+        console.error("Service ID is missing!");
         setErrors((prev) => ({
           ...prev,
           general: "Service ID is missing! Check navigation params.",
         }));
         return;
       }
-      console.log("Service ID confirmed:", serviceData.serviceId);
-      // Build combined address for fullAddress
+
+      // Build fullAddress exactly like in the example response
       const combinedAddress = [
         street,
         landmark ? `${landmark},` : "",
         locality,
-        `- ${pincode}`,
+        pincode ? `- ${pincode}` : "",
       ]
         .filter(Boolean)
         .join(" ")
         .trim();
+
       const chooseOrderTypeStr = orderType === "delivery" ? "Delivery" : "Dining";
+
       if (selectedMealPackage === 0 || !selectedPlanType) {
         setErrors((prev) => ({
           ...prev,
@@ -1355,272 +1490,224 @@ useEffect(() => {
         }));
         return;
       }
+
+      const priceForPlan = getBasePriceForPlan(tiffinPlan);
+
       const subscribtionType = {
-        subscribtion: tiffinPlan, // e.g., "perDay", "weekly", "monthly"
-        price: getBasePriceForPlan(tiffinPlan),
+        subscribtion: tiffinPlan,
+        price: priceForPlan,
       };
-      const startDateStr = date ? date.toISOString().split("T")[0] : ""; // YYYY-MM-DD
+
+      const startDateStr = date ? date.toISOString().split("T")[0] : "";
       const hasPeriodic = ["weekly", "monthly"].includes(tiffinPlan);
-      const endDateStr =
-        hasPeriodic && endDate ? endDate.toISOString().split("T")[0] : undefined;
-      // ✅ Updated payload
+      const endDateStr = hasPeriodic && endDate ? endDate.toISOString().split("T")[0] : undefined;
+
       let foodTypeStr = "";
       if (selectedfood === "Veg") foodTypeStr = "Veg";
       else if (selectedfood === "Non-Veg") foodTypeStr = "Non-veg";
       else if (selectedfood === "Both") foodTypeStr = "Both Veg & Non-Veg";
-      const planTypeStr = selectedPlanType;
-      const payload = {
+
+      // UPDATED PAYLOAD – Matches backend update API exactly
+      const payload: any = {
         fullName,
         phoneNumber: phoneNumber ? `+91${phoneNumber}` : '',
         address: {
-          fullAddress: combinedAddress,
+          fullAddress: combinedAddress || "Not provided",
           street: street || "",
           pinCode: parseInt(pincode) || 0,
         },
-        deliveryInstructions: specialInstructions,
+        deliveryInstructions: specialInstructions || "",
         foodType: foodTypeStr,
         chooseOrderType: chooseOrderTypeStr,
-        planType: planTypeStr,
+        planType: selectedPlanType, // e.g., "Breakfast, lunch & dinner"
         subscribtionType,
         date: startDateStr,
       };
+
       if (endDateStr) {
         payload.endDate = endDateStr;
       }
+
       console.log("Sending tiffin payload:", JSON.stringify(payload, null, 2));
-      const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+
+      let response;
+
+      if (isEditMode && bookingId) {
+        // EDIT MODE → PUT request
+        console.log("Updating existing tiffin booking ID:", bookingId);
+        response = await axios.put(
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/update/${bookingId}`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } else {
+        // NEW BOOKING → POST request
+        console.log("Creating new tiffin booking");
+        response = await axios.post(
+          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/create?tiffinServices=${serviceData.serviceId}`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+
       if (response.data.success) {
-        const bookingId = response.data.data._id;
+        const responseBookingId = response.data.data._id || bookingId;
+
+        Toast.show({
+          type: "success",
+          text1: "Success",
+          text2: isEditMode ? "Tiffin order updated successfully!" : "Tiffin booking created!",
+        });
+
         router.push({
           pathname: "/check-out",
           params: {
             serviceType: "tiffin",
-            bookingId,
+            bookingId: responseBookingId,
             serviceId: serviceData.serviceId,
-            totalPrice: currentPlanPrice.toString(),
-            planType: planTypeStr,
+            totalPrice: priceForPlan.toString(),
+            planType: selectedPlanType,
             startDate: startDateStr,
             endDate: endDateStr || "",
-            mealPreference: planTypeStr,
+            mealPreference: selectedPlanType,
             foodType: foodTypeStr,
             orderType,
             fullName,
           },
         });
       } else {
-        console.error("Booking failed:", response.data.message || "Unknown error");
         const errorMsg = response.data.message || "Unknown error";
-        setErrors((prev) => ({
-          ...prev,
-          general: `Booking failed: ${errorMsg}`,
-        }));
         showCustomToast(`Booking failed: ${errorMsg}`);
       }
-    } catch (error) {
-      console.error(
-        "Error creating tiffin booking:",
-        error.response?.data || error.message
-      );
-      let errorMsg = "Something went wrong while booking. Please try again.";
+    } catch (error: any) {
+      console.error("Error in tiffin booking:", error.response?.data || error.message);
+      let errorMsg = "Something went wrong. Please try again.";
       if (axios.isAxiosError(error) && error.response?.data?.message) {
-        errorMsg = error.response.data.message; // Use backend error message
-      } else if (error.response?.status === 400) {
-        errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
+        errorMsg = error.response.data.message;
       }
-      setErrors((prev) => ({
-        ...prev,
-        general: errorMsg,
-      }));
       showCustomToast(errorMsg);
     }
   };
-const handleHostelSubmit = async () => {
-  console.log("=== Hostel Submit Debug ===");
-  console.log("serviceData:", serviceData);
-  console.log("hostelPlan:", hostelPlan);
-  console.log("fullName:", fullName);
-  console.log("phoneNumber:", phoneNumber);
-  console.log("checkInDate:", checkInDate);
-  console.log("checkOutDate:", checkOutDate);
-  console.log("purposeType:", purposeType);
-  console.log("aadhaarPhoto:", aadhaarPhoto);
-  console.log("userPhoto:", userPhoto);
-  console.log("rooms:", serviceData.rooms);
-  console.log("bedNames:", bedNames);
-  const validation = validateHostelForm();
-  if (!validation.valid) {
-    if (validation.hasBedErrors) {
-      setExpandedTiffin(0);
-      setTimeout(() => {
-        if (validation.firstError) {
-          scrollToField(validation.firstError);
-        }
-      }, 300);
-    } else if (validation.firstError) {
-      scrollToField(validation.firstError);
-    }
-    return;
-  }
-  setIsLoadingHostel(true);
-  try {
-    if (!serviceData.hostelId) {
-      console.error("Error: Hostel ID is missing!");
-      console.log("hostelId:", serviceData.hostelId);
-      setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
+  const handleHostelSubmit = async () => {
+    console.log("=== Hostel Submit Debug ===");
+    console.log("serviceData:", serviceData);
+    console.log("hostelPlan:", hostelPlan);
+    console.log("fullName:", fullName);
+    console.log("phoneNumber:", phoneNumber);
+    console.log("checkInDate:", checkInDate);
+    console.log("checkOutDate:", checkOutDate);
+    console.log("purposeType:", purposeType);
+    console.log("aadhaarPhoto:", aadhaarPhoto);
+    console.log("userPhoto:", userPhoto);
+    console.log("rooms:", serviceData.rooms);
+    console.log("bedNames:", bedNames);
+    const validation = validateHostelForm();
+    if (!validation.valid) {
+      if (validation.hasBedErrors) {
+        setExpandedTiffin(0);
+        setTimeout(() => {
+          if (validation.firstError) {
+            scrollToField(validation.firstError);
+          }
+        }, 300);
+      } else if (validation.firstError) {
+        scrollToField(validation.firstError);
+      }
       return;
     }
-    // NEW: No need for single roomId validation
-    if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
-      console.error("Error: No rooms or beds selected!");
-      setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
-      return;
-    }
-    const token = await AsyncStorage.getItem("token");
-    const guestId = await AsyncStorage.getItem("guestId");
-    console.log("token:", token ? "Present" : "Missing");
-    console.log("guestId:", guestId ? "Present" : "Missing");
-    if (!token || !guestId) {
-      console.error("Error: Authentication token or guest ID is missing!");
-      setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
-      return;
-    }
-    // FIXED: Use flat price and deposit for the plan (no per-bed division)
-    const planName = hostelPlan === 'daily' ? 'perDay' : hostelPlan; // Fix: Map daily to perDay for backend
-    const selectPlan = [
-      {
-        name: planName,
-        price: currentPlanPrice,
-        depositAmount: currentDeposit,
-      },
-    ];
-    // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
-    const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
-      roomId: room.roomId,
-      roomNumber: String(room.roomNumber || ""), // e.g., "101"
-      bedNumber: room.beds.map(bed => ({
-        bedId: bed.bedId,
-        bedNumber: bed.bedNumber,
-        name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
-      })),
-    }));
-    // UPDATED: For update, use 'addRooms'; for create, use 'rooms'
-    const roomsKey = isEditMode ? 'addRooms' : 'rooms';
-    // Create FormData for file uploads ONLY if new images; otherwise prepare JSON
-    let formData: FormData | undefined;
-    let updatePayload: any = {
-      fullName,
-      phoneNumber: phoneNumber ? `+91${phoneNumber}` : '', // Standardize with +91 for consistency
-      email: serviceData.email || "example@example.com",
-      workType: purposeType, // Send lowercase to match backend (remove capitalization if backend lowercases)
-      [roomsKey]: roomsPayload, // Direct array (no stringify)
-      selectPlan, // Direct array (no stringify)
-      Remark: message || '',
-    };
-
-    // Date handling: Use full ISO with specific times (check-in 18:00, check-out 12:00) to match backend format
-    let checkInDateStr: string;
-    let checkOutDateStr: string;
-    if (checkInDate) {
-      const checkIn = new Date(checkInDate);
-      checkIn.setHours(18, 30, 0, 0); // Evening arrival
-      checkInDateStr = checkIn.toISOString();
-    } else {
-      checkInDateStr = '';
-    }
-    if (checkOutDate) {
-      const checkOut = new Date(checkOutDate);
-      checkOut.setHours(12, 0, 0, 0); // Noon departure
-      checkOutDateStr = checkOut.toISOString();
-    } else {
-      checkOutDateStr = '';
-    }
-    updatePayload.checkInDate = checkInDateStr;
-    updatePayload.checkOutDate = checkOutDateStr;
-
-    // Flags for existing photos
-    updatePayload.aadhaarPhoto = aadhaarPhoto.startsWith('http') ? 'Existing' : null;
-    updatePayload.userPhoto = userPhoto.startsWith('http') ? 'Existing' : null;
-
-    // If new photos, use FormData and append fields properly
-    const hasNewPhotos = (aadhaarPhoto && !aadhaarPhoto.startsWith('http')) || (userPhoto && !userPhoto.startsWith('http'));
-    if (hasNewPhotos) {
-      formData = new FormData();
-      // Append simple string fields as-is
-      const simpleFields = {
-        fullName: updatePayload.fullName,
-        phoneNumber: updatePayload.phoneNumber,
-        email: updatePayload.email,
-        workType: updatePayload.workType,
-        Remark: updatePayload.Remark,
-        checkInDate: updatePayload.checkInDate,
-        checkOutDate: updatePayload.checkOutDate,
+    setIsLoadingHostel(true);
+    try {
+      if (!serviceData.hostelId) {
+        console.error("Error: Hostel ID is missing!");
+        console.log("hostelId:", serviceData.hostelId);
+        setErrors(prev => ({ ...prev, general: "Hostel ID is missing!" }));
+        return;
+      }
+      // NEW: No need for single roomId validation
+      if (!serviceData.rooms || serviceData.rooms.length === 0 || totalBedsCount === 0) {
+        console.error("Error: No rooms or beds selected!");
+        setErrors(prev => ({ ...prev, general: "Please select at least one bed across rooms!" }));
+        return;
+      }
+      const token = await AsyncStorage.getItem("token");
+      const guestId = await AsyncStorage.getItem("guestId");
+      console.log("token:", token ? "Present" : "Missing");
+      console.log("guestId:", guestId ? "Present" : "Missing");
+      if (!token || !guestId) {
+        console.error("Error: Authentication token or guest ID is missing!");
+        setErrors(prev => ({ ...prev, general: "Authentication token or guest ID is missing!" }));
+        return;
+      }
+      // FIXED: Use flat price and deposit for the plan (no per-bed division)
+      const planName = hostelPlan === 'daily' ? 'perDay' : hostelPlan; // Fix: Map daily to perDay for backend
+      const selectPlan = [
+        {
+          name: planName,
+          price: currentPlanPrice,
+          depositAmount: currentDeposit,
+        },
+      ];
+      // UPDATED: Build rooms array from serviceData.rooms, ADD name to each bed
+      const roomsPayload = serviceData.rooms.map((room: RoomData) => ({
+        roomId: room.roomId,
+        roomNumber: String(room.roomNumber || ""), // e.g., "101"
+        bedNumber: room.beds.map(bed => ({
+          bedId: bed.bedId,
+          bedNumber: bed.bedNumber,
+          name: bedNames[getBedKey(room.roomId, bed.bedId)] || '', // From state
+        })),
+      }));
+      // UPDATED: For update, use 'addRooms'; for create, use 'rooms'
+      const roomsKey = isEditMode ? 'addRooms' : 'rooms';
+      // Create FormData for file uploads ONLY if new images; otherwise prepare JSON
+      let formData: FormData | undefined;
+      let updatePayload: any = {
+        fullName,
+        phoneNumber: phoneNumber ? `+91${phoneNumber}` : '', // Standardize with +91 for consistency
+        email: serviceData.email || "example@example.com",
+        workType: purposeType, // Send lowercase to match backend (remove capitalization if backend lowercases)
+        [roomsKey]: roomsPayload, // Direct array (no stringify)
+        selectPlan, // Direct array (no stringify)
+        Remark: message || '',
       };
-      Object.entries(simpleFields).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          formData.append(key, String(value));
-        }
-      });
-      // Append complex fields as JSON strings (backend can parse)
-      formData.append('selectPlan', JSON.stringify(updatePayload.selectPlan));
-      formData.append(roomsKey, JSON.stringify(updatePayload[roomsKey]));
-      // Append photo flags
-      if (updatePayload.aadhaarPhoto) formData.append('aadhaarPhoto', updatePayload.aadhaarPhoto);
-      if (updatePayload.userPhoto) formData.append('userPhoto', updatePayload.userPhoto);
-      // Append new images
-      if (aadhaarPhoto && !aadhaarPhoto.startsWith('http')) {
-        formData.append('addharCardPhoto', {
-          uri: aadhaarPhoto,
-          type: 'image/jpeg',
-          name: 'aadhar.jpg',
-        } as any);
+
+      // Date handling: Use full ISO with specific times (check-in 18:00, check-out 12:00) to match backend format
+      let checkInDateStr: string;
+      let checkOutDateStr: string;
+      if (checkInDate) {
+        const checkIn = new Date(checkInDate);
+        checkIn.setHours(18, 30, 0, 0); // Evening arrival
+        checkInDateStr = checkIn.toISOString();
+      } else {
+        checkInDateStr = '';
       }
-      if (userPhoto && !userPhoto.startsWith('http')) {
-        formData.append('userPhoto', {
-          uri: userPhoto,
-          type: 'image/jpeg',
-          name: 'user.jpg',
-        } as any);
+      if (checkOutDate) {
+        const checkOut = new Date(checkOutDate);
+        checkOut.setHours(12, 0, 0, 0); // Noon departure
+        checkOutDateStr = checkOut.toISOString();
+      } else {
+        checkOutDateStr = '';
       }
-    }
+      updatePayload.checkInDate = checkInDateStr;
+      updatePayload.checkOutDate = checkOutDateStr;
 
-    if (!isEditMode) {
-      updatePayload.guestId = guestId; // Only for create
-    }
+      // Flags for existing photos
+      updatePayload.aadhaarPhoto = aadhaarPhoto.startsWith('http') ? 'Existing' : null;
+      updatePayload.userPhoto = userPhoto.startsWith('http') ? 'Existing' : null;
 
-    console.log("Full Payload: (logged as object for debug)");
-    console.log({
-      ...updatePayload,
-      aadhaarPhoto: aadhaarPhoto ? (aadhaarPhoto.startsWith('http') ? 'Existing' : 'New Attached') : 'Null',
-      userPhoto: userPhoto ? (userPhoto.startsWith('http') ? 'Existing' : 'New Attached') : 'Null',
-      hasNewPhotos,
-    });
-
-    let response;
-    if (isEditMode) {
-      // UPDATED: Use PUT for update; prefer JSON if no new photos, else FormData
-      const headers = hasNewPhotos
-        ? { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
-        : { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-
-      const body = hasNewPhotos ? formData : updatePayload;
-
-      response = await axios.put(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/update/${bookingId}`,
-        body,
-        { headers }
-      );
-    } else {
-      // For create, always use FormData (consistent with images)
-      if (!formData) {
+      // If new photos, use FormData and append fields properly
+      const hasNewPhotos = (aadhaarPhoto && !aadhaarPhoto.startsWith('http')) || (userPhoto && !userPhoto.startsWith('http'));
+      if (hasNewPhotos) {
         formData = new FormData();
         // Append simple string fields as-is
         const simpleFields = {
@@ -1631,94 +1718,162 @@ const handleHostelSubmit = async () => {
           Remark: updatePayload.Remark,
           checkInDate: updatePayload.checkInDate,
           checkOutDate: updatePayload.checkOutDate,
-          guestId: updatePayload.guestId,
         };
         Object.entries(simpleFields).forEach(([key, value]) => {
           if (value !== null && value !== undefined) {
             formData.append(key, String(value));
           }
         });
-        // Append complex fields as JSON strings
+        // Append complex fields as JSON strings (backend can parse)
         formData.append('selectPlan', JSON.stringify(updatePayload.selectPlan));
-        formData.append('rooms', JSON.stringify(updatePayload.rooms)); // For create, always 'rooms'
-      }
-      response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
+        formData.append(roomsKey, JSON.stringify(updatePayload[roomsKey]));
+        // Append photo flags
+        if (updatePayload.aadhaarPhoto) formData.append('aadhaarPhoto', updatePayload.aadhaarPhoto);
+        if (updatePayload.userPhoto) formData.append('userPhoto', updatePayload.userPhoto);
+        // Append new images
+        if (aadhaarPhoto && !aadhaarPhoto.startsWith('http')) {
+          formData.append('addharCardPhoto', {
+            uri: aadhaarPhoto,
+            type: 'image/jpeg',
+            name: 'aadhar.jpg',
+          } as any);
         }
-      );
-    }
-    console.log("API Response:", response.data);
-    if (response.data.success) {
-      console.log("Booking successful:", response.data.data);
-      const updatedData = response.data.data;
-      const updatedBookingId = updatedData._id || bookingId;
-
-      // NEW: Client-side verification for key fields (especially in edit mode)
-      if (isEditMode) {
-        const mismatches: string[] = [];
-        if (updatedData.fullName !== fullName) mismatches.push('Full Name');
-        if (updatedData.phoneNumber !== `+91${phoneNumber}`) mismatches.push('Phone Number');
-        const updatedCheckIn = new Date(updatedData.checkInDate);
-        const sentCheckIn = new Date(checkInDateStr);
-        if (updatedCheckIn.toDateString() !== sentCheckIn.toDateString()) mismatches.push('Check-in Date');
-        const updatedCheckOut = new Date(updatedData.checkOutDate);
-        const sentCheckOut = new Date(checkOutDateStr);
-        if (updatedCheckOut.toDateString() !== sentCheckOut.toDateString()) mismatches.push('Check-out Date');
-        if (updatedData.workType !== purposeType) mismatches.push('Work Type');
-
-        if (mismatches.length > 0) {
-          console.warn('Partial update detected:', mismatches);
-          Alert.alert(
-            'Partial Update Warning',
-            `Some fields (${mismatches.join(', ')}) may not have been updated. Please verify your booking details.`,
-            [{ text: 'OK' }]
-          );
-        } else {
-          console.log('Full update verified successfully');
+        if (userPhoto && !userPhoto.startsWith('http')) {
+          formData.append('userPhoto', {
+            uri: userPhoto,
+            type: 'image/jpeg',
+            name: 'user.jpg',
+          } as any);
         }
       }
 
-      console.log("Navigating to checkout with booking ID:", updatedBookingId);
-      // UPDATED: Use response dates for navigation (in case of adjustments)
-      const navCheckIn = updatedData.checkInDate ? new Date(updatedData.checkInDate).toISOString().split('T')[0] : checkInDateStr;
-      const navCheckOut = updatedData.checkOutDate ? new Date(updatedData.checkOutDate).toISOString().split('T')[0] : checkOutDateStr;
-      router.push({
-        pathname: "/check-out",
-        params: {
-          serviceType: "hostel",
-          bookingId: updatedBookingId,
-          serviceId: serviceData.hostelId,
-          checkInDate: navCheckIn,
-          checkOutDate: navCheckOut,
-        },
+      if (!isEditMode) {
+        updatePayload.guestId = guestId; // Only for create
+      }
+
+      console.log("Full Payload: (logged as object for debug)");
+      console.log({
+        ...updatePayload,
+        aadhaarPhoto: aadhaarPhoto ? (aadhaarPhoto.startsWith('http') ? 'Existing' : 'New Attached') : 'Null',
+        userPhoto: userPhoto ? (userPhoto.startsWith('http') ? 'Existing' : 'New Attached') : 'Null',
+        hasNewPhotos,
       });
-    } else {
-      console.error("Booking failed:", response.data.message || "Unknown error");
-      const errorMsg = response.data.message || "Unknown error";
-      setErrors(prev => ({ ...prev, general: `Booking failed: ${errorMsg}` }));
-      showCustomToast(`Booking failed: ${errorMsg}`);
+
+      let response;
+      if (isEditMode) {
+        // UPDATED: Use PUT for update; prefer JSON if no new photos, else FormData
+        const headers = hasNewPhotos
+          ? { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+          : { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const body = hasNewPhotos ? formData : updatePayload;
+
+        response = await axios.put(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/update/${bookingId}`,
+          body,
+          { headers }
+        );
+      } else {
+        // For create, always use FormData (consistent with images)
+        if (!formData) {
+          formData = new FormData();
+          // Append simple string fields as-is
+          const simpleFields = {
+            fullName: updatePayload.fullName,
+            phoneNumber: updatePayload.phoneNumber,
+            email: updatePayload.email,
+            workType: updatePayload.workType,
+            Remark: updatePayload.Remark,
+            checkInDate: updatePayload.checkInDate,
+            checkOutDate: updatePayload.checkOutDate,
+            guestId: updatePayload.guestId,
+          };
+          Object.entries(simpleFields).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+              formData.append(key, String(value));
+            }
+          });
+          // Append complex fields as JSON strings
+          formData.append('selectPlan', JSON.stringify(updatePayload.selectPlan));
+          formData.append('rooms', JSON.stringify(updatePayload.rooms)); // For create, always 'rooms'
+        }
+        response = await axios.post(
+          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+      console.log("API Response:", response.data);
+      if (response.data.success) {
+        console.log("Booking successful:", response.data.data);
+        const updatedData = response.data.data;
+        const updatedBookingId = updatedData._id || bookingId;
+
+        // NEW: Client-side verification for key fields (especially in edit mode)
+        if (isEditMode) {
+          const mismatches: string[] = [];
+          if (updatedData.fullName !== fullName) mismatches.push('Full Name');
+          if (updatedData.phoneNumber !== `+91${phoneNumber}`) mismatches.push('Phone Number');
+          const updatedCheckIn = new Date(updatedData.checkInDate);
+          const sentCheckIn = new Date(checkInDateStr);
+          if (updatedCheckIn.toDateString() !== sentCheckIn.toDateString()) mismatches.push('Check-in Date');
+          const updatedCheckOut = new Date(updatedData.checkOutDate);
+          const sentCheckOut = new Date(checkOutDateStr);
+          if (updatedCheckOut.toDateString() !== sentCheckOut.toDateString()) mismatches.push('Check-out Date');
+          if (updatedData.workType !== purposeType) mismatches.push('Work Type');
+
+          if (mismatches.length > 0) {
+            console.warn('Partial update detected:', mismatches);
+            Alert.alert(
+              'Partial Update Warning',
+              `Some fields (${mismatches.join(', ')}) may not have been updated. Please verify your booking details.`,
+              [{ text: 'OK' }]
+            );
+          } else {
+            console.log('Full update verified successfully');
+          }
+        }
+
+        console.log("Navigating to checkout with booking ID:", updatedBookingId);
+        // UPDATED: Use response dates for navigation (in case of adjustments)
+        const navCheckIn = updatedData.checkInDate ? new Date(updatedData.checkInDate).toISOString().split('T')[0] : checkInDateStr;
+        const navCheckOut = updatedData.checkOutDate ? new Date(updatedData.checkOutDate).toISOString().split('T')[0] : checkOutDateStr;
+        router.push({
+          pathname: "/check-out",
+          params: {
+            serviceType: "hostel",
+            bookingId: updatedBookingId,
+            serviceId: serviceData.hostelId,
+            checkInDate: navCheckIn,
+            checkOutDate: navCheckOut,
+          },
+        });
+      } else {
+        console.error("Booking failed:", response.data.message || "Unknown error");
+        const errorMsg = response.data.message || "Unknown error";
+        setErrors(prev => ({ ...prev, general: `Booking failed: ${errorMsg}` }));
+        showCustomToast(`Booking failed: ${errorMsg}`);
+      }
+    } catch (error: any) {
+      console.error("Error creating hostel booking:", error.response?.data || error.message);
+      console.error("Full error object:", error);
+      let errorMsg = "Something went wrong while booking. Please try again.";
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        errorMsg = error.response.data.message; // Use backend error message
+      } else if (error.response?.status === 400) {
+        errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
+      }
+      setErrors(prev => ({ ...prev, general: errorMsg }));
+      showCustomToast(errorMsg);
+    } finally {
+      setIsLoadingHostel(false);
     }
-  } catch (error: any) {
-    console.error("Error creating hostel booking:", error.response?.data || error.message);
-    console.error("Full error object:", error);
-    let errorMsg = "Something went wrong while booking. Please try again.";
-    if (axios.isAxiosError(error) && error.response?.data?.message) {
-      errorMsg = error.response.data.message; // Use backend error message
-    } else if (error.response?.status === 400) {
-      errorMsg = "Invalid booking details (e.g., dates or plan type). Please check your selections.";
-    }
-    setErrors(prev => ({ ...prev, general: errorMsg }));
-    showCustomToast(errorMsg);
-  } finally {
-    setIsLoadingHostel(false);
-  }
-};
+  };
   // NEW: Bed name input handler (with sync for first bed)
   const handleBedNameChange = (roomId: string, bedId: string, text: string, isFirstBed: boolean) => {
     const key = getBedKey(roomId, bedId);
@@ -2506,7 +2661,11 @@ const handleHostelSubmit = async () => {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={isEditMode ? "Edit Hostel Booking" : (bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking")}
+        title={
+          isEditMode
+            ? (tiffinServiceId ? "Edit Tiffin Booking" : "Edit Hostel Booking")
+            : (bookingType === "tiffin" ? "Tiffin Booking" : "Hostel Booking")
+        }
         style={styles.header}
       />
       <View style={styles.container}>

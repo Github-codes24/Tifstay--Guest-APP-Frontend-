@@ -129,17 +129,20 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                   />
                 </Animated.View>
 
-                <Animated.Text
-                  style={[
-                    styles.label,
-                    isFocused && styles.activeLabel,
-                    {
-                      opacity: labelOpacity,
-                    },
-                  ]}
-                >
-                  {isFocused && options.title}
-                </Animated.Text>
+               <Animated.Text
+  numberOfLines={1}
+  ellipsizeMode="tail"
+  style={[
+    styles.label,
+    isFocused && styles.activeLabel,
+    {
+      opacity: labelOpacity,
+    },
+  ]}
+>
+  {options.title}
+</Animated.Text>
+
               </Animated.View>
             </TouchableOpacity>
           );
@@ -185,7 +188,7 @@ const styles = StyleSheet.create({
     height: 24,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textPrimary,
     marginTop: 4,
     fontWeight: "500",

@@ -31,13 +31,13 @@ import { useAuthStore } from "@/store/authStore";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { hostellogo, tiffinlogo } from "@/assets/images";
-import fallbackDp from "@/assets/images/fallbackdp.png"; // Added import for fallback profile image
+import fallbackDp from "@/assets/images/fallbackdp.png"; 
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
 import { BackHandler } from 'react-native';
 import { useFocusEffect } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
-import { WebView } from "react-native-webview"; // Added import for WebView
+import { WebView } from "react-native-webview"; 
 interface Hostel {
   id: string;
   name: string;
@@ -383,6 +383,10 @@ export default function DashboardScreen() {
     if (!token) return [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     const params = new URLSearchParams();
+    // If a price sort is applied from filters (e.g., "low to high" / "high to low"), forward it to backend
+    if (appliedFilters.cost) {
+      params.append("priceSort", appliedFilters.cost);
+    }
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     try {
       const response = await fetch(url, { headers });
@@ -474,7 +478,10 @@ export default function DashboardScreen() {
     if (foodTypeParam) {
       params.append("foodType", foodTypeParam);
     }
-    // priceSort handled client-side, not sent to backend
+    // Forward price sort to backend when provided so backend returns ordered results
+    if (priceSort) {
+      params.append("priceSort", priceSort);
+    }
     const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices?${params.toString()}`;
     console.log("🔍 Tiffin Search URL:", url);
     console.log("🔍 Decoded Query for Debug:", decodeURIComponent(encodedQuery));
@@ -699,7 +706,7 @@ export default function DashboardScreen() {
     enabled: isHostel,
   });
   const { data: allTiffinServicesData = [], isLoading: isLoadingTiffins, refetch: refetchTiffins } = useQuery({
-    queryKey: ['allTiffins'],
+    queryKey: ['allTiffins', appliedFilters.cost || ""],
     queryFn: fetchTiffinServicesQuery,
   });
   const { data: citiesData = [], isLoading: isLoadingCities } = useQuery({
@@ -920,7 +927,10 @@ export default function DashboardScreen() {
     if (priceSort) {
       console.log("🔍 Applying client-side price sort:", priceSort); // Debug: Log to confirm trigger
       const getPriceNum = (service: TiffinService) => {
-        const num = service.price.replace(/[^0-9]/g, "");
+        // Prefer `lowestPrice` (backend's field) since backend sorts by this value.
+        // Fallback to the displayed `price` string when `lowestPrice` is unavailable.
+        const source = (service as any).lowestPrice || service.price || "";
+        const num = String(source).replace(/[^0-9]/g, "");
         return parseInt(num, 10) || 0;
       };
       filtered.sort((a, b) => {
@@ -1495,11 +1505,11 @@ export default function DashboardScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Switch to Tiffin/Restaurants"
                 >
-                  <Image
-                    source={tiffinlogo}
-                    style={styles.image}
-                    tintColor={!isHostel ? "#fff" : "#004AAD"}
-                  />
+                 <Ionicons
+    name="restaurant-sharp"  // Ye icon tiffin/restaurant ke liye best hai
+    size={24}  // Size same rakho jaise image tha (styles.image mein width/height 24 tha)
+    color={!isHostel ? "#fff" : "#004AAD"}  // Tint color same rakho
+  />
                   <Text style={[styles.serviceButtonText, !isHostel && styles.serviceButtonTextSelected]}>
                     Tiffin/Restaurants
                   </Text>

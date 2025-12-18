@@ -877,7 +877,7 @@ export default function ProductDetails() {
         <View style={styles.offlineWarning}>
           <Ionicons name="storefront-outline" size={20} color="white" />
           <Text style={styles.offlineText}>
-            This store currently exceeded the order limit. Chceck back after sometime.
+            This store currently exceeded the order limit. Check back after sometime.
           </Text>
         </View>
       )}
@@ -1566,7 +1566,7 @@ const styles = StyleSheet.create({
   },
   includedItem: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   bulletPoint: {
     fontSize: 14,
@@ -1580,7 +1580,7 @@ const styles = StyleSheet.create({
   },
   orderTypeItem: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   orderTypeText: {
     fontSize: 14,
@@ -1589,7 +1589,7 @@ const styles = StyleSheet.create({
   },
   whyItem: {
     flexDirection: "row",
-    // paddingVertical: 4,
+    paddingVertical: 3,
   },
   whyText: {
     fontSize: 14,

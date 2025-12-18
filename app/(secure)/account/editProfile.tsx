@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   Platform,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { router } from "expo-router";
@@ -19,13 +20,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuthStore } from "@/store/authStore"; // ✅ Import store
+import { useAuthStore } from "@/store/authStore";
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const fetchProfile = async () => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No token found");
-
   const res = await fetch(
     "https://tifstay-project-be.onrender.com/api/guest/getProfile",
     {
@@ -33,7 +33,6 @@ const fetchProfile = async () => {
       headers: { Authorization: `Bearer ${token}` },
     }
   );
-
   const data = await res.json();
   if (!data.success) throw new Error(data.message || "Failed to load profile");
   return data.data.guest;
@@ -41,12 +40,11 @@ const fetchProfile = async () => {
 
 const EditProfile = () => {
   const queryClient = useQueryClient();
-  const { fetchProfile: refetchStoreProfile } = useAuthStore(); // ✅ Get store's fetchProfile
-
+  const { fetchProfile: refetchStoreProfile } = useAuthStore();
   const { data: guest } = useQuery({
     queryKey: ["guestProfile"],
     queryFn: fetchProfile,
-    staleTime: 1000 * 60 * 5, // ✅ cache for 5 mins
+    staleTime: 1000 * 60 * 5,
   });
 
   const [name, setName] = useState("");
@@ -57,6 +55,7 @@ const EditProfile = () => {
   const [show, setShow] = useState(false);
   const [date, setDate] = useState(new Date());
   const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   React.useEffect(() => {
     if (guest) {
@@ -71,13 +70,33 @@ const EditProfile = () => {
     }
   }, [guest]);
 
+  // Ensure +91 is always present
+  useEffect(() => {
+    if (phone && !phone.startsWith("+91")) {
+      setPhone("+91" + phone.replace(/^\+91/, ""));
+    } else if (!phone) {
+      setPhone("+91");
+    }
+  }, [phone]);
+
+  const handlePhoneChange = (text: string) => {
+    // Prevent removing +91
+    if (!text.startsWith("+91")) {
+      setPhone("+91");
+      return;
+    }
+
+    // Extract digits after +91
+    const numberPart = text.slice(3).replace(/[^0-9]/g, "");
+    setPhone("+91" + numberPart);
+  };
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.7,
     });
-
     if (!result.canceled) {
       setProfileImage(result.assets[0]);
     }
@@ -91,15 +110,17 @@ const EditProfile = () => {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("No token found");
 
       const formData = new FormData();
-
       if (name.trim()) formData.append("name", name.trim());
       if (email.trim()) formData.append("email", email.trim());
-      if (phone.trim()) formData.append("phoneNumber", phone.trim());
+      if (phone.trim() && phone.length > 3) formData.append("phoneNumber", phone.trim());
       if (dob.trim()) formData.append("dob", dob.trim());
 
       if (profileImage && profileImage.uri) {
@@ -120,16 +141,11 @@ const EditProfile = () => {
           body: formData,
         }
       );
-
       const data = await res.json();
 
       if (data.success) {
-        // ✅ update cached data instantly (no refetch) - for local MyProfile query
         queryClient.setQueryData(["guestProfile"], data.data.guest);
-
-        // ✅ Refetch global store profile to update Dashboard header immediately
         await refetchStoreProfile();
-
         setSuccessModalVisible(true);
       } else {
         Alert.alert("Error", data.message || "Failed to update profile");
@@ -137,6 +153,8 @@ const EditProfile = () => {
     } catch (err: any) {
       console.log(err.message);
       Alert.alert("Error", "Something went wrong");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -164,70 +182,101 @@ const EditProfile = () => {
         extraScrollHeight={20}
         keyboardShouldPersistTaps="handled"
       >
-   <View style={styles.profileContainer}>
-  <View style={styles.imageWrapper}>
-    {/* Profile Image */}
-    <TouchableOpacity onPress={pickImage}>
-      {profileImage?.uri ? (
-        <Image
-          source={{ uri: profileImage.uri }}
-          style={styles.profileImage}
-        />
-      ) : (
-        <Image
-          source={require("../../../assets/images/fallbackdp.png")}
-          style={styles.profileImage}
-        />
-      )}
-    </TouchableOpacity>
-
-    {/* Camera Icon Overlay */}
-    <TouchableOpacity style={styles.cameraIcon} onPress={pickImage}>
-      <Ionicons name="camera" size={18} color="#fff" />
-    </TouchableOpacity>
-  </View>
-
-  <Text style={styles.headerTitle}>{name}</Text>
-</View>
-
+        <View style={styles.profileContainer}>
+          <View style={styles.imageWrapper}>
+            <TouchableOpacity onPress={pickImage}>
+              {profileImage?.uri ? (
+                <Image
+                  source={{ uri: profileImage.uri }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <Image
+                  source={require("../../../assets/images/fallbackdp.png")}
+                  style={styles.profileImage}
+                />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cameraIcon} onPress={pickImage}>
+              <Ionicons name="camera" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.headerTitle}>{name || "Your Name"}</Text>
+        </View>
 
         <View style={{ gap: 8 }}>
           <LabeledInput
             label="Name"
+            placeholder="Enter your name"
             value={name}
             onChangeText={setName}
             labelStyle={styles.label}
           />
           <LabeledInput
             label="Email"
+            placeholder="example@gmail.com"
             value={email}
             onChangeText={setEmail}
             labelStyle={styles.label}
           />
           <LabeledInput
             label="Phone Number"
+            placeholder="+9199XXXXXX00"
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={handlePhoneChange}
+            keyboardType="phone-pad"
             labelStyle={styles.label}
+            // Prevent cursor from going before +91
+            onSelectionChange={({ nativeEvent }) => {
+              if (nativeEvent.selection.start < 3) {
+                // Force cursor after +91
+                // Note: React Native TextInput doesn't allow direct selection control,
+                // so we rely on text change logic above to enforce +91
+              }
+            }}
           />
           <TouchableOpacity onPress={() => setShow(true)} activeOpacity={1}>
-            <LabeledInput
-              label="Date of Birth"
-              value={dob || "Select Date"}
-              onChangeText={() => {}} // No-op to prevent editing
-              editable={false}
-              labelStyle={styles.label}
-              inputProps={{ pointerEvents: 'none' }} // Assuming LabeledInput accepts inputProps to forward to TextInput
-            />
+            <View style={styles.dateInputWrapper}>
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color="#999"
+                style={styles.calendarIcon}
+              />
+              <LabeledInput
+                label="Date of Birth"
+                placeholder="01/01/2000"
+                value={dob}
+                onChangeText={() => {}}
+                editable={false}
+                labelStyle={styles.label}
+                inputStyle={{ paddingLeft: 20, marginTop: 5 }}
+                inputProps={{ pointerEvents: "none" }}
+              />
+            </View>
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
 
+      {/* Save Button with Loader */}
       <CustomButton
-        title="Save"
+        title={isSaving ? "Saving..." : "Save"}
         onPress={handleSave}
-        style={{ width: "90%", alignSelf: "center", marginVertical: 0 }}
-      />
+        disabled={isSaving}
+        style={{
+          width: "90%",
+          alignSelf: "center",
+          marginVertical: 20,
+          opacity: isSaving ? 0.7 : 1,
+        }}
+      >
+        {isSaving && (
+          <ActivityIndicator
+            color="#fff"
+            style={{ position: "absolute" }}
+          />
+        )}
+      </CustomButton>
 
       {show && (
         <DateTimePicker
@@ -252,8 +301,13 @@ const EditProfile = () => {
               <Ionicons name="checkmark-circle" size={64} color="#4CAF50" />
             </View>
             <Text style={styles.successModalTitle}>Success!</Text>
-            <Text style={styles.successModalMessage}>Profile updated successfully</Text>
-            <TouchableOpacity style={styles.successModalButton} onPress={handleModalClose}>
+            <Text style={styles.successModalMessage}>
+              Profile updated successfully
+            </Text>
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={handleModalClose}
+            >
               <Text style={styles.successModalButtonText}>OK</Text>
             </TouchableOpacity>
           </View>
@@ -284,27 +338,25 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: "600", marginLeft: 5, color: "#000" },
   imageWrapper: {
-  position: "relative",
-  width: 86,
-  height: 86,
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-cameraIcon: {
-  position: "absolute",
-  bottom: 0,
-  right: 0,
-  backgroundColor: colors.primary || "#000",
-  width: 28,
-  height: 28,
-  borderRadius: 14,
-  justifyContent: "center",
-  alignItems: "center",
-  borderWidth: 2,
-  borderColor: "#fff",
-},
-  // Modal Styles
+    position: "relative",
+    width: 86,
+    height: 86,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraIcon: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.primary || "#000",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -318,17 +370,12 @@ cameraIcon: {
     width: '85%',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
-  successIconContainer: {
-    marginBottom: 16,
-  },
+  successIconContainer: { marginBottom: 16 },
   successModalTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -355,6 +402,13 @@ cameraIcon: {
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  dateInputWrapper: { position: "relative" },
+  calendarIcon: {
+    position: "absolute",
+    left: 24,
+    top: 45,
+    zIndex: 1,
   },
 });
 

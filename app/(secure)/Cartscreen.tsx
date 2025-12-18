@@ -38,9 +38,18 @@ const fetchPendingHostel = async () => {
   return response.data.data || [];
 };
 
-const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: () => void }) => {
+const PendingTiffinCard = ({ 
+  booking, 
+  onContinue, 
+  onEdit   // ← Add this prop
+}: { 
+  booking: any; 
+  onContinue: () => void; 
+  onEdit: () => void;     // ← Add this
+}) => {
   const createdDateFromApi = booking.createdDate || (booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : null);
   const createdTimeFromApi = booking.createdTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : null);
+
   return (
     <View style={pendingCardStyles.card}>
       <View style={pendingCardStyles.cardContent}>
@@ -78,8 +87,19 @@ const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: 
         <View style={pendingCardStyles.priceRow}>
           <Text style={pendingCardStyles.price}>₹{booking.price}</Text>
         </View>
-        
-        <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
+
+        {/* Edit Button for Tiffin */}
+        <TouchableOpacity 
+          style={pendingCardStyles.continueButton} 
+          onPress={onEdit}
+        >
+          <Text style={pendingCardStyles.continueText}>Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={pendingCardStyles.continueButton} 
+          onPress={onContinue}
+        >
           <Text style={pendingCardStyles.continueText}>Continue Booking</Text>
         </TouchableOpacity>
       </View>
@@ -218,6 +238,23 @@ const CartScreen = () => {
     setEditModalVisible(true);
   };
 
+  const handleEditTiffin = (booking: any) => {
+  console.log("Editing Tiffin Booking:", {
+    bookingId: booking._id,
+    tiffinServiceId: booking.tiffinServiceId,
+    
+  });
+
+  router.push({
+    pathname: "/(secure)/bookingScreen",
+    params: {
+      bookingId: booking._id,                   // pending booking ID
+      tiffinServiceId: booking.tiffinServiceId,
+      isEdit: "true",
+    },
+  });
+};
+
   const handleModalClose = () => {
     console.log("Closing edit modal"); // Debug log
     setEditModalVisible(false);
@@ -225,8 +262,12 @@ const CartScreen = () => {
   };
 
   const renderTiffinItem = ({ item }: { item: any }) => (
-    <PendingTiffinCard booking={item} onContinue={() => handleContinueTiffin(item._id)} />
-  );
+  <PendingTiffinCard 
+    booking={item} 
+    onContinue={() => handleContinueTiffin(item._id)}
+    onEdit={() => handleEditTiffin(item)}   // ← Add this
+  />
+);
 
   const renderHostelItem = ({ item }: { item: any }) => (
     <PendingHostelCard 

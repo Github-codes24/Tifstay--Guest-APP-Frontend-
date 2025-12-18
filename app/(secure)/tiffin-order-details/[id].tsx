@@ -36,17 +36,18 @@ export default function TiffinOrderDetails() {
   const [skipToDate, setSkipToDate] = useState("");
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
   const [showToDatePicker, setShowToDatePicker] = useState(false);
-  // Removed unused skippedMealsHistory state
   const [fullExtensionAllocations, setFullExtensionAllocations] = useState([]);
   const [showSkipModal, setShowSkipModal] = useState(false);
-  const [selectedSkip, setSelectedSkip] = useState(null);
+  const [selectedSkip, setSelectedSkip] = useState<any>(null);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+  const [selectedOfflineDay, setSelectedOfflineDay] = useState<{ date: string; reason: string } | null>(null);
   const { id, bookingId, type } = params;
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [startDateFull, setStartDateFull] = useState(new Date());
   const [endDateFull, setEndDateFull] = useState(new Date());
   const [bookingData, setBookingData] = useState({
     bookingId: "5648904",
-    orderedOn: "13/10/2025", // TODO: Fetch this if available in API
+    orderedOn: "13/10/2025",
     tiffinServiceName: "N/A",
     customer: "Rahul",
     startDate: "13/10/25",
@@ -55,14 +56,14 @@ export default function TiffinOrderDetails() {
     orderType: "Delivery",
     endDate: "2025-10-17",
   });
-  const [skips, setSkips] = useState([]);
+  const [skips, setSkips] = useState<any[]>([]);
+  const [offlineDays, setOfflineDays] = useState<{ date: string; reason: string }[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const { profileData, fetchProfile } = useAuthStore();
   const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
 
-  // Updated: Case-insensitive helpers to check plan inclusions
   const hasBreakfast = useMemo(() => bookingData.mealType.toLowerCase().includes("breakfast"), [bookingData.mealType]);
   const hasLunch = useMemo(() => bookingData.mealType.toLowerCase().includes("lunch"), [bookingData.mealType]);
   const hasDinner = useMemo(() => bookingData.mealType.toLowerCase().includes("dinner"), [bookingData.mealType]);
@@ -111,8 +112,7 @@ export default function TiffinOrderDetails() {
         setEndDateFull(new Date(data.summary.endDate));
         setCurrentMonth(new Date(data.summary.startDate));
         setSelectedDate(new Date(data.summary.startDate));
-      
-        // Updated: Better normalization for planType display (title case)
+
         let planType = data.summary.planType || "Breakfast & Lunch";
         planType = planType.replace(/\blunch\b/g, "Lunch").replace(/\bdinner\b/g, "Dinner");
         setBookingData((prev) => ({
@@ -128,7 +128,7 @@ export default function TiffinOrderDetails() {
         }));
         setSkips(data.fullSkipHistory || []);
         setFullExtensionAllocations(data.fullExtensionAllocations || []);
-        // Removed unused skippedMealsHistory mapping
+        setOfflineDays(data.offlineDaysThisMonth || []); // NEW: Store offline days
       } else {
         setModalMessage("Failed to fetch booking details. Please try again.");
         setIsSuccess(false);
@@ -232,28 +232,17 @@ export default function TiffinOrderDetails() {
 
   const getMonthYearString = (date: Date) => {
     const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
     ];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
   const handleSaveSkipMeal = async () => {
-    // Frontend validation: Prevent skipping for today's date
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    today.setHours(0, 0, 0, 0);
     const selDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-    selDate.setHours(0, 0, 0, 0); // Normalize to start of day
+    selDate.setHours(0, 0, 0, 0);
     if (selDate.getTime() === today.getTime()) {
       setModalMessage("You cannot skip meals for today. Please select a future date within your booking period.");
       setIsSuccess(false);
@@ -261,23 +250,19 @@ export default function TiffinOrderDetails() {
       return;
     }
 
-    // Format selected date as YYYY-MM-DD
     const date = new Date(selectedDate);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const formattedDate = `${year}-${month}-${day}`;
-    // Prepare request body - only date, skipping whole day (both meals)
     const body = { date: formattedDate };
-    console.log("Saving skip meal with body:", body);
+
     try {
       const saveResponse = await fetch(
         `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addSkipMean/${id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }
       );
@@ -285,48 +270,29 @@ export default function TiffinOrderDetails() {
         let errorMessage = "Failed to skip meal. Please try again.";
         try {
           const errText = await saveResponse.text();
-          console.error("Server response:", errText);
-          // Map server error messages to user-friendly ones
           if (errText.toLowerCase().includes("limit") || errText.toLowerCase().includes("exceed")) {
             errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
           } else if (errText.toLowerCase().includes("invalid date") || errText.toLowerCase().includes("date")) {
             errorMessage = "The selected date is invalid or outside the booking period. Please choose a valid date.";
           } else if (errText.toLowerCase().includes("already")) {
             errorMessage = "Meals for this date have already been skipped. No changes made.";
-          } else if (errText.toLowerCase().includes("network") || errText.toLowerCase().includes("connection")) {
-            errorMessage = "Network issue. Please check your connection and try again.";
-          } else if (errText.toLowerCase().includes("cannot skip") || errText.toLowerCase().includes("can not skip")) {
-            errorMessage = "You cannot skip meals for the selected date. Please choose another date.";
           } else {
             errorMessage = errText || "You have reached the skip meal limit. Please upgrade your plan for more skips.";
           }
-        } catch (parseError) {
-          console.error("Error parsing server error:", parseError);
-          errorMessage = "An unexpected error occurred. Please try again.";
-        }
+        } catch {}
         setModalMessage(errorMessage);
         setIsSuccess(false);
         setShowModal(true);
-        return; // Exit early without refreshing data
+        return;
       }
       await fetchData();
-      setModalMessage(`${getSkipText()} skip saved successfully!`); // Updated: Dynamic success message
+      setModalMessage(`${getSkipText()} skip saved successfully!`);
       setIsSuccess(true);
       setShowModal(true);
     } catch (error: any) {
-      console.error("Error saving skip meal:", error);
       let errorMessage = "Failed to skip meal. Please try again.";
-      // Handle common network or other errors
       if (error.message.includes("network") || error.message.includes("fetch")) {
         errorMessage = "Network error. Please check your internet connection and try again.";
-      } else if (error.message.includes("limit")) {
-        errorMessage = "You have reached the maximum limit for skipping meals this month. Please contact support if needed.";
-      } else if (error.message.includes("invalid") || error.message.includes("date")) {
-        errorMessage = "Invalid date selected. Please choose a date within your booking period.";
-      } else {
-        errorMessage =
-          error?.message ||
-          (typeof error === "string" ? error : "An unexpected error occurred. Please try again later.");
       }
       setModalMessage(errorMessage);
       setIsSuccess(false);
@@ -338,7 +304,6 @@ export default function TiffinOrderDetails() {
     router.push("/account/profile");
   };
 
-  // Updated: Parse skips based on mealType string inclusion (for whole-day skips)
   const getSkippedMealsForDate = (targetDate: Date) => {
     const skipForDate = skips.find((s: any) => {
       const skipDate = new Date(s.skipDateLocal);
@@ -348,9 +313,7 @@ export default function TiffinOrderDetails() {
         targetDate.getDate() === skipDate.getDate()
       );
     });
-    if (!skipForDate) {
-      return { breakfast: false, lunch: false, dinner: false };
-    }
+    if (!skipForDate) return { breakfast: false, lunch: false, dinner: false };
     const mealTypeLower = skipForDate.mealType.toLowerCase();
     return {
       breakfast: mealTypeLower.includes("breakfast"),
@@ -359,13 +322,8 @@ export default function TiffinOrderDetails() {
     };
   };
 
-  // Updated: Case-insensitive includes for allocations
   const getAllocatedMealsForExtension = (ext: any) => {
-    const allocated = {
-      breakfast: false,
-      lunch: false,
-      dinner: false,
-    };
+    const allocated = { breakfast: false, lunch: false, dinner: false };
     const mealTypeLower = ext.mealType.toLowerCase();
     allocated.breakfast = mealTypeLower.includes("breakfast");
     allocated.lunch = mealTypeLower.includes("lunch");
@@ -373,14 +331,30 @@ export default function TiffinOrderDetails() {
     return allocated;
   };
 
+  // NEW: Check if date is offline
+  const isDateOffline = (targetDate: Date) => {
+    const dateStr = formatDate(targetDate); // DD/MM/YYYY
+    return offlineDays.some((off) => {
+      const [y, m, d] = off.date.split("-");
+      const formatted = `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+      return formatted === dateStr;
+    });
+  };
+
+  // NEW: Get offline reason
+  const getOfflineReason = (targetDate: Date) => {
+    const dateStr = formatDate(targetDate);
+    const off = offlineDays.find((off) => {
+      const [y, m, d] = off.date.split("-");
+      const formatted = `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+      return formatted === dateStr;
+    });
+    return off?.reason || "Service unavailable";
+  };
+
   const isDateSkipped = (day: number) => {
-    const date = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      day,
-      12
-    );
-    const skip = skips.find((s: any) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day, 12);
+    return skips.some((s: any) => {
       const skipDate = new Date(s.skipDateLocal);
       return (
         date.getFullYear() === skipDate.getFullYear() &&
@@ -388,35 +362,16 @@ export default function TiffinOrderDetails() {
         date.getDate() === skipDate.getDate()
       );
     });
-    return !!skip;
   };
 
   const renderCalendarDay = (day: number | null, index: number) => {
     if (!day) {
       return <View key={`empty-${index}`} style={styles.calendarDayEmpty} />;
     }
-    const isToday =
-      day === new Date().getDate() &&
-      currentMonth.getMonth() === new Date().getMonth() &&
-      currentMonth.getFullYear() === new Date().getFullYear();
-    const dateForMeals = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      day,
-      12
-    );
-    const isInPeriod =
-      dateForMeals >= startDateFull && dateForMeals <= endDateFull;
-    const isEndDate =
-      formatShortDate(dateForMeals) === formatShortDate(endDateFull);
-    const isSkippedDate = skips.some((skip: any) => {
-      const skipDate = new Date(skip.skipDateLocal);
-      return (
-        dateForMeals.getFullYear() === skipDate.getFullYear() &&
-        dateForMeals.getMonth() === skipDate.getMonth() &&
-        dateForMeals.getDate() === skipDate.getDate()
-      );
-    });
+
+    const dateForMeals = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day, 12);
+    const isInPeriod = dateForMeals >= startDateFull && dateForMeals <= endDateFull;
+    const isSkippedDate = isDateSkipped(day);
     const isExtensionDate = fullExtensionAllocations.some((ext: any) => {
       const extDate = new Date(ext.dateLocal);
       return (
@@ -425,45 +380,50 @@ export default function TiffinOrderDetails() {
         dateForMeals.getDate() === extDate.getDate()
       );
     });
+    const isOfflineDate = isDateOffline(dateForMeals);
     const isSelected =
       selectedDate.getFullYear() === currentMonth.getFullYear() &&
       selectedDate.getMonth() === currentMonth.getMonth() &&
       selectedDate.getDate() === day;
+
     let dayStyle = [styles.calendarDay];
-    if (isSelected) {
-      dayStyle.push(styles.selectedDay);
-    }
     let textStyle = [styles.calendarDayText];
-    if (isSkippedDate) {
+
+    if (isSelected) dayStyle.push(styles.selectedDay);
+    if (isOfflineDate) {
+      dayStyle.push(styles.calendarDayOffline);
+      textStyle.push(styles.calendarDayTextOffline);
+    } else if (isSkippedDate) {
       textStyle.push(styles.calendarDayTextSkipped);
     } else if (isExtensionDate) {
       textStyle.push(styles.calendarDayTextExtension);
-    } else if (isEndDate) {
-      textStyle.push(styles.calendarDayTextEnd);
     } else if (isInPeriod) {
       textStyle.push(styles.calendarDayTextPeriod);
     }
+
     return (
       <TouchableOpacity
         key={`day-${day}`}
         style={dayStyle}
         onPress={
-          isInPeriod && !isSkippedDate
+          isOfflineDate
             ? () => {
-                const newDate = new Date(
-                  currentMonth.getFullYear(),
-                  currentMonth.getMonth(),
-                  day
-                );
+                const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                setSelectedDate(newDate);
+                setSelectedOfflineDay({
+                  date: formatDate(newDate),
+                  reason: getOfflineReason(newDate),
+                });
+                setShowOfflineModal(true);
+              }
+            : isInPeriod && !isSkippedDate
+            ? () => {
+                const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
                 setSelectedDate(newDate);
               }
             : isSkippedDate
             ? () => {
-                const newDate = new Date(
-                  currentMonth.getFullYear(),
-                  currentMonth.getMonth(),
-                  day
-                );
+                const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
                 setSelectedDate(newDate);
                 const skip = skips.find((s: any) => {
                   const skipDate = new Date(s.skipDateLocal);
@@ -478,11 +438,7 @@ export default function TiffinOrderDetails() {
               }
             : isExtensionDate
             ? () => {
-                const newDate = new Date(
-                  currentMonth.getFullYear(),
-                  currentMonth.getMonth(),
-                  day
-                );
+                const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
                 setSelectedDate(newDate);
               }
             : undefined
@@ -493,7 +449,6 @@ export default function TiffinOrderDetails() {
     );
   };
 
-  // Helper to render a meal status row
   const renderMealStatusRow = (label: string, status: boolean) => (
     <View style={styles.mealStatus}>
       <Text style={styles.mealStatusLabel}>{label}</Text>
@@ -505,8 +460,6 @@ export default function TiffinOrderDetails() {
     </View>
   );
 
-  // Fixed: Proper logic for meal status based on plan, skips, and extensions
-  // For extensions and skips, use the parsed mealType to determine which meals are affected
   const renderSelectedDateMeals = () => {
     const skippedMeals = getSkippedMealsForDate(selectedDate);
     const ext = fullExtensionAllocations.find((e: any) => {
@@ -518,143 +471,83 @@ export default function TiffinOrderDetails() {
       );
     });
 
-    let mealStatuses = {
-      breakfast: false,
-      lunch: false,
-      dinner: false,
-    };
-
-    let showStatuses = {
-      breakfast: false,
-      lunch: false,
-      dinner: false,
-    };
+    let mealStatuses = { breakfast: false, lunch: false, dinner: false };
+    let showStatuses = { breakfast: false, lunch: false, dinner: false };
 
     if (ext) {
-      // For extension days: Parse allocated mealType and set those to true
       const allocated = getAllocatedMealsForExtension(ext);
-      if (allocated.breakfast) {
-        mealStatuses.breakfast = true;
-        showStatuses.breakfast = true;
-      }
-      if (allocated.lunch) {
-        mealStatuses.lunch = true;
-        showStatuses.lunch = true;
-      }
-      if (allocated.dinner) {
-        mealStatuses.dinner = true;
-        showStatuses.dinner = true;
-      }
-      // If extension mealType matches full plan, show all plan meals as allocated
-      if (ext.mealType.toLowerCase().includes("breakfast") && ext.mealType.toLowerCase().includes("lunch") && ext.mealType.toLowerCase().includes("dinner")) {
-        if (hasBreakfast) {
-          mealStatuses.breakfast = true;
-          showStatuses.breakfast = true;
-        }
-        if (hasLunch) {
-          mealStatuses.lunch = true;
-          showStatuses.lunch = true;
-        }
-        if (hasDinner) {
-          mealStatuses.dinner = true;
-          showStatuses.dinner = true;
-        }
-      }
+      if (allocated.breakfast) { mealStatuses.breakfast = true; showStatuses.breakfast = true; }
+      if (allocated.lunch) { mealStatuses.lunch = true; showStatuses.lunch = true; }
+      if (allocated.dinner) { mealStatuses.dinner = true; showStatuses.dinner = true; }
     } else {
-      // For regular or skipped days: Start with plan defaults
-      if (hasBreakfast) {
-        mealStatuses.breakfast = true;
-        showStatuses.breakfast = true;
-      }
-      if (hasLunch) {
-        mealStatuses.lunch = true;
-        showStatuses.lunch = true;
-      }
-      if (hasDinner) {
-        mealStatuses.dinner = true;
-        showStatuses.dinner = true;
-      }
-      // Override for skips: Set skipped meals to false (show as skipped)
-      if (skippedMeals.breakfast) {
-        mealStatuses.breakfast = false;
-      }
-      if (skippedMeals.lunch) {
-        mealStatuses.lunch = false;
-      }
-      if (skippedMeals.dinner) {
-        mealStatuses.dinner = false;
-      }
+      if (hasBreakfast) { mealStatuses.breakfast = true; showStatuses.breakfast = true; }
+      if (hasLunch) { mealStatuses.lunch = true; showStatuses.lunch = true; }
+      if (hasDinner) { mealStatuses.dinner = true; showStatuses.dinner = true; }
+
+      if (skippedMeals.breakfast) mealStatuses.breakfast = false;
+      if (skippedMeals.lunch) mealStatuses.lunch = false;
+      if (skippedMeals.dinner) mealStatuses.dinner = false;
     }
 
     const rows = [];
-    if (showStatuses.breakfast) {
-      rows.push(renderMealStatusRow("Breakfast", mealStatuses.breakfast));
-    }
-    if (showStatuses.lunch) {
-      rows.push(renderMealStatusRow("Lunch", mealStatuses.lunch));
-    }
-    if (showStatuses.dinner) {
-      rows.push(renderMealStatusRow("Dinner", mealStatuses.dinner));
-    }
+    if (showStatuses.breakfast) rows.push(renderMealStatusRow("Breakfast", mealStatuses.breakfast));
+    if (showStatuses.lunch) rows.push(renderMealStatusRow("Lunch", mealStatuses.lunch));
+    if (showStatuses.dinner) rows.push(renderMealStatusRow("Dinner", mealStatuses.dinner));
 
     return (
       <View style={styles.selectedDateMeals}>
-        <Text style={styles.selectedDateText}>
-          Date: {formatDate(selectedDate)}
-        </Text>
+        <Text style={styles.selectedDateText}>Date: {formatDate(selectedDate)}</Text>
         <View style={styles.mealStatusRow}>
           {rows}
-          {/* If no meals (edge case), show a message */}
-          {rows.length === 0 && (
-            <Text style={styles.mealStatusLabel}>No meals in this plan</Text>
-          )}
+          {rows.length === 0 && <Text style={styles.mealStatusLabel}>No meals in this plan</Text>}
         </View>
       </View>
     );
   };
 
-  // Updated: Use per-meal check for skipped date
-  // New: Conditionally render only relevant meals, including Dinner
   const renderSkipModal = () => {
     if (!selectedSkip) return null;
     const skipDate = new Date(selectedSkip.skipDateLocal);
     const skippedMeals = getSkippedMealsForDate(skipDate);
     const rows = [];
-    if (hasBreakfast) {
-      rows.push(renderMealStatusRow("Breakfast", !skippedMeals.breakfast));
-    }
-    if (hasLunch) {
-      rows.push(renderMealStatusRow("Lunch", !skippedMeals.lunch));
-    }
-    if (hasDinner) {
-      rows.push(renderMealStatusRow("Dinner", !skippedMeals.dinner));
-    }
+    if (hasBreakfast) rows.push(renderMealStatusRow("Breakfast", !skippedMeals.breakfast));
+    if (hasLunch) rows.push(renderMealStatusRow("Lunch", !skippedMeals.lunch));
+    if (hasDinner) rows.push(renderMealStatusRow("Dinner", !skippedMeals.dinner));
+
     return (
-      <Modal
-        visible={showSkipModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          setShowSkipModal(false);
-          setSelectedSkip(null);
-        }}
-      >
+      <Modal visible={showSkipModal} transparent animationType="fade" onRequestClose={() => { setShowSkipModal(false); setSelectedSkip(null); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalText}>Skipped Meals</Text>
             <Text style={[styles.modalText, { fontSize: 14, marginBottom: 20 }]}>
               Date: {formatShortDate(selectedSkip.skipDateLocal)}
             </Text>
-            <View style={styles.mealStatusRow}>
-              {rows}
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                setShowSkipModal(false);
-                setSelectedSkip(null);
-              }}
-              style={styles.modalButton}
-            >
+            <View style={styles.mealStatusRow}>{rows}</View>
+            <TouchableOpacity onPress={() => { setShowSkipModal(false); setSelectedSkip(null); }} style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // NEW: Offline modal
+  const renderOfflineModal = () => {
+    if (!selectedOfflineDay) return null;
+    return (
+      <Modal visible={showOfflineModal} transparent animationType="fade" onRequestClose={() => { setShowOfflineModal(false); setSelectedOfflineDay(null); }}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Ionicons name="alert-circle-outline" size={40} color="#F59E0B" style={{ marginBottom: 16 }} />
+            <Text style={styles.modalText}>Service Offline</Text>
+            <Text style={[styles.modalText, { fontSize: 14, marginVertical: 12, color: "#666" }]}>
+              Date: {selectedOfflineDay.date}
+            </Text>
+            <Text style={{ fontSize: 15, textAlign: "center", color: "#444", marginBottom: 20 }}>
+              {selectedOfflineDay.reason}
+            </Text>
+            <TouchableOpacity onPress={() => { setShowOfflineModal(false); setSelectedOfflineDay(null); }} style={styles.modalButton}>
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
           </View>
@@ -675,7 +568,6 @@ export default function TiffinOrderDetails() {
     });
   }, [selectedDate, skips]);
 
-  // Updated: Dynamic skip text based on plan, including Dinner
   const getSkipText = () => {
     const meals = [];
     if (hasBreakfast) meals.push("Breakfast");
@@ -691,177 +583,93 @@ export default function TiffinOrderDetails() {
       <View style={styles.headerWrapper}>
         <View style={styles.headerLeft}>
           <Header title="Order Details" />
-          <TouchableOpacity
-            onPress={handleProfilePress}
-            style={styles.profileButton}
-          >
-            <Image
-              source={profileSource}
-              style={styles.profileImage}
-            />
+          <TouchableOpacity onPress={handleProfilePress} style={styles.profileButton}>
+            <Image source={profileSource} style={styles.profileImage} />
           </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>Track your tiffin bookings</Text>
       </View>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Booking Details Card */}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.bookingCard}>
-          <Text style={styles.bookingTitle}>
-            Booking #{bookingData.bookingId}
-          </Text>
-          <Text style={styles.orderedOn}>
-            Ordered on {bookingData.orderedOn}
-          </Text>
+          <Text style={styles.bookingTitle}>Booking #{bookingData.bookingId}</Text>
+          <Text style={styles.orderedOn}>Ordered on {bookingData.orderedOn}</Text>
           <View style={styles.detailsContainer}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tiffin Service:</Text>
-              <Text style={styles.detailValue}>
-                {bookingData.tiffinServiceName}
-              </Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Customer:</Text>
-              <Text style={styles.detailValue}>{bookingData.customer}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Start Date:</Text>
-              <Text style={styles.detailValue}>{bookingData.startDate}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>End Date:</Text>
-              <Text style={styles.detailValue}>{bookingData.endDate}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Plan Type:</Text>
-              <Text style={styles.detailValue}>{bookingData.mealType}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Plan:</Text>
-              <Text style={styles.detailValue}>{bookingData.plan}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Order Type:</Text>
-              <Text style={styles.detailValue}>{bookingData.orderType}</Text>
-            </View>
-           
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Tiffin Service:</Text><Text style={styles.detailValue}>{bookingData.tiffinServiceName}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Customer:</Text><Text style={styles.detailValue}>{bookingData.customer}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Start Date:</Text><Text style={styles.detailValue}>{bookingData.startDate}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>End Date:</Text><Text style={styles.detailValue}>{bookingData.endDate}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Plan Type:</Text><Text style={styles.detailValue}>{bookingData.mealType}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Plan:</Text><Text style={styles.detailValue}>{bookingData.plan}</Text></View>
+            <View style={styles.detailRow}><Text style={styles.detailLabel}>Order Type:</Text><Text style={styles.detailValue}>{bookingData.orderType}</Text></View>
           </View>
           <View style={styles.noteContainer}>
-            <Text style={styles.noteText}>Note : Select a date to skip {getSkipText()} for that day</Text> {/* Updated: Dynamic note */}
+            <Text style={styles.noteText}>Note : Select a date to skip {getSkipText()} for that day</Text>
           </View>
           <View style={styles.calendarSection}>
             <View style={styles.calendarHeader}>
               {canGoPrevious && (
                 <TouchableOpacity onPress={handlePreviousMonth}>
-                  <Ionicons
-                    name="chevron-back"
-                    size={24}
-                    color={colors.primary}
-                  />
+                  <Ionicons name="chevron-back" size={24} color={colors.primary} />
                 </TouchableOpacity>
               )}
-              <Text style={styles.calendarMonth}>
-                {getMonthYearString(currentMonth)}
-              </Text>
+              <Text style={styles.calendarMonth}>{getMonthYearString(currentMonth)}</Text>
               {canGoNext && (
                 <TouchableOpacity onPress={handleNextMonth}>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={24}
-                    color={colors.primary}
-                  />
+                  <Ionicons name="chevron-forward" size={24} color={colors.primary} />
                 </TouchableOpacity>
               )}
             </View>
             <View style={styles.calendarDaysHeader}>
               {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
-                <Text key={day} style={styles.calendarDayHeader}>
-                  {day}
-                </Text>
+                <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
               ))}
             </View>
             <View style={styles.calendarGrid}>
-              {getDaysInMonth(currentMonth).map((day, index) =>
-                renderCalendarDay(day, index)
-              )}
+              {getDaysInMonth(currentMonth).map((day, index) => renderCalendarDay(day, index))}
             </View>
           </View>
           {renderSelectedDateMeals()}
           {isSelectedInPeriod && !isSelectedDateSkipped && bookingData?.plan?.toLowerCase() === "monthly" && (
             <View style={styles.skipMealSection}>
               <View style={styles.skipMealHeader}>
-                <View style={styles.skipMealIcon}>
-                  <Ionicons name="restaurant" size={20} color="#666" />
-                </View>
-                <Text style={styles.skipMealText}>Skip {getSkipText()} for this day</Text> {/* Updated: Dynamic header */}
+                <View style={styles.skipMealIcon}><Ionicons name="restaurant" size={20} color="#666" /></View>
+                <Text style={styles.skipMealText}>Skip {getSkipText()} for this day</Text>
               </View>
               <View style={styles.skipMealForm}>
-                <Text style={styles.datePickerLabel}>
-                  Date: {formatDate(selectedDate)}
-                </Text>
-                <Text style={styles.skipDayText}>Skipping {getSkipText()} for the selected date.</Text> {/* Updated: Dynamic text */}
-                <Button
-                  title={`Tap To Skip For This Day`}
-                  onPress={handleSaveSkipMeal}
-                  style={styles.saveButton}
-                  height={48}
-                />
+                <Text style={styles.datePickerLabel}>Date: {formatDate(selectedDate)}</Text>
+                <Text style={styles.skipDayText}>Skipping {getSkipText()} for the selected date.</Text>
+                <Button title="Tap To Skip For This Day" onPress={handleSaveSkipMeal} style={styles.saveButton} height={48} />
               </View>
             </View>
           )}
           {latestSkip && (
             <View style={styles.skipHistorySection}>
-              <View key={latestSkip.date} style={styles.skipHistoryItem}>
+              <View style={styles.skipHistoryItem}>
                 <View style={styles.skipHistoryDetails}>
-                  <Text style={styles.skipHistoryTitle}>
-                    Previously Skipped Meal
-                  </Text>
-                  <Text style={styles.skipHistoryDate}>
-                    Date: {latestSkip.skipDateLocal || latestSkip.date}
-                  </Text>
-                  <Text style={styles.skipHistoryMeals}>
-                    Meal Type: {latestSkip.mealType || bookingData.mealType}
-                  </Text>
+                  <Text style={styles.skipHistoryTitle}>Previously Skipped Meal</Text>
+                  <Text style={styles.skipHistoryDate}>Date: {latestSkip.skipDateLocal || latestSkip.date}</Text>
+                  <Text style={styles.skipHistoryMeals}>Meal Type: {latestSkip.mealType || bookingData.mealType}</Text>
                 </View>
               </View>
             </View>
           )}
         </View>
       </ScrollView>
+
       {showFromDatePicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowFromDatePicker(false);
-            if (selectedDate) {
-              setSkipFromDate(formatDate(selectedDate));
-            }
-          }}
-        />
+        <DateTimePicker value={new Date()} mode="date" display="default" onChange={(event, selectedDate) => {
+          setShowFromDatePicker(false);
+          if (selectedDate) setSkipFromDate(formatDate(selectedDate));
+        }} />
       )}
       {showToDatePicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowToDatePicker(false);
-            if (selectedDate) {
-              setSkipToDate(formatDate(selectedDate));
-            }
-          }}
-        />
+        <DateTimePicker value={new Date()} mode="date" display="default" onChange={(event, selectedDate) => {
+          setShowToDatePicker(false);
+          if (selectedDate) setSkipToDate(formatDate(selectedDate));
+        }} />
       )}
-      <Modal
-        visible={showModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowModal(false)}
-      >
+
+      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={[styles.modalText, { color: isSuccess ? "#000" : "#EF4444" }]}>{modalMessage}</Text>
@@ -871,323 +679,67 @@ export default function TiffinOrderDetails() {
           </View>
         </View>
       </Modal>
+
       {renderSkipModal()}
+      {renderOfflineModal()}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-  headerWrapper: {
-    flexDirection: "column",
-    alignItems: "center",
-    paddingHorizontal: 26,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  profileButton: {
-    marginRight: 16,
-  },
-  profileImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: "#E5E7EB",
-  },
-  profileInitial: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#666060",
-    paddingHorizontal: 40,
-    marginBottom: 30,
-    marginTop: -14,
-    width: "100%",
-    flex: 1,
-  },
-  noteContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingVertical: 12,
-    paddingHorizontal: 0,
-    marginVertical: 16,
-    alignItems: 'center',
-  },
-  noteText: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  bookingCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-  },
-  bookingTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#000",
-    marginBottom: 4,
-  },
-  orderedOn: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 16,
-  },
-  detailsContainer: {
-    marginBottom: 20,
-  },
-  detailRow: {
-    flexDirection: "row",
-    marginBottom: 10,
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: "#666",
-    width: 120,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: "#000",
-    fontWeight: "600",
-    flex: 1,
-    textAlign: "right",
-  },
-  calendarSection: {
-    marginTop: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 12,
-    padding: 16,
-  },
-  calendarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  calendarMonth: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-  },
-  calendarDaysHeader: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  calendarDayHeader: {
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  calendarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  calendarDay: {
-    width: "14.28%",
-    aspectRatio: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius:25,
-    marginBottom: 1,
-    paddingVertical: 2,
-  },
-  selectedDay: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  calendarDayEmpty: {
-    width: "14.28%",
-    aspectRatio: 1,
-  },
-  calendarDayToday: {
-    backgroundColor: "#E3F2FD",
-  },
-  calendarDayText: {
-    fontSize: 14,
-    color: "#000",
-  },
-  calendarDayTextToday: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-  calendarDayTextPeriod: {
-    color: "#1DB435",
-    fontWeight: "500",
-  },
-  calendarDayTextEnd: {
-    color: "#0088FF",
-    fontWeight: "500",
-  },
-  calendarDayTextSkipped: {
-    color: "#E51A1A",
-  },
-  calendarDayTextExtension: {
-    color: "#0000FF",
-    fontWeight: "500",
-  },
-  selectedDateMeals: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  selectedDateText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 12,
-  },
-  mealStatusRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  mealStatus: {
-    alignItems: "center",
-    flex: 1,
-  },
-  mealStatusLabel: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 4,
-  },
-  skipMealSection: {
-    marginTop: 20,
-  },
-  skipMealHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  skipMealIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  skipMealText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-    flex: 1,
-  },
-  skipMealForm: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 8,
-    padding: 16,
-  },
-  datePickerRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  datePickerItem: {
-    flex: 1,
-  },
-  datePickerLabel: {
-    fontSize: 16,
-    color: "#111111",
-    marginBottom: 15,
-    marginLeft: 5,
-  },
-  skipDayText: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-  },
-  skipHistorySection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-  },
-  skipHistoryTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 12,
-  },
-  skipHistoryItem: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  skipHistoryDetails: {
-    marginBottom: 8,
-  },
-  skipHistoryDate: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 4,
-  },
-  skipHistoryMeals: {
-    fontSize: 13,
-    color: "#666",
-  },
-  changeSkipDate: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: "500",
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContainer: {
-    backgroundColor: "#ffffff",
-    padding: 20,
-    borderRadius: 10,
-    width: "80%",
-    alignItems: "center",
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 20,
-    fontWeight: "500",
-  },
-  modalButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 80,
-    alignItems: "center",
-  },
-  modalButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  container: { flex: 1, backgroundColor: "#ffffff" },
+  headerWrapper: { flexDirection: "column", alignItems: "center", paddingHorizontal: 26 },
+  headerLeft: { flexDirection: "row", alignItems: "center" },
+  profileButton: { marginRight: 16 },
+  profileImage: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#E5E7EB" },
+  headerSubtitle: { fontSize: 14, color: "#666060", paddingHorizontal: 40, marginBottom: 30, marginTop: -14, width: "100%", flex: 1 },
+  noteContainer: { backgroundColor: '#F9FAFB', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', paddingVertical: 12, paddingHorizontal: 0, marginVertical: 16, alignItems: 'center' },
+  noteText: { fontSize: 16, color: '#6B7280', textAlign: 'center' },
+  scrollView: { flex: 1 },
+  bookingCard: { marginHorizontal: 16, marginBottom: 16, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#E0E0E0" },
+  bookingTitle: { fontSize: 18, fontWeight: "700", color: "#000", marginBottom: 4 },
+  orderedOn: { fontSize: 13, color: "#666", marginBottom: 16 },
+  detailsContainer: { marginBottom: 20 },
+  detailRow: { flexDirection: "row", marginBottom: 10, flex: 1 },
+  detailLabel: { fontSize: 14, color: "#666", width: 120 },
+  detailValue: { fontSize: 14, color: "#000", fontWeight: "600", flex: 1, textAlign: "right" },
+  calendarSection: { marginTop: 20, marginBottom: 20, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 12, padding: 16 },
+  calendarHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  calendarMonth: { fontSize: 16, fontWeight: "600", color: "#000" },
+  calendarDaysHeader: { flexDirection: "row", justifyContent: "space-around" },
+  calendarDayHeader: { fontSize: 12, color: "#666", fontWeight: "500", textAlign: "center" },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
+  calendarDay: { width: "14.28%", aspectRatio: 1, justifyContent: "center", alignItems: "center", borderRadius: 25, marginBottom: 1, paddingVertical: 2 },
+  selectedDay: { borderWidth: 1, borderColor: colors.primary },
+  calendarDayEmpty: { width: "14.28%", aspectRatio: 1 },
+  calendarDayText: { fontSize: 14, color: "#000" },
+  calendarDayTextPeriod: { color: "#1DB435", fontWeight: "500" },
+  calendarDayTextSkipped: { color: "#E51A1A" },
+  calendarDayTextExtension: { color: "#0000FF", fontWeight: "500" },
+  calendarDayOffline: { backgroundColor: "#F3F4F6" },
+  calendarDayTextOffline: { color: "#9CA3AF", textDecorationLine: "line-through", fontStyle: "italic" },
+  selectedDateMeals: { backgroundColor: "#F8F9FA", borderRadius: 8, padding: 12, marginBottom: 16 },
+  selectedDateText: { fontSize: 14, fontWeight: "600", color: "#000", marginBottom: 12 },
+  mealStatusRow: { flexDirection: "row", justifyContent: "space-around" },
+  mealStatus: { alignItems: "center", flex: 1 },
+  mealStatusLabel: { fontSize: 13, color: "#666", marginBottom: 4 },
+  skipMealSection: { marginTop: 20 },
+  skipMealHeader: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+  skipMealIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F3F4F6", justifyContent: "center", alignItems: "center", marginRight: 12 },
+  skipMealText: { fontSize: 16, fontWeight: "600", color: "#000", flex: 1 },
+  skipMealForm: { backgroundColor: "#F8F9FA", borderRadius: 8, padding: 16 },
+  datePickerLabel: { fontSize: 16, color: "#111111", marginBottom: 15, marginLeft: 5 },
+  skipDayText: { fontSize: 14, color: "#666", textAlign: "center", marginBottom: 20 },
+  saveButton: { backgroundColor: colors.primary },
+  skipHistorySection: { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: "#E5E7EB" },
+  skipHistoryItem: { backgroundColor: "#F8F9FA", borderRadius: 8, padding: 12, marginBottom: 8 },
+  skipHistoryDetails: { marginBottom: 8 },
+  skipHistoryTitle: { fontSize: 16, fontWeight: "600", color: "#000", marginBottom: 12 },
+  skipHistoryDate: { fontSize: 13, color: "#666", marginBottom: 4 },
+  skipHistoryMeals: { fontSize: 13, color: "#666" },
+  modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" },
+  modalContainer: { backgroundColor: "#ffffff", padding: 20, borderRadius: 10, width: "80%", alignItems: "center" },
+  modalText: { fontSize: 16, textAlign: "center", marginBottom: 20, fontWeight: "500" },
+  modalButton: { backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, minWidth: 80, alignItems: "center" },
+  modalButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
 });
