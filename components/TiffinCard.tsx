@@ -52,7 +52,8 @@ interface TiffinCardProps {
     tags?: string[];
     mealPreferences?: { type: string; time: string }[];
     location?: any;
-    highestPrice?: string;
+    lowestPrice?: string | number;
+    timing?: string; // Fallback for single timing
   };
   onPress?: () => void;
   onBookPress?: () => void;
@@ -85,9 +86,9 @@ export default function TiffinCard({
   };
   const vegType = getVegType();
 
-  // Compute combined timing (तुम्हारा full logic same)
+  // Compute combined timing (updated to use service.mealPreferences or fallback to timing)
   const computeTiming = (preferences: { type: string; time: string }[] | undefined): string => {
-    if (!preferences || preferences.length === 0) return "-";
+    if (!preferences || preferences.length === 0) return service.timing || "-";
     const parseStartTime = (timeStr: string): number => {
       const start = timeStr.split(" - ")[0];
       const [timePart, period] = start.split(" ");
@@ -108,11 +109,33 @@ export default function TiffinCard({
     onFavoritePress?.();
   };
 
-  const locationText = service?.location
-    ? typeof service.location === "string"
-      ? service.location
-      : service.location.fullAddress || JSON.stringify(service.location) // तुम्हारा handling same
-    : "-";
+  // Safer location text computation
+  const getLocationText = (loc: any): string => {
+    if (!loc) return "-";
+    if (typeof loc === "string") return loc;
+
+    if (loc.fullAddress) return loc.fullAddress;
+
+    const parts = [];
+    if (loc.area) parts.push(loc.area);
+    if (loc.nearbyLandmarks?.length) {
+      const landmark = loc.nearbyLandmarks[0]?.name || "";
+      const distance = loc.nearbyLandmarks[0]?.distance || "";
+      if (landmark && distance) parts.push(`${landmark}, ${distance}`);
+    }
+    if (loc.serviceRadius) parts.push(`${loc.serviceRadius}km radius`);
+
+    return parts.length > 0 ? parts.join(" • ") : "Location not specified";
+  };
+
+
+  const locationText = getLocationText(service?.location);
+
+
+  // Format lowestPrice if it's a number
+  const formattedLowestPrice = typeof service.lowestPrice === "number"
+    ? `${service.lowestPrice}`
+    : service.lowestPrice || "-";
 
   return (
     <TouchableOpacity
@@ -173,11 +196,11 @@ export default function TiffinCard({
           <Text style={styles.serviceName} numberOfLines={1} ellipsizeMode="tail">
             {service.name}
           </Text>
-          {service?.highestPrice && ( // same condition
+          {/* {service?.lowestPrice && ( // same condition
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>10% OFF</Text>
             </View>
-          )}
+          )} */}
         </View>
         {/* Description (same) */}
         <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
@@ -190,6 +213,7 @@ export default function TiffinCard({
             <Text style={styles.infoText} numberOfLines={1}>
               {locationText}
             </Text>
+
           </View>
           <View style={styles.infoDivider} />
           <View style={styles.infoItem}>
@@ -199,18 +223,18 @@ export default function TiffinCard({
             </Text>
           </View>
         </View>
-        {/* Price & Book Button (पुराना) */}
+        {/* Price & Book Button (updated to show price details + lowest pricing) */}
         <View style={styles.footer}>
           <View style={styles.priceContainer}>
-            <View style={styles.priceRow}>
-              {/* <Text style={styles.price}>{service.price}</Text> */}
-              {/* <Text style={styles.perWeek}>/week</Text> */}
+            {/* <View style={styles.priceRow}>
+              <Text style={styles.price}>{service.price}</Text>
+              <Text style={styles.perWeek}>/month</Text>
             </View>
             {service?.oldPrice && ( // same
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
-            )}
-            {service?.highestPrice && ( // extra for up to
-              <Text style={styles.highestPrice}>Up to ₹{service.highestPrice}/-</Text>
+            )} */}
+            {service?.lowestPrice && ( // extra for up to
+              <Text style={[styles.price, { fontSize: 21 }]}>From ₹{formattedLowestPrice}/-</Text>
             )}
           </View>
           <TouchableOpacity
@@ -441,10 +465,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   highestPrice: {
-    fontSize: 20,
-    color: "#2563EB",
+    fontSize: 14,
+    color: "#10B981",
     marginTop: 2,
-    fontWeight:800
+    fontWeight: "700",
   },
   bookButton: {
     backgroundColor: colors.primary,

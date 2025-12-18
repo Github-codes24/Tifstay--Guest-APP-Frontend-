@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     // fontFamily: fonts.interRegular,
     paddingVertical: 0,
     marginTop: Platform.OS === 'ios' ? 0 : 4,
-    color: colors.grey,
+    color: colors.black,
   },  
   adornment: {
     marginRight: 20,

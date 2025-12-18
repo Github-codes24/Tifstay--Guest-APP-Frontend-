@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from '@react-navigation/native';
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import mastercard from "@/assets/images/icons/mastercard.png";
@@ -28,6 +29,7 @@ import Toast from 'react-native-toast-message';
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [depositModalVisible, setDepositModalVisible] = useState(false);
+  const [insufficientModalVisible, setInsufficientModalVisible] = useState(false);
   const [couponModalVisible, setCouponModalVisible] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
@@ -147,6 +149,7 @@ const Checkout: React.FC = () => {
         // mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
         foodType: tiffinOrderDetails.foodType || "Veg",
         startDate: tiffinOrderDetails.startDate ? new Date(tiffinOrderDetails.startDate).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+        endDate: tiffinOrderDetails.endDate ? new Date(tiffinOrderDetails.endDate).toLocaleDateString('en-IN') : (endDate ? new Date(endDate as string).toLocaleDateString('en-IN') : "28/07/25"),
         plan: tiffinOrderDetails.planType || planType || "Per meal",
         orderType: tiffinOrderDetails.orderType || orderType || "Delivery",
         price: `₹${(tiffinOrderDetails.price || tiffinOrderDetails.choosePlanType?.price || parseInt(firstParam(totalPrice) || '120') || 120).toFixed(0)}/meal`,
@@ -161,6 +164,7 @@ const Checkout: React.FC = () => {
         // mealType: firstParam(mealPreference) || "Lunch",
         foodType: firstParam(foodType) || tiffinService.foodType || "Veg",
         startDate: startDate ? new Date(firstParam(startDate) as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(firstParam(checkInDate) as string).toLocaleDateString('en-IN') : "21/07/25"),
+        endDate: endDate ? new Date(firstParam(endDate) as string).toLocaleDateString('en-IN') : (checkOutDate ? new Date(firstParam(checkOutDate) as string).toLocaleDateString('en-IN') : "28/07/25"),
         plan: firstParam(planType) || "Per meal",
         orderType: firstParam(orderType) || "Delivery",
         price: `₹${parseInt(firstParam(totalPrice) || (tiffinService.price || '120').toString()) || 120}/meal`,
@@ -174,11 +178,12 @@ const Checkout: React.FC = () => {
       // mealType: mealPreference || "Lunch",
       foodType: foodType || "Veg",
       startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
+      endDate: endDate ? new Date(endDate as string).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "28/07/25"),
       plan: planType || "Per meal",
       orderType: orderType || "Delivery",
       price: `₹${parseInt(firstParam(totalPrice) || '120')}/meal`,
     };
-  }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate]);
+  }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate, checkOutDate]);
 
   console.log("Constructed tiffinData:", tiffinData);
 
@@ -345,26 +350,42 @@ const Checkout: React.FC = () => {
         }
       } else {
         if (coupon && coupon.trim()) {
-          Alert.alert("Error", response.data?.message || "Failed to apply coupon");
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: response.data?.message || "Failed to apply coupon"
+          });
         }
       }
     } catch (error: any) {
       console.error("Error fetching/applying pricing:", error);
       if (coupon && coupon.trim()) {
-        Alert.alert("Error", error.response?.data?.message || "Failed to apply coupon");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: error.response?.data?.message || "Failed to apply coupon"
+        });
       }
     }
   };
 
   const handleRemoveCoupon = async () => {
     if (!bookingId) {
-      Alert.alert("Error", "Booking ID missing");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: "Booking ID missing"
+      });
       return;
     }
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert("Error", "Token missing");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: "Token missing"
+        });
         return;
       }
       let url;
@@ -394,11 +415,19 @@ const Checkout: React.FC = () => {
           text2: response.data.message || "Coupon removed successfully"
         });
       } else {
-        Alert.alert("Error", response.data?.message || "Failed to remove coupon");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: response.data?.message || "Failed to remove coupon"
+        });
       }
     } catch (error: any) {
       console.error("Error removing coupon:", error);
-      Alert.alert("Error", error.response?.data?.message || "Failed to remove coupon");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.response?.data?.message || "Failed to remove coupon"
+      });
     }
   };
 
@@ -507,7 +536,7 @@ const Checkout: React.FC = () => {
     fetchTiffinServiceDetails();
   }, [isTiffin, serviceId]); // UPDATED: Use isTiffin
 
-  // Fetch wallet balance
+  // Fetch wallet balance - Initial load with loading state
   useEffect(() => {
     const fetchWalletAmount = async () => {
       try {
@@ -531,10 +560,36 @@ const Checkout: React.FC = () => {
     fetchWalletAmount();
   }, []);
 
+  // Refetch wallet balance on screen focus (e.g., after returning from add funds)
+  useFocusEffect(
+    useCallback(() => {
+      const refreshWalletBalance = async () => {
+        try {
+          const token = await AsyncStorage.getItem("token");
+          if (!token) return;
+          const response = await axios.get(
+            "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (response.data?.success) {
+            setWalletBalance(response.data.data?.walletAmount || 0);
+            console.log("Refetched wallet balance on focus:", response.data.data?.walletAmount);
+          }
+        } catch (error: any) {
+          console.error("Error refetching wallet amount on focus:", error);
+        }
+      };
+      refreshWalletBalance();
+    }, [])
+  );
+
   // FIXED: Adjust paymentAmount to exclude deposit from finalPricing (workaround for backend including it)
   // Use transaction.deposit as primary source for deposit amount
-  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0;
-  const adjustedFinalPrice = finalPricing?.finalPrice ? Math.max(0, finalPricing.finalPrice - depositAmount) : null;
+  // FIXED: No subtraction needed—API finalPrice is rent-only (excludes deposit)
+  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0; // Keep for modal display
+  const adjustedFinalPrice = finalPricing?.finalPrice ?? null; // Direct use of rent-only finalPrice
   const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
   console.log("=== PAYMENT CALC DEBUG ===");
   console.log("transaction.net/total:", transaction?.net ?? transaction?.total ?? 0);
@@ -584,7 +639,11 @@ const Checkout: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Error fetching coupons:", error);
-      Alert.alert("Error", "Failed to fetch coupons");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: "Failed to fetch coupons"
+      });
       setCoupons([]);
     } finally {
       setLoadingCoupons(false);
@@ -593,7 +652,11 @@ const Checkout: React.FC = () => {
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
-      Alert.alert('Please enter a coupon code');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please enter a coupon code'
+      });
       return;
     }
     await fetchFinalPricing(couponCode.trim());
@@ -682,11 +745,11 @@ const Checkout: React.FC = () => {
         const confirmationServiceName = checkoutData.title || "Fallback Service Name";
         const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
         const confirmationAmount = paymentAmount;
-       
-        console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
-        console.log("confirmationId (booking/order ID):", confirmationId);
-        console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
-        console.log("========================================================");
+
+        // console.log("=== ONLINE PAYMENT: Sending to Confirmation Screen ===");
+        // console.log("confirmationId (booking/order ID):", confirmationId);
+        // console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
+        // console.log("========================================================");
         setTimeout(() => {
           router.push({
             pathname: "/(secure)/Confirmation",
@@ -696,6 +759,14 @@ const Checkout: React.FC = () => {
               serviceName: confirmationServiceName,
               guestName: confirmationGuestName,
               amount: confirmationAmount,
+              checkInDate,
+              checkOutDate,
+              startDate,
+              endDate,
+              foodType,
+              orderType,
+              planType,
+              mealType: mealPreference,
             },
           });
         }, 2000); // Delay to simulate processing
@@ -715,10 +786,7 @@ const Checkout: React.FC = () => {
       return;
     }
     if (walletBalance < paymentAmount) {
-      Alert.alert(
-        "Insufficient Balance",
-        `Your wallet balance is ₹${walletBalance}. Please add more funds to proceed.`
-      );
+      setInsufficientModalVisible(true);
       setModalVisible(false);
       return;
     }
@@ -780,10 +848,10 @@ const Checkout: React.FC = () => {
       const confirmationServiceName = checkoutData.title || "Fallback Service Name";
       const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
       const confirmationAmount = paymentAmount;
-     
+
       console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
       console.log("confirmationId (booking/order ID):", confirmationId);
-      console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount });
+      console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
       console.log("========================================================");
       setTimeout(() => {
         router.push({
@@ -794,11 +862,20 @@ const Checkout: React.FC = () => {
             serviceName: confirmationServiceName,
             guestName: confirmationGuestName,
             amount: confirmationAmount,
+            checkInDate,
+            checkOutDate,
+            startDate,
+            endDate,
+            foodType,
+            orderType,
+            planType,
+            mealType: mealPreference,
           },
         });
       }, 2000);
     } catch (error: any) {
       console.error("Error in wallet payment:", error);
+      console.error("Backend response:", error.response?.data);
       Alert.alert("Error", error.response?.data?.message || "Wallet payment failed. Please try again.");
     }
   };
@@ -831,6 +908,17 @@ const Checkout: React.FC = () => {
     setDepositModalVisible(false);
     setSelectedMethod(null);
     setModalVisible(true);
+  };
+
+  const handleInsufficientClose = () => {
+    setInsufficientModalVisible(false);
+  };
+
+  const handleAddFunds = () => {
+    setInsufficientModalVisible(false);
+    // Navigate to wallet top-up screen or open add funds flow
+    router.push('/(secure)/account/wallet');
+    // Assuming a WalletTopUp screen exists; adjust as needed
   };
 
   // Render coupon item in modal
@@ -961,13 +1049,15 @@ const Checkout: React.FC = () => {
             Orders are non-refundable once placed.
           </Text>
         </View>
-         <View style={styles.policySection}>
-          <Text style={styles.policyTitle}>Note:</Text>
-          <Text style={styles.policyText}>
-            The deposit is refundable & payable only at the owner’s property. When you visit, the owner will collect the deposit amount as part of the check-in process.
-         
-          </Text>
-        </View>
+        {isHostel && (
+          <View style={styles.policySection}>
+            <Text style={styles.policyTitle}>Note:</Text>
+            <Text style={styles.policyText}>
+              The deposit is refundable & payable only at the owner’s property. When you visit, the owner will collect the deposit amount as part of the check-in process.
+
+            </Text>
+          </View>
+        )}
         <View style={styles.bottomSpacer} />
       </ScrollView>
       {/* Payment Method */}
@@ -1020,6 +1110,38 @@ const Checkout: React.FC = () => {
             >
               <Text style={styles.depositContinueButtonText}>Continue</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Insufficient Balance Modal - NEW */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={insufficientModalVisible}
+        onRequestClose={handleInsufficientClose}
+      >
+        <View style={styles.insufficientModalOverlay}>
+          <View style={styles.insufficientModalContainer}>
+            <Ionicons name="wallet-outline" size={48} color="#FF6B6B" />
+            <Text style={styles.insufficientModalTitle}>Insufficient Balance</Text>
+            <Text style={styles.insufficientModalText}>
+              Your wallet balance is ₹{walletBalance.toFixed(2)}.{"\n"}
+              Please add more funds to proceed with the payment.
+            </Text>
+            <View style={styles.insufficientModalButtons}>
+              <TouchableOpacity
+                style={styles.addFundsButton}
+                onPress={handleAddFunds}
+              >
+                <Text style={styles.addFundsButtonText}>Add Funds</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleInsufficientClose}
+              >
+                <Text style={styles.cancelButtonText}>Try Later</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1210,18 +1332,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 12,
   },
-couponInput: {
-  flex: 1,
-  borderWidth: 1,
-  borderColor: '#e0e0e0',
-  borderRadius: 8,
-  paddingHorizontal: 12,
-  paddingVertical: 12,
-  backgroundColor: '#f9f9f9',  // Optional: Consider '#fff' for pure white if contrast is still an issue
-  marginRight: 8,
-  color: '#000',
-  placeholderTextColor: '#666',  // Darker gray—try '#555' or '#333' if needed for even more contrast
-},
+  couponInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#f9f9f9',  // Optional: Consider '#fff' for pure white if contrast is still an issue
+    marginRight: 8,
+    color: '#000',
+    placeholderTextColor: '#666',  // Darker gray—try '#555' or '#333' if needed for even more contrast
+  },
   applyButton: {
     backgroundColor: '#2854C5',
     paddingHorizontal: 20,
@@ -1317,8 +1439,8 @@ couponInput: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginLeft:20,
-    marginRight:20
+    marginLeft: 20,
+    marginRight: 20
   },
   totalLabel: {
     fontSize: 15,
@@ -1335,8 +1457,8 @@ couponInput: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginLeft:20,
-    marginRight:20
+    marginLeft: 20,
+    marginRight: 20
   },
   discountLabel: {
     fontSize: 15,
@@ -1603,6 +1725,70 @@ couponInput: {
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // NEW: Insufficient Balance Modal Styles
+  insufficientModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  insufficientModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+  },
+  insufficientModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FF6B6B',
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  insufficientModalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  insufficientModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  addFundsButton: {
+    flex: 1,
+    backgroundColor: '#2854C5',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  addFundsButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
   },
   // Coupon Modal Styles
   couponModalOverlay: {

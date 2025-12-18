@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -39,6 +40,7 @@ export default function ProductDetails() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showRoomSelectionModal, setShowRoomSelectionModal] = useState(false);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
   const [reviews, setReviews] = useState([]);
   // Fixed: Import all needed functions from context
   const { isFavorite, addToFavorites, removeFromFavorites } = useFavorites();
@@ -224,6 +226,7 @@ export default function ProductDetails() {
           // Always fetch full data from API to ensure complete fields like whatsIncludes, serviceFeatures, contactInfo, etc.
           fullApiData = await fetchTiffinById(paramId);
         } else if (paramType === "hostel") {
+          // Fixed: Use paramId instead of hardcoded ID to fetch the correct hostel with weeklyDeposit
           fullApiData = await fetchHostelById(paramId);
         }
         if (!fullApiData) {
@@ -249,6 +252,30 @@ export default function ProductDetails() {
           const monthlyPrice = typeof apiData.pricing?.monthly === 'number' ? apiData.pricing.monthly : 0;
           const dailyPrice = typeof apiData.pricing?.perDay === 'number' ? apiData.pricing.perDay : Math.floor(monthlyPrice / 30);
           const weeklyPrice = typeof apiData.pricing?.weekly === 'number' ? apiData.pricing.weekly : 0;
+          // Determine primary pricing tier (monthly > weekly > daily)
+          let primaryAmount = 0;
+          let primaryPeriod = '';
+          let depositAmount = apiData.securityDeposit || apiData.weeklyDeposit || apiData.perDayDeposit || 0; 
+
+          if (monthlyPrice > 0) {
+            primaryAmount = monthlyPrice;
+            primaryPeriod = 'MONTH';
+            depositAmount = apiData.securityDeposit || 0;
+          } else if (weeklyPrice > 0) {
+            primaryAmount = weeklyPrice;
+            primaryPeriod = 'WEEK';
+            depositAmount = apiData.weeklyDeposit || 0;
+          } else if (dailyPrice > 0) {
+            primaryAmount = dailyPrice;
+            primaryPeriod = 'DAY';
+            depositAmount = apiData.perDayDeposit || 0;
+          }
+
+          const priceText = `₹${primaryAmount}/${primaryPeriod}`;
+          // Deposits from API
+          const securityDeposit = typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0;
+          const weeklyDeposit = typeof apiData.weeklyDeposit === 'number' ? apiData.weeklyDeposit : 0;
+          const perDayDeposit = typeof apiData.perDayDeposit === 'number' ? apiData.perDayDeposit : 0;
           // Images
           const images = Array.isArray(apiData.hostelPhotos) ? apiData.hostelPhotos.map((p: string) => ({ uri: p })) : [];
           processedData = {
@@ -260,22 +287,36 @@ export default function ProductDetails() {
             totalRooms: typeof apiData.totalRooms === 'number' ? apiData.totalRooms : rooms.length,
             totalBeds,
             availableBeds,
-            deposit: typeof apiData.securityDeposit === 'number' ? apiData.securityDeposit : 0,
+            deposit: depositAmount,
+            securityDeposit,
+            weeklyDeposit,
+            perDayDeposit,
             offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
             amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
             fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Not available",
-            sublocation: typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Not available",
-            location: typeof apiData.location?.area === 'string' ? apiData.location.area : "Unknown",
+            sublocation: Array.isArray(apiData.location?.nearbyLandmarks) 
+              ? apiData.location.nearbyLandmarks.map((l: any) => `${l.name} - ${l.distance}`).join(', ') 
+              : (typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Not available"),
+            location: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Unknown",
             rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Not available",
             userReviews: Array.isArray(apiData.userReviews) ? apiData.userReviews : [],
             reviewCount: typeof apiData.totalReviews === 'number' ? apiData.totalReviews : 0,
             rating: typeof apiData.averageRating === 'number' ? apiData.averageRating : 0,
             reviews: 0, // Fallback
-            price: `₹${monthlyPrice}/MONTH`,
+            price: priceText,
+            primaryPeriod,
             daily: dailyPrice,
             weekly: weeklyPrice,
             rooms: rooms, // Keep for potential use
           };
+          // Debug log for deposits
+          console.log('🔍 MappedData Deposits:', {
+            securityDeposit,
+            weeklyDeposit,
+            perDayDeposit,
+            deposit: depositAmount,
+            primaryPeriod
+          });
         } else if (paramType === "tiffin") {
           // Handle images from vegPhotos, nonVegPhotos, or fallback
           const vegPhotos = fullApiData.vegPhotos || [];
@@ -325,10 +366,12 @@ export default function ProductDetails() {
           } else {
             fullAddress = fullApiData.location?.fullAddress || "";
             servingRadiusNum = fullApiData.location?.serviceRadius || 5;
-            nearbyLandmarks = fullApiData.location?.area || "";
+            nearbyLandmarks = Array.isArray(fullApiData.location?.nearbyLandmarks) 
+              ? fullApiData.location.nearbyLandmarks.map((l: any) => `${l.name} (${l.distance})`).join(', ') 
+              : fullApiData.location?.area || "";
           }
           const servingRadius = `${servingRadiusNum} km`;
-          const location = nearbyLandmarks || fullAddress || "Unknown";
+         const location = fullAddress || "Not available";
           const isOffline = fullApiData.offlineDetails?.isOffline || false;
           const offlineReason = fullApiData.offlineDetails?.offlineReason || fullApiData.offlineReason || "";
           const comeBackAt = fullApiData.offlineDetails?.comeBackAt || fullApiData.comeBackAt || "";
@@ -347,6 +390,7 @@ export default function ProductDetails() {
             whyChooseUs,
             fullAddress,
             servingRadius,
+            nearbyLandmarks,
             rating,
             reviewCount,
             price,
@@ -364,6 +408,7 @@ export default function ProductDetails() {
               whatsapp: contactWhatsapp ? `+91${contactWhatsapp}` : '',
             },
             owner: fullApiData.owner,
+            isOpenForSale: fullApiData.isOpenForSale !== undefined ? fullApiData.isOpenForSale : true,
           };
           // Debug logs for tiffin-specific fields
           console.log('🔍 DEBUG - whatsIncluded:', whatsIncluded);
@@ -371,6 +416,7 @@ export default function ProductDetails() {
           console.log('🔍 DEBUG - servingRadius:', servingRadius);
           console.log('🔍 DEBUG - contactInfo phone:', processedData.contactInfo.phone || 'EMPTY');
           console.log('🔍 DEBUG - contactInfo whatsapp:', processedData.contactInfo.whatsapp || 'EMPTY');
+          console.log('🔍 DEBUG - isOpenForSale:', processedData.isOpenForSale);
         }
         setMappedData(processedData);
       } catch (error) {
@@ -379,6 +425,13 @@ export default function ProductDetails() {
     };
     processData();
   }, [paramId, paramType]);
+
+  // Show offline modal if not open for sale
+  useEffect(() => {
+    if (mappedData && paramType === "tiffin" && !mappedData.isOpenForSale) {
+      setShowOfflineModal(true);
+    }
+  }, [mappedData, paramType]);
 
   // Fixed: Now isFavorite is available, use mappedData
   const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
@@ -591,7 +644,7 @@ export default function ProductDetails() {
           <Ionicons
             name={isFav ? "heart" : "heart-outline"}
             size={24}
-            color={isFav ? "#A5A5A5" : "#A5A5A5"}
+            color={isFav ? "red" : "#A5A5A5"}
           />
         </TouchableOpacity>
       </View>
@@ -670,24 +723,62 @@ export default function ProductDetails() {
     if (paramType === "hostel") {
       return (
         <View style={styles.pricingBox}>
-          <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>₹{mappedData.daily}/day</Text>
-          </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>₹{mappedData.weekly}/week</Text>
-          </View>
+          {/* Show daily as old price if primary is weekly or monthly */}
+          {(mappedData.primaryPeriod === 'WEEK' || mappedData.primaryPeriod === 'MONTH') && mappedData.daily > 0 && (
+            <View style={styles.priceRow}>
+              <Text style={styles.oldPrice}>₹{mappedData.daily}/day</Text>
+            </View>
+          )}
+          {/* Show weekly as old price only if primary is monthly */}
+          {mappedData.primaryPeriod === 'MONTH' && mappedData.weekly > 0 && (
+            <View style={styles.priceRow}>
+              <Text style={styles.oldPrice}>₹{mappedData.weekly}/week</Text>
+            </View>
+          )}
           <View style={styles.priceMainRow}>
             <Text style={styles.currentPrice}>{mappedData.price}</Text>
-            {mappedData.offer && (
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
+            <View style={styles.rightSideContent}>
+              {mappedData.offer && (
+                <View style={styles.discountBadge}>
+                  <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
+                </View>
+              )}
+              {/* {mappedData.deposit > 0 && (
+                <View style={styles.depositContainer}>
+                  <Text style={styles.depositAmount}>
+                    + ₹{mappedData.deposit} {mappedData.primaryPeriod === 'MONTH' ? 'security' : 'weekly'} deposit
+                  </Text>
+                </View>
+              )} */}
+            </View>
+          </View>
+          {/* Deposit notes */}
+          <View style={styles.depositNotesContainer}>
+            {mappedData.perDayDeposit > 0 && (
+              <View style={styles.depositNoteRow}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
+                <Text style={styles.depositNote}>
+                  Daily Deposit: <Text style={styles.depositamt}>₹{mappedData.perDayDeposit} </Text>(fully refundable)
+                </Text>
+              </View>
+            )}
+            {mappedData.weeklyDeposit > 0 && (
+              <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
+                <Text style={styles.depositNote}>
+                  Weekly Deposit: <Text style={styles.depositamt}>₹{mappedData.weeklyDeposit} </Text>(fully refundable)
+                </Text>
+              </View>
+            )}
+            {mappedData.securityDeposit > 0 && (
+              <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
+                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
+                <Text style={styles.depositNote}>
+                  Monthly Deposit : <Text style={styles.depositamt}>₹{mappedData.securityDeposit} </Text>(fully refundable)
+                </Text>
               </View>
             )}
           </View>
-          <Text style={styles.depositNote}>
-            Note: You have to pay security deposit of {mappedData.deposit} on monthly
-            booking. It will be refunded to you on check-out.
-          </Text>
         </View>
       );
     } else {
@@ -775,9 +866,18 @@ export default function ProductDetails() {
       {/* Offline warning if applicable */}
       {mappedData.isOffline && (
         <View style={styles.offlineWarning}>
-          <Ionicons name="alert-circle-outline" size={20} color="#FF9800" />
+          <Ionicons name="alert-circle-outline" size={20} color="white" />
           <Text style={styles.offlineText}>
-            Currently offline: {mappedData.offlineReason}. Back on {mappedData.comeBackAt}.
+            Currently offline: Please Check again after sometime.
+          </Text>
+        </View>
+      )}
+      {/* Not open for sale message */}
+      {!mappedData.isOpenForSale && (
+        <View style={styles.offlineWarning}>
+          <Ionicons name="storefront-outline" size={20} color="white" />
+          <Text style={styles.offlineText}>
+            This store currently exceeded the order limit. Check back after sometime.
           </Text>
         </View>
       )}
@@ -828,18 +928,23 @@ export default function ProductDetails() {
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
           <Text style={styles.locationTitle}>{mappedData.location}</Text>
-          <Text style={styles.locationAddress}>{mappedData.fullAddress}</Text>
+          {mappedData.nearbyLandmarks && mappedData.nearbyLandmarks !== "" && (
+            <View style={styles.landmarkContainer}>
+              <Ionicons name="location-outline" size={16} color="#4CAF50" style={styles.landmarkIcon} />
+              <Text style={styles.landmarkText}>Nearby: {mappedData.nearbyLandmarks}</Text>
+            </View>
+          )}
           <Text style={styles.serviceRadius}>
             Service Radius: {mappedData.servingRadius}
           </Text>
           {mappedData.contactInfo && Object.values(mappedData.contactInfo).some(Boolean) && (
             <View style={styles.contactInfo}>
-              {mappedData.contactInfo.phone && (
+              {/* {mappedData.contactInfo.phone && (
                 <Text style={styles.contactText}>Phone: {mappedData.contactInfo.phone}</Text>
               )}
               {mappedData.contactInfo.whatsapp && (
                 <Text style={styles.contactText}>WhatsApp: {mappedData.contactInfo.whatsapp}</Text>
-              )}
+              )} */}
             </View>
           )}
         </View>
@@ -905,10 +1010,13 @@ export default function ProductDetails() {
       <View style={[styles.section, styles.locationSection]}>
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.locationBox}>
-          <Text style={styles.locationTitle}>{mappedData.sublocation}</Text>
-          <Text style={styles.locationAddress}>
-            {mappedData.fullAddress}
-          </Text>
+          <Text style={styles.locationTitle}>{mappedData.location}</Text>
+          {mappedData.sublocation && mappedData.sublocation !== "Not available" && (
+            <View style={styles.landmarkContainer}>
+              <Ionicons name="location-outline" size={16} color="#4CAF50" style={styles.landmarkIcon} />
+              <Text style={styles.landmarkText}>Nearby: {mappedData.sublocation}</Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -983,6 +1091,10 @@ export default function ProductDetails() {
             title="Order Now"
             // Inside your Button onPress (full handler)
             onPress={async () => {
+              if (!mappedData.isOpenForSale) {
+                // Optionally show toast or alert, but since disabled, no action
+                return;
+              }
               try {
                 // Fetch real user data from storage
                 const storedUser = await AsyncStorage.getItem('userProfile');
@@ -1010,7 +1122,7 @@ export default function ProductDetails() {
                     }),
                     userData: JSON.stringify(userDataObj), // ✅ Now autofills real name/phone if stored
                     defaultPlan: "monthly",
-                    date: new Date().toISOString().split('T')[0], // 2025-10-09 (today)
+                    date: new Date().toISOString().split('T')[0], // 2025-11-19 (today)
                   },
                 });
               } catch (error) {
@@ -1020,7 +1132,13 @@ export default function ProductDetails() {
             }}
             width={width - 48}
             height={56}
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              !mappedData.isOpenForSale && {
+                backgroundColor: '#ccc',
+                opacity: 0.7
+              }
+            ]}
           />
           <Button
             title="Share This Meal"
@@ -1054,6 +1172,32 @@ export default function ProductDetails() {
     </View>
   );
 
+  // ==================== OFFLINE MODAL ====================
+  const renderOfflineModal = () => (
+    <Modal
+      visible={showOfflineModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowOfflineModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Ionicons name="storefront-outline" size={60} color={colors.primary} />
+          <Text style={styles.modalTitle}>Currently Not Accepting orders</Text>
+          <Text style={styles.modalMessage}>
+            We’re online but have reached our order limit. Please check back soon!
+          </Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => setShowOfflineModal(false)}
+          >
+            <Text style={styles.modalButtonText}>Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // ==================== MAIN RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
@@ -1069,6 +1213,7 @@ export default function ProductDetails() {
           : renderReviews()}
         {renderBottomButtons()}
       </ScrollView>
+      {paramType === "tiffin" && renderOfflineModal()}
       <ShareModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
@@ -1280,8 +1425,12 @@ const styles = StyleSheet.create({
   },
   priceMainRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+  },
+  rightSideContent: {
+    alignItems: "flex-end",
+    gap: 8,
   },
   oldPrice: {
     fontSize: 14,
@@ -1306,11 +1455,30 @@ const styles = StyleSheet.create({
     color: "#1976D2",
     fontWeight: "600",
   },
-  depositNote: {
+  depositContainer: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  depositAmount: {
     fontSize: 13,
     color: "#666",
-    marginTop: 8,
-    lineHeight: 18,
+    fontWeight: "600",
+  },
+  depositNotesContainer: {
+    marginTop: 12,
+  },
+  depositNoteRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  depositNote: {
+    fontSize: 15,
+    color: "#666",
+    lineHeight: 16,
+    flex: 1,
+    marginLeft: 4,
+    fontWeight:500
   },
   // Tiffin pricing styles
   tiffinPricing: {
@@ -1398,7 +1566,7 @@ const styles = StyleSheet.create({
   },
   includedItem: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   bulletPoint: {
     fontSize: 14,
@@ -1412,7 +1580,7 @@ const styles = StyleSheet.create({
   },
   orderTypeItem: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   orderTypeText: {
     fontSize: 14,
@@ -1421,7 +1589,7 @@ const styles = StyleSheet.create({
   },
   whyItem: {
     flexDirection: "row",
-    // paddingVertical: 4,
+    paddingVertical: 3,
   },
   whyText: {
     fontSize: 14,
@@ -1444,7 +1612,7 @@ const styles = StyleSheet.create({
   },
   locationTitle: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "300",
     marginBottom: 4,
     color: "#000",
   },
@@ -1453,6 +1621,25 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 4,
     lineHeight: 20,
+  },
+  landmarkContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    padding: 8,
+    backgroundColor: "#E8F5E8",
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#4CAF50",
+  },
+  landmarkIcon: {
+    marginRight: 8,
+  },
+  landmarkText: {
+    fontSize: 14,
+    color: "#2E7D32",
+    fontWeight: "500",
+    flex: 1,
   },
   serviceRadius: {
     fontSize: 12,
@@ -1649,17 +1836,66 @@ const styles = StyleSheet.create({
   },
   // Offline warning
   offlineWarning: {
-    backgroundColor: "#FFF3CD",
+    backgroundColor: "red",
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
   offlineText: {
     fontSize: 14,
-    color: "#856404",
+    color: "white",
     marginLeft: 8,
     flex: 1,
+  },
+  depositamt:{
+    fontSize:18,
+    fontWeight:500,
+    color:"#1976D2"
+  },
+  // Offline modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
+import RoomSelectionModal from "@/components/modals/RoomSelectionModal"; // Adjust path as needed
 
 const fetchPendingTiffin = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -37,15 +38,36 @@ const fetchPendingHostel = async () => {
   return response.data.data || [];
 };
 
-const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: () => void }) => {
+const PendingTiffinCard = ({ 
+  booking, 
+  onContinue, 
+  onEdit   // ← Add this prop
+}: { 
+  booking: any; 
+  onContinue: () => void; 
+  onEdit: () => void;     // ← Add this
+}) => {
+  const createdDateFromApi = booking.createdDate || (booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : null);
+  const createdTimeFromApi = booking.createdTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : null);
+
   return (
     <View style={pendingCardStyles.card}>
       <View style={pendingCardStyles.cardContent}>
         <Text style={pendingCardStyles.name}>{booking.tiffinServiceName}</Text>
+        {/* created date/time */}
+        {(createdDateFromApi || createdTimeFromApi) && (
+          <View style={pendingCardStyles.createdRow}>
+            <Text style={pendingCardStyles.createdLabel}>Booked on:</Text>
+            <Text style={pendingCardStyles.createdValue}>
+              {createdDateFromApi ? createdDateFromApi : ''}{createdDateFromApi && createdTimeFromApi ? ' • ' : ''}{createdTimeFromApi ? createdTimeFromApi : ''}
+            </Text>
+          </View>
+        )}
         <View style={pendingCardStyles.row}>
           <Text style={pendingCardStyles.label}>Plan Type:</Text>
           <Text style={pendingCardStyles.value}>{booking.planType}</Text>
         </View>
+
         <View style={pendingCardStyles.row}>
           <Text style={pendingCardStyles.label}>Food Type:</Text>
           <Text style={pendingCardStyles.value}>{booking.foodType}</Text>
@@ -65,7 +87,19 @@ const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: 
         <View style={pendingCardStyles.priceRow}>
           <Text style={pendingCardStyles.price}>₹{booking.price}</Text>
         </View>
-        <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
+
+        {/* Edit Button for Tiffin */}
+        <TouchableOpacity 
+          style={pendingCardStyles.continueButton} 
+          onPress={onEdit}
+        >
+          <Text style={pendingCardStyles.continueText}>Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={pendingCardStyles.continueButton} 
+          onPress={onContinue}
+        >
           <Text style={pendingCardStyles.continueText}>Continue Booking</Text>
         </TouchableOpacity>
       </View>
@@ -73,15 +107,27 @@ const PendingTiffinCard = ({ booking, onContinue }: { booking: any; onContinue: 
   );
 };
 
-const PendingHostelCard = ({ booking, onContinue }: { booking: any; onContinue: () => void }) => {
+const PendingHostelCard = ({ booking, onContinue, onEdit }: { booking: any; onContinue: () => void; onEdit: () => void }) => {
   const bedsList = booking.rooms?.[0]?.bedNumber?.map((bed: any) => `${bed.bedNumber} (${bed.name})`).join(', ') || 'N/A';
   const planName = booking.selectPlan?.[0]?.name || 'N/A';
   const planPrice = booking.selectPlan?.[0]?.price || 'N/A';
   const roomNumber = booking.rooms?.[0]?.roomNumber || 'N/A';
+  const createdDateFromApi = booking.createdDate || (booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : null);
+  const createdTimeFromApi = booking.createdTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : null);
   return (
     <View style={pendingCardStyles.card}>
       <View style={pendingCardStyles.cardContent}>
         <Text style={pendingCardStyles.name}>{booking.hostelId?.hostelName}</Text>
+        {(createdDateFromApi || createdTimeFromApi) && (
+          <View style={pendingCardStyles.createdRow}>
+            <Text style={pendingCardStyles.createdLabel}>Booked on:</Text>
+            <Text style={pendingCardStyles.createdValue}>
+              {createdDateFromApi ? createdDateFromApi : ''}
+              {createdDateFromApi && createdTimeFromApi ? ' • ' : ''}
+              {createdTimeFromApi ? createdTimeFromApi : ''}
+            </Text>
+          </View>
+        )}
         <View style={pendingCardStyles.row}>
           <Text style={pendingCardStyles.label}>Room:</Text>
           <Text style={pendingCardStyles.value}>{roomNumber}</Text>
@@ -109,6 +155,9 @@ const PendingHostelCard = ({ booking, onContinue }: { booking: any; onContinue: 
           <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
           <Text style={pendingCardStyles.locationText}>{booking.hostelId?.location?.fullAddress || 'N/A'}</Text>
         </View>
+        <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onEdit}>
+          <Text style={pendingCardStyles.continueText}>Edit</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={pendingCardStyles.continueButton} onPress={onContinue}>
           <Text style={pendingCardStyles.continueText}>Continue Booking</Text>
         </TouchableOpacity>
@@ -142,6 +191,8 @@ const CartScreen = () => {
   );
 
   const [activeTab, setActiveTab] = useState('tiffin');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<any>(null);
 
   useEffect(() => {
     if (!tiffinLoading && !hostelLoading) {
@@ -171,6 +222,7 @@ const CartScreen = () => {
       params,
     });
   };
+
   const handleContinueHostel = (id: string) => {
     const params = { bookingId: id, type: "hostel" };
     console.log("Navigating to checkout with params:", params);
@@ -179,11 +231,50 @@ const CartScreen = () => {
       params,
     });
   };
+
+  const handleEditHostel = (booking: any) => {
+    console.log("Opening edit modal for booking:", booking._id); // Debug log
+    setEditingBooking(booking);
+    setEditModalVisible(true);
+  };
+
+  const handleEditTiffin = (booking: any) => {
+  console.log("Editing Tiffin Booking:", {
+    bookingId: booking._id,
+    tiffinServiceId: booking.tiffinServiceId,
+    
+  });
+
+  router.push({
+    pathname: "/(secure)/bookingScreen",
+    params: {
+      bookingId: booking._id,                   // pending booking ID
+      tiffinServiceId: booking.tiffinServiceId,
+      isEdit: "true",
+    },
+  });
+};
+
+  const handleModalClose = () => {
+    console.log("Closing edit modal"); // Debug log
+    setEditModalVisible(false);
+    setEditingBooking(null);
+  };
+
   const renderTiffinItem = ({ item }: { item: any }) => (
-    <PendingTiffinCard booking={item} onContinue={() => handleContinueTiffin(item._id)} />
-  );
+  <PendingTiffinCard 
+    booking={item} 
+    onContinue={() => handleContinueTiffin(item._id)}
+    onEdit={() => handleEditTiffin(item)}   // ← Add this
+  />
+);
+
   const renderHostelItem = ({ item }: { item: any }) => (
-    <PendingHostelCard booking={item} onContinue={() => handleContinueHostel(item._id)} />
+    <PendingHostelCard 
+      booking={item} 
+      onContinue={() => handleContinueHostel(item._id)} 
+      onEdit={() => handleEditHostel(item)} 
+    />
   );
 
   const renderTabContent = () => {
@@ -223,6 +314,17 @@ const CartScreen = () => {
       }
     }
   };
+
+  // Updated selectedRooms with name
+  const selectedRooms = editingBooking?.rooms?.flatMap((room: any) =>
+    room.bedNumber?.map((bed: any) => ({
+      roomNumber: room.roomNumber,
+      bedNumber: bed.bedNumber,
+      roomId: room.roomId,
+      bedId: bed.bedId,
+      name: bed.name,  // Pass guest name
+    })) || []
+  ) || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -276,9 +378,29 @@ const CartScreen = () => {
           </>
         )}
       </ScrollView>
+
+      {editingBooking && editModalVisible && (
+        <RoomSelectionModal
+          visible={editModalVisible}
+          onClose={handleModalClose}
+          hostelData={{
+            id: editingBooking.hostelId?._id,
+            name: editingBooking.hostelId?.hostelName,
+            price: `₹${editingBooking.selectPlan?.[0]?.price || 0}`,
+            deposit: `₹${editingBooking.selectPlan?.[0]?.depositAmount || 0}`,
+          }}
+          isContinueMode={true}
+          selectedRooms={selectedRooms}
+          bookingId={editingBooking._id}
+          checkInDate={editingBooking.checkInDate}
+          checkOutDate={editingBooking.checkOutDate}
+        />
+      )}
     </SafeAreaView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f7f4f4" },
@@ -402,6 +524,10 @@ const pendingCardStyles = StyleSheet.create({
     marginTop: 8,
   },
   continueText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
+  createdRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  createdLabel: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
+  createdValue: { fontSize: 12, color: '#1A1A1A', textAlign: 'right', flex: 1 },
+
 });
 
 export default CartScreen;

@@ -135,16 +135,17 @@ export default function LoginScreen() {
     return;
   }
 
-  const formattedPhoneNumber = `${selectedCountry.dialCode} ${phoneNumber.trim()}`;
-
   try {
     const response = await axios.post(
       "https://tifstay-project-be.onrender.com/api/guest/login",
-      { phoneNumber: formattedPhoneNumber }
+      { 
+        phoneNumber: phoneNumber.trim(),
+        countryCode: selectedCountry.dialCode
+      }
     );
 
     if (response.data.success) {
-      const otpCode = response.data.data?.guest?.otpCode;
+      const otpCode = response.data.otp || response.data.user?.otpCode;
       Toast.show({
         type: "success",
         text1: "OTP Sent Successfully",
@@ -156,6 +157,7 @@ export default function LoginScreen() {
           params: {
             phoneNumber: phoneNumber.trim(),
             dialCode: selectedCountry.dialCode,
+            otpCode: otpCode,
           },
         });
         setIsLoading(false);
@@ -179,7 +181,18 @@ export default function LoginScreen() {
        errorData.message?.toLowerCase().includes("not registered") ||
        error.response?.status === 404);
 
-    if (isUnregisteredGuest) {
+    // Check for blocked account
+    const isBlockedAccount =
+      errorData &&
+      errorData.message?.toLowerCase().includes("blocked");
+
+    if (isBlockedAccount) {
+      Toast.show({
+        type: "error",
+        text1: "Account Blocked",
+        text2: "Guest account is blocked. Please contact support.",
+      });
+    } else if (isUnregisteredGuest) {
       Toast.show({
         type: "error",
         text1: "Guest Not Registered",
@@ -204,7 +217,7 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         extraScrollHeight={Platform.OS === "android" ? 140 : 50}
-        extraHeight={Platform.OS === "android" ? 160 : 60}
+        extraHeight={Platform.OS === "android" ? 100 : 20}
         enableOnAndroid
         keyboardOpeningTime={0}
       >
@@ -288,16 +301,16 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* FOOTER */}
-            <View style={styles.footer}>
+            {/* <View style={styles.footer}>
               <Text style={styles.footerText}>
                 Don’t have an account?{" "}
               </Text>
               <TouchableOpacity
-                onPress={() => !isLoading && router.replace("/register")}
+                onPress={() => !isLoading && router.replace("/PersonalDetailsScreen")}
               >
                 <Text style={styles.footerLink}>Register</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </ImageBackground>
         </View>
       </KeyboardAwareScrollView>

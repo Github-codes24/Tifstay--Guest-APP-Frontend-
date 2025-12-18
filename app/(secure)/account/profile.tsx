@@ -6,6 +6,8 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  useWindowDimensions,
 } from "react-native";
 import { router } from "expo-router";
 import colors from "@/constants/colors";
@@ -29,9 +31,22 @@ const fetchProfile = async () => {
   return response.data.data.guest;
 };
 
+const fetchProfileImage = async (guestId: string) => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("No token found");
+  const response = await axios.get(
+    `https://tifstay-project-be.onrender.com/api/guest/viewProfileImage/${guestId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data.data.profileImage;
+};
+
 const MyProfileScreen = () => {
   const queryClient = useQueryClient();
   const [cachedProfile, setCachedProfile] = useState<any>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [fullImageUrl, setFullImageUrl] = useState<string>("");
+  const { width, height } = useWindowDimensions();
 
   // ✅ Load cached profile from AsyncStorage first
   useEffect(() => {
@@ -68,6 +83,26 @@ const MyProfileScreen = () => {
     }, [refetch])
   );
 
+  const handleImagePress = async () => {
+    if (profile?._id) {
+      try {
+        const imageUrl = await fetchProfileImage(profile._id);
+        if (imageUrl) {
+          setFullImageUrl(imageUrl);
+          setShowImageModal(true);
+        }
+      } catch (error) {
+        // Fallback to cached image if API fails
+        if (profile?.profileImage) {
+          setFullImageUrl(profile.profileImage);
+          setShowImageModal(true);
+        }
+      }
+    }
+  };
+
+  const closeImageModal = () => setShowImageModal(false);
+
   const displayValue = (value: string | undefined) => value || "";
 
   return (
@@ -92,18 +127,19 @@ const MyProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           {/* ✅ If no image, show empty circle */}
-        {profile?.profileImage ? (
-  <Image
-    source={{ uri: profile.profileImage }}
-    style={styles.profileImage}
-  />
-) : (
-  <Image
-    source={require("../../../assets/images/fallbackdp.png")}
-    style={styles.profileImage}
-  />
-)}
-
+          <TouchableOpacity onPress={handleImagePress}>
+            {profile?.profileImage ? (
+              <Image
+                source={{ uri: profile.profileImage }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <Image
+                source={require("../../../assets/images/fallbackdp.png")}
+                style={styles.profileImage}
+              />
+            )}
+          </TouchableOpacity>
 
           {/* ✅ Only show name if available */}
           {profile?.name ? (
@@ -136,7 +172,7 @@ const MyProfileScreen = () => {
         </View>
 
         {/* Menu Items */}
-        <MenuItem
+        {/* <MenuItem
           label="Manage Profile"
           icon={require("@/assets/images/manage.png")}
           onPress={() => router.push("/account/editProfile")}
@@ -145,13 +181,53 @@ const MyProfileScreen = () => {
           label="Change Password"
           icon={require("@/assets/images/lock1.png")}
           onPress={() => router.push("/(secure)/account/changepass")}
-        />
+        /> */}
         <MenuItem
           label="Delete Account"
           icon={require("@/assets/images/del.png")}
           onPress={() => router.push("/(secure)/account/deleteAccount")}
         />
       </ScrollView>
+
+      {/* 🔹 Profile Image Modal */}
+      <Modal
+        transparent
+        visible={showImageModal}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity
+            style={styles.imageViewer}
+            activeOpacity={1}
+            onPress={closeImageModal}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => {}}
+              style={styles.imageContainer}
+            >
+              <Image
+                source={{ uri: fullImageUrl }}
+                style={[
+                  styles.fullImage,
+                  {
+                    width: width * 0.9,
+                    height: height * 0.7,
+                  },
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.imageCloseButton}
+            onPress={closeImageModal}
+          >
+            <Ionicons name="close" size={30} color="white" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -250,6 +326,30 @@ const styles = StyleSheet.create({
   menuIcon: { width: 40, height: 40, marginRight: 12 },
   menuText: { fontSize: 14, color: colors.title },
   arrowIcon: { width: 18, height: 18, tintColor: colors.title },
+  // Image Modal Styles
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+  },
+  imageViewer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullImage: {
+    resizeMode: "contain",
+  },
+  imageCloseButton: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    zIndex: 1,
+    padding: 10,
+  },
 });
 
 export default MyProfileScreen;

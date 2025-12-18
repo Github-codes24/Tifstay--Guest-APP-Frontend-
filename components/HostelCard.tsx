@@ -3,7 +3,7 @@ import { Dimensions, Image, Platform, StyleSheet, Text, TouchableOpacity, View }
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors"; // तुम्हारा colors import
 import { useFavorites } from "@/context/FavoritesContext";
-import hostel1 from "@/assets/images/image/hostelBanner.png"; // तुम्हारा fallback
+// import hostel1 from "@/assets/images/image/hostelBanner.png"; // तुम्हारा fallback
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -97,12 +97,42 @@ export default function HostelCard({
     onFavoritePress?.(); // तुम्हारा handler same
   };
 
+  // --- Add this helper and debug logging ---
+function normalizeSubLocation(subLocation: any) : string {
+  if (subLocation === null || typeof subLocation === 'undefined' || subLocation === '') return '';
+  if (typeof subLocation === 'string') return subLocation;
+  if (Array.isArray(subLocation)) {
+    if (subLocation.length === 0) return '';
+    // Extract names from array of objects (nearbyLandmarks)
+    const names = subLocation
+      .filter((item: any) => item && typeof item === 'object' && 'name' in item && typeof item.name === 'string')
+      .map((item: any) => item.name)
+      .slice(0, 2); // Limit to first 2 for compactness
+    if (names.length > 0) {
+      return names.join(', ');
+    } else {
+      // Fallback: join stringified items (but avoid [object Object])
+      return subLocation.slice(0, 2).map((item: any) => String(item.name || item || '')).filter(Boolean).join(', ') || '';
+    }
+  }
+  if (typeof subLocation === 'object') {
+    // Single object case
+    if ('name' in subLocation && typeof subLocation.name === 'string') return subLocation.name;
+    // Fallback to safe stringify
+    try { return JSON.stringify(subLocation).replace(/["{}]/g, ''); } catch { return String(subLocation); }
+  }
+  return String(subLocation);
+}
+
+
   const totalBeds = (hostel?.availableBeds || 0) + (hostel?.occupiedBeds || 0); // नया: total calc
 
   const displayAmenities = (hostel.amenities ?? []).slice(0, MAX_AMENITIES); // पुराना UI logic
   const remainingAmenities = Math.max(0, (hostel.amenities ?? []).length - MAX_AMENITIES);
 
-  const compactLocation = hostel.subLocation ? `${hostel.location} • ${hostel.subLocation.split(",")[0]}` : hostel.location; // पुराना compact
+  const normalizedSubLoc = normalizeSubLocation(hostel?.subLocation);
+const compactLocation = (hostel?.location || '') + (normalizedSubLoc ? ` • ${normalizedSubLoc.split(',')[0].trim()}` : '');
+
 
   return (
     <TouchableOpacity
@@ -120,10 +150,10 @@ export default function HostelCard({
             style={styles.image}
             onError={(error) => { // तुम्हारा error handling same
               console.log('Hostel image load failed:', error.nativeEvent.error, 'URL:', hostel.image?.uri);
-              setImageSource(hostel1);
+              // setImageSource(hostel1);
             }}
             onLoad={() => console.log('Hostel image loaded successfully:', hostel.image?.uri)} // तुम्हारा onLoad same
-            defaultSource={hostel1} // extra fallback
+            // defaultSource={hostel1} // extra fallback
             resizeMode="cover"
           />
           {/* Gradient Overlay (पुराना) */}

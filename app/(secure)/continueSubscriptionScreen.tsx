@@ -154,6 +154,24 @@ export default function ContinueSubscriptionScreen() {
     price: planPrice || price, // Use planPrice for base
     deposit: "0", // Assume 0 for now; can be fetched or passed if needed
   };
+  // Helper to parse date strings (handles both ISO and dd/mm/yyyy)
+  const parseCustomDate = (dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    // Try ISO or standard format first
+    const isoDate = new Date(dateStr);
+    if (!isNaN(isoDate.getTime())) return isoDate;
+    // Then try dd/mm/yyyy
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+      const year = parseInt(parts[2], 10);
+      const customDate = new Date(year, month, day);
+      if (!isNaN(customDate.getTime())) return customDate;
+    }
+    console.warn(`Failed to parse date: ${dateStr}`);
+    return null;
+  };
   // Helper to normalize beds array from room data
   const getBedsArray = (room: any): any[] => {
     if (Array.isArray(room.beds)) return room.beds;
@@ -183,6 +201,14 @@ export default function ContinueSubscriptionScreen() {
       case 'Non-Veg': return 'Non-veg';
       default: return 'Both Veg & Non-Veg';
     }
+  };
+  // Helper to format Date to local YYYY-MM-DD string (avoids timezone shift)
+  const formatLocalDate = (d: Date): string => {
+    if (!d || isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
   // Add this useEffect inside the ContinueSubscriptionScreen component, after the state declarations
   useEffect(() => {
@@ -245,8 +271,10 @@ export default function ContinueSubscriptionScreen() {
     console.log("User Data (Full Guest):", userData);
     console.log("Tiffin Service:", tiffinService);
     console.log("Tiffin Order:", tiffinOrder);
+    console.log("Tiffin Date State:", date);
+    console.log("Tiffin End Date State:", endDate);
     console.log("=== End Debug ===");
-  }, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice, selectedRooms, roomsData, fullBooking, userData, tiffinService, tiffinOrder]);
+  }, [params, bookingData, existingSelectPlan, checkInDate, checkOutDate, hostelPlan, displayPrice, selectedRooms, roomsData, fullBooking, userData, tiffinService, tiffinOrder, date, endDate]);
   // Fetch token on component mount
   useEffect(() => {
     const fetchToken = async () => {
@@ -322,27 +350,47 @@ export default function ContinueSubscriptionScreen() {
       setDisplayPrice(planPrice);
     }
   }, [existingSelectPlan, plan, planPrice, serviceType]);
-  // Set check-in and check-out dates from booking data, params, or fullBooking if available
+  // Set check-in date as one day after check-out date from source/params (for continue flow)
   useEffect(() => {
-    let sourceCheckIn = null;
     let sourceCheckOut = null;
     if (fullBooking) {
-      sourceCheckIn = fullBooking.checkInDate;
       sourceCheckOut = fullBooking.checkOutDate;
     } else if (bookingData) {
-      sourceCheckIn = bookingData.checkInDate;
       sourceCheckOut = bookingData.checkOutDate;
     } else {
-      sourceCheckIn = checkInDateParam;
       sourceCheckOut = checkOutDateParam;
     }
-    if (sourceCheckIn && !isNaN(Date.parse(sourceCheckIn))) {
-      setCheckInDate(new Date(sourceCheckIn));
+    const parsedSourceCheckOut = parseCustomDate(sourceCheckOut);
+    if (parsedSourceCheckOut) {
+      const newCheckInDate = new Date(parsedSourceCheckOut);
+      newCheckInDate.setDate(parsedSourceCheckOut.getDate() + 1);
+      newCheckInDate.setHours(0, 0, 0, 0);
+      setCheckInDate(newCheckInDate);
+      console.log("Set check-in date for hostel:", newCheckInDate.toLocaleDateString("en-GB"));
+    } else {
+      console.warn("Failed to parse source check-out date for hostel:", sourceCheckOut);
     }
-    if (sourceCheckOut && !isNaN(Date.parse(sourceCheckOut))) {
-      setCheckOutDate(new Date(sourceCheckOut));
+  }, [bookingData, fullBooking, checkOutDateParam]);
+  // Set start date for tiffin as one day after check-out date from source/params (for continue flow)
+  useEffect(() => {
+    if (serviceType !== "tiffin") return;
+    let sourceCheckOut = null;
+    if (bookingData) {
+      sourceCheckOut = bookingData.checkOutDate;
+    } else {
+      sourceCheckOut = checkOutDateParam;
     }
-  }, [bookingData, fullBooking, checkInDateParam, checkOutDateParam]);
+    const parsedSourceCheckOut = parseCustomDate(sourceCheckOut);
+    if (parsedSourceCheckOut && !date) {
+      const newDate = new Date(parsedSourceCheckOut);
+      newDate.setDate(parsedSourceCheckOut.getDate() + 1);
+      newDate.setHours(0, 0, 0, 0);
+      setDate(newDate);
+      console.log("Set start date for tiffin:", newDate.toLocaleDateString("en-GB"));
+    } else {
+      console.warn("Failed to parse source check-out date for tiffin:", sourceCheckOut);
+    }
+  }, [serviceType, bookingData, checkOutDateParam, date]);
   // Set selected rooms from fullBooking, booking data, or params if available (for continue mode)
   useEffect(() => {
     let sourceRooms: any[] | null = null;
@@ -385,7 +433,7 @@ export default function ContinueSubscriptionScreen() {
           daysToAdd = 7;
           break;
         case 'monthly':
-          daysToAdd = 30;
+          daysToAdd = 29;
           break;
         case 'quarterly':
           daysToAdd = 90;
@@ -466,6 +514,8 @@ export default function ContinueSubscriptionScreen() {
   // NEW: Fetch existing tiffin order details for pre-filling form
   useEffect(() => {
     const fetchTiffinOrderDetails = async () => {
+      const orderTypeParam = (params.orderType as string) || "Delivery";
+      const normalizedOrderType = orderTypeParam.toLowerCase().replace(/\s/g, '') === "delivery" ? "delivery" : "dining";
       if (serviceType === "tiffin" && token && orderId) {
         try {
           const response = await axios.get(
@@ -482,26 +532,35 @@ export default function ContinueSubscriptionScreen() {
             setTiffinOrder(orderData);
             // Pre-fill states
             setSelectedfood(normalizeFoodType(orderData.foodType || params.foodType || "Both Veg & Non-Veg"));
-            const orderTypeStr = orderData.orderType || "Delivery";
+            const orderTypeStr = orderData.orderType || orderTypeParam;
             setOrderType(orderTypeStr.toLowerCase() === "delivery" ? "delivery" : "dining");
-            // Dates
-            if (orderData.startDate) {
-              setDate(new Date(orderData.startDate));
+            // Dates: For continue, set start date as one day after previous end date
+            let startDateSet = false;
+            const endDateParsed = parseCustomDate(orderData.endDate);
+            if (endDateParsed && !date) {
+              const newDate = new Date(endDateParsed);
+              newDate.setDate(endDateParsed.getDate() + 1);
+              newDate.setHours(0, 0, 0, 0);
+              setDate(newDate);
+              console.log("Set date for tiffin from order endDate +1:", newDate.toLocaleDateString("en-GB"));
+              startDateSet = true;
             }
-            if (orderData.endDate) {
-              setEndDate(new Date(orderData.endDate));
-            }
-            // For subscription type, calculate from dates
-            if (orderData.startDate && orderData.endDate) {
-              const diffTime = new Date(orderData.endDate).getTime() - new Date(orderData.startDate).getTime();
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              if (diffDays === 7 || Math.abs(diffDays - 7) < 2) {
-                setTiffinPlan("weekly");
-              } else if (diffDays === 30 || Math.abs(diffDays - 30) < 5) {
-                setTiffinPlan("monthly");
-              } else {
-                setTiffinPlan("monthly"); // default
+            // Fallback to params checkOutDate +1 if no order endDate
+            if (!startDateSet && checkOutDateParam && !date) {
+              const checkOutParsed = parseCustomDate(checkOutDateParam);
+              if (checkOutParsed) {
+                const newDate = new Date(checkOutParsed);
+                newDate.setDate(checkOutParsed.getDate() + 1);
+                newDate.setHours(0, 0, 0, 0);
+                setDate(newDate);
+                console.log("Set date for tiffin from params checkOutDate +1:", newDate.toLocaleDateString("en-GB"));
               }
+            }
+            // For subscription type, use from orderData or params (not diffDays of old dates)
+            if (orderData.subscribtionType) {
+              setTiffinPlan(orderData.subscribtionType.subscribtion || "monthly");
+            } else if ((params.plan as string)) {
+              setTiffinPlan(params.plan as string);
             }
             // Price
             if (orderData.price) {
@@ -515,25 +574,71 @@ export default function ContinueSubscriptionScreen() {
             // Fallback: Use params if fetch fails (normalize full to short)
             console.warn("Order fetch failed, using params fallback");
             setSelectedfood(normalizeFoodType(params.foodType as string || "Both Veg & Non-Veg"));
-            if (params.checkInDate) setDate(new Date(params.checkInDate as string));
-            if (params.checkOutDate) setEndDate(new Date(params.checkOutDate as string));
+            setOrderType(normalizedOrderType);
+            // Set plan from params
+            if ((params.plan as string)) {
+              setTiffinPlan(params.plan as string);
+            }
+            // Fallback date from params checkOutDate +1
+            if (checkOutDateParam && !date) {
+              const checkOutParsed = parseCustomDate(checkOutDateParam);
+              if (checkOutParsed) {
+                const newDate = new Date(checkOutParsed);
+                newDate.setDate(checkOutParsed.getDate() + 1);
+                newDate.setHours(0, 0, 0, 0);
+                setDate(newDate);
+                console.log("Set date for tiffin from params checkOutDate +1 (fetch failed):", newDate.toLocaleDateString("en-GB"));
+              }
+            }
           }
         } catch (error) {
           console.error("Error fetching tiffin order details:", error);
           // Fallback to params on error
           setSelectedfood(normalizeFoodType(params.foodType as string || "Both Veg & Non-Veg"));
+          setOrderType(normalizedOrderType);
+          // Set plan from params
+          if ((params.plan as string)) {
+            setTiffinPlan(params.plan as string);
+          }
+          // Fallback date from params checkOutDate +1
+          if (checkOutDateParam && !date) {
+            const checkOutParsed = parseCustomDate(checkOutDateParam);
+            if (checkOutParsed) {
+              const newDate = new Date(checkOutParsed);
+              newDate.setDate(checkOutParsed.getDate() + 1);
+              newDate.setHours(0, 0, 0, 0);
+              setDate(newDate);
+              console.log("Set date for tiffin from params checkOutDate +1 (fetch error):", newDate.toLocaleDateString("en-GB"));
+            }
+          }
         }
       } else {
-        // No orderId: Pure fallback to params
+        // No orderId: Pure fallback to params (for new booking flow)
         setSelectedfood(normalizeFoodType(params.foodType as string || "Both Veg & Non-Veg"));
+        setOrderType(normalizedOrderType);
+        // For new: set date to checkInDateParam
+        const checkInParsed = parseCustomDate(checkInDateParam);
+        if (checkInParsed && !date) {
+          setDate(checkInParsed);
+          console.log("Set date for tiffin new booking from checkInParam:", checkInParsed.toLocaleDateString("en-GB"));
+        }
+        const checkOutParsedForEnd = parseCustomDate(checkOutDateParam);
+        if (checkOutParsedForEnd && !endDate) {
+          setEndDate(checkOutParsedForEnd);
+          console.log("Set endDate for tiffin new booking from checkOutParam:", checkOutParsedForEnd.toLocaleDateString("en-GB"));
+        }
+        // Set plan from params
+        if ((params.plan as string)) {
+          setTiffinPlan(params.plan as string);
+        }
       }
     };
     fetchTiffinOrderDetails();
-  }, [serviceType, token, orderId, params.foodType, params.checkInDate, params.checkOutDate]);
+  }, [serviceType, token, orderId, params.foodType, checkOutDateParam, checkInDateParam, params.plan, params.orderType, date, endDate]); // Updated deps
   // Match and set selected meal package once order and service are loaded
   useEffect(() => {
-    if (tiffinOrder && tiffinService && mealPackages.length > 0) {
-      const orderPlanType = tiffinOrder.planType || (params.plan as string) || ""; // Fallback to params
+    if (tiffinService && mealPackages.length > 0) {
+      let orderPlanType = tiffinOrder?.planType || (params.plan as string) || "";
       // IMPROVED: Exact match first, then partial
       let matchingPkg = mealPackages.find(pkg =>
         pkg.planType.toLowerCase() === orderPlanType.toLowerCase() // Exact
@@ -550,42 +655,70 @@ export default function ContinueSubscriptionScreen() {
         console.log(`Matched package for planType "${orderPlanType}":`, matchingPkg.planType);
       } else {
         console.warn(`No matching package for order/params planType: "${orderPlanType}"`);
-        // Fallback: Use params.plan if available
-        const paramMatching = mealPackages.find(pkg =>
-          pkg.planType.toLowerCase().includes((params.plan as string || '').toLowerCase())
-        );
-        if (paramMatching) setSelectedMealPackage(paramMatching.id);
-        if (paramMatching) setSelectedPlanType(paramMatching.planType);
+        // Fallback: Default to first package
+        const defaultPkg = mealPackages[0];
+        if (defaultPkg) {
+          setSelectedMealPackage(defaultPkg.id);
+          setSelectedPlanType(defaultPkg.planType);
+        }
       }
     }
   }, [tiffinOrder, tiffinService, mealPackages, params.plan]);
-  // Fallback: Set dates from params if no order fetched
-  useEffect(() => {
-    if (checkInDateParam && serviceType === 'tiffin' && !date) {
-      setDate(new Date(checkInDateParam));
-    }
-    if (checkOutDateParam && serviceType === 'tiffin' && !endDate) {
-      setEndDate(new Date(checkOutDateParam));
-    }
-  }, [checkInDateParam, checkOutDateParam, serviceType, date, endDate]);
   // Handle room selection from modal (for continue mode) - Set full updated selection to support add/remove
-  const handleRoomSelection = (data: ContinueRoomSelectionData) => {
-    const updatedSelected = data.roomsData.flatMap((room) =>
-      room.beds.map((bed) => ({
+ // Handle room selection from modal (for continue mode) - Set full updated selection to support add/remove
+const handleRoomSelection = (data: ContinueRoomSelectionData) => {
+  // Cache existing names and track original order by key
+  const nameCache = new Map();
+  const existingOrder = new Map(); // key -> original index for stable order
+  selectedRooms.forEach((room, originalIndex) => {
+    const key = getBedKey(room.roomId, room.bedId, room.bedNumber);
+    if (room.name && room.name.trim() !== '') {
+      nameCache.set(key, room.name);
+    }
+    existingOrder.set(key, originalIndex);
+  });
+
+  // Build full updated list with merged names
+  const allUpdated = data.roomsData.flatMap((room) =>
+    room.beds.map((bed) => {
+      const key = getBedKey(room.roomId, bed.bedId, Number(bed.bedNumber));
+      // Merge: cached name > modal's bed.name > ''
+      const preservedName = nameCache.get(key) || bed.name || '';
+      return {
         roomNumber: room.roomNumber.toString(),
         bedNumber: Number(bed.bedNumber),
         roomId: room.roomId,
         bedId: bed.bedId,
-        name: bed.name || '',
-      }))
-    );
-    // Set first bed name if not set
-    if (updatedSelected.length > 0 && (!updatedSelected[0].name || updatedSelected[0].name.trim() === '')) {
-      updatedSelected[0].name = fullName || userData?.name || bookingData?.fullName || '';
+        name: preservedName,
+        tempKey: key, // Temp for sorting
+      };
+    })
+  );
+
+  // Split into existing (preserve original order) and new
+  const existingBeds = [];
+  const newBeds = [];
+  allUpdated.forEach((bed) => {
+    const originalIndex = existingOrder.get(bed.tempKey);
+    if (originalIndex !== undefined) {
+      existingBeds[originalIndex] = { ...bed, tempKey: undefined }; // Place in original slot
+    } else {
+      newBeds.push({ ...bed, tempKey: undefined });
     }
-    setSelectedRooms(updatedSelected); // Set full updated list (supports deselection/removal)
-    console.log("Updated selected rooms from modal:", updatedSelected); // Debug
-  };
+  });
+
+  // Filter out undefined slots and append new
+  const orderedExisting = existingBeds.filter(Boolean);
+  const finalUpdated = [...orderedExisting, ...newBeds];
+
+  // Existing fallback for primary guest (first bed)
+  if (finalUpdated.length > 0 && (!finalUpdated[0].name || finalUpdated[0].name.trim() === '')) {
+    finalUpdated[0].name = fullName || userData?.name || bookingData?.fullName || '';
+  }
+
+  setSelectedRooms(finalUpdated); // Set full updated list (supports deselection/removal)
+  console.log("Updated selected rooms from modal (existing first, new appended):", finalUpdated); // Debug
+};
   const fetchHostelPlanTypes = async () => {
     if (!token) return;
     setIsFetchingHostelPlans(true);
@@ -733,8 +866,8 @@ export default function ContinueSubscriptionScreen() {
         else foodTypeStr = selectedfood;
       }
       const chooseOrderTypeStr = orderType.charAt(0).toUpperCase() + orderType.slice(1);
-      const dateStr = date.toISOString().split("T")[0];
-      const endDateStr = endDate ? endDate.toISOString().split("T")[0] : dateStr;
+      const dateStr = formatLocalDate(date);
+      const endDateStr = endDate ? formatLocalDate(endDate) : dateStr;
       const payload: any = {
         deliveryInstructions: deliveryInstructions || "",
         chooseOrderType: chooseOrderTypeStr,
@@ -895,8 +1028,8 @@ export default function ContinueSubscriptionScreen() {
     const removeRooms = groupByRoom(removeBeds);
     // 🧾 Final Request Body (no mergedRooms now)
     const requestBody = {
-      checkInDate: checkInDate.toISOString().split("T")[0],
-      checkOutDate: checkOutDate.toISOString().split("T")[0],
+      checkInDate: formatLocalDate(checkInDate),
+      checkOutDate: formatLocalDate(checkOutDate),
       addRooms, // current final selection (includes old + new, excluding removed)
     };
     if (removeRooms.length > 0) requestBody.removeRooms = removeRooms;
@@ -1039,9 +1172,9 @@ export default function ContinueSubscriptionScreen() {
     if (date && ["weekly", "monthly"].includes(tiffinPlan)) {
       let daysToAdd = 0;
       if (tiffinPlan === "weekly") {
-        daysToAdd = 7;
+        daysToAdd = 6; // FIXED: Add 6 days to end on the 7th day (e.g., start=1, end=7)
       } else if (tiffinPlan === "monthly") {
-        daysToAdd = 30;
+        daysToAdd = 29; // FIXED: Add 29 days to end on the 30th day (e.g., start=1, end=30)
       }
       const newEndDate = new Date(date);
       newEndDate.setDate(newEndDate.getDate() + daysToAdd);
@@ -1317,6 +1450,7 @@ export default function ContinueSubscriptionScreen() {
           <TextInput
             style={[styles.input, { height: 80 }]}
             placeholder="Enter any special instructions (e.g., Call before delivery)"
+            placeholderTextColor="#000"
             multiline
             value={deliveryInstructions}
             onChangeText={setDeliveryInstructions}
@@ -1465,8 +1599,8 @@ export default function ContinueSubscriptionScreen() {
         showBackButton={true}
       />
       {/* Main Content */}
-      <KeyboardAvoidingView 
-        style={styles.content} 
+      <KeyboardAvoidingView
+        style={styles.content}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >

@@ -1,3 +1,4 @@
+// Updated VerifyScreen.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -15,10 +16,11 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  NativeSyntheticEvent,
+  TextInputKeyPressEventData,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/store/authStore";
-import CustomButton from "../../components/CustomButton";
 import Logo from "../../components/Logo";
 import colors from "../../constants/colors";
 import axios from "axios";
@@ -28,15 +30,16 @@ import CustomToast from "../../components/CustomToast";
 const { height } = Dimensions.get("window");
 
 export default function VerifyScreen() {
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const DIGITS = 4;
+  const [otp, setOtp] = useState<string[]>(Array(DIGITS).fill(""));
   const inputRefs = useRef<TextInput[]>([]);
   const { login } = useAuthStore();
-  const { phoneNumber, dialCode } = useLocalSearchParams();
+  const { phoneNumber, dialCode, otpCode } = useLocalSearchParams();
   const [timer, setTimer] = useState(30);
   const [isResendDisabled, setIsResendDisabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // ✅ Keyboard fix
+  // Keyboard fix
   const scrollRef = useRef<ScrollView>(null);
   useEffect(() => {
     const keyboardHideListener = Keyboard.addListener("keyboardDidHide", () => {
@@ -63,31 +66,132 @@ export default function VerifyScreen() {
     return () => clearInterval(interval);
   }, [isResendDisabled]);
 
+  // Auto-fill OTP on screen load if passed from login
+  useEffect(() => {
+    if (otpCode && typeof otpCode === 'string') {
+      const otpArray = otpCode.split('').slice(0, DIGITS).concat(Array(DIGITS).fill('').slice(otpCode.length));
+      setOtp(otpArray);
+      // Optional: First empty input pe focus karo (agar partial OTP ho)
+      const firstEmptyIndex = otpArray.findIndex(digit => digit === '');
+      if (firstEmptyIndex !== -1 && firstEmptyIndex < DIGITS) {
+        setTimeout(() => inputRefs.current[firstEmptyIndex]?.focus(), 100);
+      }
+      // Auto-trigger verify if full after a short delay
+      setTimeout(() => {
+        const candidate = getSanitizedOtp(otpArray);
+        if (candidate.length === DIGITS && !loading) {
+          triggerVerify(candidate);
+        }
+      }, 200);
+    }
+  }, [otpCode]);
+
+  // Helper to sanitize and join OTP
+  const getSanitizedOtp = (arr: string[]) =>
+    arr.join("").replace(/\D/g, "").slice(0, DIGITS);
+
+  // Main change handler supporting single char type and multi-char paste
   const handleOtpChange = (value: string, index: number) => {
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-    if (value && index < 3) inputRefs.current[index + 1]?.focus();
-    if (!value && index > 0) inputRefs.current[index - 1]?.focus();
+    // keep only digits
+    const digitsOnly = value.replace(/\D/g, "");
+    // clone current otp
+    const next = [...otp];
+
+    if (digitsOnly.length === 0) {
+      // user cleared field
+      next[index] = "";
+      setOtp(next);
+      // move focus to previous if empty
+      if (index > 0) inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (digitsOnly.length === 1) {
+      // normal single-digit input
+      next[index] = digitsOnly;
+      setOtp(next);
+      // focus next if exists
+      if (index < DIGITS - 1) {
+        inputRefs.current[index + 1]?.focus();
+      }
+    } else {
+      // user pasted multiple chars — distribute starting from current index
+      let i = index;
+      for (const ch of digitsOnly) {
+        if (i >= DIGITS) break;
+        next[i] = ch;
+        i++;
+      }
+      setOtp(next);
+      // focus the next empty or last input
+      const firstEmpty = next.findIndex((d) => d === "");
+      const focusIdx = firstEmpty === -1 ? DIGITS - 1 : firstEmpty;
+      setTimeout(() => inputRefs.current[focusIdx]?.focus(), 50);
+    }
+
+    // After updating state, compute sanitized OTP from the "next" array and verify if full.
+    // (We use the local next array to avoid waiting for state to commit)
+    const candidate = getSanitizedOtp(next);
+
+    if (candidate.length === DIGITS) {
+      // small delay so UI shows last digit before verifying
+      setTimeout(() => {
+        triggerVerify(candidate);
+      }, 80);
+    }
   };
 
-  const handleVerifyOTP = async () => {
-    if (loading) return;
+  // handle backspace to move focus left when empty
+  const handleKeyPress = (
+    e: NativeSyntheticEvent<TextInputKeyPressEventData>,
+    idx: number
+  ) => {
+    if (e.nativeEvent.key === "Backspace") {
+      if (otp[idx] === "" && idx > 0) {
+        inputRefs.current[idx - 1]?.focus();
+        const newOtp = [...otp];
+        newOtp[idx - 1] = "";
+        setOtp(newOtp);
+      } else {
+        // clear current cell (this will be handled by onChangeText as well)
+        const newOtp = [...otp];
+        newOtp[idx] = "";
+        setOtp(newOtp);
+      }
+    }
+  };
 
-    Keyboard.dismiss();
-    const otpCode = otp.join("");
-    if (otpCode.length !== 4) {
+  const triggerVerify = async (sanitizedOtp?: string) => {
+    // If sanitizedOtp provided use that, else build from state
+    const otpCode = sanitizedOtp ?? getSanitizedOtp(otp);
+    if (otpCode.length !== DIGITS) {
       Toast.show({
         type: "error",
         text1: "Invalid OTP",
-        text2: "Please enter a 4-digit OTP.",
+        text2: `Please enter a ${DIGITS}-digit OTP.`,
+      });
+      return;
+    }
+    await handleVerifyOTP(otpCode);
+  };
+
+  const handleVerifyOTP = async (otpCodeParam?: string) => {
+    if (loading) return;
+
+    Keyboard.dismiss();
+    const otpCode = (otpCodeParam ?? getSanitizedOtp(otp)).trim();
+    if (otpCode.length !== DIGITS) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid OTP",
+        text2: `Please enter a ${DIGITS}-digit OTP.`,
       });
       return;
     }
 
     setLoading(true);
     try {
-      const formattedPhoneNumber = `${dialCode} ${phoneNumber}`;
+      const formattedPhoneNumber = `${dialCode}${phoneNumber}`;
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/verify-otp",
         { phoneNumber: formattedPhoneNumber, otp: otpCode }
@@ -95,13 +199,15 @@ export default function VerifyScreen() {
 
       if (response.data.success) {
         const token = response.data.token;
-        const guest = response.data.data.guest;
+        const data = response.data.data;
+        const guest = data.guest;
         const guestId = guest._id;
+        const newUser = data.newUser;
 
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("guestId", guestId);
         await AsyncStorage.setItem("userProfile", JSON.stringify({ guest }));
-        login(response.data.data, token);
+        login(data, token);
 
         Toast.show({
           type: "success",
@@ -110,8 +216,12 @@ export default function VerifyScreen() {
         });
 
         setTimeout(() => {
-          router.replace("/(secure)/(tabs)");
-        }, 2000);
+          if (newUser) {
+            router.replace('/(auth)/PersonalDetailsScreen');
+          } else {
+            router.replace('/(secure)/(tabs)');
+          }
+        }, 1200);
       } else {
         Toast.show({
           type: "error",
@@ -134,26 +244,44 @@ export default function VerifyScreen() {
     if (isResendDisabled) return;
 
     try {
-      const formattedPhoneNumber = `${dialCode} ${phoneNumber}`;
       const response = await axios.post(
         "https://tifstay-project-be.onrender.com/api/guest/login",
-        { phoneNumber: formattedPhoneNumber }
+        { 
+          phoneNumber,
+          countryCode: dialCode
+        }
       );
 
       if (response.data.success) {
-        const otpCode = response.data.data?.guest?.otpCode;
+        const newOtpCode = response.data.otp || response.data.user?.otpCode;
 
         Toast.show({
           type: "success",
           text1: "OTP Resent Successfully",
-          text2: otpCode
-            ? `Your new OTP is ${otpCode}`
+          text2: newOtpCode
+            ? `Your new OTP is ${newOtpCode}`
             : "A new OTP has been sent to your number.",
         });
 
-        setOtp(["", "", "", ""]);
+        // Auto-fill new OTP if available
+        const otpArray = newOtpCode ? newOtpCode.split('').slice(0, DIGITS) : Array(DIGITS).fill("");
+        setOtp(otpArray);
+
         setTimer(30);
         setIsResendDisabled(true);
+        // focus first input after resend
+        setTimeout(() => {
+          const firstEmptyIndex = otpArray.findIndex(digit => digit === '');
+          const focusIndex = firstEmptyIndex !== -1 ? firstEmptyIndex : 0;
+          inputRefs.current[focusIndex]?.focus();
+        }, 100);
+        // Auto-trigger verify if full after a short delay
+        setTimeout(() => {
+          const candidate = getSanitizedOtp(otpArray);
+          if (candidate.length === DIGITS && !loading) {
+            triggerVerify(candidate);
+          }
+        }, 200);
       } else {
         Toast.show({
           type: "error",
@@ -199,7 +327,7 @@ export default function VerifyScreen() {
               <Logo showText={false} />
               <Text style={styles.title}>Verify Your OTP</Text>
               <Text style={styles.subtitle}>
-                Enter the 4-digit code sent to your number
+                Enter the {DIGITS}-digit code sent to your number
               </Text>
 
               <View style={styles.otpContainer}>
@@ -212,9 +340,11 @@ export default function VerifyScreen() {
                     style={styles.otpInput}
                     value={digit}
                     onChangeText={(value) => handleOtpChange(value, index)}
-                    keyboardType="numeric"
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    keyboardType="number-pad"
                     maxLength={1}
                     selectTextOnFocus
+                    returnKeyType="done"
                   />
                 ))}
               </View>
@@ -232,7 +362,7 @@ export default function VerifyScreen() {
 
               <TouchableOpacity
                 style={[styles.verifyButton, { opacity: loading ? 0.7 : 1 }]}
-                onPress={handleVerifyOTP}
+                onPress={() => triggerVerify()}
                 disabled={loading}
               >
                 {loading ? (
