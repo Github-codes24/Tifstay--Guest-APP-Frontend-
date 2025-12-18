@@ -16,7 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
-import RoomSelectionModal from "@/components/modals/RoomSelectionModal"; // Adjust path as needed
+import RoomSelectionModal from "@/components/modals/RoomSelectionModal"; 
 
 const fetchPendingTiffin = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -399,8 +399,6 @@ const CartScreen = () => {
     </SafeAreaView>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f7f4f4" },

@@ -28,6 +28,7 @@ import ShareModal from "./modals/ShareModal";
 import Header from "../components/Header";
 import RoomSelectionModal from "./modals/RoomSelectionModal";
 import { useFavorites } from "@/context/FavoritesContext"; // Fixed path
+import { theme } from "@/constants/utils";
 const { width } = Dimensions.get("window");
 
 export default function ProductDetails() {
@@ -578,7 +579,8 @@ export default function ProductDetails() {
   // Early return if data not ready
   if (!mappedData) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView>
+        <View style={[styles.container,{marginTop:theme.verticalSpacing.space_20}]}>
         <Header
           title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
           backIconName="chevron-back"
@@ -588,17 +590,22 @@ export default function ProductDetails() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 10 }}>Loading details...</Text>
         </View>
+        </View>
       </SafeAreaView>
     );
   }
 
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
+    <SafeAreaView>
+      <View style={{flex:1,marginTop:theme.verticalSpacing.space_20}}>
     <Header
       title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
       backIconName="chevron-back"
       onBack={() => router.back()}
     />
+    </View>
+    </SafeAreaView>
   );
 
   // ==================== IMAGE CAROUSEL SECTION ====================
@@ -673,7 +680,7 @@ export default function ProductDetails() {
           </View>
           <View style={styles.locationTag}>
             <Ionicons name="location-outline" size={16} color="#666" />
-            <Text style={styles.locationTagText}>{mappedData.location}</Text>
+            <Text style={styles.locationTagText}>{mappedData?.location}</Text>
           </View>
         </View>
       )}
@@ -1377,7 +1384,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   greenTag: {
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "orange",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -1386,7 +1393,7 @@ const styles = StyleSheet.create({
   },
   greenTagText: {
     fontSize: 12,
-    color: "#2E7D32",
+    color: "#666",
     fontWeight: "500",
   },
   redTag: {

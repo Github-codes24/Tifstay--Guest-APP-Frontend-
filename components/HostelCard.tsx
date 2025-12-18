@@ -3,6 +3,7 @@ import { Dimensions, Image, Platform, StyleSheet, Text, TouchableOpacity, View }
 import { Ionicons } from "@expo/vector-icons";
 import colors from "@/constants/colors"; // तुम्हारा colors import
 import { useFavorites } from "@/context/FavoritesContext";
+import { theme } from "@/constants/utils";
 // import hostel1 from "@/assets/images/image/hostelBanner.png"; // तुम्हारा fallback
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -125,7 +126,7 @@ function normalizeSubLocation(subLocation: any) : string {
 }
 
 
-  const totalBeds = (hostel?.availableBeds || 0) + (hostel?.occupiedBeds || 0); // नया: total calc
+  const totalBeds = (hostel?.availableBeds || 0) + (hostel?.occupiedBeds || 0); 
 
   const displayAmenities = (hostel.amenities ?? []).slice(0, MAX_AMENITIES); // पुराना UI logic
   const remainingAmenities = Math.max(0, (hostel.amenities ?? []).length - MAX_AMENITIES);
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#F3F4F6", // तुम्हारा border same
+    borderColor: "#F3F4F6", 
   },
   horizontalCard: {
     width: "100%",
@@ -488,8 +489,8 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
   },
   price: {
-    fontSize: FONT_SIZES.price,
-    fontWeight: "800",
+    fontSize:theme.fontSizes.size_18,
+    fontWeight: "700",
     color: colors.primary || "#2563EB",
     letterSpacing: -0.5,
   },

@@ -6,6 +6,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import vegIcon from "@/assets/images/icons/vegIcon.png"; // तुम्हारे icons same
 import nonVegIcon from "@/assets/images/icons/non_vegIcon.png";
 import bothIcon from "@/assets/images/icons/BothIcon.png";
+import { theme } from "@/constants/utils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -234,7 +235,7 @@ export default function TiffinCard({
               <Text style={styles.oldPrice}>{service.oldPrice}</Text>
             )} */}
             {service?.lowestPrice && ( // extra for up to
-              <Text style={[styles.price, { fontSize: 21 }]}>From ₹{formattedLowestPrice}/-</Text>
+              <Text style={[styles.price]}>From ₹{formattedLowestPrice}/-</Text>
             )}
           </View>
           <TouchableOpacity
@@ -447,8 +448,8 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
   },
   price: {
-    fontSize: FONT_SIZES.price,
-    fontWeight: "800",
+    fontSize:theme.fontSizes.size_18,
+    fontWeight: "700",
     color: colors.primary || "#2563EB",
     letterSpacing: -0.5,
   },
