@@ -19,6 +19,7 @@ import Button from "@/components/Buttons";
 import Header from "@/components/Header";
 import { useAuthStore } from "@/store/authStore";
 import fallbackDp from "@/assets/images/fallbackdp.png";
+import { theme } from "@/constants/utils";
 
 interface SkippedMeal {
   date: string;
@@ -580,6 +581,7 @@ export default function TiffinOrderDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{flex:1}}>
       <View style={styles.headerWrapper}>
         <View style={styles.headerLeft}>
           <Header title="Order Details" />
@@ -682,12 +684,14 @@ export default function TiffinOrderDetails() {
 
       {renderSkipModal()}
       {renderOfflineModal()}
+
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff" },
+  container: {flex:1, backgroundColor: "#ffffff" },
   headerWrapper: { flexDirection: "column", alignItems: "center", paddingHorizontal: 26 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   profileButton: { marginRight: 16 },

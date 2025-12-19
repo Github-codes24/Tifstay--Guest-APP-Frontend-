@@ -219,6 +219,8 @@ const Booking: React.FC = () => {
   // Full details modal state
   const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
   const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
+
+  console.log('detailsOrder',detailsOrder)
   const { profileData, fetchProfile } = useAuthStore();
   const { width: screenWidth } = useWindowDimensions(); // Added for dynamic button width
 
@@ -752,7 +754,7 @@ const Booking: React.FC = () => {
         <View style={styles.orderHeader}>
           <Text style={styles.bookingId}>
             {order.serviceType === "hostel"
-              ? `Booking #${order.bookingId}` // UPDATED: Show booking ID for hostel as well
+              ? `Booking #${order.bookingId}` 
               : `Booking #${order.bookingId}`}
           </Text>
           <View
@@ -1281,6 +1283,8 @@ const Booking: React.FC = () => {
                 </View>
                 {detailsOrder.serviceType === "tiffin" ? (
                   <>
+                  
+                  
                     <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Guest</Text>
                       <Text style={styles.modalValue}>{detailsOrder.guestName || detailsOrder.customer || "You"}</Text>
@@ -1312,6 +1316,10 @@ const Booking: React.FC = () => {
                   </>
                 ) : (
                   <>
+                  <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Price</Text>
+                      <Text style={styles.modalValue}>{detailsOrder?.price ||  "N/A"}</Text>
+                    </View>
                     <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Customer</Text>
                       <Text style={styles.modalValue}>{detailsOrder.customer || "N/A"}</Text>

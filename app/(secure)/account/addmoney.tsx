@@ -88,6 +88,7 @@ export default function AddMoneyScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={{flex:1}}> 
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={16} color="#000" />
@@ -173,6 +174,7 @@ export default function AddMoneyScreen() {
             <Text style={styles.primaryBtnText}>Add Money</Text>
           )}
         </Pressable>
+      </View>
       </View>
     </SafeAreaView>
   );

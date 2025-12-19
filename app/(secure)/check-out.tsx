@@ -91,26 +91,26 @@ const Checkout: React.FC = () => {
   const parsedUserData = userDataStr ? JSON.parse(userDataStr as string) : {};
 
   // Log received params explicitly (updated to include 'type')
-  console.log("=== Received Params in Checkout ===");
-  console.log("serviceType:", serviceType);
-  console.log("type (new):", type); // NEW: Log the new param
-  console.log("effectiveServiceType:", effectiveServiceType); // NEW: Log the merged value
-  console.log("bookingId:", bookingId);
-  console.log("serviceId:", serviceId);
-  console.log("bookingType:", bookingType);
-  console.log("checkInDate:", checkInDate);
-  console.log("checkOutDate:", checkOutDate);
-  console.log("hostelDataStr (raw):", hostelDataStr);
-  console.log("roomDataStr (raw):", roomDataStr);
-  console.log("selectedBedsStr (raw):", selectedBedsStr);
-  console.log("planStr (raw):", planStr);
-  console.log("userDataStr (raw):", userDataStr);
-  console.log("=== Parsed Data ===");
-  console.log("parsedHostelData:", parsedHostelData);
-  console.log("parsedRoomData:", parsedRoomData);
-  console.log("parsedSelectedBeds:", parsedSelectedBeds);
-  console.log("parsedPlan:", parsedPlan);
-  console.log("parsedUserData:", parsedUserData);
+  // console.log("=== Received Params in Checkout ===");
+  // console.log("serviceType:", serviceType);
+  // console.log("type (new):", type); 
+  // console.log("effectiveServiceType:", effectiveServiceType); 
+  // console.log("bookingId:", bookingId);
+  // console.log("serviceId:", serviceId);
+  // console.log("bookingType:", bookingType);
+  // console.log("checkInDate:", checkInDate);
+  // console.log("checkOutDate:", checkOutDate);
+  // console.log("hostelDataStr (raw):", hostelDataStr);
+  // console.log("roomDataStr (raw):", roomDataStr);
+  // console.log("selectedBedsStr (raw):", selectedBedsStr);
+  // console.log("planStr (raw):", planStr);
+  // console.log("userDataStr (raw):", userDataStr);
+  // console.log("=== Parsed Data ===");
+  // console.log("parsedHostelData:", parsedHostelData);
+  // console.log("parsedRoomData:", parsedRoomData);
+  // console.log("parsedSelectedBeds:", parsedSelectedBeds);
+  // console.log("parsedPlan:", parsedPlan);
+  // console.log("parsedUserData:", parsedUserData);
   // Log dynamic params for debugging - unchanged, preserves all previous params
   console.log("Dynamic Checkout Params:", {
     effectiveServiceType, // UPDATED: Use effective
@@ -204,6 +204,9 @@ const Checkout: React.FC = () => {
   console.log("Constructed hostelData:", hostelData);
 
   const checkoutData = isTiffin ? tiffinData : hostelData;
+  console.log('checkoutData098',checkoutData)
+
+
   console.log("Service ID from BookingScreen:", serviceId);
   console.log("Full checkoutData ID :", checkoutData.id);
 
@@ -288,7 +291,7 @@ const Checkout: React.FC = () => {
       months = Math.max(1, (checkOutDateObj.getFullYear() - checkInDateObj.getFullYear()) * 12 + (checkOutDateObj.getMonth() - checkInDateObj.getMonth()));
     }
     const totalRent = planPrice * months;
-    const total = totalRent; // FIXED: Exclude deposit, only total rent
+    const total = totalRent;
     console.log("🛏️ HOSTEL SIMPLE BREAKDOWN:", {
       rawPlanPrice,
       rawDeposit,
@@ -490,6 +493,10 @@ const Checkout: React.FC = () => {
         );
         if (response.data?.success) {
           const details = response.data.data;
+
+          console.log('details98767890',details)
+
+          
           setTiffinOrderDetails(details);
           console.log("Fetched tiffin booking details:", details);
           console.log("Key Check - startDate:", details.startDate, "planType:", details.planType);
@@ -585,19 +592,10 @@ const Checkout: React.FC = () => {
     }, [])
   );
 
-  // FIXED: Adjust paymentAmount to exclude deposit from finalPricing (workaround for backend including it)
-  // Use transaction.deposit as primary source for deposit amount
-  // FIXED: No subtraction needed—API finalPrice is rent-only (excludes deposit)
-  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0; // Keep for modal display
-  const adjustedFinalPrice = finalPricing?.finalPrice ?? null; // Direct use of rent-only finalPrice
+  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0; 
+  const adjustedFinalPrice = finalPricing?.finalPrice ?? null; 
   const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
-  console.log("=== PAYMENT CALC DEBUG ===");
-  console.log("transaction.net/total:", transaction?.net ?? transaction?.total ?? 0);
-  console.log("finalPricing.finalPrice (raw):", finalPricing?.finalPrice ?? 0);
-  console.log("depositAmount (subtracted):", depositAmount);
-  console.log("adjustedFinalPrice:", adjustedFinalPrice);
-  console.log("Final paymentAmount (rent-only):", paymentAmount);
-  console.log("=============================");
+
 
   // Fetch all coupons - UPDATED: Support both hostel and tiffin APIs - UPDATED to use effectiveServiceType via isTiffin/isHostel
   const fetchCoupons = async () => {
@@ -633,7 +631,7 @@ const Checkout: React.FC = () => {
           ...(data[guestCouponsKey] || [])
         ];
         setCoupons(fetchedCoupons);
-        console.log("Fetched coupons:", fetchedCoupons); // Debug log
+        // console.log("Fetched coupons:", fetchedCoupons); // Debug log
       } else {
         setCoupons([]);
       }
@@ -849,7 +847,7 @@ const Checkout: React.FC = () => {
       const confirmationGuestName = (isHostel ? (bookingDetails?.guestName || parsedUserData.name || "Fallback Name") : (tiffinOrderDetails?.guestName || tiffinService?.guestName || parsedUserData.name || "Fallback Name"));
       const confirmationAmount = paymentAmount;
 
-      console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
+      // console.log("=== WALLET PAYMENT: Sending to Confirmation Screen ===");
       console.log("confirmationId (booking/order ID):", confirmationId);
       console.log("Full params:", { id: confirmationId, serviceType: confirmationServiceType, serviceName: confirmationServiceName, guestName: confirmationGuestName, amount: confirmationAmount, checkInDate, checkOutDate });
       console.log("========================================================");
@@ -974,7 +972,7 @@ const Checkout: React.FC = () => {
             </TouchableOpacity> */}
           </View>
           <CheckoutItemCard
-            serviceType={isTiffin ? "tiffin" : "hostel"} // UPDATED: Use isTiffin
+            serviceType={isTiffin ? "tiffin" : "hostel"} 
             data={checkoutData}
           />
         </View>
@@ -1031,13 +1029,13 @@ const Checkout: React.FC = () => {
               </View>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₹{tiffinOrderDetails?.totalAmount||''}</Text>
               </View>
             </View>
           ) : (
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>₹{paymentAmount.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>₹{tiffinOrderDetails?.totalAmount||bookingDetails?.totalPayableAmount||''}</Text>
             </View>
           )}
         </View>
@@ -1085,7 +1083,7 @@ const Checkout: React.FC = () => {
             onPress={openPaymentModal}
           >
             <Text style={styles.payButtonText}>
-              Pay ₹{paymentAmount.toFixed(2)}
+              Pay ₹{tiffinOrderDetails?.totalAmount||bookingDetails?.totalPayableAmount||''}
             </Text>
           </TouchableOpacity>
         </View>

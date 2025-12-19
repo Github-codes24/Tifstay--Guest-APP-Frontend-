@@ -13,6 +13,7 @@ export interface TiffinCheckoutData {
   orderType: string;
   price: string;
   endDate: string
+  totalAmount:string
 }
 
 export interface HostelCheckoutData {
