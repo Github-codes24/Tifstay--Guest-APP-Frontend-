@@ -102,12 +102,17 @@ const EditProfile = () => {
     }
   };
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || date;
-    setShow(Platform.OS === 'ios');
-    setDate(currentDate);
-    setDob(currentDate.toLocaleDateString('en-IN'));
-  };
+ const onDateChange = (event: any, selectedDate?: Date) => {
+  if (event.type === "dismissed") {
+    setShow(false);
+    return;
+  }
+
+  const currentDate = selectedDate!;
+  setShow(Platform.OS === "ios"); // keep picker open on iOS if needed
+  setDate(currentDate);
+  setDob(currentDate.toLocaleDateString("en-IN"));
+};
 
   const handleSave = async () => {
     if (isSaving) return;
