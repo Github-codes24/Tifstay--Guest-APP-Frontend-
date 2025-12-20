@@ -8,6 +8,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
+import { useSearchParams } from "expo-router/build/hooks";
 
 const INR = (n: number, fd = 0) =>
   new Intl.NumberFormat("en-IN", {
@@ -18,7 +19,12 @@ const INR = (n: number, fd = 0) =>
   }).format(n);
 
 export default function AddMoneyScreen() {
-  const currentBalance = 25000;
+   const params = useSearchParams();
+  const balanceParam = params.balance; 
+console.log('balanceParam098789',balanceParam)
+
+  const currentBalance = parseInt(balanceParam || "0", 10)
+  
   const [amountStr, setAmountStr] = useState<string>("0");
   const [loading, setLoading] = useState(false);
   const amount = useMemo(() => parseInt(amountStr || "0", 10) || 0, [amountStr]);

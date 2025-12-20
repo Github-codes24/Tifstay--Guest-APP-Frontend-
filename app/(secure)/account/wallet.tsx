@@ -184,9 +184,12 @@ export default function WalletScreen() {
         }
     }, [refetchWallet, refetchTransactions]);
 
-    const onAddMoney = () => {
-        router.push("/(secure)/account/addmoney");
-    };
+   const onAddMoney = () => {
+  router.push({
+    pathname: "/(secure)/account/addmoney",
+    params: { balance: balance?.toString() }
+  });
+};
 
     const onSeeAll = () => {
         router.push("/account/WalletTransactionsScreen");

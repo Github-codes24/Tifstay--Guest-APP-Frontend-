@@ -1284,7 +1284,6 @@ const Booking: React.FC = () => {
                 {detailsOrder.serviceType === "tiffin" ? (
                   <>
                   
-                  
                     <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Guest</Text>
                       <Text style={styles.modalValue}>{detailsOrder.guestName || detailsOrder.customer || "You"}</Text>

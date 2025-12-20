@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  BackHandler
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -411,13 +412,7 @@ export default function ProductDetails() {
             owner: fullApiData.owner,
             isOpenForSale: fullApiData.isOpenForSale !== undefined ? fullApiData.isOpenForSale : true,
           };
-          // Debug logs for tiffin-specific fields
-          console.log('🔍 DEBUG - whatsIncluded:', whatsIncluded);
-          console.log('🔍 DEBUG - whyChooseUs:', whyChooseUs);
-          console.log('🔍 DEBUG - servingRadius:', servingRadius);
-          console.log('🔍 DEBUG - contactInfo phone:', processedData.contactInfo.phone || 'EMPTY');
-          console.log('🔍 DEBUG - contactInfo whatsapp:', processedData.contactInfo.whatsapp || 'EMPTY');
-          console.log('🔍 DEBUG - isOpenForSale:', processedData.isOpenForSale);
+       
         }
         setMappedData(processedData);
       } catch (error) {
@@ -433,12 +428,7 @@ export default function ProductDetails() {
       setShowOfflineModal(true);
     }
   }, [mappedData, paramType]);
-
-  // Fixed: Now isFavorite is available, use mappedData
   const isFav = mappedData ? isFavorite(mappedData.id, paramType) : false;
-
-  // Inside ProductDetails component
-  // Add this helper for API calls
   const addFavoriteToBackend = async (serviceId: string, serviceType: "tiffin" | "hostel") => {
     const token = await getAuthToken();
     if (!token) {
@@ -535,6 +525,22 @@ export default function ProductDetails() {
     }
   };
 
+useEffect(() => {
+  const backAction = () => {
+    if (showRoomSelectionModal) {
+      setShowRoomSelectionModal(false);
+      return true; // ← default back ko rok deta hai
+    }
+    return false; // ← default navigation chalega
+  };
+
+  const backHandler = BackHandler.addEventListener(
+    "hardwareBackPress",
+    backAction
+  );
+
+  return () => backHandler.remove();
+}, [showRoomSelectionModal]);
   const handleShare = async (platform: string) => {
     if (!mappedData) return;
     setShowShareModal(false);
@@ -595,6 +601,8 @@ export default function ProductDetails() {
     );
   }
 
+
+  
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
     <SafeAreaView>

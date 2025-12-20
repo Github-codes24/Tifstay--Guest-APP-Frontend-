@@ -25,6 +25,7 @@ import CheckoutItemCard, {
 } from "@/components/CheckoutItemCard";
 import Header from "@/components/Header";
 import Toast from 'react-native-toast-message';
+import { theme } from "@/constants/utils";
 
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -41,6 +42,9 @@ const Checkout: React.FC = () => {
   const [bookingDetails, setBookingDetails] = useState<any | null>(null);
   const [loadingBooking, setLoadingBooking] = useState(false);
   const [tiffinOrderDetails, setTiffinOrderDetails] = useState<any | null>(null);
+
+
+  console.log('tiffinOrderDetails98765678',tiffinOrderDetails)
   const [tiffinService, setTiffinService] = useState<any | null>(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
   const [finalPricing, setFinalPricing] = useState<any | null>(null);
@@ -68,52 +72,24 @@ const Checkout: React.FC = () => {
     orderType,
     numberOfTiffin,
     fullName,
-    // NEW: Handle 'type' param as alias for serviceType (e.g., from tiffin navigation)
     type,
   } = params;
-
-  // FIXED: Prioritize 'type' if present (e.g., from direct tiffin navigation), fallback to 'serviceType'; keep all other params unchanged
   const effectiveServiceType = (type as string) || (serviceType as string);
   const isTiffin = effectiveServiceType === "tiffin";
   const isHostel = effectiveServiceType === "hostel";
-
-  // Helper to normalize values from useLocalSearchParams which may be string | string[] | undefined
   const firstParam = (val: string | string[] | undefined): string | undefined => {
     if (val === undefined) return undefined;
     return Array.isArray(val) ? val[0] : val;
   };
-
-  // Parse JSON strings if they exist (fallback to empty objects/arrays) - unchanged, preserves previous params
   const parsedHostelData = hostelDataStr ? JSON.parse(hostelDataStr as string) : {};
   const parsedRoomData = roomDataStr ? JSON.parse(roomDataStr as string) : {};
   const parsedSelectedBeds = selectedBedsStr ? JSON.parse(selectedBedsStr as string) : [];
   const parsedPlan = planStr ? JSON.parse(planStr as string) : {};
   const parsedUserData = userDataStr ? JSON.parse(userDataStr as string) : {};
 
-  // Log received params explicitly (updated to include 'type')
-  // console.log("=== Received Params in Checkout ===");
-  // console.log("serviceType:", serviceType);
-  // console.log("type (new):", type); 
-  // console.log("effectiveServiceType:", effectiveServiceType); 
-  // console.log("bookingId:", bookingId);
-  // console.log("serviceId:", serviceId);
-  // console.log("bookingType:", bookingType);
-  // console.log("checkInDate:", checkInDate);
-  // console.log("checkOutDate:", checkOutDate);
-  // console.log("hostelDataStr (raw):", hostelDataStr);
-  // console.log("roomDataStr (raw):", roomDataStr);
-  // console.log("selectedBedsStr (raw):", selectedBedsStr);
-  // console.log("planStr (raw):", planStr);
-  // console.log("userDataStr (raw):", userDataStr);
-  // console.log("=== Parsed Data ===");
-  // console.log("parsedHostelData:", parsedHostelData);
-  // console.log("parsedRoomData:", parsedRoomData);
-  // console.log("parsedSelectedBeds:", parsedSelectedBeds);
-  // console.log("parsedPlan:", parsedPlan);
-  // console.log("parsedUserData:", parsedUserData);
-  // Log dynamic params for debugging - unchanged, preserves all previous params
+
   console.log("Dynamic Checkout Params:", {
-    effectiveServiceType, // UPDATED: Use effective
+    effectiveServiceType, 
     bookingId,
     serviceId,
     parsedHostelData,
@@ -139,51 +115,99 @@ const Checkout: React.FC = () => {
   console.log("isTiffin based on effectiveServiceType:", isTiffin);
 
   // NEW: Memoized tiffinData with priority: fetched > params > service > hardcoded - UPDATED to use effectiveServiceType implicitly via isTiffin
-  const tiffinData: TiffinCheckoutData = useMemo(() => {
-    // Prioritize fetched order details
-    if (tiffinOrderDetails) {
-      return {
-        id: (firstParam(bookingId) || firstParam(serviceId) || "1"),
-        title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
-        imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-        // mealType: Array.isArray(tiffinOrderDetails.mealPreference) ? (tiffinOrderDetails.mealPreference[0] || "Lunch") : (tiffinOrderDetails.mealPreference || "Lunch"),
-        foodType: tiffinOrderDetails.foodType || "Veg",
-        startDate: tiffinOrderDetails.startDate ? new Date(tiffinOrderDetails.startDate).toLocaleDateString('en-IN') : (startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : "21/07/25"),
-        endDate: tiffinOrderDetails.endDate ? new Date(tiffinOrderDetails.endDate).toLocaleDateString('en-IN') : (endDate ? new Date(endDate as string).toLocaleDateString('en-IN') : "28/07/25"),
-        plan: tiffinOrderDetails.planType || planType || "Per meal",
-        orderType: tiffinOrderDetails.orderType || orderType || "Delivery",
-        price: `₹${(tiffinOrderDetails.price || tiffinOrderDetails.choosePlanType?.price || parseInt(firstParam(totalPrice) || '120') || 120).toFixed(0)}/meal`,
-      };
-    }
-    // Fallback to service details + params
-    if (tiffinService) {
-      return {
-        id: firstParam(serviceId) || "1",
-        title: tiffinService.tiffinName || tiffinService.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
-        imageUrl: tiffinService.image || tiffinService.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-        // mealType: firstParam(mealPreference) || "Lunch",
-        foodType: firstParam(foodType) || tiffinService.foodType || "Veg",
-        startDate: startDate ? new Date(firstParam(startDate) as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(firstParam(checkInDate) as string).toLocaleDateString('en-IN') : "21/07/25"),
-        endDate: endDate ? new Date(firstParam(endDate) as string).toLocaleDateString('en-IN') : (checkOutDate ? new Date(firstParam(checkOutDate) as string).toLocaleDateString('en-IN') : "28/07/25"),
-        plan: firstParam(planType) || "Per meal",
-        orderType: firstParam(orderType) || "Delivery",
-        price: `₹${parseInt(firstParam(totalPrice) || (tiffinService.price || '120').toString()) || 120}/meal`,
-      };
-    }
-    // Ultimate fallback with params - preserves previous params
+ const tiffinData: TiffinCheckoutData = useMemo(() => {
+  if (!tiffinOrderDetails && !tiffinService) {
+    // ultimate fallback
+    const fallbackPrice = parseInt(firstParam(totalPrice) || "120");
     return {
-      id: (firstParam(bookingId) || firstParam(serviceId) || "1"),
+      id: firstParam(bookingId) || firstParam(serviceId) || "1",
       title: "Maharashtrian Ghar Ka Khana",
       imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-      // mealType: mealPreference || "Lunch",
       foodType: foodType || "Veg",
-      startDate: startDate ? new Date(startDate as string).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "21/07/25"),
-      endDate: endDate ? new Date(endDate as string).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "28/07/25"),
+      startDate: startDate
+        ? new Date(startDate as string).toLocaleDateString("en-IN")
+        : checkInDate
+        ? new Date(checkInDate as string).toLocaleDateString("en-IN")
+        : "21/07/25",
+      endDate: endDate
+        ? new Date(endDate as string).toLocaleDateString("en-IN")
+        : checkOutDate
+        ? new Date(checkOutDate as string).toLocaleDateString("en-IN")
+        : "28/07/25",
       plan: planType || "Per meal",
       orderType: orderType || "Delivery",
-      price: `₹${parseInt(firstParam(totalPrice) || '120')}/meal`,
+      price: `₹${fallbackPrice}/meal`,
+      marketPlaceFee: 0,
+      totalAmount: `₹${fallbackPrice}`,
     };
-  }, [tiffinOrderDetails, tiffinService, bookingId, serviceId, totalPrice, planType, startDate, endDate, mealPreference, foodType, orderType, checkInDate, checkOutDate]);
+  }
+
+  // Prefer tiffinOrderDetails
+  if (tiffinOrderDetails) {
+    const priceNum = tiffinOrderDetails.price || parseInt(firstParam(totalPrice) || "120");
+    const marketPlaceFee = tiffinOrderDetails.marketPlaceFee || 0;
+    const totalAmount = priceNum + marketPlaceFee;
+
+    return {
+      id: firstParam(bookingId) || firstParam(serviceId) || "1",
+      title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+      imageUrl: tiffinOrderDetails.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+      foodType: tiffinOrderDetails.foodType || "Veg",
+      startDate: tiffinOrderDetails.startDate
+        ? new Date(tiffinOrderDetails.startDate).toLocaleDateString("en-IN")
+        : "21/07/25",
+      endDate: tiffinOrderDetails.endDate
+        ? new Date(tiffinOrderDetails.endDate).toLocaleDateString("en-IN")
+        : "28/07/25",
+      plan: tiffinOrderDetails.planType || planType || "Per meal",
+      orderType: tiffinOrderDetails.orderType || orderType || "Delivery",
+      price: `₹${priceNum}/meal`,
+      marketPlaceFee,
+      totalAmount: `₹${totalAmount}`,
+    };
+  }
+
+  // Fallback to tiffinService
+  const priceNum = tiffinService?.price || parseInt(firstParam(totalPrice) || "120");
+  const marketPlaceFee = tiffinService?.marketPlaceFee || 0;
+  const totalAmount = priceNum + marketPlaceFee;
+
+  return {
+    id: firstParam(serviceId) || "1",
+    title: tiffinService?.tiffinName || tiffinService?.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+    imageUrl: tiffinService?.image || tiffinService?.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+    foodType: firstParam(foodType) || tiffinService?.foodType || "Veg",
+    startDate: startDate
+      ? new Date(firstParam(startDate) as string).toLocaleDateString("en-IN")
+      : checkInDate
+      ? new Date(firstParam(checkInDate) as string).toLocaleDateString("en-IN")
+      : "21/07/25",
+    endDate: endDate
+      ? new Date(firstParam(endDate) as string).toLocaleDateString("en-IN")
+      : checkOutDate
+      ? new Date(firstParam(checkOutDate) as string).toLocaleDateString("en-IN")
+      : "28/07/25",
+    plan: firstParam(planType) || "Per meal",
+    orderType: firstParam(orderType) || "Delivery",
+    price: `₹${priceNum}/meal`,
+    marketPlaceFee,
+    totalAmount: `₹${totalAmount}`,
+  };
+}, [
+  tiffinOrderDetails,
+  tiffinService,
+  bookingId,
+  serviceId,
+  totalPrice,
+  planType,
+  startDate,
+  endDate,
+  mealPreference,
+  foodType,
+  orderType,
+  checkInDate,
+  checkOutDate,
+]);
 
   console.log("Constructed tiffinData:", tiffinData);
 
@@ -939,6 +963,7 @@ const Checkout: React.FC = () => {
   if (loadingWallet || (isHostel && loadingBooking) || (isTiffin && loadingTiffin)) { // UPDATED: Use effective isTiffin/isHostel
     return (
       <SafeAreaView style={styles.container}>
+        <View style={{flex:1,marginTop:theme.verticalSpacing.space_20}}>
         <Header
           title="Checkout"
           onBack={() => router.back()}
@@ -946,6 +971,7 @@ const Checkout: React.FC = () => {
         />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text>Loading...</Text>
+        </View>
         </View>
       </SafeAreaView>
     );
@@ -955,6 +981,8 @@ const Checkout: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{flex:1,marginTop:theme.verticalSpacing.space_20}}>
+
       <Header
         title="Checkout"
         onBack={() => router.back()}
@@ -981,7 +1009,7 @@ const Checkout: React.FC = () => {
           <View style={styles.couponHeader}>
             <Text style={styles.sectionTitle}>Apply Coupon</Text>
             <TouchableOpacity onPress={handleViewCoupons}>
-              <Text style={styles.viewCouponsText}>View Coupons</Text>
+              <Text style={styles.viewCouponsText}>View Coupons</Text>2
             </TouchableOpacity>
           </View>
           {/* Input Row */}
@@ -1259,6 +1287,7 @@ const Checkout: React.FC = () => {
           </View>
         </View>
       </Modal>
+      </View>
     </SafeAreaView>
   );
 };
@@ -1686,16 +1715,20 @@ const styles = StyleSheet.create({
   // NEW: Deposit Modal Styles
   depositModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
   depositModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '85%',
-    alignItems: 'center',
+   width: '85%',
+  borderRadius: 16,
+  padding: 24,
+  backgroundColor: '#fff',
+  shadowColor: '#000',
+  shadowOpacity: 0.25,
+  shadowOffset: { width: 0, height: 4 },
+  shadowRadius: 10,
+  elevation: 10,
   },
   depositModalTitle: {
     fontSize: 18,
