@@ -24,6 +24,7 @@ import Buttons from "@/components/Buttons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
+import { theme } from "@/constants/utils";
 type MealType = "breakfast" | "lunch" | "dinner";
 type BookingType = "tiffin" | "hostel";
 type RoomData = {
@@ -2660,6 +2661,7 @@ if (hostelPlan === "monthly") {
   };
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{flex:1,marginTop:theme.verticalSpacing.space_10}}>
       <Header
         title={
           isEditMode
@@ -2679,6 +2681,7 @@ if (hostelPlan === "monthly") {
             ? renderTiffinBooking()
             : renderHostelBooking()}
         </ScrollView>
+      </View>
       </View>
     </SafeAreaView>
   );

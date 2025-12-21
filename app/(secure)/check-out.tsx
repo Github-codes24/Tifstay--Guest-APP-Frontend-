@@ -111,10 +111,8 @@ const Checkout: React.FC = () => {
     numberOfTiffin,
     fullName,
   });
-  console.log("Received bookingId in Checkout:", bookingId);
-  console.log("isTiffin based on effectiveServiceType:", isTiffin);
+ 
 
-  // NEW: Memoized tiffinData with priority: fetched > params > service > hardcoded - UPDATED to use effectiveServiceType implicitly via isTiffin
  const tiffinData: TiffinCheckoutData = useMemo(() => {
   if (!tiffinOrderDetails && !tiffinService) {
     // ultimate fallback
@@ -142,7 +140,6 @@ const Checkout: React.FC = () => {
     };
   }
 
-  // Prefer tiffinOrderDetails
   if (tiffinOrderDetails) {
     const priceNum = tiffinOrderDetails.price || parseInt(firstParam(totalPrice) || "120");
     const marketPlaceFee = tiffinOrderDetails.marketPlaceFee || 0;
@@ -981,7 +978,7 @@ const Checkout: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{flex:1,marginTop:theme.verticalSpacing.space_20}}>
+      <View style={{flex:1,marginTop:theme.verticalSpacing.space_30}}>
 
       <Header
         title="Checkout"

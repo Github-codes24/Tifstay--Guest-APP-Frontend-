@@ -8,7 +8,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
-import { useSearchParams } from "expo-router/build/hooks";
+import { useLocalSearchParams } from "expo-router/build/hooks";
 
 const INR = (n: number, fd = 0) =>
   new Intl.NumberFormat("en-IN", {
@@ -19,11 +19,16 @@ const INR = (n: number, fd = 0) =>
   }).format(n);
 
 export default function AddMoneyScreen() {
-   const params = useSearchParams();
-  const balanceParam = params.balance; 
-console.log('balanceParam098789',balanceParam)
+  const { balance } = useLocalSearchParams();
+console.log("balance-from-screen====>", balance);
 
-  const currentBalance = parseInt(balanceParam || "0", 10)
+  const walletBalance = Number(balance ?? 0);
+  
+  console.log('walletBalance98789',walletBalance)
+
+// console.log('balanceParam098789',balanceParam)
+
+//   const currentBalance = parseInt(balanceParam || "0", 10)
   
   const [amountStr, setAmountStr] = useState<string>("0");
   const [loading, setLoading] = useState(false);
@@ -104,7 +109,7 @@ console.log('balanceParam098789',balanceParam)
 
       <View style={styles.amountCard}>
         <Text style={styles.cardTitle}>Current Balance</Text>
-        <Text style={styles.cardSub}>{INR(currentBalance, 2)}</Text>
+        <Text style={styles.cardSub}>{INR(balance)}</Text>
         <Text style={styles.bigAmount}>{INR(amount, 0)}</Text>
 
         <View style={styles.quickRow}>

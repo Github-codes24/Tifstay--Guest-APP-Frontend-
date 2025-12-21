@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -17,6 +18,7 @@ import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { theme } from "@/constants/utils";
 
 const renderItem = ({ item }) => (
   <View style={styles.historyItem}>
@@ -303,6 +305,7 @@ export default function ReferEarnScreen() {
   );
 
   return (
+    <SafeAreaView style={{flex:1}}>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -323,11 +326,12 @@ export default function ReferEarnScreen() {
         }
       />
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16 },
+  container: { flex: 1, padding:theme.horizontalSpacing.space_16,marginTop:theme.verticalSpacing.space_30 },
   pointsCard: { backgroundColor: "#F5F5F5", borderRadius: 8, padding: 16, marginBottom: 24 },
   pointsLabel: { fontSize: 14, color: colors.grey, paddingVertical: 5, fontWeight: "600" },
   pointsValue: { fontSize: 30, fontWeight: "700", color: colors.title, marginTop: 4 },
