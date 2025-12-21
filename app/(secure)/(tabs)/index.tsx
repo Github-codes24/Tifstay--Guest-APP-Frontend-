@@ -38,6 +38,9 @@ import { BackHandler } from 'react-native';
 import { useFocusEffect } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import { WebView } from "react-native-webview"; 
+import { theme } from "@/constants/utils";
+
+
 interface Hostel {
   id: string;
   name: string;
@@ -123,6 +126,11 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [searchVisibleCount, setSearchVisibleCount] = useState(10);
+
+const [isListening, setIsListening] = useState(false);
+const [transcript, setTranscript] = useState("");
+
+
   // New states for Chat modal
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(""); // To pre-fill message if needed
@@ -161,6 +169,10 @@ export default function DashboardScreen() {
       return null;
     }
   };
+
+
+
+
   // --- Add Favorite Tiffin Service API (returns full result for toggle) ---
   const addTiffinFavoriteAPI = async (tiffinId: string): Promise<{ success: boolean; message: string }> => {
     console.log("Adding tiffin favorite API called for ID:", tiffinId);
@@ -308,7 +320,7 @@ export default function DashboardScreen() {
     }
     const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getAllHostelsServices?${params.toString()}`;
     console.log("🔍 Hostel Fetch URL:", url); // Debug log
-    console.log("🔍 Normalized planType:", normalizedPlanType); // Debug: Confirm normalization
+    console.log("🔍 Normalized planType:", normalizedPlanType); 
     try {
       const response = await fetch(url, { headers });
       const result = await response.json();
@@ -1161,6 +1173,9 @@ export default function DashboardScreen() {
       }}
     />
   );
+
+
+
   const renderHostelItem = ({ item }: { item: Hostel }) => (
     <HostelCard
       hostel={item}
@@ -1229,11 +1244,16 @@ export default function DashboardScreen() {
                   <Ionicons name="close-circle" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.micButton}>
+              <TouchableOpacity style={styles.micButton}
+             
+              >
                 <Ionicons name="mic" size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
           </View>
+
+
+
         </SafeAreaView>
         <View style={styles.searchResultsContainer}>
           <Text style={styles.searchResultsTitle}>{searchQuery ? "Search Results" : "Popular Searches"}</Text>
@@ -1259,7 +1279,7 @@ export default function DashboardScreen() {
                 />
               ) : (
                 <View style={styles.noResultsContainer}>
-                  <Ionicons name="search" size={50} color="#9CA3AF" />
+                  {/* <Ionicons name="search" size={50} color="#9CA3AF" /> */}
                   <Text style={styles.noResultsText}>
                     {`No hostels found matching "${searchQuery}"`}
                   </Text>
@@ -1276,12 +1296,12 @@ export default function DashboardScreen() {
                 onEndReached={handleLoadMoreSearch}
                 onEndReachedThreshold={0.5}
                 refreshControl={
-                  <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                 }
               />
             ) : (
               <View style={styles.noResultsContainer}>
-                <Ionicons name="search" size={50} color="#9CA3AF" />
+                {/* <Ionicons name="search" size={50} color="#9CA3AF" /> */}
                 <Text style={styles.noResultsText}>
                   {`No services found matching "${searchQuery}"`}
                 </Text>
@@ -1362,6 +1382,10 @@ export default function DashboardScreen() {
             </View>
           )}
         </View>
+
+
+
+
         {/* Help FAB - Positioned absolutely to overlay */}
         <TouchableOpacity style={styles.chatFab} onPress={handleOpenHelp}>
           <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
@@ -1623,7 +1647,7 @@ export default function DashboardScreen() {
                               {
                                 translateX: vegToggleAnimated.interpolate({
                                   inputRange: [0, 1],
-                                  outputRange: [0, 18],
+                                  outputRange: [0,34],
                                 }),
                               },
                             ],
@@ -1984,21 +2008,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1.5,
     elevation: 2,
-    height: 56, // smaller height
-    width: 55, // smaller width
+    height:theme.verticalSpacing.space_76, // smaller height
+    width:theme.horizontalSpacing.space_76, // smaller width
   },
   vegLabelContainer: {
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
   vegLabelText: {
-    fontSize: 9,
+    fontSize:theme.fontSizes.size_16,
     fontWeight: "600",
     color: "#374151",
   },
   vegToggleTrack: {
-    width: 30,
-    height: 14,
+    width:theme.horizontalSpacing.space_50,
+    height:theme.verticalSpacing.space_20,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -2009,12 +2033,13 @@ const styles = StyleSheet.create({
   },
   vegToggleThumb: {
     width: 12,
-    height: 12,
+    height:theme.verticalSpacing.space_18 ,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
     left: 0,
     top: 0,
+    right:0
   },
   greenDot: {
     width: 4,
@@ -2023,8 +2048,8 @@ const styles = StyleSheet.create({
     backgroundColor: "green",
   },
   leafContainer: {
-    width: 18,
-    height: 18,
+    width:theme.horizontalSpacing.space_18,
+    height:theme.verticalSpacing.space_18,
     justifyContent: "center",
     alignItems: "center",
   },

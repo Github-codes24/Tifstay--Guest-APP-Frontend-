@@ -410,8 +410,6 @@ const CartScreen = () => {
   );
 };
 
-
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f7f4f4" },
   scrollContent: { paddingBottom: 40, flexGrow: 1, paddingHorizontal: 16 },

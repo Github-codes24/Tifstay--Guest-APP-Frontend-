@@ -13,6 +13,8 @@ export interface TiffinCheckoutData {
   orderType: string;
   price: string;
   endDate: string
+  totalAmount:string
+  marketPlaceFee: number;
 }
 
 export interface HostelCheckoutData {
@@ -37,7 +39,7 @@ const CheckoutItemCard: React.FC<CheckoutItemCardProps> = ({
   data,
 }) => {
   const isTiffin = serviceType === "tiffin";
-
+ const tiffinData = data as TiffinCheckoutData;
   return (
     <View style={styles.container}>
       <Image source={{ uri: data.imageUrl }} style={styles.image} />
@@ -51,6 +53,7 @@ const CheckoutItemCard: React.FC<CheckoutItemCardProps> = ({
               label="Meal Type"
               value={(data as TiffinCheckoutData).mealType}
             /> */}
+            
             <DetailRow
               label="Food Type"
               value={(data as TiffinCheckoutData).foodType}
@@ -72,6 +75,7 @@ const CheckoutItemCard: React.FC<CheckoutItemCardProps> = ({
               label="Price"
               value={(data as TiffinCheckoutData).price}
             />
+           <DetailRow label="Marketplace Fee" value={`₹${tiffinData.marketPlaceFee}`} />
           </>
         ) : (
           // Hostel Details

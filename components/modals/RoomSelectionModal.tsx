@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
+  BackHandler
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -142,6 +143,15 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       setLoading(false);
     }
   };
+
+useEffect(() => {
+  if (visible && hostelData?.id) {
+    fetchRooms();
+    fetchUserProfile();
+  }
+}, [visible, hostelData, propRoomsData]);
+
+// Add this new useEffect
 
   // Fetch user profile
   const fetchUserProfile = async () => {
@@ -342,7 +352,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
 
       console.log("Params being passed to booking screen for edit:", params);
 
-      onClose(); // Close modal first
+      onClose(); 
       setTimeout(() => {
         router.push({
           pathname: "/bookingScreen",
@@ -470,7 +480,10 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen"
+    onRequestClose={onClose}
+    hardwareAccelerated
+    >
       <SafeAreaView style={styles.container}>
         <Header title="Rooms" onBack={onClose} />
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
