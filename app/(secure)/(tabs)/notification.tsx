@@ -1,47 +1,284 @@
 import Header from "@/components/Header";
-import React from "react";
-import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 
-const notifications = [
-  {
-    id: 1,
-    date: "Today",
-    title: "New Order Received",
-    message:
-      "You've got a new tiffin order! Tap to view details and start preparing.",
-    icon: require("../../../assets/images/newOrder.png"),
-    backgroundColor: "#F4F6FF",
-  },
-  {
-    id: 2,
-    date: "Today",
-    title: "Order Accepted Confirmation",
-    message: "You've accepted the order. Keep it ready by the scheduled time!",
-    icon: require("../../../assets/images/oederAccepted.png"),
-    backgroundColor: "#004AAD",
-    textColor: "white",
-  },
-  {
-    id: 3,
-    date: "Sunday, July 9, 2025",
-    title: "Earnings Summary (Weekly)",
-    message: "You earned ₹22000 this week. Keep it up!",
-    icon: require("../../../assets/images/earningSummary.png"),
-    backgroundColor: "#F4F6FF",
-  },
-  {
-    id: 4,
-    date: "Monday, June 16, 2025",
-    title: "Tiffin Service Approved",
-    message: "Your new tiffin service has been approved and is now live!",
-    icon: require("../../../assets/images/tiffinService.png"),
-    backgroundColor: "#F4F6FF",
-  },
-];
+interface Notification {
+  _id: string;
+  navigationId?: string;
+  title: string;
+  isRead: boolean;
+  createdTime: string;
+
+  // Hostel flags
+  isHostelBookingPaymentSuccess?: boolean;
+  isHostelTransactionReceived?: boolean;
+  isHostelBookingSubmittedForApproval?: boolean;
+  isHostelBookingWalletPaymentSuccess?: boolean;
+  isHostelBookingRazorPayPaymentSuccess?: boolean;
+  isHostelRazorPayTransactionReceived?: boolean;
+  isHostelWalletTransactionReceived?: boolean;
+  isHostelBookingApproved?: boolean;
+  isHostelBookingRazorPayPaymentFailed?: boolean;
+
+  // Wallet flags
+  isWalletPaymentSuccess?: boolean;
+  isWalletTransactionReceived?: boolean;
+  isWalletCredited?: boolean;
+  isWalletDebited?: boolean;
+
+  // Deposit flags
+  isGuestDepositPaymentSuccess?: boolean;
+  isGuestDepositTransactionReceived?: boolean;
+
+  // Others
+  isHostelBookingRejected?: boolean;
+  isHostelPendingBookingReminder?: boolean;
+  isTiffinPendingBookingReminder?: boolean;
+  isTiffinBookingSubmittedForApproval?: boolean;
+  isTiffinBookingRazorPayPaymentFailed?: boolean;
+}
 
 export default function NotificationScreen() {
-  const grouped = groupByDate(notifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    fetchAllNotifications();
+  }, []);
+
+  const fetchAllNotifications = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      let page = 1;
+      let allNotifications: Notification[] = [];
+      let totalPages = 1;
+
+      while (page <= totalPages) {
+        const response = await axios.get(
+          `https://tifstay-project-be.onrender.com/api/guest/notification/getAllNotification?page=${page}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+          const newNotifs = response.data.data || [];
+          allNotifications = [...allNotifications, ...newNotifs];
+          totalPages = response.data.pagination?.totalPages || 1;
+        }
+        page++;
+      }
+
+      allNotifications.sort((a, b) => b._id.localeCompare(a._id));
+      setNotifications(allNotifications);
+    } catch (error: any) {
+      console.error("Error fetching notifications:", error.message || error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 1. Hostel Booking Approved → Confirmed Hostel Tab
+  const isHostelBookingApprovedNotification = (item: Notification): boolean => {
+    return !!item.isHostelBookingApproved;
+  };
+
+  // 2. Razorpay hostel booking flow
+  const isHostelBookingNotification = (item: Notification): boolean => {
+    return !!(
+      item.isHostelBookingRazorPayPaymentSuccess ||
+      item.isHostelRazorPayTransactionReceived ||
+      item.isHostelBookingSubmittedForApproval
+    );
+  };
+
+  // 3. Wallet-related
+  const isWalletNotification = (item: Notification): boolean => {
+    return !!(
+      item.isWalletPaymentSuccess ||
+      item.isWalletTransactionReceived ||
+      item.isWalletCredited ||
+      item.isWalletDebited ||
+      item.isHostelBookingWalletPaymentSuccess ||
+      item.isHostelWalletTransactionReceived
+    );
+  };
+
+  // 4. Deposit-related
+  const isDepositNotification = (item: Notification): boolean => {
+    return !!(item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived);
+  };
+
+  // Icon logic
+  const getIconName = (item: Notification): keyof typeof Ionicons.glyphMap => {
+    if (item.isHostelBookingApproved || item.isHostelBookingRazorPayPaymentSuccess) {
+      return "checkmark-circle";
+    }
+    if (item.isHostelRazorPayTransactionReceived) {
+      return "card";
+    }
+    if (item.isHostelBookingSubmittedForApproval) {
+      return "hourglass";
+    }
+    if (
+      item.isWalletPaymentSuccess ||
+      item.isWalletCredited ||
+      item.isWalletDebited ||
+      item.isHostelBookingWalletPaymentSuccess ||
+      item.isHostelWalletTransactionReceived
+    ) {
+      return "wallet";
+    }
+    if (item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived) {
+      return "cash";
+    }
+    return "notifications";
+  };
+
+  // 5. Pending Booking Reminders
+  const isHostelPendingReminder = (item: Notification): boolean => {
+    return !!item.isHostelPendingBookingReminder;
+  };
+
+  const isTiffinPendingReminder = (item: Notification): boolean => {
+    return !!item.isTiffinPendingBookingReminder; // Add this flag to your Notification interface if not already present
+  };
+
+  // 6. Tiffin Razorpay booking flow
+  const isTiffinBookingNotification = (item: Notification): boolean => {
+    return !!(
+      item.isTiffinRazorPayPaymentSuccess ||
+      item.isTiffinRazorPayTransactionReceived ||
+      item.isTiffinBookingSubmittedForApproval
+    );
+  };
+
+  const isTiffinPaymentFailed = (item: Notification): boolean => {
+    return !!item.isTiffinBookingRazorPayPaymentFailed;
+  };
+
+  const isHostelPaymentFailed = (item: Notification): boolean => {
+  return !!item.isHostelBookingRazorPayPaymentFailed;
+};
+
+  // Background color for success
+  const getBackgroundColor = (item: Notification): string => {
+    if (
+      item.isWalletPaymentSuccess ||
+      item.isWalletCredited ||
+      item.isHostelBookingWalletPaymentSuccess ||
+      item.isHostelBookingRazorPayPaymentSuccess ||
+      item.isHostelBookingApproved ||
+      item.isGuestDepositPaymentSuccess
+    ) {
+      return "#E8F5E9"; // Light green
+    }
+    return "#F8F9FF"; // Default
+  };
+
+  // Navigation handler
+  const handlePress = (item: Notification) => {
+
+    if (isHostelPendingReminder(item)) {
+      router.push({
+        pathname: "/(secure)/Cartscreen",  // Adjust if your cart route is different
+        params: { tab: "hostel" },   // This will help pre-select hostel tab if you use it
+      });
+      return;
+    }
+
+    if (isTiffinPendingReminder(item)) {
+      router.push({
+        pathname: "/(secure)/Cartscreen",
+        params: { tab: "tiffin" },
+      });
+      return;
+    }
+    if (isTiffinPaymentFailed(item)) {
+      router.push({
+        pathname: "/(secure)/Cartscreen",
+        params: { tab: "tiffin" },
+      });
+      return;
+    }
+    if (isHostelPaymentFailed(item)) {
+    router.push({
+      pathname: "/(secure)/Cartscreen",
+      params: { tab: "hostel" },
+    });
+    return;
+  }
+    if (isTiffinBookingNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "pending", service: "tiffin" },
+      });
+      return;
+    }
+    if (isHostelBookingApprovedNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "confirmed", service: "hostel" },
+      });
+    } else if (isHostelBookingNotification(item)) {
+      router.push("/(secure)/(tabs)/booking");
+    } else if (isDepositNotification(item)) {
+      router.push("/(secure)/account/deposite");
+    } else if (isWalletNotification(item)) {
+      router.push("/account/wallet");
+    }
+  };
+
+
+
+  // Group by date
+  const grouped = notifications.reduce(
+    (acc: Record<string, Notification[]>, item) => {
+      let dateLabel = "Unknown";
+      if (item.createdTime) {
+        if (item.createdTime.includes("ago") || item.createdTime.toLowerCase().includes("today")) {
+          dateLabel = "Today";
+        } else {
+          dateLabel = item.createdTime;
+        }
+      }
+      if (!acc[dateLabel]) acc[dateLabel] = [];
+      acc[dateLabel].push(item);
+      return acc;
+    },
+    {}
+  );
+
+  const sortedGroupKeys = Object.keys(grouped).sort((a) => (a === "Today" ? -1 : 1));
+
+  if (loading) {
+    return (
+      <>
+        <SafeAreaView edges={["top"]} style={{ backgroundColor: "white" }}>
+          <Header title="Notifications" />
+        </SafeAreaView>
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#004AAD" />
+        </View>
+      </>
+    );
+  }
 
   return (
     <>
@@ -49,91 +286,42 @@ export default function NotificationScreen() {
         <Header title="Notifications" />
       </SafeAreaView>
 
-      <ScrollView style={styles.container}>
-        {Object.entries(grouped).map(([date, items]) => (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {sortedGroupKeys.map((date) => (
           <View key={date}>
             <Text style={styles.dateLabel}>{date}</Text>
-            {items.map((item) => (
-              <View
-                key={item.id}
-                style={[styles.card, { backgroundColor: item.backgroundColor }]}
+            {grouped[date].map((item) => (
+              <TouchableOpacity
+                key={item._id}
+                onPress={() => handlePress(item)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <View style={styles.iconWrapper}>
-                  <Image source={item.icon} style={styles.icon} />
+                <View style={[styles.card, { backgroundColor: getBackgroundColor(item) }]}>
+                  <View style={styles.iconWrapper}>
+                    <Ionicons name={getIconName(item)} size={28} color="#004AAD" />
+                  </View>
+                  <View style={styles.textContainer}>
+                    <Text style={styles.title}>{item.title}</Text>
+                  </View>
                 </View>
-                <View style={styles.textContainer}>
-                  <Text
-                    style={[
-                      styles.title,
-                      item.textColor
-                        ? { color: item.textColor }
-                        : { color: "#0A051F" },
-                    ]}
-                  >
-                    {item.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.message,
-                      item.textColor
-                        ? { color: item.textColor }
-                        : { color: "grey" },
-                    ]}
-                  >
-                    {item.message}
-                  </Text>
-                </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         ))}
+
+        {notifications.length === 0 && (
+          <Text style={styles.emptyText}>No notifications yet</Text>
+        )}
       </ScrollView>
     </>
   );
 }
 
-function groupByDate(data: typeof notifications) {
-  const grouped: Record<string, typeof notifications> = {};
-  for (const item of data) {
-    if (!grouped[item.date]) {
-      grouped[item.date] = [];
-    }
-    grouped[item.date].push(item);
-  }
-  return grouped;
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#Ffffff",
-    paddingHorizontal: 16,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "white",
-  },
-  headerTitle: {
-    fontSize: 20,
-    marginLeft: 20,
-    fontWeight: "bold",
-    color: "#0A051F",
-  },
-  headerIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: "contain",
-  },
-
-  dateLabel: {
-    fontSize: 16,
-    color: "#9C9BA6",
-    marginBottom: 16,
-    marginTop: 16,
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF", paddingHorizontal: 16 },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" },
+  dateLabel: { fontSize: 16, color: "#9C9BA6", marginVertical: 16, fontWeight: "600" },
   card: {
     height: 100,
     flexDirection: "row",
@@ -141,6 +329,11 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   iconWrapper: {
     width: 52,
@@ -150,22 +343,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-    elevation: 2,
+    elevation: 3,
   },
-  icon: {
-    width: 52,
-    height: 52,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 14,
-    marginBottom: 4,
-    fontWeight: "bold",
-  },
-  message: {
-    fontSize: 13,
-    paddingRight: 30,
-  },
+  textContainer: { flex: 1, justifyContent: "center" },
+  title: { fontSize: 14, fontWeight: "bold", color: "#0A051F", lineHeight: 20 },
+  emptyText: { textAlign: "center", marginTop: 40, color: "#999", fontSize: 16 },
 });

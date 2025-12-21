@@ -25,6 +25,7 @@ import { useAuthStore } from "@/store/authStore";
 import Button from "@/components/Buttons";
 import TrackOrderModal from "@/components/modals/TrackOrderModal";
 import fallbackDp from "@/assets/images/fallbackdp.png"; // Added import for fallback profile image
+import { useLocalSearchParams } from "expo-router";
 
 interface Order {
   id: string;
@@ -221,6 +222,19 @@ const Booking: React.FC = () => {
   const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
   const { profileData, fetchProfile } = useAuthStore();
   const { width: screenWidth } = useWindowDimensions(); // Added for dynamic button width
+  const { tab, service } = useLocalSearchParams();
+  
+useEffect(() => {
+  // Handle tab param (pending, confirmed, rejected)
+  if (tab === "pending" || tab === "confirmed" || tab === "rejected") {
+    setActiveTab(tab);
+  }
+
+  // Handle service param (hostel, tiffin)
+  if (service === "hostel" || service === "tiffin") {
+    setSelectedService(service);
+  }
+}, [tab, service]);
 
   // --- Fetch profile if not loaded ---
   React.useEffect(() => {

@@ -17,6 +17,7 @@ import axios from "axios";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import RoomSelectionModal from "@/components/modals/RoomSelectionModal"; // Adjust path as needed
+import { useLocalSearchParams } from "expo-router";
 
 const fetchPendingTiffin = async () => {
   const token = await AsyncStorage.getItem("token");
@@ -167,6 +168,7 @@ const PendingHostelCard = ({ booking, onContinue, onEdit }: { booking: any; onCo
 };
 
 const CartScreen = () => {
+  const params = useLocalSearchParams();
   const {
     data: tiffinData = [],
     isLoading: tiffinLoading,
@@ -203,6 +205,14 @@ const CartScreen = () => {
       }
     }
   }, [tiffinData.length, hostelData.length, tiffinLoading, hostelLoading]);
+
+  useEffect(() => {
+    if (params.tab === "hostel" && hostelData.length > 0) {
+      setActiveTab("hostel");
+    } else if (params.tab === "tiffin" && tiffinData.length > 0) {
+      setActiveTab("tiffin");
+    }
+  }, [params.tab, tiffinData.length, hostelData.length]);
 
   const totalTiffin = tiffinData.reduce((acc, item) => acc + parseFloat(item.price || 0), 0);
   const totalHostel = hostelData.reduce((acc, item) => {
