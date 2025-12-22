@@ -605,15 +605,15 @@ useEffect(() => {
   
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
-    <SafeAreaView>
-      <View style={{flex:1,marginTop:theme.verticalSpacing.space_20}}>
+    
+      <View style={{marginTop:theme.verticalSpacing.space_30}}>
     <Header
       title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
       backIconName="chevron-back"
       onBack={() => router.back()}
     />
     </View>
-    </SafeAreaView>
+    
   );
 
   // ==================== IMAGE CAROUSEL SECTION ====================
@@ -1216,6 +1216,7 @@ useEffect(() => {
   // ==================== MAIN RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{flex:1,marginBottom:theme.verticalSpacing.space_20}}>
       {renderHeader()}
       <ScrollView showsVerticalScrollIndicator={false}>
         {renderImageCarousel()}
@@ -1248,6 +1249,7 @@ useEffect(() => {
           }}
         />
       )}
+      </View>
     </SafeAreaView>
   );
 }
