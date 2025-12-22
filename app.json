@@ -45,8 +45,7 @@
           "photosPermission": "Allow tifStay to access your photos to upload Aadhaar.",
           "cameraPermission": "Allow tifStay to use the camera to capture your Aadhaar."
         }
-      ],
-      "expo-speech-recognition"
+      ]
     ],
     "experiments": {
       "typedRoutes": true

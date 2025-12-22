@@ -48,6 +48,29 @@ interface Notification {
   isTiffinPendingBookingReminder?: boolean;
   isTiffinBookingSubmittedForApproval?: boolean;
   isTiffinBookingRazorPayPaymentFailed?: boolean;
+
+  // Expiry reminders
+  isHostelBookingExpiryReminder?: boolean;
+  isTiffinExpiryNotification?: boolean;
+
+  // Tiffin confirmed notifications
+  isTiffinBookingApproved?: boolean;
+  isTiffinFirstOrderDeliveredOrServed?: boolean;
+
+  // Tiffin rejected notification
+  isTiffinBookingRejected?: boolean;
+
+  // Tiffin Razorpay payment success (for pending tab)
+  isTiffinBookingRazorPayPaymentSuccess?: boolean;
+
+  // Tiffin Wallet payment success
+  isTiffinBookingWalletPaymentSuccess?: boolean;
+
+  // Pending order reminders for cart navigation
+  isTiffinPendingOrderReminder?: boolean;
+
+  // NEW: Hostel first booking done → Confirmed tab + Hostel section
+  isHostelFirstBookingDone?: boolean;
 }
 
 export default function NotificationScreen() {
@@ -94,56 +117,54 @@ export default function NotificationScreen() {
     }
   };
 
-  // 1. Hostel Booking Approved → Confirmed Hostel Tab
-  const isHostelBookingApprovedNotification = (item: Notification): boolean => {
-    return !!item.isHostelBookingApproved;
-  };
-
-  // 2. Razorpay hostel booking flow
-  const isHostelBookingNotification = (item: Notification): boolean => {
-    return !!(
-      item.isHostelBookingRazorPayPaymentSuccess ||
-      item.isHostelRazorPayTransactionReceived ||
-      item.isHostelBookingSubmittedForApproval
-    );
-  };
-
-  // 3. Wallet-related
-  const isWalletNotification = (item: Notification): boolean => {
-    return !!(
-      item.isWalletPaymentSuccess ||
-      item.isWalletTransactionReceived ||
-      item.isWalletCredited ||
-      item.isWalletDebited ||
-      item.isHostelBookingWalletPaymentSuccess ||
-      item.isHostelWalletTransactionReceived
-    );
-  };
-
-  // 4. Deposit-related
-  const isDepositNotification = (item: Notification): boolean => {
-    return !!(item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived);
-  };
-
   // Icon logic
   const getIconName = (item: Notification): keyof typeof Ionicons.glyphMap => {
-    if (item.isHostelBookingApproved || item.isHostelBookingRazorPayPaymentSuccess) {
+    // Expiry reminder icon
+    if (item.isHostelBookingExpiryReminder || item.isTiffinExpiryNotification) {
+      return "time";
+    }
+
+    // Success / approved / first booking done icons
+    if (
+      item.isTiffinBookingApproved ||
+      item.isTiffinFirstOrderDeliveredOrServed ||
+      item.isHostelBookingApproved ||
+      item.isHostelBookingRazorPayPaymentSuccess ||
+      item.isTiffinBookingRazorPayPaymentSuccess ||
+      item.isTiffinBookingWalletPaymentSuccess ||
+      item.isHostelBookingWalletPaymentSuccess ||
+      item.isHostelFirstBookingDone  // NEW: Same success icon
+    ) {
       return "checkmark-circle";
     }
-    if (item.isHostelRazorPayTransactionReceived) {
-      return "card";
-    }
-    if (item.isHostelBookingSubmittedForApproval) {
-      return "hourglass";
-    }
+
+    // Wallet-related icons
     if (
       item.isWalletPaymentSuccess ||
       item.isWalletCredited ||
       item.isWalletDebited ||
       item.isHostelBookingWalletPaymentSuccess ||
+      item.isTiffinBookingWalletPaymentSuccess ||
       item.isHostelWalletTransactionReceived
     ) {
       return "wallet";
+    }
+
+    // Rejected icon
+    if (item.isHostelBookingRejected || item.isTiffinBookingRejected) {
+      return "close-circle";
+    }
+
+    // Pending reminders (cart reminders)
+    if (item.isHostelPendingBookingReminder || item.isTiffinPendingOrderReminder) {
+      return "cart";
+    }
+
+    if (item.isHostelRazorPayTransactionReceived) {
+      return "card";
+    }
+    if (item.isHostelBookingSubmittedForApproval) {
+      return "hourglass";
     }
     if (item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived) {
       return "cash";
@@ -151,16 +172,39 @@ export default function NotificationScreen() {
     return "notifications";
   };
 
-  // 5. Pending Booking Reminders
+  // Helper functions
   const isHostelPendingReminder = (item: Notification): boolean => {
     return !!item.isHostelPendingBookingReminder;
   };
 
-  const isTiffinPendingReminder = (item: Notification): boolean => {
-    return !!item.isTiffinPendingBookingReminder; // Add this flag to your Notification interface if not already present
+  const isTiffinPendingOrderReminder = (item: Notification): boolean => {
+    return !!item.isTiffinPendingOrderReminder;
   };
 
-  // 6. Tiffin Razorpay booking flow
+  const isTiffinRazorPayPaymentSuccessNotification = (item: Notification): boolean => {
+    return !!item.isTiffinBookingRazorPayPaymentSuccess;
+  };
+
+  const isTiffinWalletPaymentSuccess = (item: Notification): boolean => {
+    return !!item.isTiffinBookingWalletPaymentSuccess;
+  };
+
+  const isTiffinBookingConfirmedNotification = (item: Notification): boolean => {
+    return !!(item.isTiffinBookingApproved || item.isTiffinFirstOrderDeliveredOrServed);
+  };
+
+  const isTiffinBookingRejectedNotification = (item: Notification): boolean => {
+    return !!item.isTiffinBookingRejected;
+  };
+
+  const isHostelExpiryReminder = (item: Notification): boolean => {
+    return !!item.isHostelBookingExpiryReminder;
+  };
+
+  const isTiffinExpiryReminder = (item: Notification): boolean => {
+    return !!item.isTiffinExpiryNotification;
+  };
+
   const isTiffinBookingNotification = (item: Notification): boolean => {
     return !!(
       item.isTiffinRazorPayPaymentSuccess ||
@@ -169,13 +213,46 @@ export default function NotificationScreen() {
     );
   };
 
+  const isHostelBookingApprovedNotification = (item: Notification): boolean => {
+    return !!item.isHostelBookingApproved;
+  };
+
+  const isHostelBookingNotification = (item: Notification): boolean => {
+    return !!(
+      item.isHostelBookingRazorPayPaymentSuccess ||
+      item.isHostelRazorPayTransactionReceived ||
+      item.isHostelBookingSubmittedForApproval
+    );
+  };
+
+  const isWalletNotification = (item: Notification): boolean => {
+    return !!(
+      item.isWalletPaymentSuccess ||
+      item.isWalletTransactionReceived ||
+      item.isWalletCredited ||
+      item.isWalletDebited ||
+      item.isHostelBookingWalletPaymentSuccess ||
+      item.isTiffinBookingWalletPaymentSuccess ||
+      item.isHostelWalletTransactionReceived
+    );
+  };
+
+  const isDepositNotification = (item: Notification): boolean => {
+    return !!(item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived);
+  };
+
   const isTiffinPaymentFailed = (item: Notification): boolean => {
     return !!item.isTiffinBookingRazorPayPaymentFailed;
   };
 
   const isHostelPaymentFailed = (item: Notification): boolean => {
-  return !!item.isHostelBookingRazorPayPaymentFailed;
-};
+    return !!item.isHostelBookingRazorPayPaymentFailed;
+  };
+
+  // NEW: Hostel first booking done
+  const isHostelFirstBookingDoneNotification = (item: Notification): boolean => {
+    return !!item.isHostelFirstBookingDone;
+  };
 
   // Background color for success
   const getBackgroundColor = (item: Notification): string => {
@@ -183,9 +260,14 @@ export default function NotificationScreen() {
       item.isWalletPaymentSuccess ||
       item.isWalletCredited ||
       item.isHostelBookingWalletPaymentSuccess ||
+      item.isTiffinBookingWalletPaymentSuccess ||
       item.isHostelBookingRazorPayPaymentSuccess ||
       item.isHostelBookingApproved ||
-      item.isGuestDepositPaymentSuccess
+      item.isGuestDepositPaymentSuccess ||
+      item.isTiffinBookingApproved ||
+      item.isTiffinFirstOrderDeliveredOrServed ||
+      item.isTiffinBookingRazorPayPaymentSuccess ||
+      item.isHostelFirstBookingDone  // NEW: Success background
     ) {
       return "#E8F5E9"; // Light green
     }
@@ -194,22 +276,83 @@ export default function NotificationScreen() {
 
   // Navigation handler
   const handlePress = (item: Notification) => {
-
-    if (isHostelPendingReminder(item)) {
+    // 1. Expiry reminders
+    if (isHostelExpiryReminder(item)) {
       router.push({
-        pathname: "/(secure)/Cartscreen",  // Adjust if your cart route is different
-        params: { tab: "hostel" },   // This will help pre-select hostel tab if you use it
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "pending", service: "hostel" },
       });
       return;
     }
 
-    if (isTiffinPendingReminder(item)) {
+    if (isTiffinExpiryReminder(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "pending", service: "tiffin" },
+      });
+      return;
+    }
+
+    // NEW: Hostel First Booking Done → Confirmed tab + Hostel section
+    if (isHostelFirstBookingDoneNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "confirmed", service: "hostel" },
+      });
+      return;
+    }
+
+    // Tiffin Wallet Payment Success → Wallet screen
+    if (isTiffinWalletPaymentSuccess(item)) {
+      router.push("/account/wallet");
+      return;
+    }
+
+    // Pending reminders → Cartscreen
+    if (isHostelPendingReminder(item)) {
+      router.push({
+        pathname: "/(secure)/Cartscreen",
+        params: { tab: "hostel" },
+      });
+      return;
+    }
+
+    if (isTiffinPendingOrderReminder(item)) {
       router.push({
         pathname: "/(secure)/Cartscreen",
         params: { tab: "tiffin" },
       });
       return;
     }
+
+    // Tiffin Razorpay Payment Success → Booking pending tab
+    if (isTiffinRazorPayPaymentSuccessNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "pending", service: "tiffin" },
+      });
+      return;
+    }
+
+    // Rejected
+    if (isTiffinBookingRejectedNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "rejected", service: "tiffin" },
+      });
+      return;
+    }
+
+    // Confirmed
+    if (isTiffinBookingConfirmedNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "confirmed", service: "tiffin" },
+      });
+      return;
+    }
+
+    // Payment failed reminders
     if (isTiffinPaymentFailed(item)) {
       router.push({
         pathname: "/(secure)/Cartscreen",
@@ -217,13 +360,16 @@ export default function NotificationScreen() {
       });
       return;
     }
+
     if (isHostelPaymentFailed(item)) {
-    router.push({
-      pathname: "/(secure)/Cartscreen",
-      params: { tab: "hostel" },
-    });
-    return;
-  }
+      router.push({
+        pathname: "/(secure)/Cartscreen",
+        params: { tab: "hostel" },
+      });
+      return;
+    }
+
+    // General tiffin booking flow
     if (isTiffinBookingNotification(item)) {
       router.push({
         pathname: "/(secure)/(tabs)/booking",
@@ -231,21 +377,36 @@ export default function NotificationScreen() {
       });
       return;
     }
+
+    // Hostel approved (existing)
     if (isHostelBookingApprovedNotification(item)) {
       router.push({
         pathname: "/(secure)/(tabs)/booking",
         params: { tab: "confirmed", service: "hostel" },
       });
-    } else if (isHostelBookingNotification(item)) {
-      router.push("/(secure)/(tabs)/booking");
-    } else if (isDepositNotification(item)) {
+      return;
+    }
+
+    // Hostel booking flow
+    if (isHostelBookingNotification(item)) {
+      router.push({
+        pathname: "/(secure)/(tabs)/booking",
+        params: { tab: "pending", service: "hostel" },
+      });
+      return;
+    }
+
+    // Deposit & Wallet (general)
+    if (isDepositNotification(item)) {
       router.push("/(secure)/account/deposite");
-    } else if (isWalletNotification(item)) {
+      return;
+    }
+
+    if (isWalletNotification(item)) {
       router.push("/account/wallet");
+      return;
     }
   };
-
-
 
   // Group by date
   const grouped = notifications.reduce(
