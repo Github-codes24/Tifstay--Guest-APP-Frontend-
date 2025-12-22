@@ -13,8 +13,6 @@ import {
   Alert,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
-  BackHandler
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,7 +24,7 @@ import colors from "@/constants/colors";
 import Buttons from "../Buttons";
 
 const { width: screenWidth } = Dimensions.get("window");
-const HORIZONTAL_MARGIN = 16; // matches your modal margins
+const HORIZONTAL_MARGIN = 16;
 const IMAGE_WIDTH = screenWidth - HORIZONTAL_MARGIN * 2;
 const IMAGE_HEIGHT = 200;
 
@@ -35,7 +33,7 @@ type SelectedRoom = {
   bedNumber: number;
   roomId?: string;
   bedId?: string;
-  name?: string;  // Added for guest name
+  name?: string;
 };
 
 type RoomData = Array<{
@@ -65,21 +63,11 @@ interface RoomSelectionModalProps {
   };
   roomsData?: RoomData;
   isContinueMode?: boolean;
-  selectedRooms?: SelectedRoom[];  // Typed
+  selectedRooms?: SelectedRoom[];
   bookingId?: string;
   checkInDate?: string;
   checkOutDate?: string;
-  onContinueSelection?: (selectedData: {
-    roomsData: Array<{
-      roomId: string;
-      roomNumber: string | number;
-      beds: Array<{ bedId: string; bedNumber: string | number }>;
-    }>;
-    plan: any;
-    checkInDate: string;
-    checkOutDate: string;
-    userData: any;
-  }) => void;
+  onContinueSelection?: (selectedData: any) => void;
 }
 
 const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
@@ -100,39 +88,41 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   const [userLoading, setUserLoading] = useState<boolean>(true);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedBedsByRoom, setSelectedBedsByRoom] = useState<Record<string, string[]>>({});
-  const [bedNames, setBedNames] = useState<Record<string, string>>({});  // Added for guest names
-  const [userData, setUserData] = useState<{
-    name?: string;
-    phoneNumber?: string;
-    email?: string;
-    workType?: string;
-    adharCardPhoto?: string | null;
-    userPhoto?: string | null;
-  } | null>(null);
+  const [bedNames, setBedNames] = useState<Record<string, string>>({});
+  const [userData, setUserData] = useState<any>(null);
 
-  // slider state
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
   const scrollRef = useRef<ScrollView | null>(null);
 
-  // Fetch rooms (use prop if available, else API)
   const fetchRooms = async () => {
     try {
       setLoading(true);
       let data: RoomData = [];
+
       if (propRoomsData && propRoomsData.length > 0) {
         data = propRoomsData;
       } else {
         const token = await AsyncStorage.getItem("token");
         if (!token) throw new Error("No token found");
-        const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const apiData = response.data;
-        if (apiData.success) {
-          data = apiData.data;
+
+        const params = new URLSearchParams();
+        if (propCheckInDate) params.append("checkInDate", propCheckInDate);
+        if (propCheckOutDate) params.append("checkOutDate", propCheckOutDate);
+        if (isContinueMode && bookingId) params.append("excludeBookingId", bookingId);
+
+        const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}${
+          params.toString() ? "?" + params.toString() : ""
+        }`;
+
+        const response = await axios.get(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.data.success) {
+          data = response.data.data;
         }
       }
+
       setRooms(data);
       if (data.length > 0) {
         setSelectedRoomId(data[0]._id);
@@ -144,16 +134,6 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     }
   };
 
-useEffect(() => {
-  if (visible && hostelData?.id) {
-    fetchRooms();
-    fetchUserProfile();
-  }
-}, [visible, hostelData, propRoomsData]);
-
-// Add this new useEffect
-
-  // Fetch user profile
   const fetchUserProfile = async () => {
     try {
       setUserLoading(true);
@@ -178,34 +158,37 @@ useEffect(() => {
     }
   };
 
-  // Updated pre-selection useEffect with bedNames
+  // Pre-select beds in edit mode
   useEffect(() => {
     if (visible && isContinueMode && selectedRooms.length > 0 && rooms.length > 0) {
       const newSelectedBedsByRoom: Record<string, string[]> = {};
       const newBedNames: Record<string, string> = {};
-      selectedRooms.forEach((selRoom: SelectedRoom) => {
-        const room = rooms.find(r => r._id === selRoom.roomId || r.roomNumber.toString() === selRoom.roomNumber);
+
+      selectedRooms.forEach((selRoom) => {
+        const room = rooms.find(
+          (r) => r._id === selRoom.roomId || r.roomNumber.toString() === selRoom.roomNumber
+        );
         if (room) {
-          const roomId = room._id;
-          const bed = room.totalBeds.find(b =>
-            (b._id === selRoom.bedId) ||
-            (b.bedNumber.toString() === selRoom.bedNumber.toString())
+          const bed = room.totalBeds.find(
+            (b) =>
+              b._id === selRoom.bedId ||
+              b.bedNumber.toString() === selRoom.bedNumber.toString()
           );
           if (bed) {
+            const roomId = room._id;
             if (!newSelectedBedsByRoom[roomId]) {
-              newSelectedBedsByRoom[roomId] = [bed._id];
-            } else {
-              newSelectedBedsByRoom[roomId] = [...newSelectedBedsByRoom[roomId], bed._id];
+              newSelectedBedsByRoom[roomId] = [];
             }
+            newSelectedBedsByRoom[roomId].push(bed._id);
             if (selRoom.name) {
-              newBedNames[bed._id] = selRoom.name;
+             newBedNames[`${room._id}-${bed._id}`] = selRoom.name;
             }
           }
         }
       });
+
       setSelectedBedsByRoom(newSelectedBedsByRoom);
       setBedNames(newBedNames);
-      console.log("Pre-selected beds initialized:", newSelectedBedsByRoom);
     }
   }, [visible, isContinueMode, selectedRooms, rooms]);
 
@@ -214,14 +197,12 @@ useEffect(() => {
       fetchRooms();
       fetchUserProfile();
     }
-  }, [visible, hostelData, propRoomsData]);
+  }, [visible, hostelData?.id, propCheckInDate, propCheckOutDate, bookingId]);
 
-  // reset activeImageIndex when room changes
   useEffect(() => {
     setActiveImageIndex(0);
-    // scroll to start if ref exists
     if (scrollRef.current) {
-      try { scrollRef.current.scrollTo({ x: 0, animated: false }); } catch (e) {}
+      scrollRef.current.scrollTo({ x: 0, animated: false });
     }
   }, [selectedRoomId]);
 
@@ -245,17 +226,73 @@ useEffect(() => {
 
   const toggleBedSelection = (bedId: string) => {
     setSelectedBedsByRoom((prev) => {
-      const currentRoomBeds = prev[selectedRoomId || ''] || [];
+      const currentRoomBeds = prev[selectedRoomId || ""] || [];
       const newRoomBeds = currentRoomBeds.includes(bedId)
         ? currentRoomBeds.filter((id) => id !== bedId)
         : [...currentRoomBeds, bedId];
-      return { ...prev, [selectedRoomId || '']: newRoomBeds };
+      return { ...prev, [selectedRoomId || ""]: newRoomBeds };
     });
   };
 
-  // Collect selected data (shared logic)
+  // ====== CORRECTED renderBedRow ======
+  const renderBedRow = ({ item }: { item: any }) => {
+    const isActuallyAvailable =
+      item.Availability?.toLowerCase() === "available" &&
+      item.status?.toLowerCase() === "unoccupied";
+
+    const isSelected = (selectedBedsByRoom[selectedRoomId || ""] || []).includes(item._id);
+
+    // Allow selection if bed is available OR it's the user's own selected bed in edit mode
+    const canInteract = isActuallyAvailable || (isContinueMode && isSelected);
+
+    const bedName = isSelected ? bedNames[item._id] : undefined;
+
+    return (
+      <View style={styles.bedRow}>
+        <View style={styles.bedInfo}>
+          <Ionicons
+            name="bed-outline"
+            size={20}
+            color={canInteract ? "#1F2937" : "#9CA3AF"}
+          />
+          <Text
+            style={[styles.bedNumber, !canInteract && styles.occupiedText]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {`Bed ${item.bedNumber}${isSelected && bedName ? ` (${bedName})` : ""}`}
+          </Text>
+        </View>
+        <Text style={[styles.status, !canInteract && styles.occupiedText]}>
+          {item.status}
+        </Text>
+        <Text style={[styles.availability, !canInteract && styles.occupiedText]}>
+          {item.Availability}
+        </Text>
+        <TouchableOpacity
+          style={styles.selectContainer}
+          onPress={() => canInteract && toggleBedSelection(item._id)}
+          disabled={!canInteract}
+        >
+          <View
+            style={[
+              styles.checkbox,
+              isSelected && styles.checkboxSelected,
+              !canInteract && styles.checkboxDisabled,
+            ]}
+          >
+            {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const collectSelectedData = () => {
-    const totalSelectedBeds = Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0);
+    const totalSelectedBeds = Object.values(selectedBedsByRoom).reduce(
+      (acc, beds) => acc + beds.length,
+      0
+    );
     if (totalSelectedBeds === 0) return null;
 
     const roomsData: Array<{
@@ -275,7 +312,7 @@ useEffect(() => {
               bedNumber: bed.bedNumber,
             }));
           roomsData.push({
-            roomId: roomId,
+            roomId,
             roomNumber: roomData.roomNumber,
             beds: selectedBedDetails,
           });
@@ -285,30 +322,23 @@ useEffect(() => {
 
     if (roomsData.length === 0) return null;
 
-    let planData = rooms[0].selectPlan?.find((p: any) => p.name === "monthly");
+    let planData = rooms[0]?.selectPlan?.find((p: any) => p.name === "monthly");
     if (!planData) {
       planData = {
         name: "monthly",
         price: Number(hostelData.price?.replace(/\D/g, "")) || 0,
         depositAmount: Number(hostelData.deposit) || 0,
       };
-    } else {
-      planData.price = Number(planData.price);
-      planData.depositAmount = Number(planData.depositAmount);
     }
 
-    const today = new Date("2025-12-02"); // Use provided current date
+    const today = new Date();
     let checkInDateObj = propCheckInDate ? new Date(propCheckInDate) : new Date(today);
-    if (!propCheckInDate) {
-      checkInDateObj.setDate(today.getDate() + 1);
-    }
+    if (!propCheckInDate) checkInDateObj.setDate(today.getDate() + 1);
     checkInDateObj.setHours(0, 0, 0, 0);
     const checkInDateStr = checkInDateObj.toISOString();
 
     let checkOutDateObj = propCheckOutDate ? new Date(propCheckOutDate) : new Date(checkInDateObj);
-    if (!propCheckOutDate) {
-      checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
-    }
+    if (!propCheckOutDate) checkOutDateObj.setDate(checkInDateObj.getDate() + 7);
     checkOutDateObj.setHours(0, 0, 0, 0);
     const checkOutDateStr = checkOutDateObj.toISOString();
 
@@ -318,7 +348,7 @@ useEffect(() => {
       checkInDate: checkInDateStr,
       checkOutDate: checkOutDateStr,
       userData,
-      bedNames,  // Add this line
+      bedNames,
     };
   };
 
@@ -335,13 +365,12 @@ useEffect(() => {
     }
 
     if (isContinueMode && bookingId) {
-      // For edit mode, navigate to booking screen with bookingId and hostel id
       const params = {
         bookingId,
         hostelId: hostelData.id,
         hostelData: JSON.stringify(hostelData),
         roomsData: JSON.stringify(selectedData.roomsData),
-        bedNames: JSON.stringify(selectedData.bedNames),  // Add this line
+        bedNames: JSON.stringify(selectedData.bedNames),
         plan: JSON.stringify(selectedData.plan),
         checkInDate: selectedData.checkInDate,
         checkOutDate: selectedData.checkOutDate,
@@ -350,25 +379,20 @@ useEffect(() => {
         isEdit: "true",
       };
 
-      console.log("Params being passed to booking screen for edit:", params);
-
-      onClose(); 
+      onClose();
       setTimeout(() => {
         router.push({
           pathname: "/bookingScreen",
           params,
         });
-      }, 300); // Small delay to allow modal to dismiss
+      }, 300);
     } else {
-      // Fallback to onContinueSelection if not in edit mode or no bookingId
       onContinueSelection?.(selectedData);
       onClose();
     }
   };
 
   const handleReserve = async () => {
-    console.log("handleReserve called (Reserve button - no API call)");
-
     if (loading || userLoading || !userData) {
       Alert.alert("Loading", "Please wait for data to load.");
       return;
@@ -383,15 +407,13 @@ useEffect(() => {
     const params = {
       hostelData: JSON.stringify(hostelData),
       roomsData: JSON.stringify(selectedData.roomsData),
-      bedNames: JSON.stringify(selectedData.bedNames),  // Add this line
+      bedNames: JSON.stringify(selectedData.bedNames),
       plan: JSON.stringify(selectedData.plan),
       checkInDate: selectedData.checkInDate,
       checkOutDate: selectedData.checkOutDate,
       userData: JSON.stringify(selectedData.userData),
       bookingType: "reserve",
     };
-
-    console.log("Params being passed to next screen:", params);
 
     router.push({
       pathname: "/bookingScreen",
@@ -400,71 +422,13 @@ useEffect(() => {
     onClose();
   };
 
-  // Updated renderBedRow with guest name display
-  const renderBedRow = ({ item }: { item: any }) => {
-    const isAvailable = isContinueMode
-      ? true
-      : item.status.toLowerCase() === "unoccupied" && item.Availability.toLowerCase() === "available";
-    const currentRoomBeds = selectedBedsByRoom[selectedRoomId || ''] || [];
-    const isSelected = currentRoomBeds.includes(item._id);
-    const bedName = isSelected ? bedNames[item._id] : undefined;  // Get guest name if selected
-
-    return (
-      <View style={styles.bedRow}>
-        <View style={styles.bedInfo}>
-          <Ionicons
-            name="bed-outline"
-            size={20}
-            color={isAvailable ? "#1F2937" : "#9CA3AF"}
-          />
-          <Text
-            style={[styles.bedNumber, !isAvailable && styles.occupiedText]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {`Bed ${item.bedNumber}${isSelected && bedName ? ` (${bedName})` : ''}`}
-          </Text>
-        </View>
-        <Text
-          style={[styles.status, !isAvailable && styles.occupiedText]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {item.status}
-        </Text>
-        <Text
-          style={[styles.availability, !isAvailable && styles.occupiedText]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {item.Availability}
-        </Text>
-        <TouchableOpacity
-          style={styles.selectContainer}
-          onPress={() => isAvailable && toggleBedSelection(item._id)}
-          disabled={!isAvailable}
-        >
-          <View
-            style={[
-              styles.checkbox,
-              isSelected && styles.checkboxSelected,
-              !isAvailable && styles.checkboxDisabled,
-            ]}
-          >
-            {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // Compute totals
-  const totalSelectedBeds = useMemo(() =>
-    Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0),
+  const totalSelectedBeds = useMemo(
+    () => Object.values(selectedBedsByRoom).reduce((acc, beds) => acc + beds.length, 0),
     [selectedBedsByRoom]
   );
-  const numRoomsWithSelections = useMemo(() =>
-    Object.values(selectedBedsByRoom).filter(beds => beds.length > 0).length,
+
+  const numRoomsWithSelections = useMemo(
+    () => Object.values(selectedBedsByRoom).filter((beds) => beds.length > 0).length,
     [selectedBedsByRoom]
   );
 
@@ -472,7 +436,6 @@ useEffect(() => {
   const buttonTitle = isContinueMode ? "Book" : "Reserve";
   const onButtonPress = isContinueMode ? handleBook : handleReserve;
 
-  // handle scroll to set active image index
   const onImageScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
     const idx = Math.round(x / IMAGE_WIDTH);
@@ -480,9 +443,12 @@ useEffect(() => {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen"
-    onRequestClose={onClose}
-    hardwareAccelerated
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+      hardwareAccelerated
     >
       <SafeAreaView style={styles.container}>
         <Header title="Rooms" onBack={onClose} />
@@ -509,9 +475,7 @@ useEffect(() => {
                           styles.roomTab,
                           selectedRoomId === room._id && styles.roomTabActive,
                         ]}
-                        onPress={() => {
-                          setSelectedRoomId(room._id);
-                        }}
+                        onPress={() => setSelectedRoomId(room._id)}
                       >
                         <Text
                           style={[
@@ -530,7 +494,6 @@ useEffect(() => {
 
               {currentRoom && (
                 <>
-                  {/* IMAGE SLIDER */}
                   {currentRoom.photos && currentRoom.photos.length > 0 && (
                     <View style={styles.imageContainer}>
                       <ScrollView
@@ -546,25 +509,17 @@ useEffect(() => {
                       >
                         {currentRoom.photos.map((photo, index) => (
                           <View key={index} style={{ width: IMAGE_WIDTH, alignItems: "center" }}>
-                            <Image
-                              source={{ uri: photo }}
-                              style={styles.roomImage}
-                              resizeMode="cover"
-                            />
+                            <Image source={{ uri: photo }} style={styles.roomImage} resizeMode="cover" />
                           </View>
                         ))}
                       </ScrollView>
 
-                      {/* DOTS */}
                       {currentRoom.photos.length > 1 && (
                         <View style={styles.dotsContainer}>
                           {currentRoom.photos.map((_, idx) => (
                             <View
                               key={idx}
-                              style={[
-                                styles.dot,
-                                idx === activeImageIndex ? styles.dotActive : undefined,
-                              ]}
+                              style={[styles.dot, idx === activeImageIndex ? styles.dotActive : undefined]}
                             />
                           ))}
                         </View>
@@ -591,7 +546,9 @@ useEffect(() => {
                       <Text style={[styles.headerText, styles.selectHeader]}>Select</Text>
                     </View>
                     <View style={styles.totalBedsRow}>
-                      <Text style={styles.totalBedsText}>Total: {currentRoom.totalBeds.length} Beds</Text>
+                      <Text style={styles.totalBedsText}>
+                        Total: {currentRoom.totalBeds.length} Beds
+                      </Text>
                     </View>
                     <FlatList
                       data={currentRoom.totalBeds || []}
@@ -623,8 +580,6 @@ useEffect(() => {
     </Modal>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
@@ -679,11 +634,8 @@ const styles = StyleSheet.create({
   roomTabTextActive: { color: "#fff" },
   selectionInfo: { marginHorizontal: 16, marginTop: 20, padding: 16, backgroundColor: "#F0F4FF", borderRadius: 12, borderWidth: 1, borderColor: "#E0E7FF" },
   selectionText: { fontSize: 16, fontWeight: "600", color: colors.primary, marginBottom: 4 },
-  priceInfo: { fontSize: 14, color: "#4B5563" },
   bottomContainer: { paddingHorizontal: 16, paddingVertical: 16 },
   buttonWrapper: { alignItems: "center" },
-  reserveButton: { backgroundColor: colors.primary },
-  disabledButton: { backgroundColor: "#D1D5DB" },
 });
 
 export default RoomSelectionModal;
