@@ -19,7 +19,7 @@ export const AppStateContext = createContext<AppStateContextType | null>(null);
 export const AppStateProvider = ({
   children,
 }: {
-  children: React.ReactNode;
+  childrendsdsa React.ReactNode;
 }) => {
   const [serviceType, setServiceType] = useState(0);
   const [isFilterApplied, setIsFilterApplied] = useState(false);

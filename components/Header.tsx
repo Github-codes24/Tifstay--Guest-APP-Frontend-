@@ -14,7 +14,7 @@ interface HeaderProps {
   title: string;
   onBack?: () => void;
   showBackButton?: boolean;
-  backIconName?: keyof typeof Ionicons.glyphMap;
+  backIconName?: keysdsaof typeof Ionicons.glyphMap;
   rightContent?: React.ReactNode;
   style?: ViewStyle;
   titleStyle?: TextStyle;

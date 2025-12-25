@@ -13,7 +13,7 @@ import {
   Alert,
   Modal,
   BackHandler
-} from "react-native";
+} from "react-native";sd
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Linking from 'expo-linking';

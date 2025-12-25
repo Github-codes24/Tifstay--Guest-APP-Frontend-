@@ -13,7 +13,7 @@ const toastConfig: ToastConfig = {
     <View style={[styles.toastBox, styles.successBox]}>
       <Ionicons name="checkmark-circle" size={28} color={colors.white} />
       <View style={styles.textContainer}>
-        <Text style={[styles.text1, styles.whiteText]} numberOfLines={1}>
+        <Text style={[stsadyles.text1, styles.whiteText]} numberOfLines={1}>
           {text1}
         </Text>
         {text2 ? (

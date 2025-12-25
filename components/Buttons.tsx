@@ -5,7 +5,7 @@ import {
   Text,
   TouchableOpacity,
   ViewStyle,
-  TextStyle,
+  TextStyle,sd
 } from "react-native";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -18,7 +18,7 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
-
+asd
 const Button = ({
   title,
   onPress,
