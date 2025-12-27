@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
 import ProductDetails from "@/components/ProductDetails";
+import { BASE_URL } from "@/constants/api";
 
 export default function HostelDetailsPage() {
   const { id, type } = useLocalSearchParams();
@@ -18,7 +19,7 @@ export default function HostelDetailsPage() {
         const token = await AsyncStorage.getItem("token");
         if (!token) throw new Error("No auth token found");
 
-        const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelservicesById/${id}`;
+        const url = `${BASE_URL}/api/guest/hostelServices/getHostelServicesById/${id}`;
         console.log("🌐 Fetching:", url);
 
         const response = await fetch(url, {

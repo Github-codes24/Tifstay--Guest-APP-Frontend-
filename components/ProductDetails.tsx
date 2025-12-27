@@ -258,7 +258,7 @@ export default function ProductDetails() {
           // Determine primary pricing tier (monthly > weekly > daily)
           let primaryAmount = 0;
           let primaryPeriod = '';
-          let depositAmount = apiData.securityDeposit || apiData.weeklyDeposit || apiData.perDayDeposit || 0; 
+          let depositAmount = apiData.securityDeposit || apiData.weeklyDeposit || apiData.perDayDeposit || 0;
 
           if (monthlyPrice > 0) {
             primaryAmount = monthlyPrice;
@@ -297,8 +297,8 @@ export default function ProductDetails() {
             offer: apiData.offers ? parseInt(apiData.offers.replace('%', '')) : null,
             amenities: Array.isArray(apiData.facilities) ? apiData.facilities : [],
             fullAddress: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Not available",
-            sublocation: Array.isArray(apiData.location?.nearbyLandmarks) 
-              ? apiData.location.nearbyLandmarks.map((l: any) => `${l.name} - ${l.distance}`).join(', ') 
+            sublocation: Array.isArray(apiData.location?.nearbyLandmarks)
+              ? apiData.location.nearbyLandmarks.map((l: any) => `${l.name} - ${l.distance}`).join(', ')
               : (typeof apiData.location?.nearbyLandmarks === 'string' ? apiData.location.nearbyLandmarks : "Not available"),
             location: typeof apiData.location?.fullAddress === 'string' ? apiData.location.fullAddress : "Unknown",
             rulesAndPolicies: typeof apiData.rulesAndPolicies === 'string' ? apiData.rulesAndPolicies : "Not available",
@@ -311,6 +311,7 @@ export default function ProductDetails() {
             daily: dailyPrice,
             weekly: weeklyPrice,
             rooms: rooms, // Keep for potential use
+            monthly: monthlyPrice,
           };
           // Debug log for deposits
           console.log('🔍 MappedData Deposits:', {
@@ -369,12 +370,12 @@ export default function ProductDetails() {
           } else {
             fullAddress = fullApiData.location?.fullAddress || "";
             servingRadiusNum = fullApiData.location?.serviceRadius || 5;
-            nearbyLandmarks = Array.isArray(fullApiData.location?.nearbyLandmarks) 
-              ? fullApiData.location.nearbyLandmarks.map((l: any) => `${l.name} (${l.distance})`).join(', ') 
+            nearbyLandmarks = Array.isArray(fullApiData.location?.nearbyLandmarks)
+              ? fullApiData.location.nearbyLandmarks.map((l: any) => `${l.name} (${l.distance})`).join(', ')
               : fullApiData.location?.area || "";
           }
           const servingRadius = `${servingRadiusNum} km`;
-         const location = fullAddress || "Not available";
+          const location = fullAddress || "Not available";
           const isOffline = fullApiData.offlineDetails?.isOffline || false;
           const offlineReason = fullApiData.offlineDetails?.offlineReason || fullApiData.offlineReason || "";
           const comeBackAt = fullApiData.offlineDetails?.comeBackAt || fullApiData.comeBackAt || "";
@@ -412,8 +413,9 @@ export default function ProductDetails() {
             },
             owner: fullApiData.owner,
             isOpenForSale: fullApiData.isOpenForSale !== undefined ? fullApiData.isOpenForSale : true,
+
           };
-       
+
         }
         setMappedData(processedData);
       } catch (error) {
@@ -526,22 +528,22 @@ export default function ProductDetails() {
     }
   };
 
-useEffect(() => {
-  const backAction = () => {
-    if (showRoomSelectionModal) {
-      setShowRoomSelectionModal(false);
-      return true; // ← default back ko rok deta hai
-    }
-    return false; // ← default navigation chalega
-  };
+  useEffect(() => {
+    const backAction = () => {
+      if (showRoomSelectionModal) {
+        setShowRoomSelectionModal(false);
+        return true; // ← default back ko rok deta hai
+      }
+      return false; // ← default navigation chalega
+    };
 
-  const backHandler = BackHandler.addEventListener(
-    "hardwareBackPress",
-    backAction
-  );
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
 
-  return () => backHandler.remove();
-}, [showRoomSelectionModal]);
+    return () => backHandler.remove();
+  }, [showRoomSelectionModal]);
   const handleShare = async (platform: string) => {
     if (!mappedData) return;
     setShowShareModal(false);
@@ -587,34 +589,34 @@ useEffect(() => {
   if (!mappedData) {
     return (
       <SafeAreaView>
-        <View style={[styles.container,{marginTop:theme.verticalSpacing.space_20}]}>
-        <Header
-          title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
-          backIconName="chevron-back"
-          onBack={() => router.back()}
-        />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 10 }}>Loading details...</Text>
-        </View>
+        <View style={[styles.container, { marginTop: theme.verticalSpacing.space_20 }]}>
+          <Header
+            title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+            backIconName="chevron-back"
+            onBack={() => router.back()}
+          />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ marginTop: 10 }}>Loading details...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
   }
 
 
-  
+
   // ==================== HEADER SECTION ====================
   const renderHeader = () => (
-    
-      <View style={{marginTop:theme.verticalSpacing.space_30}}>
-    <Header
-      title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
-      backIconName="chevron-back"
-      onBack={() => router.back()}
-    />
+
+    <View style={{ marginTop: theme.verticalSpacing.space_30 }}>
+      <Header
+        title={paramType === "tiffin" ? "Tiffin Details" : "Hostel Details"}
+        backIconName="chevron-back"
+        onBack={() => router.back()}
+      />
     </View>
-    
+
   );
 
   // ==================== IMAGE CAROUSEL SECTION ====================
@@ -735,113 +737,134 @@ useEffect(() => {
   );
 
   // ==================== PRICING SECTION ====================
+  // ==================== PRICING SECTION ====================
   const renderPricingSection = () => {
     if (paramType === "hostel") {
-      return (
-        <View style={styles.pricingBox}>
-          {/* Show daily as old price if primary is weekly or monthly */}
-          {(mappedData.primaryPeriod === 'WEEK' || mappedData.primaryPeriod === 'MONTH') && mappedData.daily > 0 && (
-            <View style={styles.priceRow}>
-              <Text style={styles.oldPrice}>₹{mappedData.daily}/day</Text>
-            </View>
-          )}
-          {/* Show weekly as old price only if primary is monthly */}
-          {mappedData.primaryPeriod === 'MONTH' && mappedData.weekly > 0 && (
-            <View style={styles.priceRow}>
-              <Text style={styles.oldPrice}>₹{mappedData.weekly}/week</Text>
-            </View>
-          )}
-          <View style={styles.priceMainRow}>
+      const plans = [
+        {
+          key: "daily",
+          label: "Daily",
+          price: mappedData.daily || 0,
+          deposit: mappedData.perDayDeposit || 0,
+          isPrimary: mappedData.primaryPeriod === "DAY",
+        },
+        {
+          key: "weekly",
+          label: "Weekly",
+          price: mappedData.weekly || 0,
+          deposit: mappedData.weeklyDeposit || 0,
+          isPrimary: mappedData.primaryPeriod === "WEEK",
+        },
+        {
+          key: "monthly",
+          label: "Monthly",
+          price: mappedData.monthly || 0,
+          deposit: mappedData.securityDeposit || 0,
+          isPrimary: mappedData.primaryPeriod === "MONTH",
+        },
+      ].filter(plan => plan.price > 0);
+
+      if (plans.length === 0) {
+        return (
+          <View style={styles.fallbackPrice}>
             <Text style={styles.currentPrice}>{mappedData.price}</Text>
-            <View style={styles.rightSideContent}>
-              {mappedData.offer && (
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>{mappedData.offer}% OFF</Text>
-                </View>
-              )}
-              {/* {mappedData.deposit > 0 && (
-                <View style={styles.depositContainer}>
-                  <Text style={styles.depositAmount}>
-                    + ₹{mappedData.deposit} {mappedData.primaryPeriod === 'MONTH' ? 'security' : 'weekly'} deposit
-                  </Text>
-                </View>
-              )} */}
-            </View>
           </View>
-          {/* Deposit notes */}
-          <View style={styles.depositNotesContainer}>
-            {mappedData.perDayDeposit > 0 && (
-              <View style={styles.depositNoteRow}>
-                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
-                <Text style={styles.depositNote}>
-                  Daily Deposit: <Text style={styles.depositamt}>₹{mappedData.perDayDeposit} </Text>(fully refundable)
-                </Text>
-              </View>
-            )}
-            {mappedData.weeklyDeposit > 0 && (
-              <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
-                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
-                <Text style={styles.depositNote}>
-                  Weekly Deposit: <Text style={styles.depositamt}>₹{mappedData.weeklyDeposit} </Text>(fully refundable)
-                </Text>
-              </View>
-            )}
-            {mappedData.securityDeposit > 0 && (
-              <View style={[styles.depositNoteRow, { marginTop: 4 }]}>
-                <Ionicons name="shield-checkmark-outline" size={14} color="#666" />
-                <Text style={styles.depositNote}>
-                  Monthly Deposit : <Text style={styles.depositamt}>₹{mappedData.securityDeposit} </Text>(fully refundable)
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      );
-    } else {
-      // For tiffin - dynamic pricing
+        );
+      }
+
       return (
-        <View style={styles.tiffinPricing}>
-          {mappedData.pricing?.map((plan: any, index: number) => (
-            <View key={index} style={styles.pricingPlan}>
-              <View style={styles.pricingHeader}>
-                <Text
-                  style={styles.pricingSectionTitle}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {plan.planType} ({plan.foodType})
+        <View style={styles.pricingSectionContainer}>
+          <Text style={styles.pricingSectionTitle}>Choose Your Stay Plan</Text>
+
+          <View style={styles.plansWrapper}>
+            {plans.map((plan) => (
+              <View
+                key={plan.key}
+                style={[
+                  styles.planCard,
+                  plan.isPrimary && styles.primaryPlanCard,
+                ]}
+              >
+                {plan.isPrimary && (
+                  <View style={styles.popularRibbon}>
+                    <Text style={styles.popularRibbonText}>MOST POPULAR</Text>
+                  </View>
+                )}
+
+                <Text style={styles.planLabel}>{plan.label}</Text>
+
+                <Text style={styles.planPrice}>
+                  ₹{plan.price.toLocaleString("en-IN")}
                 </Text>
-                {/* {plan.offers && (
-                  <View style={styles.discountBadge}>
-                    <Text style={styles.discountText}>{plan.offers}</Text>
-                  </View>
-                )} */}
-              </View>
-              <View style={styles.pricingColumns}>
-                {/* Dining prices column - only show if weeklyDining or monthlyDining > 0 */}
-                {(plan.weeklyDining > 0 || plan.monthlyDining > 0) && (
-                  <View style={styles.pricingColumn}>
-                    <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/week</Text>
-                    <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
+
+                <Text style={styles.planPer}>per {plan.label.toLowerCase()}</Text>
+
+                {mappedData.offer && plan.isPrimary && (
+                  <View style={styles.offerBadge}>
+                    <Text style={styles.offerText}>{mappedData.offer}% OFF</Text>
                   </View>
                 )}
-                {/* Delivery prices column - only show if weeklyDelivery or monthlyDelivery > 0 */}
-                {(plan.weeklyDelivery > 0 || plan.monthlyDelivery > 0) && (
-                  <View style={styles.pricingColumn}>
-                    <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/week</Text>
-                    <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/month</Text>
-                  </View>
-                )}
+
+                <View style={styles.depositWrapper}>
+                  {plan.deposit > 0 ? (
+                    <>
+                      <Ionicons name="shield-checkmark-outline" size={24} color="#4CAF50" />
+                      <Text style={styles.depositAmount}>
+                        + ₹{plan.deposit.toLocaleString("en-IN")}
+                      </Text>
+                      <Text style={styles.depositLabel}>Security Deposit</Text>
+                      <Text style={styles.refundableText}>Fully Refundable</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.noDepositText}>No Deposit Required</Text>
+                  )}
+                </View>
               </View>
-            </View>
-          )) || (
-              <View style={styles.pricingPlan}>
-                <Text style={styles.priceItem}>{mappedData.price}</Text>
-              </View>
-            )}
+            ))}
+          </View>
+
+          <Text style={styles.bottomNote}>
+            Prices per person • Deposits fully refundable
+          </Text>
         </View>
       );
     }
+
+    // Tiffin pricing (unchanged rahega)
+    return (
+      <View style={styles.tiffinPricing}>
+        {mappedData.pricing?.map((plan: any, index: number) => (
+          <View key={index} style={styles.pricingPlan}>
+            <View style={styles.pricingHeader}>
+              <Text
+                style={[styles.pricingSectionTitle, { color: '#1976D2' }]}
+                numberOfLines={1}
+              >
+                {plan.planType} ({plan.foodType})
+              </Text>
+            </View>
+            <View style={styles.pricingColumns}>
+              {(plan.weeklyDining > 0 || plan.monthlyDining > 0) && (
+                <View style={styles.pricingColumn}>
+                  <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/week</Text>
+                  <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
+                </View>
+              )}
+              {(plan.weeklyDelivery > 0 || plan.monthlyDelivery > 0) && (
+                <View style={styles.pricingColumn}>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/week</Text>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/month</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )) || (
+            <View style={styles.pricingPlan}>
+              <Text style={styles.priceItem}>{mappedData.price}</Text>
+            </View>
+          )}
+      </View>
+    );
   };
 
   // ==================== TABS SECTION ====================
@@ -1217,39 +1240,39 @@ useEffect(() => {
   // ==================== MAIN RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{flex:1,marginBottom:theme.verticalSpacing.space_20}}>
-      {renderHeader()}
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {renderImageCarousel()}
-        {renderBasicInfo()}
-        {renderTabs()}
-        {activeTab === "Details"
-          ? paramType === "tiffin"
-            ? renderTiffinDetails()
-            : renderHostelDetails()
-          : renderReviews()}
-        {renderBottomButtons()}
-      </ScrollView>
-      {paramType === "tiffin" && renderOfflineModal()}
-      <ShareModal
-        visible={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        title={mappedData.name}
-        type={paramType}
-      />
-      {/* Add Room Selection Modal for Hostels */}
-      {paramType === "hostel" && (
-        <RoomSelectionModal
-          visible={showRoomSelectionModal}
-          onClose={() => setShowRoomSelectionModal(false)}
-          hostelData={{
-            id: mappedData.id,
-            name: mappedData.name,
-            price: mappedData.price,
-            deposit: mappedData.deposit,
-          }}
+      <View style={{ flex: 1, marginBottom: theme.verticalSpacing.space_20 }}>
+        {renderHeader()}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {renderImageCarousel()}
+          {renderBasicInfo()}
+          {renderTabs()}
+          {activeTab === "Details"
+            ? paramType === "tiffin"
+              ? renderTiffinDetails()
+              : renderHostelDetails()
+            : renderReviews()}
+          {renderBottomButtons()}
+        </ScrollView>
+        {paramType === "tiffin" && renderOfflineModal()}
+        <ShareModal
+          visible={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          title={mappedData.name}
+          type={paramType}
         />
-      )}
+        {/* Add Room Selection Modal for Hostels */}
+        {paramType === "hostel" && (
+          <RoomSelectionModal
+            visible={showRoomSelectionModal}
+            onClose={() => setShowRoomSelectionModal(false)}
+            hostelData={{
+              id: mappedData.id,
+              name: mappedData.name,
+              price: mappedData.price,
+              deposit: mappedData.deposit,
+            }}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -1496,7 +1519,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     flex: 1,
     marginLeft: 4,
-    fontWeight:500
+    fontWeight: 500
   },
   // Tiffin pricing styles
   tiffinPricing: {
@@ -1866,12 +1889,12 @@ const styles = StyleSheet.create({
     color: "red",
     marginLeft: 8,
     flex: 1,
-    fontWeight:400
+    fontWeight: 400
   },
-  depositamt:{
-    fontSize:18,
-    fontWeight:500,
-    color:"#1976D2"
+  depositamt: {
+    fontSize: 18,
+    fontWeight: 500,
+    color: "#1976D2"
   },
   // Offline modal styles
   modalOverlay: {
@@ -1916,5 +1939,123 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  pricingSectionContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 24,
+    marginVertical: 12,
+  },
+  pricingSectionTitle: {
+    fontSize: 21,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    textAlign: "center",
+    marginBottom: 28,
+  },
+  plansWrapper: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "stretch", // Yeh important hai – sab cards same height mein
+  },
+  planCard: {
+    width: (width - 64 - 32) / 3, // 3 cards ke liye perfect equal width
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingVertical: 36,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#E0E0E0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  primaryPlanCard: {
+    borderColor: colors.primary,
+    borderWidth: 2.5,
+    backgroundColor: "#F8FDFF",
+  },
+  popularRibbon: {
+    position: "absolute",
+    top: -14,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 30,
+  },
+  popularRibbonText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  planLabel: {
+    fontSize: 17,
+    color: "#444",
+    fontWeight: "600",
+    marginBottom: 14,
+  },
+  planPrice: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    marginBottom: 6,
+  },
+  planPer: {
+    fontSize: 15,
+    color: "#777",
+    marginBottom: 24,
+  },
+  offerBadge: {
+    backgroundColor: "#FFEBEE",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 30,
+    marginVertical: 12,
+  },
+  offerText: {
+    color: "#D32F2F",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  depositWrapper: {
+    alignItems: "center",
+    marginTop: 16,
+    gap: 6,
+  },
+  depositAmount: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+  },
+  depositLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  refundableText: {
+    fontSize: 13,
+    color: "#4CAF50",
+    fontWeight: "600",
+  },
+  noDepositText: {
+    fontSize: 15,
+    color: "#4CAF50",
+    fontWeight: "600",
+    marginTop: 16,
+  },
+  bottomNote: {
+    fontSize: 13,
+    color: "#777",
+    textAlign: "center",
+    marginTop: 24,
+    fontStyle: "italic",
+  },
+  fallbackPrice: {
+    padding: 20,
+    alignItems: "center",
   },
 });

@@ -4560,7 +4560,7 @@ expo-module-scripts@^4.1.10:
     ts-jest "~29.0.4"
     typescript "^5.8.3"
 
-expo-modules-autolinking@2.1.14:
+expo-modules-autolinking@~2.1.0, expo-modules-autolinking@2.1.14:
   version "2.1.14"
   resolved "https://registry.npmjs.org/expo-modules-autolinking/-/expo-modules-autolinking-2.1.14.tgz"
   integrity sha512-nT5ERXwc+0ZT/pozDoJjYZyUQu5RnXMk9jDGm5lg+PiKvsrCTSA/2/eftJGMxLkTjVI2MXp5WjSz3JRjbA7UXA==

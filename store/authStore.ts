@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";  // <-- Add this import for API calls
+import axios from "axios";
+import { BASE_URL } from "@/constants/api";
 
 interface User {
   id: string;
@@ -10,50 +11,69 @@ interface User {
   email?: string;
 }
 
-interface ProfileData {  // <-- Optional: Define interface for profile if structure known
+interface ProfileData {
   profileImage?: string;
   name?: string;
-  // Add other fields from API response as needed
+  email?: string;
+  // Add more fields as per your backend response
 }
 
 interface AuthState {
+  // Onboarding
   hasSeenOnboarding: boolean;
   setHasSeenOnboarding: (value: boolean) => void;
 
+  // Auth
   user: User | null;
   isAuthenticated: boolean;
-
-  userLocation: string;
-  setUserLocation: (location: string) => void;
-  hasSelectedLocation: boolean;
-  setHasSeenOnboarding: (value: boolean) => void;
-
-  profileData: ProfileData | null;  // <-- Add this: Profile data from API
-  fetchProfile: () => Promise<void>;  // <-- Add this action
-
   login: (user: User) => void;
   logout: () => void;
-  updateUser: (user: Partial<User>) => void;
+  updateUser: (userData: Partial<User>) => void;
 
-  rehydrated: boolean; // ✅ Keep this flag
+  // Location
+  userLocation: string;           // Full address (subtext)
+  locationLabel: string;          // "Home", "Work", "Current Location" etc.
+  locationIcon: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap; // Icon name
+  hasSelectedLocation: boolean;
+
+  setUserLocation: (location: string) => void;
+  setLocationLabel: (label: string) => void;
+  setLocationIcon: (icon: AuthState["locationIcon"]) => void;
+  setHasSelectedLocation: (value: boolean) => void;
+
+  // Profile
+  profileData: ProfileData | null;
+  fetchProfile: () => Promise<void>;
+
+  // Hydration
+  rehydrated: boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({  // <-- Add 'get' param for actions if needed
+    (set, get) => ({
+      // Initial values
       hasSeenOnboarding: false,
       user: null,
       isAuthenticated: false,
-      userLocation: "No Location Saved",
-      hasSelectedLocation: false,
-      profileData: null,  // <-- Initialize null
-      rehydrated: false, // ✅ initialize false
 
+      userLocation: "No Location Saved",
+      locationLabel: "Home Location",   // Default top label
+      locationIcon: "home",             // Default icon
+      hasSelectedLocation: false,
+
+      profileData: null,
+      rehydrated: false,
+
+      // Actions
       setHasSeenOnboarding: (value) => set({ hasSeenOnboarding: value }),
+
       setUserLocation: (location) => set({ userLocation: location }),
+      setLocationLabel: (label) => set({ locationLabel: label }),
+      setLocationIcon: (icon) => set({ locationIcon: icon }),
       setHasSelectedLocation: (value) => set({ hasSelectedLocation: value }),
 
-      fetchProfile: async () => {  // <-- Implement async action
+      fetchProfile: async () => {
         try {
           const token = await AsyncStorage.getItem("token");
           if (!token) {
@@ -61,39 +81,53 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          const response = await axios.get(
-            "https://tifstay-project-be.onrender.com/api/guest/getProfile",
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const response = await axios.get(`${BASE_URL}/api/guest/getProfile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
-          const profile = response.data.data.guest;  // Assuming API structure
-          set({ profileData: profile });
+          if (response.data.success && response.data.data?.guest) {
+            const profile = response.data.data.guest;
+            set({ profileData: profile });
 
-          // Optional: Merge profile name into user if not set
-          if (profile.name && get().user) {
-            set((state) => ({
-              user: { ...state.user, name: profile.name },
-            }));
+            // Sync name to user state if available
+            if (profile.name && get().user) {
+              set((state) => ({
+                user: state.user ? { ...state.user, name: profile.name } : null,
+              }));
+            }
+
+            console.log("Profile fetched:", profile);
           }
-
-          console.log("Profile fetched successfully:", profile);
         } catch (error: any) {
-          console.error("Profile fetch error:", error.response?.data || error.message);
-          set({ profileData: null });  // Reset on error
+          console.error(
+            "Profile fetch failed:",
+            error.response?.data || error.message
+          );
+          set({ profileData: null });
         }
       },
 
       login: (user) => {
-        set({ user, isAuthenticated: true });
-        // Optional: Fetch profile immediately after login
+        set({
+          user,
+          isAuthenticated: true,
+          hasSelectedLocation: false, // Reset location on new login if needed
+        });
+        // Auto-fetch profile after login
         get().fetchProfile();
       },
+
       logout: () => {
-        set({ 
-          user: null, 
+        set({
+          user: null,
           isAuthenticated: false,
-          profileData: null,  // <-- Clear profile on logout
+          profileData: null,
+          userLocation: "No Location Saved",
+          locationLabel: "Home Location",
+          locationIcon: "home",
+          hasSelectedLocation: false,
         });
+        // Optional: Clear AsyncStorage token here if needed
       },
 
       updateUser: (userData) =>
@@ -104,9 +138,11 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => AsyncStorage),
+      // This runs after rehydration completes
       onRehydrateStorage: () => (state) => {
-        // ✅ Mark store as rehydrated after persistence loads
-        if (state) state.rehydrated = true;
+        if (state) {
+          state.rehydrated = true;
+        }
       },
     }
   )

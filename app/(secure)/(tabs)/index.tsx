@@ -31,13 +31,13 @@ import { useAuthStore } from "@/store/authStore";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { hostellogo, tiffinlogo } from "@/assets/images";
-import fallbackDp from "@/assets/images/fallbackdp.png"; 
+import fallbackDp from "@/assets/images/fallbackdp.png";
 import food1 from "@/assets/images/food1.png";
 import hostel1 from "@/assets/images/image/hostelBanner.png";
 import { BackHandler } from 'react-native';
 import { useFocusEffect } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
-import { WebView } from "react-native-webview"; 
+import { WebView } from "react-native-webview";
 import { theme } from "@/constants/utils";
 import { BASE_URL, API_ENDPOINTS } from "@/constants/api";
 
@@ -108,6 +108,10 @@ export default function DashboardScreen() {
     user,
     userLocation,
     setUserLocation,
+    locationLabel,
+    setLocationLabel,
+    locationIcon,
+    setLocationIcon,
     hasSelectedLocation,
     setHasSelectedLocation,
     profileData,
@@ -128,8 +132,8 @@ export default function DashboardScreen() {
   const [visibleCount, setVisibleCount] = useState(10);
   const [searchVisibleCount, setSearchVisibleCount] = useState(10);
 
-const [isListening, setIsListening] = useState(false);
-const [transcript, setTranscript] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
 
 
   // New states for Chat modal
@@ -321,7 +325,7 @@ const [transcript, setTranscript] = useState("");
     }
     const url = `${BASE_URL}/api/guest/hostelServices/getAllHostelsServices?${params.toString()}`;
     console.log("🔍 Hostel Fetch URL:", url); // Debug log
-    console.log("🔍 Normalized planType:", normalizedPlanType); 
+    console.log("🔍 Normalized planType:", normalizedPlanType);
     try {
       const response = await fetch(url, { headers });
       const result = await response.json();
@@ -1075,29 +1079,56 @@ const [transcript, setTranscript] = useState("");
   // --- Handlers --- (unchanged)
   const handleLocationSelected = async (location: any) => {
     setShowLocationModal(false);
+
+    let displayLabel = "Home Location";
+    let displayIcon: any = "home";
+    let displaySubtext = "Select a location";
+
     if (location.coords) {
+      // Current location (GPS)
       try {
         const [address] = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         });
-        setUserLocation(
-          address
-            ? `${address.street || ""} ${address.city || ""} ${address.region || ""}`.trim()
-            : "Current Location"
-        );
+
+        const fullAddress = address
+          ? `${address.street || ""}, ${address.city || ""}, ${address.region || ""}${address.postalCode ? " - " + address.postalCode : ""}`.trim()
+          : "Current Location";
+
+        displaySubtext = fullAddress || "Current Location";
+        displayLabel = "Current Location";
+        displayIcon = "location";
       } catch (error) {
-        console.error("Error reverse geocoding:", error);
-        setUserLocation("Current Location");
-        Alert.alert("Error", "Failed to retrieve location details. Using default location.");
+        console.error("Reverse geocode error:", error);
+        displaySubtext = "Current Location";
+        displayLabel = "Current Location";
+        displayIcon = "location";
       }
-    } else if (typeof location === "string") {
-      setUserLocation(location);
-    } else if (location.type === "home") {
-      setUserLocation("Home Location");
-    } else if (location.type === "work") {
-      setUserLocation("Work Location");
+    } else {
+      // Saved address from backend
+      const fullAddress = `${location.address || ""}${location.street ? ", " + location.street : ""}${location.postCode ? " - " + location.postCode : ""}`.trim();
+
+      displaySubtext = fullAddress || "Unknown Address";
+
+      const labelLower = (location.label || "").toLowerCase().trim();
+
+      if (labelLower.includes("home")) {
+        displayLabel = "Home";
+        displayIcon = "home";
+      } else if (labelLower.includes("work") || labelLower.includes("office")) {
+        displayLabel = "Work";
+        displayIcon = "briefcase";
+      } else {
+        displayLabel = location.label || "Saved Address";
+        displayIcon = "location-outline";
+      }
     }
+
+    // Yeh teeno states update kar do
+    setUserLocation(displaySubtext);
+    setLocationLabel(displayLabel);
+    setLocationIcon(displayIcon);
     setHasSelectedLocation(true);
   };
   const handleLocationModalClose = () => {
@@ -1246,7 +1277,7 @@ const [transcript, setTranscript] = useState("");
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.micButton}
-             
+
               >
                 <Ionicons name="mic" size={20} color="#6B7280" />
               </TouchableOpacity>
@@ -1297,7 +1328,7 @@ const [transcript, setTranscript] = useState("");
                 onEndReached={handleLoadMoreSearch}
                 onEndReachedThreshold={0.5}
                 refreshControl={
-               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                  <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
                 }
               />
             ) : (
@@ -1423,12 +1454,19 @@ const [transcript, setTranscript] = useState("");
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <View style={styles.locationContainer}>
-            <TouchableOpacity style={styles.locationButton} onPress={() => setShowLocationModal(true)} accessibilityRole="button" accessibilityLabel="Change location">
-              <Ionicons name="home" size={20} color="#000" />
-              <Text style={styles.locationText}>Home Location</Text>
+            <TouchableOpacity
+              style={styles.locationButton}
+              onPress={() => setShowLocationModal(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Change location"
+            >
+              <Ionicons name={locationIcon} size={20} color="#000" />
+              <Text style={styles.locationText}>{locationLabel}</Text>
               <Ionicons name="chevron-down" size={20} color="#000" />
             </TouchableOpacity>
-            <Text style={styles.locationSubtext}>{userLocation || "Unknown Location"}</Text>
+            <Text style={styles.locationSubtext} numberOfLines={2}>
+              {userLocation || "Tap to select location"}
+            </Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -1530,11 +1568,11 @@ const [transcript, setTranscript] = useState("");
                   accessibilityRole="button"
                   accessibilityLabel="Switch to Tiffin/Restaurants"
                 >
-                 <Ionicons
-    name="restaurant-sharp"  // Ye icon tiffin/restaurant ke liye best hai
-    size={24}  // Size same rakho jaise image tha (styles.image mein width/height 24 tha)
-    color={!isHostel ? "#fff" : "#004AAD"}  // Tint color same rakho
-  />
+                  <Ionicons
+                    name="restaurant-sharp"  // Ye icon tiffin/restaurant ke liye best hai
+                    size={24}  // Size same rakho jaise image tha (styles.image mein width/height 24 tha)
+                    color={!isHostel ? "#fff" : "#004AAD"}  // Tint color same rakho
+                  />
                   <Text style={[styles.serviceButtonText, !isHostel && styles.serviceButtonTextSelected]}>
                     Tiffin/Restaurants
                   </Text>
@@ -1605,17 +1643,17 @@ const [transcript, setTranscript] = useState("");
                 </View>
               </View>
             )}
-           <View style={styles.servicesSection}>
-  <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>
-      {isFiltered
-        ? "Available Results"
-        : searchQuery
-          ? "Search Results"
-          : isHostel
-            ? "Available Accommodations"
-            : "Available Results"}
-    </Text>
+            <View style={styles.servicesSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  {isFiltered
+                    ? "Available Results"
+                    : searchQuery
+                      ? "Search Results"
+                      : isHostel
+                        ? "Available Accommodations"
+                        : "Available Results"}
+                </Text>
                 {!isHostel && (
                   <TouchableOpacity
                     style={styles.vegToggleButton}
@@ -1648,7 +1686,7 @@ const [transcript, setTranscript] = useState("");
                               {
                                 translateX: vegToggleAnimated.interpolate({
                                   inputRange: [0, 1],
-                                  outputRange: [0,34],
+                                  outputRange: [0, 34],
                                 }),
                               },
                             ],
@@ -1679,21 +1717,21 @@ const [transcript, setTranscript] = useState("");
                   </TouchableOpacity>
                 )}
               </View>
-  {isSearching || isLoadingTiffins || isLoadingHostels ? (  // ← Ye condition important!
-    <View style={styles.loadingCountContainer}>
-      <ActivityIndicator size="small" style={{marginBottom:18}} color="#6B7280" />
-      <Text style={styles.servicesCount}>
-        {searchQuery ? "Searching..." : "Loading services..."}
-      </Text>
-    </View>
-  ) : (
-    <Text style={styles.servicesCount}>
-      {isHostel
-        ? `${filteredHostels.length} properties found in ${userLocation || "your area"}`
-        : `${filteredTiffinServices.length} services found in ${userLocation || "your area"}`}
-    </Text>
-  )}
-</View>
+              {isSearching || isLoadingTiffins || isLoadingHostels ? (  // ← Ye condition important!
+                <View style={styles.loadingCountContainer}>
+                  <ActivityIndicator size="small" style={{ marginBottom: 18 }} color="#6B7280" />
+                  <Text style={styles.servicesCount}>
+                    {searchQuery ? "Searching..." : "Loading services..."}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.servicesCount}>
+                  {isHostel
+                    ? `${filteredHostels.length} properties found in ${userLocation || "your area"}`
+                    : `${filteredTiffinServices.length} services found in ${userLocation || "your area"}`}
+                </Text>
+              )}
+            </View>
           </>
         }
         ListEmptyComponent={
@@ -1998,34 +2036,34 @@ const styles = StyleSheet.create({
   vegToggleButton: {
     flexDirection: "column",
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.5,
-    elevation: 2,
-    height:theme.verticalSpacing.space_76, // smaller height
-    width:theme.horizontalSpacing.space_76, // smaller width
+    shadowOpacity: 0.08,
+    shadowRadius: 1,
+    elevation: 1,
+    height: 60,
+    width: 60,
   },
   vegLabelContainer: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
   },
   vegLabelText: {
-    fontSize:theme.fontSizes.size_16,
+    fontSize: 12,
     fontWeight: "600",
     color: "#374151",
   },
   vegToggleTrack: {
-    width:theme.horizontalSpacing.space_50,
-    height:theme.verticalSpacing.space_20,
-    borderRadius: 12,
+    width: 38,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     justifyContent: "center",
@@ -2034,24 +2072,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   vegToggleThumb: {
-    width: 12,
-    height:theme.verticalSpacing.space_18 ,
+    width: 10,
+    height: 14,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
     left: 0,
     top: 0,
-    right:0
+    right: 0
   },
   greenDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
     backgroundColor: "green",
   },
   leafContainer: {
-    width:theme.horizontalSpacing.space_18,
-    height:theme.verticalSpacing.space_18,
+    width: 14,
+    height: 14,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2168,13 +2206,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingCountContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 8, // Loader aur text ke beech space
-},
-serviceCount: {
-  fontSize: 14,
-  color: "#6B7280",
-  marginBottom: 16,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8, // Loader aur text ke beech space
+  },
+  serviceCount: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 16,
+  },
 });

@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  ActivityIndicator, // ← Added only this import
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -47,28 +48,25 @@ export default function TiffinOrderDetails() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [startDateFull, setStartDateFull] = useState(new Date());
   const [endDateFull, setEndDateFull] = useState(new Date());
-  const [bookingData, setBookingData] = useState({
-    bookingId: "5648904",
-    orderedOn: "13/10/2025",
-    tiffinServiceName: "N/A",
-    customer: "Rahul",
-    startDate: "13/10/25",
-    mealType: "Breakfast & Lunch",
-    plan: "Monthly",
-    orderType: "Delivery",
-    endDate: "2025-10-17",
-  });
+  
+  // ← Removed dummy initial data — now starts empty
+  const [bookingData, setBookingData] = useState<any>(null);
+  
   const [skips, setSkips] = useState<any[]>([]);
   const [offlineDays, setOfflineDays] = useState<{ date: string; reason: string }[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  
+  // ← Added loading state
+  const [loading, setLoading] = useState(true);
+
   const { profileData, fetchProfile } = useAuthStore();
   const profileSource = profileData?.profileImage ? { uri: profileData.profileImage } : fallbackDp;
 
-  const hasBreakfast = useMemo(() => bookingData.mealType.toLowerCase().includes("breakfast"), [bookingData.mealType]);
-  const hasLunch = useMemo(() => bookingData.mealType.toLowerCase().includes("lunch"), [bookingData.mealType]);
-  const hasDinner = useMemo(() => bookingData.mealType.toLowerCase().includes("dinner"), [bookingData.mealType]);
+  const hasBreakfast = useMemo(() => bookingData?.mealType?.toLowerCase().includes("breakfast"), [bookingData?.mealType]);
+  const hasLunch = useMemo(() => bookingData?.mealType?.toLowerCase().includes("lunch"), [bookingData?.mealType]);
+  const hasDinner = useMemo(() => bookingData?.mealType?.toLowerCase().includes("dinner"), [bookingData?.mealType]);
 
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, "0");
@@ -99,7 +97,13 @@ export default function TiffinOrderDetails() {
 
   const fetchData = useCallback(async () => {
     console.log("Fetching data for ID:", id);
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true); // ← Start loading
+
     try {
       const res = await fetch(
         `${BASE_URL}/api/guest/tiffinServices/getSkippedMeals/${id}`
@@ -117,9 +121,10 @@ export default function TiffinOrderDetails() {
 
         let planType = data.summary.planType || "Breakfast & Lunch";
         planType = planType.replace(/\blunch\b/g, "Lunch").replace(/\bdinner\b/g, "Dinner");
-        setBookingData((prev) => ({
-          ...prev,
+        
+        setBookingData({
           bookingId: data.summary.bookingId,
+          orderedOn: "13/10/2025", // ← You can replace with real value later if API provides it
           tiffinServiceName: data.summary.tiffinServiceName || "N/A",
           customer: data.summary.customerName,
           startDate: formatShortDate(data.summary.startDate),
@@ -127,10 +132,11 @@ export default function TiffinOrderDetails() {
           plan: (data.summary.plan || "Monthly").charAt(0).toUpperCase() + (data.summary.plan || "Monthly").slice(1).toLowerCase(),
           orderType: data.summary.orderType,
           endDate: formatShortDate(data.summary.endDate),
-        }));
+        });
+        
         setSkips(data.fullSkipHistory || []);
         setFullExtensionAllocations(data.fullExtensionAllocations || []);
-        setOfflineDays(data.offlineDaysThisMonth || []); // NEW: Store offline days
+        setOfflineDays(data.offlineDaysThisMonth || []);
       } else {
         setModalMessage("Failed to fetch booking details. Please try again.");
         setIsSuccess(false);
@@ -141,6 +147,8 @@ export default function TiffinOrderDetails() {
       setModalMessage("Unable to load booking details. Please check your connection and try again.");
       setIsSuccess(false);
       setShowModal(true);
+    } finally {
+      setLoading(false); // ← Always stop loading
     }
   }, [id]);
 
@@ -333,9 +341,8 @@ export default function TiffinOrderDetails() {
     return allocated;
   };
 
-  // NEW: Check if date is offline
   const isDateOffline = (targetDate: Date) => {
-    const dateStr = formatDate(targetDate); // DD/MM/YYYY
+    const dateStr = formatDate(targetDate);
     return offlineDays.some((off) => {
       const [y, m, d] = off.date.split("-");
       const formatted = `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
@@ -343,7 +350,6 @@ export default function TiffinOrderDetails() {
     });
   };
 
-  // NEW: Get offline reason
   const getOfflineReason = (targetDate: Date) => {
     const dateStr = formatDate(targetDate);
     const off = offlineDays.find((off) => {
@@ -534,7 +540,6 @@ export default function TiffinOrderDetails() {
     );
   };
 
-  // NEW: Offline modal
   const renderOfflineModal = () => {
     if (!selectedOfflineDay) return null;
     return (
@@ -592,71 +597,80 @@ export default function TiffinOrderDetails() {
         </View>
         <Text style={styles.headerSubtitle}>Track your tiffin bookings</Text>
       </View>
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.bookingCard}>
-          <Text style={styles.bookingTitle}>Booking #{bookingData.bookingId}</Text>
-          <Text style={styles.orderedOn}>Ordered on {bookingData.orderedOn}</Text>
-          <View style={styles.detailsContainer}>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Tiffin Service:</Text><Text style={styles.detailValue}>{bookingData.tiffinServiceName}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Customer:</Text><Text style={styles.detailValue}>{bookingData.customer}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Start Date:</Text><Text style={styles.detailValue}>{bookingData.startDate}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>End Date:</Text><Text style={styles.detailValue}>{bookingData.endDate}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Plan Type:</Text><Text style={styles.detailValue}>{bookingData.mealType}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Plan:</Text><Text style={styles.detailValue}>{bookingData.plan}</Text></View>
-            <View style={styles.detailRow}><Text style={styles.detailLabel}>Order Type:</Text><Text style={styles.detailValue}>{bookingData.orderType}</Text></View>
+        {loading ? (
+          // ← Loader shown while data is fetching
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loaderText}>Loading booking details...</Text>
           </View>
-          <View style={styles.noteContainer}>
-            <Text style={styles.noteText}>Note : Select a date to skip {getSkipText()} for that day</Text>
-          </View>
-          <View style={styles.calendarSection}>
-            <View style={styles.calendarHeader}>
-              {canGoPrevious && (
-                <TouchableOpacity onPress={handlePreviousMonth}>
-                  <Ionicons name="chevron-back" size={24} color={colors.primary} />
-                </TouchableOpacity>
-              )}
-              <Text style={styles.calendarMonth}>{getMonthYearString(currentMonth)}</Text>
-              {canGoNext && (
-                <TouchableOpacity onPress={handleNextMonth}>
-                  <Ionicons name="chevron-forward" size={24} color={colors.primary} />
-                </TouchableOpacity>
-              )}
+        ) : (
+          <View style={styles.bookingCard}>
+            <Text style={styles.bookingTitle}>Booking #{bookingData?.bookingId}</Text>
+            <Text style={styles.orderedOn}>Ordered on {bookingData?.orderedOn}</Text>
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>Tiffin Service:</Text><Text style={styles.detailValue}>{bookingData?.tiffinServiceName}</Text></View>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>Customer:</Text><Text style={styles.detailValue}>{bookingData?.customer}</Text></View>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>Start Date:</Text><Text style={styles.detailValue}>{bookingData?.startDate}</Text></View>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>End Date:</Text><Text style={styles.detailValue}>{bookingData?.endDate}</Text></View>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>Plan Type:</Text><Text style={styles.detailValue}>{bookingData?.mealType}</Text></View>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>Plan:</Text><Text style={styles.detailValue}>{bookingData?.plan}</Text></View>
+              <View style={styles.detailRow}><Text style={styles.detailLabel}>Order Type:</Text><Text style={styles.detailValue}>{bookingData?.orderType}</Text></View>
             </View>
-            <View style={styles.calendarDaysHeader}>
-              {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
-                <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
-              ))}
+            <View style={styles.noteContainer}>
+              <Text style={styles.noteText}>Note : Select a date to skip {getSkipText()} for that day</Text>
             </View>
-            <View style={styles.calendarGrid}>
-              {getDaysInMonth(currentMonth).map((day, index) => renderCalendarDay(day, index))}
-            </View>
-          </View>
-          {renderSelectedDateMeals()}
-          {isSelectedInPeriod && !isSelectedDateSkipped && bookingData?.plan?.toLowerCase() === "monthly" && (
-            <View style={styles.skipMealSection}>
-              <View style={styles.skipMealHeader}>
-                <View style={styles.skipMealIcon}><Ionicons name="restaurant" size={20} color="#666" /></View>
-                <Text style={styles.skipMealText}>Skip {getSkipText()} for this day</Text>
+            <View style={styles.calendarSection}>
+              <View style={styles.calendarHeader}>
+                {canGoPrevious && (
+                  <TouchableOpacity onPress={handlePreviousMonth}>
+                    <Ionicons name="chevron-back" size={24} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
+                <Text style={styles.calendarMonth}>{getMonthYearString(currentMonth)}</Text>
+                {canGoNext && (
+                  <TouchableOpacity onPress={handleNextMonth}>
+                    <Ionicons name="chevron-forward" size={24} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
-              <View style={styles.skipMealForm}>
-                <Text style={styles.datePickerLabel}>Date: {formatDate(selectedDate)}</Text>
-                <Text style={styles.skipDayText}>Skipping {getSkipText()} for the selected date.</Text>
-                <Button title="Tap To Skip For This Day" onPress={handleSaveSkipMeal} style={styles.saveButton} height={48} />
+              <View style={styles.calendarDaysHeader}>
+                {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
+                  <Text key={day} style={styles.calendarDayHeader}>{day}</Text>
+                ))}
+              </View>
+              <View style={styles.calendarGrid}>
+                {getDaysInMonth(currentMonth).map((day, index) => renderCalendarDay(day, index))}
               </View>
             </View>
-          )}
-          {latestSkip && (
-            <View style={styles.skipHistorySection}>
-              <View style={styles.skipHistoryItem}>
-                <View style={styles.skipHistoryDetails}>
-                  <Text style={styles.skipHistoryTitle}>Previously Skipped Meal</Text>
-                  <Text style={styles.skipHistoryDate}>Date: {latestSkip.skipDateLocal || latestSkip.date}</Text>
-                  <Text style={styles.skipHistoryMeals}>Meal Type: {latestSkip.mealType || bookingData.mealType}</Text>
+            {renderSelectedDateMeals()}
+            {isSelectedInPeriod && !isSelectedDateSkipped && bookingData?.plan?.toLowerCase() === "monthly" && (
+              <View style={styles.skipMealSection}>
+                <View style={styles.skipMealHeader}>
+                  <View style={styles.skipMealIcon}><Ionicons name="restaurant" size={20} color="#666" /></View>
+                  <Text style={styles.skipMealText}>Skip {getSkipText()} for this day</Text>
+                </View>
+                <View style={styles.skipMealForm}>
+                  <Text style={styles.datePickerLabel}>Date: {formatDate(selectedDate)}</Text>
+                  <Text style={styles.skipDayText}>Skipping {getSkipText()} for the selected date.</Text>
+                  <Button title="Tap To Skip For This Day" onPress={handleSaveSkipMeal} style={styles.saveButton} height={48} />
                 </View>
               </View>
-            </View>
-          )}
-        </View>
+            )}
+            {latestSkip && (
+              <View style={styles.skipHistorySection}>
+                <View style={styles.skipHistoryItem}>
+                  <View style={styles.skipHistoryDetails}>
+                    <Text style={styles.skipHistoryTitle}>Previously Skipped Meal</Text>
+                    <Text style={styles.skipHistoryDate}>Date: {latestSkip.skipDateLocal || latestSkip.date}</Text>
+                    <Text style={styles.skipHistoryMeals}>Meal Type: {latestSkip.mealType || bookingData?.mealType}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {showFromDatePicker && (
@@ -747,4 +761,16 @@ const styles = StyleSheet.create({
   modalText: { fontSize: 16, textAlign: "center", marginBottom: 20, fontWeight: "500" },
   modalButton: { backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, minWidth: 80, alignItems: "center" },
   modalButtonText: { color: "#ffffff", fontSize: 16, fontWeight: "600" },
+  // ← Added loader styles
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 100,
+  },
+  loaderText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+  },
 });
