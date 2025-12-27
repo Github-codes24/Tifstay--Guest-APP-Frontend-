@@ -30,6 +30,7 @@ import Header from "../components/Header";
 import RoomSelectionModal from "./modals/RoomSelectionModal";
 import { useFavorites } from "@/context/FavoritesContext"; // Fixed path
 import { theme } from "@/constants/utils";
+import { BASE_URL } from "@/constants/api";
 const { width } = Dimensions.get("window");
 
 export default function ProductDetails() {
@@ -71,7 +72,7 @@ export default function ProductDetails() {
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     try {
       const response = await fetch(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${id}`,
+        `${BASE_URL}/api/guest/tiffinServices/getTiffinServiceById/${id}`,
         { headers }
       );
       const result = await response.json();
@@ -98,7 +99,7 @@ export default function ProductDetails() {
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     try {
       const response = await fetch(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getHostelServicesById/${id}`,
+        `${BASE_URL}/api/guest/hostelServices/getHostelServicesById/${id}`,
         { headers }
       );
       const result = await response.json();
@@ -126,8 +127,8 @@ export default function ProductDetails() {
       // Note: For tiffin, this endpoint looks incorrect (using hostelServices).
       // Assuming it's intentional or backend handles it; otherwise, change to /tiffinServices/getRatingsandReviews
       const url = paramType === "hostel"
-        ? `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${paramId}`
-        : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRatingsandReviews/${paramId}`;
+        ? `${BASE_URL}/api/guest/hostelServices/getRatingsandReviews/${paramId}`
+        : `${BASE_URL}/api/guest/hostelServices/getRatingsandReviews/${paramId}`;
       console.log("Fetching reviews from:", url);
       const response = await fetch(url, { headers });
       console.log("Fetch status:", response.status);
@@ -442,10 +443,10 @@ export default function ProductDetails() {
     let url: string;
     let body: { [key: string]: string } = {};
     if (serviceType === "hostel") {
-      url = "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService";
+      url = `${BASE_URL}/api/guest/hostelServices/addFavouriteHostelService`;
       body = { hostelServiceId: serviceId };
     } else {
-      url = "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
+      url = `${BASE_URL}/api/guest/tiffinServices/addFavouriteTiffinService`;
       body = { tiffinServiceId: serviceId };
     }
     try {
@@ -881,7 +882,7 @@ useEffect(() => {
       {/* Offline warning if applicable */}
       {mappedData.isOffline && (
         <View style={styles.offlineWarning}>
-          <Ionicons name="alert-circle-outline" size={20} color="white" />
+          <Ionicons name="alert-circle-outline" size={20} color="red" />
           <Text style={styles.offlineText}>
             Currently offline: Please Check again after sometime.
           </Text>
@@ -890,7 +891,7 @@ useEffect(() => {
       {/* Not open for sale message */}
       {!mappedData.isOpenForSale && (
         <View style={styles.offlineWarning}>
-          <Ionicons name="storefront-outline" size={20} color="white" />
+          <Ionicons name="storefront-outline" size={20} color="red" />
           <Text style={styles.offlineText}>
             This store currently exceeded the order limit. Check back after sometime.
           </Text>
@@ -1853,7 +1854,7 @@ const styles = StyleSheet.create({
   },
   // Offline warning
   offlineWarning: {
-    backgroundColor: "red",
+    backgroundColor: "pink",
     padding: 12,
     borderRadius: 18,
     flexDirection: "row",
@@ -1862,9 +1863,10 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     fontSize: 14,
-    color: "white",
+    color: "red",
     marginLeft: 8,
     flex: 1,
+    fontWeight:400
   },
   depositamt:{
     fontSize:18,

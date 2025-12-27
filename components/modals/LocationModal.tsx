@@ -16,6 +16,7 @@ import axios from "axios";
 import colors from "../../constants/colors";
 import Header from "../Header";
 import { router } from "expo-router";
+import { BASE_URL } from "@/constants/api";
 
 interface LocationModalProps {
   visible: boolean;
@@ -47,7 +48,7 @@ export default function LocationModal({
       if (!token) return;
 
       const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/address/getAllAddresses",
+        `${BASE_URL}/api/guest/address/getAllAddresses`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

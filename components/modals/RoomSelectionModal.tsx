@@ -22,6 +22,7 @@ import axios from "axios";
 import Header from "../Header";
 import colors from "@/constants/colors";
 import Buttons from "../Buttons";
+import { BackHandler } from "react-native";
 
 const { width: screenWidth } = Dimensions.get("window");
 const HORIZONTAL_MARGIN = 16;
@@ -205,6 +206,22 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
       scrollRef.current.scrollTo({ x: 0, animated: false });
     }
   }, [selectedRoomId]);
+
+  useEffect(() => {
+  if (!visible) return;
+
+  const backAction = () => {
+    onClose();
+    return true; 
+  };
+
+  const backHandler = BackHandler.addEventListener(
+    "hardwareBackPress",
+    backAction
+  );
+
+  return () => backHandler.remove();
+}, [visible, onClose]);
 
   const currentRoom = rooms.find((room) => room._id === selectedRoomId);
 

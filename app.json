@@ -51,6 +51,7 @@
       "typedRoutes": true
     },
     "extra": {
+      "baseUrl": "https://tifstay-project-be-1.onrender.com",
       "eas": {
         "projectId": "3011c801-2471-4214-a086-d6bdb35d36e9"
       }

@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
       hasSeenOnboarding: false,
       user: null,
       isAuthenticated: false,
-      userLocation: "Nagpur, Maharashtra",
+      userLocation: "No Location Saved",
       hasSelectedLocation: false,
       profileData: null,  // <-- Initialize null
       rehydrated: false, // ✅ initialize false
