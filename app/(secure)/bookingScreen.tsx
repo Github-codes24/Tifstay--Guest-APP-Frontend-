@@ -1783,7 +1783,7 @@ export default function BookingScreen() {
         const body = hasNewPhotos ? formData : updatePayload;
 
         response = await axios.put(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/update/${bookingId}`,
+          `${BASE_URL}/api/guest/hostelServices/update/${bookingId}`,
           body,
           { headers }
         );
@@ -1812,7 +1812,7 @@ export default function BookingScreen() {
           formData.append('rooms', JSON.stringify(updatePayload.rooms)); // For create, always 'rooms'
         }
         response = await axios.post(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
+          `${BASE_URL}/api/guest/hostelServices/createHostelBooking/${serviceData.hostelId}`,
           formData,
           {
             headers: {

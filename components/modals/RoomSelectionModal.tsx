@@ -23,6 +23,7 @@ import Header from "../Header";
 import colors from "@/constants/colors";
 import Buttons from "../Buttons";
 import { BackHandler } from "react-native";
+import { BASE_URL } from "@/constants/api";
 
 const { width: screenWidth } = Dimensions.get("window");
 const HORIZONTAL_MARGIN = 16;
@@ -111,7 +112,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
         if (propCheckOutDate) params.append("checkOutDate", propCheckOutDate);
         if (isContinueMode && bookingId) params.append("excludeBookingId", bookingId);
 
-        const url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}${
+        const url = `${BASE_URL}/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}${
           params.toString() ? "?" + params.toString() : ""
         }`;
 

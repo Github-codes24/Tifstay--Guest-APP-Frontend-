@@ -21,6 +21,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import TiffinCard from "@/components/TiffinCard";
 import HostelCard from "@/components/HostelCard";
 import Toast from "react-native-toast-message";
+import { BASE_URL } from "@/constants/api";
 
 export default function FavoritesScreen() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function FavoritesScreen() {
       };
       try {
         const response = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getFavouriteHostelServices",
+          `${BASE_URL}/api/guest/hostelServices/getFavouriteHostelServices`,
           { method: "GET", headers }
         );
         if (!response.ok) return [];
@@ -68,7 +69,7 @@ export default function FavoritesScreen() {
       try {
         // 1️⃣ Get favorite IDs
         const favRes = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getFavouriteTiffinServices",
+          `${BASE_URL}/api/guest/tiffinServices/getFavouriteTiffinServices`,
           { method: "GET", headers }
         );
         let favIds: string[] = [];
@@ -80,7 +81,7 @@ export default function FavoritesScreen() {
         }
         // 2️⃣ Get ALL tiffins → filter favorites
         const allRes = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAllTiffinServices",
+          `${BASE_URL}/api/guest/tiffinServices/getAllTiffinServices`,
           { method: "GET", headers }
         );
         if (allRes.ok) {
@@ -139,8 +140,8 @@ export default function FavoritesScreen() {
       };
       const url =
         serviceType === "hostel"
-          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService"
-          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
+          ? `${BASE_URL}/api/guest/hostelServices/addFavouriteHostelService`
+          : `${BASE_URL}/api/guest/tiffinServices/addFavouriteTiffinService`;
       const body =
         serviceType === "hostel"
           ? { hostelServiceId: service.id }
@@ -324,8 +325,8 @@ export default function FavoritesScreen() {
       };
       const url =
         serviceType === "hostel"
-          ? "https://tifstay-project-be.onrender.com/api/guest/hostelServices/addFavouriteHostelService"
-          : "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/addFavouriteTiffinService";
+          ? `${BASE_URL}/api/guest/hostelServices/addFavouriteHostelService`
+          : `${BASE_URL}/api/guest/tiffinServices/addFavouriteTiffinService`;
       const body =
         serviceType === "hostel"
           ? { hostelServiceId: serviceId }

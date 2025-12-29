@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import axios from "axios";
 import colors from "@/constants/colors";
+import { BASE_URL } from "@/constants/api";
 
 const PrivacyPolicyScreen = () => {
   const [policy, setPolicy] = useState("");
@@ -22,7 +23,7 @@ const PrivacyPolicyScreen = () => {
     const fetchPrivacyPolicy = async () => {
       try {
         const response = await axios.get(
-          "https://tifstay-project-be.onrender.com/api/guest/staticPage/get-privacy-policy"
+          `${BASE_URL}/api/guest/staticPage/get-privacy-policy`
         );
 
         if (response.data.success) {

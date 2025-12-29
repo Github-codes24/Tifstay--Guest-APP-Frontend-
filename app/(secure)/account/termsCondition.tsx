@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
+import { BASE_URL } from "@/constants/api";
 
 const TermsAndConditionsScreen = () => {
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,7 @@ const TermsAndConditionsScreen = () => {
   const fetchTerms = async () => {
     try {
       const res = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/staticPage/get-terms-and-conditions"
+        `${BASE_URL}/api/guest/staticPage/get-terms-and-conditions`
       );
 
       if (res.data.success) {

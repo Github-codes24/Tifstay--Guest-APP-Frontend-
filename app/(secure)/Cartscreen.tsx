@@ -18,12 +18,13 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import RoomSelectionModal from "@/components/modals/RoomSelectionModal"; // Adjust path as needed
 import { useLocalSearchParams } from "expo-router";
+import { BASE_URL } from "@/constants/api";
 
 const fetchPendingTiffin = async () => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No token found");
   const response = await axios.get(
-    "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/GetPendingBookingForCart",
+    `${BASE_URL}/api/guest/tiffinServices/GetPendingBookingForCart`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return response.data.data || [];
@@ -33,7 +34,7 @@ const fetchPendingHostel = async () => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No token found");
   const response = await axios.get(
-    "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPendingBookingForCart",
+    `${BASE_URL}/api/guest/hostelServices/getPendingBookingForCart`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return response.data.data || [];

@@ -18,6 +18,7 @@ import { router } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "@/constants/api";
 
 const DepositScreen = () => {
     const [depositAmount, setDepositAmount] = useState<number | null>(null); // null = loading
@@ -32,7 +33,7 @@ const DepositScreen = () => {
             if (!token) return;
 
             const response = await axios.get(
-                "https://tifstay-project-be.onrender.com/api/guest/deposit/getDepositAmount",
+                `${BASE_URL}/api/guest/deposit/getDepositAmount`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -53,7 +54,7 @@ const DepositScreen = () => {
             if (!token) return;
 
             const response = await axios.get(
-                "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getalldepositTransaction",
+                `${BASE_URL}/api/guest/hostelServices/getalldepositTransaction`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 

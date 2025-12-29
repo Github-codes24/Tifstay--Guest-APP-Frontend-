@@ -20,6 +20,7 @@ import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "@/constants/utils";
 import { Linking, Alert } from "react-native";
+import { BASE_URL } from "@/constants/api";
 
 
 const renderItem = ({ item }) => (
@@ -44,7 +45,7 @@ const fetchReferralData = async () => {
   if (!token) throw new Error("No token found");
 
   const response = await fetch(
-    `https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
+    `${BASE_URL}/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
     { headers: { Authorization: "Bearer " + token } }
   );
   const json = await response.json();
@@ -59,7 +60,7 @@ const fetchPointsData = async () => {
   if (!token) throw new Error("No token found");
 
   const response = await fetch(
-    "https://tifstay-project-be.onrender.com/api/guest/referAndEarn/getPonits",
+    `${BASE_URL}/api/guest/referAndEarn/getPonits`,
     { headers: { Authorization: "Bearer " + token } }
   );
   const json = await response.json();
@@ -193,7 +194,7 @@ Download now!`;
       }
 
       const res = await fetch(
-        "https://tifstay-project-be.onrender.com/api/guest/referAndEarn/reedemCode",
+        `${BASE_URL}/api/guest/referAndEarn/reedemCode`,
         {
           method: "POST",
           headers: {

@@ -25,6 +25,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { BackHandler } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { BASE_URL } from "@/constants/api";
 const { width: screenWidth } = Dimensions.get("window");
 const CARD_WIDTH = screenWidth - 40; // 20px padding on each side
 const CARD_MARGIN = 10;
@@ -104,8 +105,8 @@ const Confirmation: React.FC = () => {
   };
   const fetchBeforeDetails = async (token: string) => {
     const beforeUrl = isTiffin
-      ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${id}`
-      : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${id}`;
+      ? `${BASE_URL}/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${id}`
+      : `${BASE_URL}/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${id}`;
     try {
       const beforeResponse = await axios.get(beforeUrl, {
         headers: { Authorization: `Bearer ${token}` },
@@ -165,8 +166,8 @@ const Confirmation: React.FC = () => {
             return;
           }
           const afterUrl = isTiffin
-            ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdafterPayment/${id}`
-            : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`;
+            ? `${BASE_URL}/api/guest/tiffinServices/getTiffinBookingByIdafterPayment/${id}`
+            : `${BASE_URL}/api/guest/hostelServices/gethostelBookingByIdafterPayment/${id}`;
           const response = await axios.get(afterUrl, {
             headers: { Authorization: `Bearer ${token}` },
           });
@@ -274,7 +275,7 @@ const Confirmation: React.FC = () => {
           const tiffins = [];
           for (let i = 0; i < 3; i++) {
             const response = await axios.get(
-              "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRandomTiffinService",
+              `${BASE_URL}/api/guest/hostelServices/getRandomTiffinService`,
               {
                 headers: { Authorization: `Bearer ${token}` },
               }
@@ -333,7 +334,7 @@ const Confirmation: React.FC = () => {
           const hostels = [];
           for (let i = 0; i < 3; i++) {
             const response = await axios.get(
-              "https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getRandomHostelServices",
+              `${BASE_URL}/api/guest/tiffinServices/getRandomHostelServices`,
               {
                 headers: { Authorization: `Bearer ${token}` },
               }

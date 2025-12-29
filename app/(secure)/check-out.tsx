@@ -26,6 +26,7 @@ import CheckoutItemCard, {
 import Header from "@/components/Header";
 import Toast from 'react-native-toast-message';
 import { theme } from "@/constants/utils";
+import { BASE_URL } from "@/constants/api";
 
 const Checkout: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -350,9 +351,9 @@ const Checkout: React.FC = () => {
       }
       let url;
       if (isTiffin) {
-        url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/AppliedCoupon/${bookingId}`;
+        url = `${BASE_URL}/api/guest/tiffinServices/AppliedCoupon/${bookingId}`;
       } else if (isHostel) {
-        url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/AppliedCoupon/${bookingId}`;
+        url = `${BASE_URL}/api/guest/hostelServices/AppliedCoupon/${bookingId}`;
       } else {
         console.error("Invalid service type");
         return;
@@ -414,9 +415,9 @@ const Checkout: React.FC = () => {
       }
       let url;
       if (isTiffin) {
-        url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/removeCoupon/${bookingId}`;
+        url = `${BASE_URL}/api/guest/tiffinServices/removeCoupon/${bookingId}`;
       } else if (isHostel) {
-        url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/removeCouponFromHostel/${bookingId}`;
+        url = `${BASE_URL}/api/guest/hostelServices/removeCouponFromHostel/${bookingId}`;
       } else {
         console.error("Invalid service type");
         return;
@@ -464,7 +465,7 @@ const Checkout: React.FC = () => {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
         const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${bookingId}`,
+          `${BASE_URL}/api/guest/hostelServices/gethostelBookingByIdbeforePayment/${bookingId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -507,7 +508,7 @@ const Checkout: React.FC = () => {
         if (!token) return;
         // FIXED: Add / before 'beforePayment' for correct route
         const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${bookingId}`,
+          `${BASE_URL}/api/guest/tiffinServices/getTiffinBookingByIdbeforePayment/${bookingId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -545,7 +546,7 @@ const Checkout: React.FC = () => {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
         const response = await axios.get(
-          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${serviceId}`,
+          `${BASE_URL}/api/guest/tiffinServices/getTiffinServiceById/${serviceId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -571,7 +572,7 @@ const Checkout: React.FC = () => {
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
         const response = await axios.get(
-          "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+          `${BASE_URL}/api/guest/wallet/getWalletAmount`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -596,7 +597,7 @@ const Checkout: React.FC = () => {
           const token = await AsyncStorage.getItem("token");
           if (!token) return;
           const response = await axios.get(
-            "https://tifstay-project-be.onrender.com/api/guest/wallet/getWalletAmount",
+            `${BASE_URL}/api/guest/wallet/getWalletAmount`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -633,10 +634,10 @@ const Checkout: React.FC = () => {
       let serviceCouponsKey;
       let guestCouponsKey = 'guestCoupons';
       if (isTiffin) {
-        url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getCouponForTiffinService/${serviceId}`;
+        url = `${BASE_URL}/api/guest/tiffinServices/getCouponForTiffinService/${serviceId}`;
         serviceCouponsKey = 'tiffinServiceCoupons';
       } else {
-        url = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getCouponCodeForHostel/${serviceId}`;
+        url = `${BASE_URL}/api/guest/hostelServices/getCouponCodeForHostel/${serviceId}`;
         serviceCouponsKey = 'hostelCoupons';
       }
       const response = await axios.get(
@@ -694,7 +695,7 @@ const Checkout: React.FC = () => {
         return null;
       }
       const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createPaymentLink/${bookingId}`,
+        `${BASE_URL}/api/guest/hostelServices/createPaymentLink/${bookingId}`,
         {}, // Assuming no body needed, adjust if required
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -721,7 +722,7 @@ const Checkout: React.FC = () => {
         return null;
       }
       const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/paymentByBank/${bookingId}`,
+        `${BASE_URL}/api/guest/tiffinServices/paymentByBank/${bookingId}`,
         {}, // No body needed
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -820,7 +821,7 @@ const Checkout: React.FC = () => {
       if (isHostel) {
         // Call the wallet booking API for hostel
         const response = await axios.post(
-          `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createBookingBywallet/${bookingId}`,
+          `${BASE_URL}/api/guest/hostelServices/createBookingBywallet/${bookingId}`,
           {}, // No body needed
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -838,7 +839,7 @@ const Checkout: React.FC = () => {
       } else {
         // For tiffin, call the wallet payment API
         const response = await axios.post(
-          `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/payByWallet/${bookingId}`,
+          `${BASE_URL}/api/guest/tiffinServices/payByWallet/${bookingId}`,
           {}, // No body needed
           {
             headers: { Authorization: `Bearer ${token}` },
