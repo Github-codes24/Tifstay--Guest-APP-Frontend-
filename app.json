@@ -8,7 +8,7 @@
     "icon": "./assets/images/logo.png",
     "scheme": "tifstay",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.tifStay"
