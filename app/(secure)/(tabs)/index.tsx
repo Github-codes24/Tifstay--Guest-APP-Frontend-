@@ -1727,8 +1727,8 @@ export default function DashboardScreen() {
               ) : (
                 <Text style={styles.servicesCount}>
                   {isHostel
-                    ? `${filteredHostels.length} properties found in ${userLocation || "your area"}`
-                    : `${filteredTiffinServices.length} services found in ${userLocation || "your area"}`}
+                    ? `${filteredHostels.length} properties found`
+                    : `${filteredTiffinServices.length} services found`}
                 </Text>
               )}
             </View>
