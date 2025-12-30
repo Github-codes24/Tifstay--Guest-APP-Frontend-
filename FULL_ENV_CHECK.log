@@ -1,0 +1,540 @@
+===== NODE / NPM =====
+10.9.3
+===== EXPO =====
+0.24.23
+  sdkVersion: [32m'53.0.0'[39m,
+===== REACT / RN =====
+tifstay@1.0.0 C:\guest
+├── react-native@0.79.6
+└── react@19.0.0
+
+===== CORE NATIVE LIBS =====
+tifstay@1.0.0 C:\guest
+├── react-native-maps@1.20.1
+├── react-native-reanimated@3.17.5
+├── react-native-safe-area-context@5.4.0
+└── react-native-screens@4.11.1
+
+===== JAVA / GRADLE =====
+
+------------------------------------------------------------
+Gradle 8.13
+------------------------------------------------------------
+
+Build time:    2025-02-25 09:22:14 UTC
+Revision:      073314332697ba45c16c0a0ce1891fa6794179ff
+
+Kotlin:        2.0.21
+Groovy:        3.0.22
+Ant:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024
+Launcher JVM:  17.0.12 (Oracle Corporation 17.0.12+8-LTS-286)
+Daemon JVM:    C:\java\jdk-17 (no JDK specified, using current Java home)
+OS:            Windows 11 10.0 amd64
+
+===== ANDROID SDK CONFIG =====
+  - minSdk:      [32m24[0m
+  - compileSdk:  [32m35[0m
+  - targetSdk:   [32m35[0m
+compileSdkVersion: 35
+minSdkVersion: 24
+targetSdkVersion: 35
+===== EXPO DOCTOR =====
+env: load .env
+env: export EXPO_PUBLIC_BASE_URL
+Running 17 checks on your project...
+13/17 checks passed. 4 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check Expo config (app.json/ app.config.js) schema
+Error validating asset fields in C:\guest\app.json:
+ Field: icon - image should be square, but the file at './assets/images/logo.png' has dimensions 686x486.
+ Field: Android.adaptiveIcon.foregroundImage - image should be square, but the file at './assets/images/logo.png' has dimensions 686x486.
+Advice:
+Resolve schema errors in your app config. Learn more: https://docs.expo.dev/workflow/configuration/
+
+✖ Check dependencies for packages that should not be installed directly
+The package "@expo/metro-config" should not be installed directly in your project. You should instead use "expo/metro-config" which is a sub-export of the expo package.
+Advice:
+Remove these packages from your package.json.
+
+✖ Check that native modules use compatible support package versions for installed Expo SDK
+Expected package @expo/config-plugins@~10.1.1
+Found invalid:
+  @expo/config-plugins@2.0.4
+  (for more info, run: npm why @expo/config-plugins)
+Expected package metro@^0.82.0
+Found invalid:
+  metro@0.80.12
+  (for more info, run: npm why metro)
+Expected package metro-resolver@^0.82.0
+Found invalid:
+  metro-resolver@0.80.12
+  (for more info, run: npm why metro-resolver)
+Expected package metro-config@^0.82.0
+Found invalid:
+  metro-config@0.80.12
+  (for more info, run: npm why metro-config)
+Advice:
+Upgrade dependencies that are using the invalid package versions.
+
+✖ Validate packages against React Native Directory package metadata
+The following issues were found when validating your dependencies against React Native Directory:
+  Untested on New Architecture: react-native-keyboard-aware-scroll-view
+  Unmaintained: react-native-dropdown-picker, react-native-keyboard-aware-scroll-view
+  No metadata available: expo-module-scripts
+Advice:
+Use libraries that are actively maintained and support the New Architecture. Find alternative libraries with https://reactnative.directory.
+Add packages to expo.doctor.reactNativeDirectoryCheck.exclude in package.json to selectively skip validations, if the warning is not relevant.
+Update React Native Directory to include metadata for unknown packages. Alternatively, set expo.doctor.reactNativeDirectoryCheck.listUnknownPackages in package.json to false to skip warnings about packages with no metadata, if the warning is not relevant.
+
+===== MANIFEST CONFLICTS (SHORT) =====
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\d20daf90899378ea5a280898d5aa93cb\transformed\legacy-support-v4-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\7c1ff614e55963fb3e5064ef15051de5\transformed\legacy-support-core-ui-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\9a307ddaf25a1054b379c2ba4c23808f\transformed\webpsupport-3.6.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\5d86e34d59f20b76b06d8eaae58141ed\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\92fd5c410361e106ef5b263a54c2f6ff\transformed\support-fragment-28.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\4d1feb30f819871aab0e3f55d1fd634a\transformed\support-core-ui-28.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\0a7236bc2ad5a935ca076a1b60b5cd1a\transformed\support-core-utils-28.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\e08afb297eeb374f78846c6f4bbb03f6\transformed\support-vector-drawable-28.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\d20daf90899378ea5a280898d5aa93cb\transformed\legacy-support-v4-1.0.0\AndroidManifest.xml
+Merging manifest with lower [androidx.legacy:legacy-support-v4:1.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [androidx.legacy:legacy-support-v4:1.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\7c1ff614e55963fb3e5064ef15051de5\transformed\legacy-support-core-ui-1.0.0\AndroidManifest.xml
+Merging manifest with lower [androidx.legacy:legacy-support-core-ui:1.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [androidx.legacy:legacy-support-core-ui:1.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\9a307ddaf25a1054b379c2ba4c23808f\transformed\webpsupport-3.6.0\AndroidManifest.xml
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\5d86e34d59f20b76b06d8eaae58141ed\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml
+Merging manifest with lower [androidx.legacy:legacy-support-core-utils:1.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [androidx.legacy:legacy-support-core-utils:1.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\92fd5c410361e106ef5b263a54c2f6ff\transformed\support-fragment-28.0.0\AndroidManifest.xml
+Merging manifest with lower [com.android.support:support-fragment:28.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [com.android.support:support-fragment:28.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\4d1feb30f819871aab0e3f55d1fd634a\transformed\support-core-ui-28.0.0\AndroidManifest.xml
+Merging manifest with lower [com.android.support:support-core-ui:28.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [com.android.support:support-core-ui:28.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\0a7236bc2ad5a935ca076a1b60b5cd1a\transformed\support-core-utils-28.0.0\AndroidManifest.xml
+Merging manifest with lower [com.android.support:support-core-utils:28.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [com.android.support:support-core-utils:28.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\e08afb297eeb374f78846c6f4bbb03f6\transformed\support-vector-drawable-28.0.0\AndroidManifest.xml
+Merging manifest with lower [com.android.support:support-vector-drawable:28.0.0] AndroidManifest.xml:17:1-22:12
+Merging uses-sdk with lower [com.android.support:support-vector-drawable:28.0.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml
+Merging manifest with lower [com.android.support:support-compat:28.0.0] AndroidManifest.xml:17:1-24:12
+Merging uses-sdk with lower [com.android.support:support-compat:28.0.0] AndroidManifest.xml:20:5-44
+Merging application with lower [com.android.support:support-compat:28.0.0] AndroidManifest.xml:22:5-94
+	Namespace 'android.support.graphics.drawable' is used in multiple modules and/or libraries: com.android.support:animated-vector-drawable:28.0.0, com.android.support:support-vector-drawable:28.0.0. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace
+	Attribute application@appComponentFactory value=(androidx.core.app.CoreComponentFactory) from [androidx.core:core:1.13.1] AndroidManifest.xml:28:18-86
+	is also present at [com.android.support:support-compat:28.0.0] AndroidManifest.xml:22:18-91 value=(android.support.v4.app.CoreComponentFactory).
+	Suggestion: add 'tools:replace="android:appComponentFactory"' to <application> element at AndroidManifest.xml:6:5-162 to override.
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:1:1-35:12
+MERGED from [androidx.legacy:legacy-support-v4:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d20daf90899378ea5a280898d5aa93cb\transformed\legacy-support-v4-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.legacy:legacy-support-core-ui:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7c1ff614e55963fb3e5064ef15051de5\transformed\legacy-support-core-ui-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.facebook.fresco:webpsupport:3.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\9a307ddaf25a1054b379c2ba4c23808f\transformed\webpsupport-3.6.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\5d86e34d59f20b76b06d8eaae58141ed\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.android.support:support-fragment:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\92fd5c410361e106ef5b263a54c2f6ff\transformed\support-fragment-28.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.android.support:support-core-ui:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\4d1feb30f819871aab0e3f55d1fd634a\transformed\support-core-ui-28.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.android.support:support-core-utils:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\0a7236bc2ad5a935ca076a1b60b5cd1a\transformed\support-core-utils-28.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.android.support:support-vector-drawable:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\e08afb297eeb374f78846c6f4bbb03f6\transformed\support-vector-drawable-28.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.android.support:support-compat:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml:17:1-24:12
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:1:70-116
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:1:11-69
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:2:3-78
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:2:20-76
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:3:3-76
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:3:20-74
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:4:3-64
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:4:20-62
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:5:3-77
+		ADDED from [BareExpo:expo.modules.image:2.4.1] C:\Users\anuj\.gradle\caches\8.13\transforms\a6cb8db52191cf3613118879263ea3e8\transformed\expo.modules.image-2.4.1\AndroidManifest.xml:17:9-35
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:5:20-75
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:6:3-68
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:6:20-66
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:7:3-75
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:7:20-73
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:8:3-63
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:8:20-61
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:9:3-78
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:9:20-76
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:10:3-16:13
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:11:5-15:14
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:12:7-58
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:12:15-56
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:13:7-67
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:13:17-65
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:14:7-37
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:14:13-35
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:3-34:17
+MERGED from [com.android.support:support-compat:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml:22:5-94
+MERGED from [com.android.support:support-compat:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml:22:5-94
+		ADDED from C:\guest\android\app\src\debug\AndroidManifest.xml:6:75-114
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:116-161
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:116-161
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:81-115
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:81-115
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:221-247
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:221-247
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:48-80
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:48-80
+		ADDED from C:\guest\android\app\src\debug\AndroidManifest.xml:6:54-74
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:162-188
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:162-188
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:189-220
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:189-220
+		ADDED from C:\guest\android\app\src\debug\AndroidManifest.xml:6:115-159
+		ADDED from C:\guest\android\app\src\debug\AndroidManifest.xml:6:18-53
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:16-47
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:17:16-47
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:18:5-83
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:18:60-81
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:18:16-59
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:19:5-105
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:19:81-103
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:19:16-80
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:20:5-99
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:20:80-97
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:20:16-79
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:5-33:16
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:280-316
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:135-166
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:167-209
+	android:exported
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:256-279
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:44-134
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:210-255
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:21:15-43
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:22:7-25:23
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:23:9-60
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:23:17-58
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:24:9-68
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:24:19-66
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:26:7-32:23
+ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:28:9-67
+		ADDED from C:\guest\android\app\src\main\AndroidManifest.xml:28:19-65
+MERGED from [androidx.legacy:legacy-support-v4:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d20daf90899378ea5a280898d5aa93cb\transformed\legacy-support-v4-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-v4:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d20daf90899378ea5a280898d5aa93cb\transformed\legacy-support-v4-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-core-ui:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7c1ff614e55963fb3e5064ef15051de5\transformed\legacy-support-core-ui-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-core-ui:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7c1ff614e55963fb3e5064ef15051de5\transformed\legacy-support-core-ui-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.facebook.fresco:webpsupport:3.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\9a307ddaf25a1054b379c2ba4c23808f\transformed\webpsupport-3.6.0\AndroidManifest.xml:5:5-44
+MERGED from [com.facebook.fresco:webpsupport:3.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\9a307ddaf25a1054b379c2ba4c23808f\transformed\webpsupport-3.6.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\5d86e34d59f20b76b06d8eaae58141ed\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\5d86e34d59f20b76b06d8eaae58141ed\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-fragment:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\92fd5c410361e106ef5b263a54c2f6ff\transformed\support-fragment-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-fragment:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\92fd5c410361e106ef5b263a54c2f6ff\transformed\support-fragment-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-core-ui:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\4d1feb30f819871aab0e3f55d1fd634a\transformed\support-core-ui-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-core-ui:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\4d1feb30f819871aab0e3f55d1fd634a\transformed\support-core-ui-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-core-utils:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\0a7236bc2ad5a935ca076a1b60b5cd1a\transformed\support-core-utils-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-core-utils:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\0a7236bc2ad5a935ca076a1b60b5cd1a\transformed\support-core-utils-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-vector-drawable:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\e08afb297eeb374f78846c6f4bbb03f6\transformed\support-vector-drawable-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-vector-drawable:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\e08afb297eeb374f78846c6f4bbb03f6\transformed\support-vector-drawable-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-compat:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-compat:28.0.0] C:\Users\anuj\.gradle\caches\8.13\transforms\52265c90752a4a82816dc800090b08ec\transformed\support-compat-28.0.0\AndroidManifest.xml:20:5-44
+		ADDED from [:react-native-voice_voice] C:\guest\node_modules\@react-native-voice\voice\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:9-51
+ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:9-16:20
+		ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:12:13-47
+		ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:10:13-64
+	android:exported
+		ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:11:13-37
+		ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:9:13-83
+ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:13:13-15:63
+		ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:15:17-60
+		ADDED from [:react-native-webview] C:\guest\node_modules\react-native-webview\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:14:17-67
+ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:9-53
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:18-50
+ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:12:9-25:20
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:15:13-44
+	android:exported
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:14:13-36
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:16:13-70
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:13:13-81
+ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:17:13-24:29
+ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:26:9-29:70
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:28:13-49
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:29:13-67
+		ADDED from [:expo-dev-launcher] C:\guest\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:27:13-93
+ADDED from [:expo-dev-menu] C:\guest\node_modules\expo-dev-menu\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:9-21:20
+		ADDED from [:expo-dev-menu] C:\guest\node_modules\expo-dev-menu\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:11:13-44
+	android:exported
+		ADDED from [:expo-dev-menu] C:\guest\node_modules\expo-dev-menu\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:10:13-36
+		ADDED from [:expo-dev-menu] C:\guest\node_modules\expo-dev-menu\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:12:13-75
+		ADDED from [:expo-dev-menu] C:\guest\node_modules\expo-dev-menu\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:9:13-64
+ADDED from [:expo-dev-menu] C:\guest\node_modules\expo-dev-menu\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:13:13-20:29
+ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:9:9-11:89
+		ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:11:13-86
+		ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:10:13-79
+ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:12:9-15:45
+		ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:15:13-42
+		ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:14:13-33
+		ADDED from [:expo-modules-core] C:\guest\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:13:13-57
+ADDED from [BareExpo:expo.modules.image:2.4.1] C:\Users\anuj\.gradle\caches\8.13\transforms\a6cb8db52191cf3613118879263ea3e8\transformed\expo.modules.image-2.4.1\AndroidManifest.xml:12:5-79
+		ADDED from [BareExpo:expo.modules.image:2.4.1] C:\Users\anuj\.gradle\caches\8.13\transforms\a6cb8db52191cf3613118879263ea3e8\transformed\expo.modules.image-2.4.1\AndroidManifest.xml:12:22-76
+ADDED from [com.facebook.react:react-android:0.79.6] C:\Users\anuj\.gradle\caches\8.13\transforms\7dd298ccc7748dddcfd5a2a68337b699\transformed\react-android-0.79.6-debug\AndroidManifest.xml:19:9-21:40
+	android:exported
+		ADDED from [com.facebook.react:react-android:0.79.6] C:\Users\anuj\.gradle\caches\8.13\transforms\7dd298ccc7748dddcfd5a2a68337b699\transformed\react-android-0.79.6-debug\AndroidManifest.xml:21:13-37
+		ADDED from [com.facebook.react:react-android:0.79.6] C:\Users\anuj\.gradle\caches\8.13\transforms\7dd298ccc7748dddcfd5a2a68337b699\transformed\react-android-0.79.6-debug\AndroidManifest.xml:20:13-77
+ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:8:9-15:20
+		ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:10:13-73
+	android:exported
+		ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:11:13-36
+		ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:9:13-72
+ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:12:13-14:68
+		ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:14:17-65
+		ADDED from [host.exp.exponent:expo.modules.clipboard:7.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\b4fbfbe3df8c331d9c76987b971c7732\transformed\expo.modules.clipboard-7.1.5\AndroidManifest.xml:13:17-84
+ADDED from [host.exp.exponent:expo.modules.webbrowser:14.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\3e1c3008415887473f6d920c1b1d8993\transformed\expo.modules.webbrowser-14.2.0\AndroidManifest.xml:8:9-12:18
+ADDED from [host.exp.exponent:expo.modules.webbrowser:14.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\3e1c3008415887473f6d920c1b1d8993\transformed\expo.modules.webbrowser-14.2.0\AndroidManifest.xml:11:13-90
+		ADDED from [host.exp.exponent:expo.modules.webbrowser:14.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\3e1c3008415887473f6d920c1b1d8993\transformed\expo.modules.webbrowser-14.2.0\AndroidManifest.xml:11:21-87
+ADDED from [com.google.maps.android:android-maps-utils:3.8.2] C:\Users\anuj\.gradle\caches\8.13\transforms\8b0d0e43d8322f5f1a794ba124bd74e7\transformed\android-maps-utils-3.8.2\AndroidManifest.xml:8:9-10:69
+		ADDED from [com.google.maps.android:android-maps-utils:3.8.2] C:\Users\anuj\.gradle\caches\8.13\transforms\8b0d0e43d8322f5f1a794ba124bd74e7\transformed\android-maps-utils-3.8.2\AndroidManifest.xml:10:13-66
+		ADDED from [com.google.maps.android:android-maps-utils:3.8.2] C:\Users\anuj\.gradle\caches\8.13\transforms\8b0d0e43d8322f5f1a794ba124bd74e7\transformed\android-maps-utils-3.8.2\AndroidManifest.xml:9:13-58
+ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:26:5-28:35
+		ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:27:9-41
+		ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:28:9-32
+ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:33:9-64
+		ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:33:18-61
+ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:39:9-41:40
+		ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:41:13-37
+		ADDED from [com.google.android.gms:play-services-maps:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\d766027c50d3e493e370152127cea0e0\transformed\play-services-maps-18.2.0\AndroidManifest.xml:40:13-50
+ADDED from [host.exp.exponent:expo.modules.location:18.1.6] C:\Users\anuj\.gradle\caches\8.13\transforms\93a4fa2a2a7d0b80394ce6d46802aaf9\transformed\expo.modules.location-18.1.6\AndroidManifest.xml:11:9-14:56
+	android:exported
+		ADDED from [host.exp.exponent:expo.modules.location:18.1.6] C:\Users\anuj\.gradle\caches\8.13\transforms\93a4fa2a2a7d0b80394ce6d46802aaf9\transformed\expo.modules.location-18.1.6\AndroidManifest.xml:13:13-37
+		ADDED from [host.exp.exponent:expo.modules.location:18.1.6] C:\Users\anuj\.gradle\caches\8.13\transforms\93a4fa2a2a7d0b80394ce6d46802aaf9\transformed\expo.modules.location-18.1.6\AndroidManifest.xml:14:13-53
+		ADDED from [host.exp.exponent:expo.modules.location:18.1.6] C:\Users\anuj\.gradle\caches\8.13\transforms\93a4fa2a2a7d0b80394ce6d46802aaf9\transformed\expo.modules.location-18.1.6\AndroidManifest.xml:12:13-78
+ADDED from [com.google.android.gms:play-services-base:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\af5a2c56b27aa6b16bb61d2cf3034411\transformed\play-services-base-18.2.0\AndroidManifest.xml:20:9-22:45
+	android:exported
+		ADDED from [com.google.android.gms:play-services-base:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\af5a2c56b27aa6b16bb61d2cf3034411\transformed\play-services-base-18.2.0\AndroidManifest.xml:22:19-43
+		ADDED from [com.google.android.gms:play-services-base:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\af5a2c56b27aa6b16bb61d2cf3034411\transformed\play-services-base-18.2.0\AndroidManifest.xml:21:19-78
+		ADDED from [com.google.android.gms:play-services-base:18.2.0] C:\Users\anuj\.gradle\caches\8.13\transforms\af5a2c56b27aa6b16bb61d2cf3034411\transformed\play-services-base-18.2.0\AndroidManifest.xml:20:19-85
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:8:5-65
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:8:22-62
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:15:9-19:18
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:18:13-73
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:18:21-70
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:20:9-24:18
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:23:13-80
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:23:21-77
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:28:9-40:19
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:30:13-36
+	android:exported
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:31:13-37
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:32:13-40
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:29:13-78
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:33:13-35:29
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:34:17-94
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:34:25-91
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:37:13-39:36
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:39:17-33
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:38:17-63
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:42:9-44:59
+	android:exported
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:33:13-36
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:44:13-56
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:43:13-64
+ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:46:9-54:20
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:50:13-47
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:48:13-75
+	android:exported
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:49:13-37
+		ADDED from [host.exp.exponent:expo.modules.imagepicker:16.1.4] C:\Users\anuj\.gradle\caches\8.13\transforms\44dedef735c6ff150e386db9293becae\transformed\expo.modules.imagepicker-16.1.4\AndroidManifest.xml:47:13-89
+ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:8:9-14:18
+ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:9:13-72
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:9:21-69
+ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:11:13-73
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:11:23-70
+ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:21:9-29:20
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:25:13-47
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:23:13-72
+	android:exported
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:24:13-37
+		ADDED from [com.vanniktech:android-image-cropper:4.6.0] C:\Users\anuj\.gradle\caches\8.13\transforms\7a8a81efcb41aae7f46f9c77bd798ed0\transformed\android-image-cropper-4.6.0\AndroidManifest.xml:22:13-63
+ADDED from [com.github.bumptech.glide:okhttp3-integration:4.11.0] C:\Users\anuj\.gradle\caches\8.13\transforms\154a99f393fb48fd5bf19c6e0f6a97b1\transformed\okhttp3-integration-4.11.0\AndroidManifest.xml:11:9-13:43
+		ADDED from [com.github.bumptech.glide:okhttp3-integration:4.11.0] C:\Users\anuj\.gradle\caches\8.13\transforms\154a99f393fb48fd5bf19c6e0f6a97b1\transformed\okhttp3-integration-4.11.0\AndroidManifest.xml:13:13-40
+		ADDED from [com.github.bumptech.glide:okhttp3-integration:4.11.0] C:\Users\anuj\.gradle\caches\8.13\transforms\154a99f393fb48fd5bf19c6e0f6a97b1\transformed\okhttp3-integration-4.11.0\AndroidManifest.xml:12:13-84
+ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:15:9-17:18
+ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:16:13-79
+		ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:16:21-76
+ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:21:9-30:20
+		ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:25:13-47
+		ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:23:13-74
+	android:exported
+		ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:24:13-37
+		ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:26:13-48
+		ADDED from [host.exp.exponent:expo.modules.filesystem:18.1.11] C:\Users\anuj\.gradle\caches\8.13\transforms\fef9fdc2d941fa61931efd3c291e42b6\transformed\expo.modules.filesystem-18.1.11\AndroidManifest.xml:22:13-74
+ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:8:9-14:18
+ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:11:13-65
+		ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:11:21-62
+ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:18:9-26:20
+		ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:22:13-47
+		ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:20:13-71
+	android:exported
+		ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:21:13-37
+		ADDED from [host.exp.exponent:expo.modules.sharing:13.1.5] C:\Users\anuj\.gradle\caches\8.13\transforms\a85f1bcac902123859fdcaac6792425e\transformed\expo.modules.sharing-13.1.5\AndroidManifest.xml:19:13-68
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:25:5-68
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:25:22-65
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:27:5-81
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:27:22-78
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:28:5-77
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:28:22-74
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:31:9-39:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:35:13-31
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:33:13-68
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:34:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:32:13-67
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:36:13-38:52
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:38:17-49
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:37:17-68
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:41:9-46:35
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:44:13-72
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:45:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:46:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:43:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:42:13-88
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:47:9-53:35
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:50:13-70
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:51:13-36
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:52:13-69
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:53:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:49:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:48:13-84
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:54:9-59:35
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:57:13-77
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:58:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:59:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:56:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:55:13-81
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:61:9-66:35
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:64:13-35
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:65:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:66:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:63:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:62:13-88
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:67:9-77:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:70:13-36
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:71:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:72:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:69:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:68:13-106
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:73:13-76:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:74:17-87
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:74:25-84
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:75:17-90
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:75:25-87
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:78:9-88:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:81:13-36
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:82:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:83:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:80:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:79:13-104
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:84:13-87:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:85:17-77
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:85:25-74
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:86:17-76
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:86:25-73
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:89:9-99:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:92:13-36
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:93:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:94:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:91:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:90:13-104
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:95:13-98:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:96:17-83
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:96:25-80
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:97:17-82
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:97:25-79
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:100:9-109:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:103:13-36
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:104:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:105:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:102:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:101:13-103
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:106:13-108:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:107:17-79
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:107:25-76
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:110:9-121:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:113:13-36
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:114:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:115:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:112:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:111:13-88
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:116:13-120:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:117:17-79
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:117:25-76
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:118:17-73
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:118:25-70
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:119:17-81
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:119:25-78
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:122:9-131:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:125:13-72
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:126:13-37
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:127:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:124:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:123:13-99
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:128:13-130:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:129:17-98
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:129:25-95
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:132:9-142:20
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:135:13-35
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:136:13-36
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:137:13-57
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:138:13-32
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:134:13-44
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:133:13-78
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:139:13-141:29
+ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:140:17-88
+		ADDED from [androidx.work:work-runtime:2.7.1] C:\Users\anuj\.gradle\caches\8.13\transforms\60c24008692d130a7fe2c7f3153d3be0\transformed\work-runtime-2.7.1\AndroidManifest.xml:140:25-85
+ADDED from [androidx.emoji2:emoji2:1.3.0] C:\Users\anuj\.gradle\caches\8.13\transforms\bdf6bd7e275c0c4cf963c663ef85151f\transformed\emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
+		ADDED from [androidx.emoji2:emoji2:1.3.0] C:\Users\anuj\.gradle\caches\8.13\transforms\bdf6bd7e275c0c4cf963c663ef85151f\transformed\emoji2-1.3.0\AndroidManifest.xml:31:17-49
+		ADDED from [androidx.emoji2:emoji2:1.3.0] C:\Users\anuj\.gradle\caches\8.13\transforms\bdf6bd7e275c0c4cf963c663ef85151f\transformed\emoji2-1.3.0\AndroidManifest.xml:30:17-75
+ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
+ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
+ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
+ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
+		ADDED from [androidx.core:core:1.13.1] C:\Users\anuj\.gradle\caches\8.13\transforms\3709465e82c922f518d124b9b76a7a36\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
+ADDED from [androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\anuj\.gradle\caches\8.13\transforms\6e6486fd168175231d9ed9a95f94dbcc\transformed\lifecycle-process-2.6.2\AndroidManifest.xml:29:13-31:52
+		ADDED from [androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\anuj\.gradle\caches\8.13\transforms\6e6486fd168175231d9ed9a95f94dbcc\transformed\lifecycle-process-2.6.2\AndroidManifest.xml:31:17-49
+		ADDED from [androidx.lifecycle:lifecycle-process:2.6.2] C:\Users\anuj\.gradle\caches\8.13\transforms\6e6486fd168175231d9ed9a95f94dbcc\transformed\lifecycle-process-2.6.2\AndroidManifest.xml:30:17-78
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:29:13-31:52
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:31:17-49
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:30:17-85
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:34:9-52:20
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:37:13-35
+	android:exported
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:38:13-36
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:39:13-57
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:36:13-44
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:35:13-76
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:40:13-42:29
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:17-91
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:25-88
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:43:13-45:29
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:17-85
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:25-82
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:46:13-48:29
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:17-88
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:25-85
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:49:13-51:29
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:17-95
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\anuj\.gradle\caches\8.13\transforms\6a806ce5b0541d9b26a9eb98fc422d6e\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:25-92
+ADDED from [androidx.room:room-runtime:2.2.5] C:\Users\anuj\.gradle\caches\8.13\transforms\d52fb914a6374784ea8a2634bc78b346\transformed\room-runtime-2.2.5\AndroidManifest.xml:25:9-28:40
+	android:exported
+		ADDED from [androidx.room:room-runtime:2.2.5] C:\Users\anuj\.gradle\caches\8.13\transforms\d52fb914a6374784ea8a2634bc78b346\transformed\room-runtime-2.2.5\AndroidManifest.xml:28:13-37
+		ADDED from [androidx.room:room-runtime:2.2.5] C:\Users\anuj\.gradle\caches\8.13\transforms\d52fb914a6374784ea8a2634bc78b346\transformed\room-runtime-2.2.5\AndroidManifest.xml:27:13-43
+		ADDED from [androidx.room:room-runtime:2.2.5] C:\Users\anuj\.gradle\caches\8.13\transforms\d52fb914a6374784ea8a2634bc78b346\transformed\room-runtime-2.2.5\AndroidManifest.xml:26:13-74
