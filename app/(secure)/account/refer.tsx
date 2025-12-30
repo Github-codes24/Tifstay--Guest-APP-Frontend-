@@ -308,7 +308,7 @@ Download now!`;
       <View style={styles.historyHeader}>
         <Text style={styles.historyTitle}>Point Earned History</Text>
         <TouchableOpacity onPress={() => router.push("/(secure)/account/ReferralUsersScreen")}>
-          <Text style={styles.historyLink}>See All</Text>
+          <Text style={styles.historyLink}>See Alll</Text>
         </TouchableOpacity>
 
       </View>
