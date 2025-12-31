@@ -1,4 +1,3 @@
-// Updated PersonalDetailsScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -11,17 +10,23 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/store/authStore";
 import axios from "axios";
 import Toast from "react-native-toast-message";
-import CustomToast from "../../components/CustomToast"; // Adjust path as needed
+import CustomToast from "../../components/CustomToast";
+import { BASE_URL } from "@/constants/api";
 
 const PersonalDetailsScreen = () => {
-  const { user } = useAuthStore(); // Assuming store has user after login
+  const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
+
   const [name, setName] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +39,7 @@ const PersonalDetailsScreen = () => {
   };
 
   const handleDone = async () => {
-    if (isDoneDisabled || !name.trim()) return;
+    if (isDoneDisabled) return;
 
     setLoading(true);
     try {
@@ -52,13 +57,13 @@ const PersonalDetailsScreen = () => {
         name: name.trim(),
         phoneNumber,
       };
+
       if (referralCode.trim()) {
         body.referralCode = referralCode.trim();
       }
-    
 
       const response = await axios.put(
-        "https://tifstay-project-be.onrender.com/api/guest/editProfile",
+        `${BASE_URL}/api/guest/editProfile`,
         body,
         {
           headers: {
@@ -69,15 +74,14 @@ const PersonalDetailsScreen = () => {
       );
 
       if (response.data.success) {
-        // Optionally update store with new profile data
-        // e.g., useAuthStore.getState().updateProfile(response.data.data);
         Toast.show({
           type: "success",
           text1: "Profile Updated",
           text2: "Redirecting to dashboard...",
         });
+
         setTimeout(() => {
-          router.replace('/(secure)/(tabs)');
+          router.replace("/(secure)/(tabs)");
         }, 1200);
       } else {
         Toast.show({
@@ -99,83 +103,90 @@ const PersonalDetailsScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      {/* 🔒 FIXED HEADER */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.header}>Personal Details</Text>
+      </View>
+
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        {/* 📜 SCROLLABLE FORM */}
         <ScrollView
-          contentContainerStyle={styles.container}
+          contentContainerStyle={[
+            styles.container,
+            { paddingBottom: 130 }, // space for Done button
+          ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View>
-            {/* Back Arrow + Heading (inline) */}
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <TouchableOpacity
-                onPress={handleBack}
-                style={{ marginRight: 6 }}
-              >
-                <Ionicons name="arrow-back" size={24} color="#000" />
-              </TouchableOpacity>
-
-              <Text style={styles.header}>Personal Details</Text>
-            </View>
-
-            {/* Name */}
-            <View style={styles.section}>
-              <Text style={styles.label}>What's your name?</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your name"
-                  placeholderTextColor="#B0B0B0"
-                  value={name}
-                  onChangeText={setName}
-                  editable={!loading}
-                />
-              </View>
-            </View>
-
-            {/* Referral Code */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Referral code (optional)</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter referral code"
-                  placeholderTextColor="#B0B0B0"
-                  value={referralCode}
-                  onChangeText={setReferralCode}
-                  editable={!loading}
-                />
-              </View>
+          {/* Name */}
+          <View style={styles.section}>
+            <Text style={styles.label}>What's your name?</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your name"
+                placeholderTextColor="#B0B0B0"
+                value={name}
+                onChangeText={setName}
+                editable={!loading}
+              />
             </View>
           </View>
 
-          {/* Done button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            disabled={isDoneDisabled}
-            onPress={handleDone}
-            style={[
-              styles.doneButton,
-              isDoneDisabled && styles.doneButtonDisabled,
-            ]}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text
-                style={[
-                  styles.doneText,
-                  isDoneDisabled && styles.doneTextDisabled,
-                ]}
-              >
-                Done
-              </Text>
-            )}
-          </TouchableOpacity>
+          {/* Referral Code */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Referral code (optional)</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter referral code"
+                placeholderTextColor="#B0B0B0"
+                value={referralCode}
+                onChangeText={setReferralCode}
+                editable={!loading}
+              />
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* 🔒 FIXED BOTTOM DONE BUTTON */}
+      <View
+        style={[
+          styles.bottomContainer,
+          { paddingBottom: insets.bottom + 12 },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={isDoneDisabled}
+          onPress={handleDone}
+          style={[
+            styles.doneButton,
+            isDoneDisabled && styles.doneButtonDisabled,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text
+              style={[
+                styles.doneText,
+                isDoneDisabled && styles.doneTextDisabled,
+              ]}
+            >
+              Done
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <CustomToast />
     </SafeAreaView>
   );
@@ -183,26 +194,34 @@ const PersonalDetailsScreen = () => {
 
 export default PersonalDetailsScreen;
 
-// Styles remain EXACTLY SAME as you provided
+/* ================= STYLES ================= */
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  flex: {
-    flex: 1,
-  },
-  container: {
-    flexGrow: 1,
+
+  /* HEADER */
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    justifyContent: "space-between",
+    paddingBottom: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  backBtn: {
+    marginRight: 8,
   },
   header: {
     fontSize: 22,
     fontWeight: "600",
-    marginBottom: 24,
+  },
+
+  /* FORM */
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   section: {
     marginBottom: 24,
@@ -223,6 +242,16 @@ const styles = StyleSheet.create({
   },
   input: {
     fontSize: 16,
+  },
+
+  /* DONE BUTTON */
+  bottomContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    backgroundColor: "#FFFFFF",
   },
   doneButton: {
     height: 52,

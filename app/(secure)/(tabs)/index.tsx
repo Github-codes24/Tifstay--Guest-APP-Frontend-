@@ -408,7 +408,7 @@ export default function DashboardScreen() {
     try {
       const response = await fetch(url, { headers });
       const result = await response.json();
-      console.log("getAllTiffinServices response:", JSON.stringify(result, null, 2));
+      // console.log("getAllTiffinServices response:", JSON.stringify(result, null, 2));
       if (result.success && result.data) {
         const mapped = result.data.map((tiffin: any) => {
           const foodTags: string[] = [];
@@ -505,7 +505,7 @@ export default function DashboardScreen() {
     try {
       const response = await fetch(url, { headers });
       const result = await response.json();
-      console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
+      // console.log("getAllTiffinServices search response:", JSON.stringify(result, null, 2));
       if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
         // Backend success with data → extra client-side partial/case-insensitive filter (name + desc + location)
         const backendFiltered = result.data.filter((tiffin: any) => {

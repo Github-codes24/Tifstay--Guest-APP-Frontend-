@@ -7,40 +7,44 @@ import {
   Image,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import colors from "@/constants/colors";
 import { theme } from "@/constants/utils";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery } from "@tanstack/react-query";
+import { BASE_URL } from "@/constants/api";
 
-/* 🔹 DUMMY REFERRED USERS DATA */
-const dummyReferredUsers = [
-  {
-    id: "1",
-    name: "Rahul Sharma",
-    joinedOn: "12 July 2024",
-    pointsEarned: 50,
-  },
-  {
-    id: "2",
-    name: "Amit Verma",
-    joinedOn: "18 July 2024",
-    pointsEarned: 50,
-  },
-  {
-    id: "3",
-    name: "Neha Singh",
-    joinedOn: "25 July 2024",
-    pointsEarned: 50,
-  },
-  {
-    id: "4",
-    name: "Pooja Patel",
-    joinedOn: "01 August 2024",
-    pointsEarned: 50,
-  },
-];
+/* 🔹 API CALL */
+const fetchReferralUsers = async () => {
+  const guestId = await AsyncStorage.getItem("guestId");
+  const token = await AsyncStorage.getItem("token");
 
+  if (!guestId || !token) {
+    throw new Error("GuestId or Token missing");
+  }
+
+  const res = await fetch(
+    `${BASE_URL}/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
+    {
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    }
+  );
+
+  const json = await res.json();
+
+  if (!json.success) {
+    throw new Error("Failed to fetch referred users");
+  }
+
+  return json.data.referredUsers || [];
+};
+
+/* 🔹 LIST ITEM */
 const renderItem = ({ item }) => (
   <View style={styles.card}>
     <Image
@@ -50,14 +54,39 @@ const renderItem = ({ item }) => (
 
     <View style={{ flex: 1 }}>
       <Text style={styles.name}>{item.name}</Text>
-      <Text style={styles.date}>Joined on {item.joinedOn}</Text>
+      <Text style={styles.date}>
+        Joined on{" "}
+        {new Date().toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}
+      </Text>
     </View>
 
-    <Text style={styles.points}>+{item.pointsEarned}</Text>
+    <Text style={styles.points}>+{item.points}</Text>
   </View>
 );
 
 export default function ReferralUsersScreen() {
+  const {
+    data: referredUsers = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["referredUsers"],
+    queryFn: fetchReferralUsers,
+  });
+
+  /* 🔹 LOADING STATE */
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <View style={styles.container}>
@@ -75,15 +104,15 @@ export default function ReferralUsersScreen() {
 
         {/* 🔹 LIST */}
         <FlatList
-          data={dummyReferredUsers}
-          keyExtractor={(item) => item.id}
+          data={referredUsers}
+          keyExtractor={(item) => item._id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                You haven’t referred anyone yet 😔
+                You haven’t referred anyone yet 
               </Text>
             </View>
           }
@@ -93,6 +122,7 @@ export default function ReferralUsersScreen() {
   );
 }
 
+/* 🔹 STYLES */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -164,5 +194,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: colors.grey,
+    fontWeight:400,
   },
 });

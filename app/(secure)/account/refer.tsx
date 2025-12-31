@@ -231,20 +231,26 @@ Download now!`;
     }
   };
 
-  const historyData = useMemo(() => {
-    if (!referralData || !referralData.referredUser || referralData.referredUser.length === 0) return [];
-    const pointsPerUser = Math.floor(referralData.totalPoints / referralData.referredUser.length);
-    const currentDate = new Date().toLocaleDateString("en-GB", {
+const historyData = useMemo(() => {
+  if (
+    !referralData ||
+    !referralData.referredUsers ||
+    referralData.referredUsers.length === 0
+  ) {
+    return [];
+  }
+
+  return referralData.referredUsers.map((user) => ({
+    id: user._id,
+    name: user.name,
+    date: new Date().toLocaleDateString("en-GB", {
       day: "numeric",
       month: "long",
-    });
-    return referralData.referredUser.map((userId) => ({
-      id: userId,
-      name: userId.substring(userId.length - 6).toUpperCase(),
-      date: currentDate,
-      points: pointsPerUser,
-    }));
-  }, [referralData]);
+    }),
+    points: user.points,
+  }));
+}, [referralData]);
+
 
   const handleCopyCode = async () => {
     if (!referralData?.code) {

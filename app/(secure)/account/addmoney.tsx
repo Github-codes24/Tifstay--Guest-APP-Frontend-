@@ -9,6 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
 import { useLocalSearchParams } from "expo-router/build/hooks";
+import { BASE_URL } from "@/constants/api";
 
 const INR = (n: number, fd = 0) =>
   new Intl.NumberFormat("en-IN", {
@@ -53,49 +54,120 @@ console.log("balance-from-screen====>", balance);
 
   const onSelectCard = () => {};
 
-  const onAddMoney = async () => {
-    if (amount <= 0) return;
+ const onAddMoney = async () => {
+  if (amount <= 0) {
+    console.log("❌ Invalid amount:", amount);
+    Toast.show({ type: "error", text1: "Invalid Amount" });
+    return;
+  }
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        Toast.show({ type: "error", text1: "Error", text2: "User not authenticated" });
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    console.log("🔑 TOKEN:", token);
+    console.log("💰 AMOUNT:", amount);
+
+    if (!token) {
+      Toast.show({
+        type: "error",
+        text1: "Auth Error",
+        text2: "User not authenticated",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    const response = await axios.post(
+     ` ${BASE_URL}/api/guest/wallet/create-link`,
+      { amount },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ API RESPONSE STATUS:", response.status);
+    console.log("✅ API RESPONSE DATA:", response.data);
+
+    if (response.data?.success === true) {
+      const paymentUrl = response.data?.data?.paymentLinkUrl;
+
+      console.log("🔗 PAYMENT URL:", paymentUrl);
+
+      if (!paymentUrl) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Payment link missing from server",
+        });
         return;
       }
 
-      setLoading(true);
+      const supported = await Linking.canOpenURL(paymentUrl);
+      console.log("🌐 CAN OPEN URL:", supported);
 
-      const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/wallet/create-link",
-        { amount },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data?.success) {
-        const paymentUrl = response.data.data?.paymentLinkUrl; 
-        if (paymentUrl) {
-          const supported = await Linking.canOpenURL(paymentUrl);
-          if (supported) {
-            Toast.show({ type: "success", text1: "Redirecting", text2: "Opening payment link..." });
-            // ✅ Give toast time to appear before redirect
-            setTimeout(() => Linking.openURL(paymentUrl), 300);
-          } else {
-            Toast.show({ type: "error", text1: "Error", text2: "Cannot open payment link." });
-          }
-        } else {
-          Toast.show({ type: "success", text1: "Success", text2: "Payment link created." });
-        }
-      } else {
-        Toast.show({ type: "error", text1: "Error", text2: response.data?.message || "Something went wrong" });
+      if (!supported) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Cannot open payment link",
+        });
+        return;
       }
-    } catch (error: any) {
-      Toast.show({ type: "error", text1: "Error", text2: error.response?.data?.message || "Something went wrong" });
-    } finally {
-      setLoading(false);
+
+      Toast.show({
+        type: "success",
+        text1: "Redirecting",
+        text2: "Opening payment page",
+      });
+
+      setTimeout(() => {
+        Linking.openURL(paymentUrl);
+      }, 400);
+    } else {
+      console.log("❌ BACKEND ERROR:", response.data);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: response.data?.message || "Payment link creation failed",
+      });
     }
-  };
+  } catch (error: any) {
+    console.log("🔥 AXIOS ERROR FULL:", error);
+
+    if (error.response) {
+      console.log("🔥 ERROR STATUS:", error.response.status);
+      console.log("🔥 ERROR DATA:", error.response.data);
+      console.log("🔥 ERROR HEADERS:", error.response.headers);
+
+      Toast.show({
+        type: "error",
+        text1: "Server Error",
+        text2: error.response.data?.message || "Server failed",
+      });
+    } else if (error.request) {
+      console.log("🔥 NO RESPONSE RECEIVED:", error.request);
+      Toast.show({
+        type: "error",
+        text1: "Network Error",
+        text2: "Server not reachable",
+      });
+    } else {
+      console.log("🔥 UNKNOWN ERROR:", error.message);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.message,
+      });
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <SafeAreaView style={styles.safe}>
