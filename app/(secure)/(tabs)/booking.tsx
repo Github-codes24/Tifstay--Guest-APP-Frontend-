@@ -86,7 +86,7 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
   }
   const fetchedHostelOrders: Order[] = hostelResponse.data.data.map((item: any) => {
     // Normalize price value: accept 0 as valid, prefer applied coupon for rejected
-    let priceValue = item.price;
+    let priceValue = item.totalAmount;
     if (tab === "rejected") {
       // FIXED: Corrected spelling and camelCase
       priceValue = item.appliedCoupon?.finalPrice ?? item.price ?? 0;
@@ -174,7 +174,7 @@ const fetchTiffinOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
       plan: item.plan || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
       orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
       status: (item.status || "").toLowerCase() as Order["status"],
-      price: item.price ? `₹${item.price}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
+      price: item.totalAmount ? `₹${item.totalAmount}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
       // image: undefined,
       // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
       entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
@@ -900,6 +900,7 @@ const Booking: React.FC = () => {
                   </Text>
                 </View>
               </View>
+              
               {/* Meal Type Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Plan Type:</Text>

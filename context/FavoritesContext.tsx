@@ -100,7 +100,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     const idSource = profileData?.id ? 'profileData' : user?.id ? 'user' : id ? 'token' : 'none';
-    console.log(`🔄 [Favorites] Computed Effective User ID: ${id} (source: ${idSource})`);
+    // console.log(`🔄 [Favorites] Computed Effective User ID: ${id} (source: ${idSource})`);
 
     // Use ref to compare without adding to deps (avoids infinite loop)
     if (id !== prevUserIdRef.current) {
