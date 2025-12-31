@@ -19,6 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // ← Added
 import colors from "@/constants/colors";
+import { BASE_URL } from "@/constants/api";
 
 const COLORS = {
   bg: "#FFFFFF",
@@ -45,7 +46,7 @@ export default function DocumentsScreen() {
       if (!token) return null;
 
       const res = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/getProfile",
+        `${BASE_URL}/api/guest/getProfile`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -62,7 +63,7 @@ export default function DocumentsScreen() {
       if (!token) return null;
 
       const res = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/documents/documents",
+       ` ${BASE_URL}/api/guest/documents/documents`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -85,7 +86,7 @@ export default function DocumentsScreen() {
       } as any);
 
       const res = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/documents/uploadAadhaar",
+        `${BASE_URL}/api/guest/documents/uploadAadhaar`,
         formData,
         {
           headers: {
@@ -145,7 +146,7 @@ export default function DocumentsScreen() {
 
     try {
       const res = await axios.get(
-        `https://tifstay-project-be.onrender.com/api/guest/viewAdharCard/${profile._id}`,
+        `${BASE_URL}/api/guest/viewAdharCard/${profile._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

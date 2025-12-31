@@ -87,9 +87,14 @@ const fetchTransactions = async () => {
 
     const mappedTransactions: Txn[] = txnData.map((txn: any) => {
         const raw = txn.raw?.payload;
-        const paymentLinkDesc = raw?.payment_link?.entity?.description || "";
-        const isTopUp = paymentLinkDesc.includes("Wallet top-up");
+        const paymentLinkDesc =
+            raw?.payment_link?.entity?.description?.toLowerCase() || "";
+        const remarks = txn.remarks?.toLowerCase() || "";
         const source = txn.source || "Payment";
+
+        const isTopUp = paymentLinkDesc.includes("wallet top-up");
+        const isTiffin = remarks.includes("tiffin");
+        const isHostel = remarks.includes("hostel");
 
         let statusLabel: "Approved" | "Pending" | "Rejected";
         if (txn.status === "paid") statusLabel = "Approved";
@@ -98,19 +103,25 @@ const fetchTransactions = async () => {
 
         return {
             id: txn._id || "",
-            title: isTopUp ? "Wallet Top-up" : txn.remarks || "Transaction",
+            title: isTopUp
+                ? "Wallet Top-up"
+                : txn.remarks || "Transaction",
             subtitle: source,
             date: txn.createdAt
                 ? new Date(txn.createdAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                })
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                  })
                 : "",
             amount: txn.amount || 0,
             status: statusLabel,
             icon: isTopUp
                 ? require("../../../assets/images/visa1.png")
+                : isTiffin
+                ? require("../../../assets/images/tiffinlogo.png")
+                : isHostel
+                ? require("../../../assets/images/hostellogo.png")
                 : require("../../../assets/images/frame.png"),
             transactionType: txn.transactionType,
         };
@@ -173,24 +184,17 @@ export default function WalletScreen() {
         setRefreshing(true);
         try {
             await Promise.all([refetchWallet(), refetchTransactions()]);
-        } catch (error) {
-            console.error("Error during refresh:", error);
-            Toast.show({
-                type: "error",
-                text1: "Error",
-                text2: "Failed to refresh wallet data",
-            });
         } finally {
             setRefreshing(false);
         }
     }, [refetchWallet, refetchTransactions]);
 
-   const onAddMoney = () => {
-  router.push({
-    pathname: "/(secure)/account/addmoney",
-    params: { balance: balance?.toString() }
-  });
-};
+    const onAddMoney = () => {
+        router.push({
+            pathname: "/(secure)/account/addmoney",
+            params: { balance: balance?.toString() },
+        });
+    };
 
     const onSeeAll = () => {
         router.push("/account/WalletTransactionsScreen");
@@ -199,15 +203,7 @@ export default function WalletScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.safe}>
-                <View style={styles.header}>
-                    <Pressable style={styles.backBtn} onPress={() => router.back()}>
-                        <Ionicons name="chevron-back" size={16} color="#000" />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>Wallet</Text>
-                </View>
-                <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </View>
+                <ActivityIndicator size="large" color={colors.primary} />
             </SafeAreaView>
         );
     }
@@ -223,8 +219,9 @@ export default function WalletScreen() {
 
             <ScrollView
                 contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
             >
                 {/* Balance Card */}
                 <View style={styles.balanceCard}>
@@ -238,7 +235,9 @@ export default function WalletScreen() {
                         <Text style={styles.balanceLabel}>Wallet Balance</Text>
                     </View>
 
-                    <Text style={styles.balanceValue}>{formatINR(balance, 2)}</Text>
+                    <Text style={styles.balanceValue}>
+                        {formatINR(balance, 2)}
+                    </Text>
 
                     <Pressable style={styles.addBtn} onPress={onAddMoney}>
                         <Text style={styles.addBtnText}>Add Money</Text>
@@ -250,70 +249,61 @@ export default function WalletScreen() {
                     <Text style={styles.histTitle}>Transaction History</Text>
                     <Pressable style={styles.seeAll} onPress={onSeeAll}>
                         <Text style={styles.seeAllText}>See All</Text>
-                        <Ionicons name="chevron-forward" size={16} color={COLORS.subText} />
+                        <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color={COLORS.subText}
+                        />
                     </Pressable>
                 </View>
 
                 {/* Transactions */}
                 <View style={{ gap: 24 }}>
-                    {transactions.length > 0 ? (
-                        transactions.map((t) => {
-                            const isCredit = t.transactionType?.toLowerCase() === "credited";
-                            const amountColor = isCredit ? COLORS.green : COLORS.red;
-                            const amountPrefix = isCredit ? "+" : "-";
-                            const typeLabel = isCredit ? "Credited" : "Debited";
-                            const typeColor = isCredit ? COLORS.green : COLORS.red;
+                    {transactions.map((t) => {
+                        const isCredit =
+                            t.transactionType?.toLowerCase() === "credited";
+                        const amountColor = isCredit
+                            ? COLORS.green
+                            : COLORS.red;
 
-                            return (
-                                <Pressable
-                                    key={t.id}
-                                    style={styles.itemRow}
-                                    onPress={() =>
-                                        
-                                        router.push({
-                                            
-                                            pathname: "/(secure)/account/TransactionDetailsScreen",
-                                            params: { transactionId: t.id },
-                                        })
-                                    }
+                        return (
+                            <Pressable
+                                key={t.id}
+                                style={styles.itemRow}
+                                onPress={() =>
+                                    router.push({
+                                        pathname:
+                                            "/(secure)/account/TransactionDetailsScreen",
+                                        params: { transactionId: t.id },
+                                    })
+                                }
+                            >
+                                <Image
+                                    source={t.icon}
+                                    style={{ height: 32, width: 32 }}
+                                />
+
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.itemTitle} numberOfLines={1}>
+                                        {t.title}
+                                    </Text>
+                                    <Text style={styles.itemSub}>{t.date}</Text>
+                                </View>
+
+                                <Text
+                                    style={[
+                                        styles.amount,
+                                        { color: amountColor },
+                                    ]}
                                 >
-                                    <Image source={t.icon} style={{ height: 32, width: 32 }} />
-
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.itemTitle} numberOfLines={1}>
-                                            {t.title}
-                                        </Text>
-                                        <View style={{ flexDirection: "row", gap: 8, marginTop: 2 }}>
-                                            {/* <Text style={styles.itemSub}>{t.subtitle}</Text> */}
-                                            <Text style={styles.itemSub}>{t.date}</Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={{ alignItems: "flex-end" }}>
-                                        <Text style={[styles.amount, { color: amountColor }]}>
-                                            {`${amountPrefix} ${formatINR(t.amount, 0)}`}
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                {
-                                                    color: typeColor,
-                                                    fontSize: 10,
-                                                    fontWeight: "500",
-                                                    marginTop: 2,
-                                                }
-                                            ]}
-                                        >
-                                            {typeLabel}
-                                        </Text>
-                                    </View>
-                                </Pressable>
-                            );
-                        })
-                    ) : (
-                        <Text style={{ textAlign: "center", color: colors.grey }}>
-                            No transactions found
-                        </Text>
-                    )}
+                                    {`${isCredit ? "+" : "-"} ${formatINR(
+                                        t.amount,
+                                        0
+                                    )}`}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -337,7 +327,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: "600", color: COLORS.text },
+    headerTitle: { marginLeft: 12, fontSize: 18, fontWeight: "600" },
     balanceCard: {
         backgroundColor: "#F5F5F5",
         borderRadius: 16,
@@ -360,7 +350,6 @@ const styles = StyleSheet.create({
         paddingVertical: 25,
         fontSize: 30,
         fontWeight: "700",
-        color: colors.title,
         letterSpacing: 0.5,
     },
     addBtn: {
@@ -377,16 +366,15 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
     },
-    histTitle: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.title },
+    histTitle: { flex: 1, fontSize: 16, fontWeight: "600" },
     seeAll: { flexDirection: "row", alignItems: "center", gap: 6 },
-    seeAllText: { color: colors.primary, fontWeight: "400", fontSize: 12 },
+    seeAllText: { color: colors.primary, fontSize: 12 },
     itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    itemTitle: { fontSize: 14, color: colors.grey, fontWeight: "500" },
-    itemSub: { fontSize: 10, color: colors.gray, fontWeight: "400" },
+    itemTitle: { fontSize: 14, fontWeight: "500" },
+    itemSub: { fontSize: 10, color: colors.gray },
     amount: {
         fontSize: 14,
         fontWeight: "500",
-        color: colors.grey,
         minWidth: 110,
         textAlign: "right",
     },

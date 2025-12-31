@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  Alert,
   Platform,
   Modal,
   ActivityIndicator,
@@ -23,20 +22,25 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { BASE_URL } from "@/constants/api";
+import Toast from "react-native-toast-message"; // ← Added for toast notifications
 
 const fetchProfile = async () => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No token found");
-  const res = await fetch(
-    `${BASE_URL}/api/guest/getProfile`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
+  const res = await fetch(`${BASE_URL}/api/guest/getProfile`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.message || "Failed to load profile");
   return data.data.guest;
+};
+
+const MAX_EMAIL_LENGTH = 35;
+
+const isValidEmail = (email: string) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email.trim());
 };
 
 const EditProfile = () => {
@@ -58,21 +62,18 @@ const EditProfile = () => {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load guest data and properly format phone number
   useEffect(() => {
     if (guest) {
       setName(guest.name || "");
       setEmail(guest.email || "");
 
-      // Format phone number properly
       let phoneNum = guest.phoneNumber || "";
       if (phoneNum) {
-        // Remove any non-digit characters except leading +
         let digits = phoneNum.replace(/[^\d]/g, "");
         if (digits.startsWith("91") && digits.length >= 12) {
-          digits = digits.slice(2); // remove leading 91
+          digits = digits.slice(2);
         } else if (digits.length > 10) {
-          digits = digits.slice(-10); // take last 10 digits if longer
+          digits = digits.slice(-10);
         }
         setPhone("+91" + digits);
       } else {
@@ -89,19 +90,15 @@ const EditProfile = () => {
     }
   }, [guest]);
 
-  // Improved phone input handler
   const handlePhoneChange = (text: string) => {
-    // Remove all non-digit characters
     let cleaned = text.replace(/[^\d]/g, "");
 
-    // Handle cases like user types 91... or 0...
     if (cleaned.startsWith("91") && cleaned.length > 10) {
       cleaned = cleaned.slice(2);
     } else if (cleaned.startsWith("0")) {
       cleaned = cleaned.slice(1);
     }
 
-    // Limit to 10 digits
     if (cleaned.length > 10) {
       cleaned = cleaned.slice(0, 10);
     }
@@ -134,6 +131,34 @@ const EditProfile = () => {
 
   const handleSave = async () => {
     if (isSaving) return;
+
+    if (!email.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Email Required",
+        text2: "Email cannot be empty",
+      });
+      return;
+    }
+
+    if (email.length > MAX_EMAIL_LENGTH) {
+      Toast.show({
+        type: "error",
+        text1: "Email Too Long",
+        text2: `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`,
+      });
+      return;
+    }
+
+    if (email.trim() && !isValidEmail(email)) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Email",
+        text2: "Please enter a valid email address",
+      });
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -142,8 +167,9 @@ const EditProfile = () => {
 
       const formData = new FormData();
       if (name.trim()) formData.append("name", name.trim());
-      if (email.trim()) formData.append("email", email.trim());
-      if (phone.trim() && phone.length > 3) formData.append("phoneNumber", phone.trim());
+      formData.append("email", email.trim());
+      if (phone.trim() && phone.length > 3)
+        formData.append("phoneNumber", phone.trim());
       if (dob.trim()) formData.append("dob", dob.trim());
 
       if (profileImage && profileImage.uri) {
@@ -154,28 +180,41 @@ const EditProfile = () => {
         } as any);
       }
 
-      const res = await fetch(
-        `${BASE_URL}/api/guest/editProfile`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
+      const res = await fetch(`${BASE_URL}/api/guest/editProfile`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
       const data = await res.json();
 
       if (data.success) {
         queryClient.setQueryData(["guestProfile"], data.data.guest);
         await refetchStoreProfile();
+
+        // Toast.show({
+        //   type: "success",
+        //   text1: "Success!",
+        //   text2: "Profile updated successfully",
+        // });
+
         setSuccessModalVisible(true);
       } else {
-        Alert.alert("Error", data.message || "Failed to update profile");
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: data.message || "Failed to update profile",
+        });
       }
     } catch (err: any) {
       console.log(err.message);
-      Alert.alert("Error", "Something went wrong");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Something went wrong",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -186,8 +225,11 @@ const EditProfile = () => {
     router.back();
   };
 
+  // ... JSX remains exactly the same (no changes needed here)
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
+      {/* Header and rest of JSX unchanged */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={16} color="#000" />
@@ -233,9 +275,11 @@ const EditProfile = () => {
             label="Email"
             placeholder="example@gmail.com"
             value={email}
-            onChangeText={setEmail}
+            maxLength={35}
+            onChangeText={(text) => setEmail(text)}
             labelStyle={styles.label}
           />
+
           <LabeledInput
             label="Phone Number"
             placeholder="+9199XXXXXX00"
@@ -265,7 +309,7 @@ const EditProfile = () => {
                 label="Date of Birth"
                 placeholder="01/01/2000"
                 value={dob}
-                onChangeText={() => { }}
+                onChangeText={() => {}}
                 editable={false}
                 labelStyle={styles.label}
                 inputStyle={{ paddingLeft: 20, marginTop: 5 }}
@@ -325,7 +369,9 @@ const EditProfile = () => {
   );
 };
 
+// styles remain unchanged
 const styles = StyleSheet.create({
+  // ... (same as your original styles)
   profileContainer: { alignItems: "center", marginTop: 28 },
   profileImage: { width: 86, height: 86, borderRadius: 50, marginBottom: 12 },
   label: { color: colors.title, fontSize: 14, marginBottom: 8 },

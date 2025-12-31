@@ -836,24 +836,21 @@ export default function ProductDetails() {
         {mappedData.pricing?.map((plan: any, index: number) => (
           <View key={index} style={styles.pricingPlan}>
             <View style={styles.pricingHeader}>
-              <Text
-                style={[styles.pricingSectionTitle, { color: '#1976D2' }]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.pricingSectionTitle, { color: '#1976D2' }]}> 
                 {plan.planType} ({plan.foodType})
               </Text>
             </View>
             <View style={styles.pricingColumns}>
               {(plan.weeklyDining > 0 || plan.monthlyDining > 0) && (
                 <View style={styles.pricingColumn}>
-                  <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/week</Text>
+                  <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/Week</Text>
                   <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
                 </View>
               )}
               {(plan.weeklyDelivery > 0 || plan.monthlyDelivery > 0) && (
                 <View style={styles.pricingColumn}>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/week</Text>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/month</Text>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/Week</Text>
+                  <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/Month</Text>
                 </View>
               )}
             </View>
@@ -1377,6 +1374,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#1976D2",
     fontWeight: "500",
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   locationTag: {
     flexDirection: "row",
@@ -1387,11 +1386,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666060",
     fontWeight: "500",
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   sublocation: {
     fontSize: 14,
     color: "#666",
     marginBottom: 8,
+    alignItems: 'flex-start',
+    maxWidth: '48%',
   },
   roomAvailability: {
     flexDirection: "row",
@@ -1424,6 +1427,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
+    alignItems: 'flex-start',
+    maxWidth: '48%',
   },
   greenTagText: {
     fontSize: 12,
@@ -1453,6 +1458,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     marginLeft: 4,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    textAlign: 'left',
   },
   // Pricing styles
   // Pricing styles
@@ -1921,6 +1929,7 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 12,
     marginBottom: 8,
+    flexShrink: 1,
   },
   modalMessage: {
     fontSize: 16,

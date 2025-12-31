@@ -1,5 +1,5 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Animated, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import colors from "../constants/colors";
@@ -11,6 +11,9 @@ import {
   homeTab,
   notificationTab,
 } from "@/assets/images";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { BASE_URL } from '@/constants/api';
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({
   state,
@@ -22,6 +25,51 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
   const [animatedValues] = React.useState(() =>
     state.routes.map(() => new Animated.Value(0))
   );
+
+  const [unreadCount, setUnreadCount] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchUnread = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          if (mounted) setUnreadCount(0);
+          return;
+        }
+
+        let page = 1;
+        let totalPages = 1;
+        let allNotifications: any[] = [];
+
+        while (page <= totalPages) {
+          const response = await axios.get(
+            `${BASE_URL}/api/guest/notification/getAllNotification?page=${page}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (response.data.success) {
+            const newNotifs = response.data.data || [];
+            allNotifications = [...allNotifications, ...newNotifs];
+            totalPages = response.data.pagination?.totalPages || 1;
+          }
+          page++;
+        }
+
+        const unread = allNotifications.filter((n) => !n.isRead).length;
+        if (mounted) setUnreadCount(unread);
+      } catch (err) {
+        if (mounted) setUnreadCount(0);
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   React.useEffect(() => {
     const animations = state.routes.map((_, index) => {
@@ -127,6 +175,13 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({
                     ]}
                     resizeMode="contain"
                   />
+                    {route.name === "notification" && unreadCount > 0 && (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </Text>
+                      </View>
+                    )}
                 </Animated.View>
 
                <Animated.Text
@@ -196,6 +251,24 @@ const styles = StyleSheet.create({
   activeLabel: {
     color: colors.primary,
     fontWeight: "600",
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
 

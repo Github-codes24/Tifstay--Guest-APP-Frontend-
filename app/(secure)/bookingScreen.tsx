@@ -2704,6 +2704,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 16,
     flex: 1,
+    paddingBottom: 30
   },
   header: {
     backgroundColor: "#fff",
@@ -2843,6 +2844,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     textAlign: "center",
+    // paddingBottom:
+    paddingBottom: 30,
   },
   hostelName: {
     fontSize: 18,

@@ -86,7 +86,7 @@ const fetchHostelOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
   }
   const fetchedHostelOrders: Order[] = hostelResponse.data.data.map((item: any) => {
     // Normalize price value: accept 0 as valid, prefer applied coupon for rejected
-    let priceValue = item.totalAmount;
+    let priceValue = item.totalAmount || 0;
     if (tab === "rejected") {
       // FIXED: Corrected spelling and camelCase
       priceValue = item.appliedCoupon?.finalPrice ?? item.price ?? 0;
@@ -156,37 +156,54 @@ const fetchTiffinOrders = async (tab: "pending" | "confirmed" | "rejected"): Pro
   if (!tiffinResponse.data.success) {
     throw new Error("Failed to fetch tiffin orders");
   }
-  const fetchedTiffinOrders: Order[] = tiffinResponse.data.data.map((item: any) => {
-    // FIXED: Use direct fields from API (no tiffins array assumption)
-    const serviceName = (item.tiffinServiceName && item.tiffinServiceName !== "N/A" && item.tiffinServiceName.trim() !== "")
-      ? item.tiffinServiceName
-      : "Unknown Tiffin Service";
-    return {
-      id: item._id,
-      bookingId: item.bookingId,
-      serviceType: "tiffin" as const,
-      serviceName,
-      customer: "You",
-      startDate: item.startDate ? new Date(item.startDate).toLocaleDateString('en-IN') : "",
-      endDate: item.endDate ? new Date(item.endDate).toLocaleDateString('en-IN') : "", // FIXED: Use endDate from API
-      mealType: item.planType || "", // FIXED: Direct from planType (e.g., "Lunch & dinner")
-      foodType: item.foodType || "", // FIXED: Direct from API (e.g., "Veg")
-      plan: item.plan || "", // FIXED: Use planType as fallback (e.g., "Lunch & dinner")
-      orderType: item.orderType || "", // FIXED: Direct from API (e.g., "Delivery")
-      status: (item.status || "").toLowerCase() as Order["status"],
-      price: item.totalAmount ? `₹${item.totalAmount}` : "₹0", // FIXED: Direct price from API (e.g., "₹2500")
-      // image: undefined,
-      // FIXED: Extract _id as string from tiffinServiceId (object); fallback if string (undefined without backend update)
-      entityId: typeof item.tiffinServiceId === "object" ? item.tiffinServiceId?._id : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
-      // NEW: Tiffin-specific fields
-      tiffinServiceId: item.tiffinServiceId || "",
-      guestId: item.guestId || "",
-      guestName: item.guestName || "",
-      // NEW: Map created date and time
-      createdDate: item.createdDate || "",
-      createdTime: item.createdTime || "",
-    };
-  });
+ const fetchedTiffinOrders: Order[] = tiffinResponse.data.data.map((item: any) => {
+  // FIXED: Use direct fields from API (no tiffins array assumption)
+  const serviceName = (item.tiffinServiceName && item.tiffinServiceName !== "N/A" && item.tiffinServiceName.trim() !== "")
+    ? item.tiffinServiceName
+    : "Unknown Tiffin Service";
+
+  // Helper to safely format price with ₹ symbol
+  const formatPrice = (val: any): string => {
+    if (!val && val !== 0) return "₹0";
+    const num = typeof val === "string" ? parseFloat(val.replace("₹", "").trim()) : val;
+    return isNaN(num) ? "₹0" : `₹${num}`;
+  };
+
+  return {
+    id: item._id,
+    bookingId: item.bookingId,
+    serviceType: "tiffin" as const,
+    serviceName,
+    customer: "You",
+    startDate: item.startDate ? new Date(item.startDate).toLocaleDateString('en-IN') : "",
+    endDate: item.endDate ? new Date(item.endDate).toLocaleDateString('en-IN') : "",
+    mealType: item.planType || "",
+    foodType: item.foodType || "",
+    plan: item.plan || "",
+    orderType: item.orderType || "",
+    status: (item.status || "").toLowerCase() as Order["status"],
+
+    // UPDATED: Show base price (e.g., 1500, 300) — this is what should appear in the modal
+    price: formatPrice(item.price),                 // ← Base tiffin price
+    planPrice: formatPrice(item.price),             // Optional: same as base price for consistency with hostel
+
+    // Optional: Keep totalAmount if you want to use it elsewhere (e.g., payment summary)
+    // totalAmount: formatPrice(item.totalAmount),
+
+    entityId: typeof item.tiffinServiceId === "object" 
+      ? item.tiffinServiceId?._id 
+      : (typeof item.tiffinServiceId === "string" ? item.tiffinServiceId : undefined),
+
+    // Tiffin-specific fields
+    tiffinServiceId: item.tiffinServiceId || "",
+    guestId: item.guestId || "",
+    guestName: item.guestName || "",
+
+    // Created date and time
+    createdDate: item.createdDate || "",
+    createdTime: item.createdTime || "",
+  };
+});
   // DEBUG: Log tiffin orders statuses (especially for "confirmed" tab)
   if (__DEV__) {
     console.log("Fetched Tiffin Orders:", fetchedTiffinOrders.map(o => ({ id: o.id, status: o.status, serviceType: o.serviceType })));
@@ -900,7 +917,7 @@ const Booking: React.FC = () => {
                   </Text>
                 </View>
               </View>
-              
+
               {/* Meal Type Row */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Plan Type:</Text>
@@ -1333,6 +1350,10 @@ const Booking: React.FC = () => {
                     <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Order Type</Text>
                       <Text style={styles.modalValue}>{detailsOrder.orderType || "N/A"}</Text>
+                    </View>
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Price</Text>
+                      <Text style={styles.modalValue}>{detailsOrder.price || "N/A"}</Text>
                     </View>
                     {/* <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Tiffin Service ID</Text>

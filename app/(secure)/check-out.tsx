@@ -114,9 +114,9 @@ const Checkout: React.FC = () => {
   });
  
 
- const tiffinData: TiffinCheckoutData = useMemo(() => {
+const tiffinData: TiffinCheckoutData = useMemo(() => {
+  // Ultimate fallback (जब कुछ भी नहीं मिले)
   if (!tiffinOrderDetails && !tiffinService) {
-    // ultimate fallback
     const fallbackPrice = parseInt(firstParam(totalPrice) || "120");
     return {
       id: firstParam(bookingId) || firstParam(serviceId) || "1",
@@ -141,31 +141,37 @@ const Checkout: React.FC = () => {
     };
   }
 
+  // MAIN CASE: जब tiffinOrderDetails API से आया हो (सबसे important)
   if (tiffinOrderDetails) {
-    const priceNum = tiffinOrderDetails.price || parseInt(firstParam(totalPrice) || "120");
+    // Subscription details से सही price और plan निकालो
+    const subscription = tiffinOrderDetails.subscribtionAmount;
+    const basePrice = subscription?.price ?? tiffinOrderDetails.price ?? 500;
+    const planFromSubscription = subscription?.subscribtion ?? "weekly"; // weekly, monthly, daily
+
+    // Desired format: 500/weekly  या  ₹500/weekly
+    const formattedPrice = `₹${basePrice}/${planFromSubscription.toLowerCase()}`;
+    // अगर सिर्फ 500/weekly चाहिए (बिना ₹ के) तो ऊपर की लाइन को बदल दें:
+    // const formattedPrice = `${basePrice}/${planFromSubscription.toLowerCase()}`;
+
     const marketPlaceFee = tiffinOrderDetails.marketPlaceFee || 0;
-    const totalAmount = priceNum + marketPlaceFee;
+    const totalAmount = tiffinOrderDetails.totalAmount || basePrice + marketPlaceFee;
 
     return {
       id: firstParam(bookingId) || firstParam(serviceId) || "1",
       title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
-      imageUrl: tiffinOrderDetails.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+      imageUrl: tiffinOrderDetails.servicePhoto || tiffinOrderDetails.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
       foodType: tiffinOrderDetails.foodType || "Veg",
-      startDate: tiffinOrderDetails.startDate
-        ? new Date(tiffinOrderDetails.startDate).toLocaleDateString("en-IN")
-        : "21/07/25",
-      endDate: tiffinOrderDetails.endDate
-        ? new Date(tiffinOrderDetails.endDate).toLocaleDateString("en-IN")
-        : "28/07/25",
-      plan: tiffinOrderDetails.planType || planType || "Per meal",
-      orderType: tiffinOrderDetails.orderType || orderType || "Delivery",
-      price: `₹${priceNum}/meal`,
+      startDate: new Date(tiffinOrderDetails.startDate).toLocaleDateString("en-IN"),
+      endDate: new Date(tiffinOrderDetails.endDate).toLocaleDateString("en-IN"),
+      plan: tiffinOrderDetails.planType || "Dinner", // Lunch/Dinner/Both
+      orderType: tiffinOrderDetails.orderType || "Delivery",
+      price: formattedPrice,                 // ← अब दिखेगा: ₹500/weekly
       marketPlaceFee,
       totalAmount: `₹${totalAmount}`,
     };
   }
 
-  // Fallback to tiffinService
+  // Fallback: अगर tiffinOrderDetails नहीं आया, लेकिन tiffinService है
   const priceNum = tiffinService?.price || parseInt(firstParam(totalPrice) || "120");
   const marketPlaceFee = tiffinService?.marketPlaceFee || 0;
   const totalAmount = priceNum + marketPlaceFee;
@@ -200,7 +206,6 @@ const Checkout: React.FC = () => {
   planType,
   startDate,
   endDate,
-  mealPreference,
   foodType,
   orderType,
   checkInDate,
@@ -210,18 +215,47 @@ const Checkout: React.FC = () => {
   console.log("Constructed tiffinData:", tiffinData);
 
   // FIXED: Wrap in useMemo for reactivity - unchanged
-  const hostelData: HostelCheckoutData = useMemo(() => ({
-    id: firstParam(bookingId) || "2", // Use real bookingId
-    title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name", // e.g., "Testing is it working"
-    imageUrl: parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400", // First room photo
-    guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name", // e.g., "F"
-    contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone", // e.g., "8080805522"
-    checkInDate: bookingDetails?.checkInDate ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN') : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "Fallback Date"), // e.g., "06/10/2025"
-    checkOutDate: bookingDetails?.checkOutDate ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN') : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "Fallback Date"), // e.g., "13/10/2025"
-    // FIX: Use PascalCase keys from API response
-    rent: `₹${(bookingDetails?.Rent || parsedPlan.price || 0)}/month`, // Now 10000
-    deposit: `₹${(bookingDetails?.totalDeposit || parsedPlan.depositAmount || 0)}`, // Now 10000
-  }), [bookingDetails, parsedHostelData, parsedRoomData, parsedUserData, parsedPlan, bookingId, checkInDate, checkOutDate]);
+const hostelData: HostelCheckoutData = useMemo(() => {
+  // Ultimate fallback if bookingDetails not loaded
+  const fallbackRent = parsedPlan.price || 100;
+  const fallbackDeposit = parsedPlan.depositAmount || 200;
+
+  // NEW: Plan name को clean करना
+  const rawPlanName = bookingDetails?.selectPlan?.[0]?.name 
+    ?? parsedPlan?.name 
+    ?? 'Per day';
+
+  // Clean format: lowercase + proper space
+  let displayPlanName = 'per day';
+  if (rawPlanName) {
+    displayPlanName = rawPlanName
+      .toLowerCase()
+      .replace('perday', 'per day')
+      .replace('daily', 'per day')
+      .trim();
+  }
+
+  const rentPrice = bookingDetails?.selectPlan?.[0]?.price 
+    ?? bookingDetails?.Rent 
+    ?? bookingDetails?.price 
+    ?? fallbackRent;
+
+  return {
+    id: firstParam(bookingId) || "2",
+    title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",
+    imageUrl: bookingDetails?.hostelimage || parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
+    guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
+    contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone",
+    checkInDate: bookingDetails?.checkInDate
+      ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN')
+      : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "31/01/2026"),
+    checkOutDate: bookingDetails?.checkOutDate
+      ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN')
+      : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "01/02/2026"),
+    rent: `₹${rentPrice}/per day`,   // ← यही बदलाव मुख्य है
+    deposit: `₹${bookingDetails?.totalDeposit ?? fallbackDeposit}`,
+  };
+}, [bookingDetails, parsedHostelData, parsedRoomData, parsedUserData, parsedPlan, bookingId, checkInDate, checkOutDate]);
 
   console.log("Constructed hostelData:", hostelData);
 

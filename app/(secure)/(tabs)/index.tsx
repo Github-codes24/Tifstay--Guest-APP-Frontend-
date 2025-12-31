@@ -1077,60 +1077,56 @@ export default function DashboardScreen() {
     }
   }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, vegFilter, refetchHostels, refetchTiffins]);
   // --- Handlers --- (unchanged)
-  const handleLocationSelected = async (location: any) => {
-    setShowLocationModal(false);
+ const handleLocationSelected = async (location: any) => {
+  setShowLocationModal(false);
+  let displayLabel = "Location";
+  let displayIcon: any = "location-outline"; // Default fallback
+  let displaySubtext = "Select a location";
 
-    let displayLabel = "Home Location";
-    let displayIcon: any = "home";
-    let displaySubtext = "Select a location";
+  if (location.coords) {
+    // Current location (GPS)
+    try {
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      const fullAddress = address
+        ? `${address.street || ""}, ${address.city || ""}, ${address.region || ""}${address.postalCode ? " - " + address.postalCode : ""}`.trim()
+        : "Current Location";
 
-    if (location.coords) {
-      // Current location (GPS)
-      try {
-        const [address] = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-
-        const fullAddress = address
-          ? `${address.street || ""}, ${address.city || ""}, ${address.region || ""}${address.postalCode ? " - " + address.postalCode : ""}`.trim()
-          : "Current Location";
-
-        displaySubtext = fullAddress || "Current Location";
-        displayLabel = "Current Location";
-        displayIcon = "location";
-      } catch (error) {
-        console.error("Reverse geocode error:", error);
-        displaySubtext = "Current Location";
-        displayLabel = "Current Location";
-        displayIcon = "location";
-      }
-    } else {
-      // Saved address from backend
-      const fullAddress = `${location.address || ""}${location.street ? ", " + location.street : ""}${location.postCode ? " - " + location.postCode : ""}`.trim();
-
-      displaySubtext = fullAddress || "Unknown Address";
-
-      const labelLower = (location.label || "").toLowerCase().trim();
-
-      if (labelLower.includes("home")) {
-        displayLabel = "Home";
-        displayIcon = "home";
-      } else if (labelLower.includes("work") || labelLower.includes("office")) {
-        displayLabel = "Work";
-        displayIcon = "briefcase";
-      } else {
-        displayLabel = location.label || "Saved Address";
-        displayIcon = "location-outline";
-      }
+      displaySubtext = fullAddress || "Current Location";
+      displayLabel = "Current Location";
+      displayIcon = "location-outline"; // ← यही use करो, solid "location" नहीं
+    } catch (error) {
+      console.error("Reverse geocode error:", error);
+      displaySubtext = "Current Location";
+      displayLabel = "Current Location";
+      displayIcon = "location-outline";
     }
+  } else {
+    // Saved address from backend
+    const fullAddress = `${location.address || ""}${location.street ? ", " + location.street : ""}${location.postCode ? " - " + location.postCode : ""}`.trim();
+    displaySubtext = fullAddress || "Unknown Address";
 
-    // Yeh teeno states update kar do
-    setUserLocation(displaySubtext);
-    setLocationLabel(displayLabel);
-    setLocationIcon(displayIcon);
-    setHasSelectedLocation(true);
-  };
+    const labelLower = (location.label || "").toLowerCase().trim();
+    if (labelLower.includes("home")) {
+      displayLabel = "Home";
+      displayIcon = "home-outline";          // ← FIX: outline version
+    } else if (labelLower.includes("work") || labelLower.includes("office")) {
+      displayLabel = "Work";
+      displayIcon = "briefcase-outline";     // ← FIX: outline version
+    } else {
+      displayLabel = location.label || "Location";
+      displayIcon = "location-outline";
+    }
+  }
+
+  // Store update
+  setUserLocation(displaySubtext);
+  setLocationLabel(displayLabel);
+  setLocationIcon(displayIcon);
+  setHasSelectedLocation(true);
+};
   const handleLocationModalClose = () => {
     setShowLocationModal(false);
     if (!hasSelectedLocation) setHasSelectedLocation(true);
@@ -1453,21 +1449,31 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
-          <View style={styles.locationContainer}>
-            <TouchableOpacity
-              style={styles.locationButton}
-              onPress={() => setShowLocationModal(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Change location"
-            >
-              <Ionicons name={locationIcon} size={20} color="#000" />
-              <Text style={styles.locationText}>{locationLabel}</Text>
-              <Ionicons name="chevron-down" size={20} color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.locationSubtext} numberOfLines={2}>
-              {userLocation || "Tap to select location"}
-            </Text>
-          </View>
+         <View style={styles.locationContainer}>
+  <TouchableOpacity
+    style={styles.locationButton}
+    onPress={() => setShowLocationModal(true)}
+    accessibilityRole="button"
+    accessibilityLabel="Change location"
+  >
+    <Ionicons 
+      name={hasSelectedLocation ? locationIcon : "location-outline"} 
+      size={20} 
+      color="#000" 
+    />
+    <Text style={styles.locationText}>
+      {hasSelectedLocation ? locationLabel : "Location"}
+    </Text>
+    <Ionicons name="chevron-down" size={20} color="#000" />
+  </TouchableOpacity>
+
+  <Text style={styles.locationSubtext} numberOfLines={2}>
+    {hasSelectedLocation 
+      ? (userLocation === "No Location Saved" ? "Tap to select location" : userLocation)
+      : "Tap to select location"
+    }
+  </Text>
+</View>
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.cartButton}

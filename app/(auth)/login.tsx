@@ -24,6 +24,7 @@ import InputField from "../../components/InputField";
 import CustomToast from "../../components/CustomToast";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { BASE_URL } from "@/constants/api";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 const { height } = Dimensions.get("window");
 
@@ -111,105 +112,105 @@ export default function LoginScreen() {
     }
   };
 
- const handleGetOTP = async () => {
-  if (isLoading) return;
-  setIsLoading(true);
-  Keyboard.dismiss();
+  const handleGetOTP = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    Keyboard.dismiss();
 
-  if (!acceptedTerms) {
-    Toast.show({
-      type: "error",
-      text1: "Terms Not Accepted",
-      text2: "Please accept our Terms of Service to continue.",
-    });
-    setIsLoading(false);
-    return;
-  }
-
-  if (!phoneRegex.test(phoneNumber.trim())) {
-    Toast.show({
-      type: "error",
-      text1: "Invalid Number",
-      text2: "Please enter a valid 10-digit phone number.",
-    });
-    setIsLoading(false);
-    return;
-  }
-
-  try {
-    const response = await axios.post(
-      `${BASE_URL}/api/guest/login`,
-      { 
-        phoneNumber: phoneNumber.trim(),
-        countryCode: selectedCountry.dialCode
-      }
-    );
-
-    if (response.data.success) {
-      const otpCode = response.data.otp || response.data.user?.otpCode;
-      Toast.show({
-        type: "success",
-        text1: "OTP Sent Successfully",
-        text2: `Your OTP is ${otpCode}`,
-      });
-      setTimeout(() => {
-        router.push({
-          pathname: "/verify",
-          params: {
-            phoneNumber: phoneNumber.trim(),
-            dialCode: selectedCountry.dialCode,
-            otpCode: otpCode,
-          },
-        });
-        setIsLoading(false);
-      }, 2000);
-    } else {
-      // Handle non-success responses that didn't throw (e.g., 2xx with success: false)
+    if (!acceptedTerms) {
       Toast.show({
         type: "error",
-        text1: "Guest Not Found",
-        text2: "Please register to continue.",
+        text1: "Terms Not Accepted",
+        text2: "Please accept our Terms of Service to continue.",
       });
       setIsLoading(false);
+      return;
     }
-  } catch (error) {
-    // Inspect error for unregistered guest case
-    const errorData = error.response?.data;
-    const isUnregisteredGuest =
-      errorData &&
-      (errorData.success === false ||
-       errorData.message?.toLowerCase().includes("guest not found") ||
-       errorData.message?.toLowerCase().includes("not registered") ||
-       error.response?.status === 404);
 
-    // Check for blocked account
-    const isBlockedAccount =
-      errorData &&
-      errorData.message?.toLowerCase().includes("blocked");
-
-    if (isBlockedAccount) {
+    if (!phoneRegex.test(phoneNumber.trim())) {
       Toast.show({
         type: "error",
-        text1: "Account Blocked",
-        text2: "Guest account is blocked. Please contact support.",
+        text1: "Invalid Number",
+        text2: "Please enter a valid 10-digit phone number.",
       });
-    } else if (isUnregisteredGuest) {
-      Toast.show({
-        type: "error",
-        text1: "Guest Not Registered",
-        text2: "Please register first.",
-      });
-    } else {
-      // Generic server/network error
-      Toast.show({
-        type: "error",
-        text1: "Server Error",
-        text2: "Something went wrong. Please try again later.",
-      });
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
-  }
-};
+
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/guest/login`,
+        {
+          phoneNumber: phoneNumber.trim(),
+          countryCode: selectedCountry.dialCode
+        }
+      );
+
+      if (response.data.success) {
+        const otpCode = response.data.otp || response.data.user?.otpCode;
+        Toast.show({
+          type: "success",
+          text1: "OTP Sent Successfully",
+          text2: `Your OTP is ${otpCode}`,
+        });
+        setTimeout(() => {
+          router.push({
+            pathname: "/verify",
+            params: {
+              phoneNumber: phoneNumber.trim(),
+              dialCode: selectedCountry.dialCode,
+              otpCode: otpCode,
+            },
+          });
+          setIsLoading(false);
+        }, 2000);
+      } else {
+        // Handle non-success responses that didn't throw (e.g., 2xx with success: false)
+        Toast.show({
+          type: "error",
+          text1: "Guest Not Found",
+          text2: "Please register to continue.",
+        });
+        setIsLoading(false);
+      }
+    } catch (error) {
+      // Inspect error for unregistered guest case
+      const errorData = error.response?.data;
+      const isUnregisteredGuest =
+        errorData &&
+        (errorData.success === false ||
+          errorData.message?.toLowerCase().includes("guest not found") ||
+          errorData.message?.toLowerCase().includes("not registered") ||
+          error.response?.status === 404);
+
+      // Check for blocked account
+      const isBlockedAccount =
+        errorData &&
+        errorData.message?.toLowerCase().includes("blocked");
+
+      if (isBlockedAccount) {
+        Toast.show({
+          type: "error",
+          text1: "Account Blocked",
+          text2: "Guest account is blocked. Please contact support.",
+        });
+      } else if (isUnregisteredGuest) {
+        Toast.show({
+          type: "error",
+          text1: "Guest Not Registered",
+          text2: "Please register first.",
+        });
+      } else {
+        // Generic server/network error
+        Toast.show({
+          type: "error",
+          text1: "Server Error",
+          text2: "Something went wrong. Please try again later.",
+        });
+      }
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -273,10 +274,15 @@ export default function LoginScreen() {
             {/* TERMS */}
             <View style={styles.termsContainer}>
               <TouchableOpacity
-                style={styles.checkbox}
+                style={[
+                  styles.checkbox,
+                  acceptedTerms && styles.checkboxChecked,
+                ]}
                 onPress={() => setAcceptedTerms(!acceptedTerms)}
               >
-                {acceptedTerms && <View style={styles.checkedBox} />}
+                {acceptedTerms && (
+                  <MaterialIcons name="check" size={16} color="#fff" />
+                )}
               </TouchableOpacity>
 
               <Text style={styles.termsText}>
@@ -399,7 +405,7 @@ const styles = StyleSheet.create({
   cardImage: {
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    opacity:1,
+    opacity: 1,
   },
   title: {
     fontSize: 20,
@@ -531,4 +537,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
+  checkboxChecked: {
+  backgroundColor: colors.primary,
+  borderColor: colors.primary,
+},
 });

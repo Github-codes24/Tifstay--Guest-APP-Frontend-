@@ -56,10 +56,9 @@ export const useAuthStore = create<AuthState>()(
       hasSeenOnboarding: false,
       user: null,
       isAuthenticated: false,
-
-      userLocation: "No Location Saved",
-      locationLabel: "Home Location",   // Default top label
-      locationIcon: "home",             // Default icon
+      userLocation: "",
+      locationLabel: "Location",
+      locationIcon: "location-outline",
       hasSelectedLocation: false,
 
       profileData: null,
@@ -122,10 +121,10 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           isAuthenticated: false,
           profileData: null,
-          userLocation: "No Location Saved",
-          locationLabel: "Home Location",
-          locationIcon: "home",
-          hasSelectedLocation: false,
+      userLocation: "",
+locationLabel: "Location",
+locationIcon: "location-outline",
+hasSelectedLocation: false,
         });
         // Optional: Clear AsyncStorage token here if needed
       },

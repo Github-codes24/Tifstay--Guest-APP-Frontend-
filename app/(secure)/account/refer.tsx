@@ -22,12 +22,15 @@ import { theme } from "@/constants/utils";
 import { Linking, Alert } from "react-native";
 import { BASE_URL } from "@/constants/api";
 
+const fallbackImage = require("../../../assets/images/fallbackdp.png");
 
 const renderItem = ({ item }) => (
   <View style={styles.historyItem}>
     <Image
-      source={require("../../../assets/images/user.png")}
-      style={{ height: 34, width: 34 }}
+      source={item.image ? { uri: item.image } : fallbackImage}
+      style={{ height: 34, width: 34, borderRadius: 17 }}
+      defaultSource={fallbackImage}
+      onError={() => {}}
     />
     <View style={styles.historyInfo}>
       <Text style={styles.historyName}>{item.name}</Text>
@@ -40,10 +43,8 @@ const renderItem = ({ item }) => (
 const fetchReferralData = async () => {
   const guestId = await AsyncStorage.getItem("guestId");
   if (!guestId) throw new Error("Guest ID not found");
-
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No token found");
-
   const response = await fetch(
     `${BASE_URL}/api/guest/referAndEarn/getGuestRefferCode/${guestId}`,
     { headers: { Authorization: "Bearer " + token } }
@@ -58,7 +59,6 @@ const fetchReferralData = async () => {
 const fetchPointsData = async () => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("No token found");
-
   const response = await fetch(
     `${BASE_URL}/api/guest/referAndEarn/getPonits`,
     { headers: { Authorization: "Bearer " + token } }
@@ -79,7 +79,6 @@ export default function ReferEarnScreen() {
     data: referralData,
     isPending: referralLoading,
     refetch: refetchReferral,
-    error: referralError,
   } = useQuery({
     queryKey: ["referralData"],
     queryFn: fetchReferralData,
@@ -99,7 +98,6 @@ export default function ReferEarnScreen() {
     data: cashBackPoints,
     isPending: pointsLoading,
     refetch: refetchPoints,
-    error: pointsError,
   } = useQuery({
     queryKey: ["pointsData"],
     queryFn: fetchPointsData,
@@ -126,15 +124,11 @@ export default function ReferEarnScreen() {
       });
       return;
     }
-
-    const message = `Hey!  
-Join Tifstay using my referral code *${referralData.code}* and earn rewards. 
+    const message = `Hey!
+Join Tifstay using my referral code *${referralData.code}* and earn rewards.
 Download now!`;
-
     const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
-
     const canOpen = await Linking.canOpenURL(url);
-
     if (canOpen) {
       Linking.openURL(url);
     } else {
@@ -144,7 +138,6 @@ Download now!`;
       );
     }
   };
-
 
   useFocusEffect(
     useCallback(() => {
@@ -180,7 +173,6 @@ Download now!`;
       });
       return;
     }
-
     setRedeeming(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -192,7 +184,6 @@ Download now!`;
         });
         return;
       }
-
       const res = await fetch(
         `${BASE_URL}/api/guest/referAndEarn/reedemCode`,
         {
@@ -203,7 +194,6 @@ Download now!`;
           },
         }
       );
-
       const json = await res.json();
       if (json.success) {
         Toast.show({
@@ -231,26 +221,40 @@ Download now!`;
     }
   };
 
-const historyData = useMemo(() => {
-  if (
-    !referralData ||
-    !referralData.referredUsers ||
-    referralData.referredUsers.length === 0
-  ) {
-    return [];
-  }
+  // Show only first 3 referred users on this screen
+  const historyData = useMemo(() => {
+    if (
+      !referralData ||
+      !referralData.referredUsers ||
+      referralData.referredUsers.length === 0
+    ) {
+      return [];
+    }
 
-  return referralData.referredUsers.map((user) => ({
-    id: user._id,
-    name: user.name,
-    date: new Date().toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "long",
-    }),
-    points: user.points,
-  }));
-}, [referralData]);
+    const limitedUsers = referralData.referredUsers.slice(0, 3);
 
+    return limitedUsers.map((user) => ({
+      id: user._id,
+      name: user.name || "Unknown User",
+      date: user.createdAt
+        ? new Date(user.createdAt).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : new Date().toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+      points: user.points,
+      image: user.image || null,
+    }));
+  }, [referralData]);
+
+  // Check if there are more than 3 referred users → show "See All" + UX message
+  const totalReferredUsers = referralData?.referredUsers?.length || 0;
+  const hasMoreThanThree = totalReferredUsers > 3;
 
   const handleCopyCode = async () => {
     if (!referralData?.code) {
@@ -313,11 +317,21 @@ const historyData = useMemo(() => {
 
       <View style={styles.historyHeader}>
         <Text style={styles.historyTitle}>Point Earned History</Text>
-        <TouchableOpacity onPress={() => router.push("/(secure)/account/ReferralUsersScreen")}>
-          <Text style={styles.historyLink}>See All</Text>
-        </TouchableOpacity>
-
+        {hasMoreThanThree && (
+          <TouchableOpacity onPress={() => router.push("/(secure)/account/ReferralUsersScreen")}>
+            <Text style={styles.historyLink}>See All</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* UX Message - only when more than 3 users */}
+      {hasMoreThanThree && (
+        <View style={styles.uxMessageContainer}>
+          <Text style={styles.uxMessage}>
+            Tap <Text style={{ fontWeight: "700", color: colors.primary }}>See All</Text> to view all your referred users
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -344,7 +358,6 @@ const historyData = useMemo(() => {
         >
           <Text style={styles.referButtonText}>Refer Now</Text>
         </TouchableOpacity>
-
       </View>
     </View>
   );
@@ -369,6 +382,11 @@ const historyData = useMemo(() => {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
+          ListEmptyComponent={
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: colors.grey }}>No referrals yet</Text>
+            </View>
+          }
         />
       </View>
     </SafeAreaView>
@@ -385,6 +403,8 @@ const styles = StyleSheet.create({
   historyHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
   historyTitle: { fontSize: 16, fontWeight: "600", color: colors.title },
   historyLink: { fontSize: 14, color: colors.primary },
+  uxMessageContainer: { marginBottom: 16, paddingHorizontal: 4 },
+  uxMessage: { fontSize: 13, color: colors.grey, textAlign: "center", lineHeight: 18 },
   historyItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
   historyInfo: { flex: 1, marginLeft: 12 },
   historyName: { fontSize: 15, fontWeight: "500", color: colors.grey },
