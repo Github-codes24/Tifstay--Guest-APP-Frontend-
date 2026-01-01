@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "@/constants/colors";
+import { BASE_URL } from "@/constants/api";
 
 const ChatScreen = () => {
   const [messages, setMessages] = useState<any[]>([]);
@@ -33,7 +34,7 @@ const ChatScreen = () => {
         }
 
         const res = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/message/getGuestPreviousChat",
+         ` ${BASE_URL}/api/guest/message/getGuestPreviousChat`,
           {
             method: "GET",
             headers: { Authorization: "Bearer " + token },
@@ -105,7 +106,7 @@ const ChatScreen = () => {
       setInput("");
 
       const res = await fetch(
-        "https://tifstay-project-be.onrender.com/api/guest/message/sendMessage",
+        `${BASE_URL}/api/guest/message/sendMessage`,
         {
           method: "POST",
           headers: {

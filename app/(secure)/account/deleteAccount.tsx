@@ -15,6 +15,7 @@ import { router } from "expo-router";
 import colors from "@/constants/colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "@/constants/api";
 
 const DeleteAccountScreen = () => {
     const [reason, setReason] = useState("");
@@ -40,7 +41,7 @@ const handleDelete = async () => {
     }
 
     const response = await axios.delete(
-      "https://tifstay-project-be.onrender.com/api/guest/deleteAccount",
+     ` ${BASE_URL}/api/guest/deleteAccount`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -143,6 +144,7 @@ const handleDelete = async () => {
                     onChangeText={setReason}
                     multiline
                     placeholder="Your feedback will help us improve TifStay"
+                    placeholderTextColor='#000'
                 />
                 {/* Checkbox */}
                 <TouchableOpacity

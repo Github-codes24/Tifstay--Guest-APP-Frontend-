@@ -17,6 +17,7 @@ import colors from "@/constants/colors";
 // import mapBanner from "@/assets/images/image/mapBanner.png";
 import Buttons from "@/components/Buttons";
 import Dropdown from "@/components/Dropdown";
+import { BASE_URL } from "@/constants/api";
 
 interface FilterModalProps {
   visible: boolean;
@@ -105,13 +106,13 @@ const FilterModal: React.FC<FilterModalProps> = ({
     if (!isHostel && visible && ratingOptions.length === 0) {
       setIsLoadingTiffinFilters(true);
       Promise.all([
-        fetch("https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getAverageRatingDropdown").then((res) =>
+        fetch(`${BASE_URL}/api/guest/tiffinServices/getAverageRatingDropdown`).then((res) =>
           res.json()
         ),
-        fetch("https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getSortOrderDropdown").then((res) =>
+        fetch(`${BASE_URL}/api/guest/tiffinServices/getSortOrderDropdown`).then((res) =>
           res.json()
         ),
-        fetch("https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getFoodTypeDropdown").then((res) =>
+        fetch(`${BASE_URL}/api/guest/tiffinServices/getFoodTypeDropdown`).then((res) =>
           res.json()
         ),
       ])

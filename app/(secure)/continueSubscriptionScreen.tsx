@@ -25,6 +25,7 @@ import { calender, location1, person } from "@/assets/images";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RoomSelectionModal from "@/components/modals/RoomSelectionModal";// Adjust path as needed to import the RoomSelectionModal
+import { BASE_URL } from "@/constants/api";
 type ServiceType = "tiffin" | "hostel";
 type MealType = "breakfast" | "lunch" | "dinner";
 type SelectedRoom = {
@@ -296,7 +297,7 @@ export default function ContinueSubscriptionScreen() {
           console.log("🔍 Fetching full booking details using ID:", orderId); // Log the ID being used for fetch
           // Assuming backend has an endpoint like this; adjust if different
           const response = await axios.get(
-            `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getBookingById/${orderId}`,
+            `${BASE_URL}/api/guest/hostelServices/getBookingById/${orderId}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (response.data.success) {
@@ -471,7 +472,7 @@ export default function ContinueSubscriptionScreen() {
       const fetchTiffinService = async () => {
         try {
           const response = await axios.get(
-            `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinServiceById/${effectiveServiceId}`,
+            `${BASE_URL}/api/guest/tiffinServices/getTiffinServiceById/${effectiveServiceId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -519,7 +520,7 @@ export default function ContinueSubscriptionScreen() {
       if (serviceType === "tiffin" && token && orderId) {
         try {
           const response = await axios.get(
-            `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getTiffinOrderById/${orderId}`,
+            `${BASE_URL}/api/guest/tiffinServices/getTiffinOrderById/${orderId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -724,7 +725,7 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
     setIsFetchingHostelPlans(true);
     try {
       const response = await axios.get(
-        "https://tifstay-project-be.onrender.com/api/guest/hostelServices/getPlanTypes",
+       ` ${BASE_URL}/api/guest/hostelServices/getPlanTypes`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -754,7 +755,7 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
     if (!token || !hostelId) return;
     try {
       const response = await axios.get(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getRoomByHostelid/${hostelId}`,
+        `${BASE_URL}/api/guest/hostelServices/getRoomByHostelid/${hostelId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -891,7 +892,7 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
       if (pAddress) payload.address = pAddress;
       console.log("📤 Tiffin Subscription API Payload:", payload);
       // Determine URL based on whether it's create or update
-      const tiffinUrl = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/tiffinSubscription/${orderId}`;
+      const tiffinUrl = `${BASE_URL}/api/guest/tiffinServices/tiffinSubscription/${orderId}`;
       console.log("🌐 Tiffin API URL:", tiffinUrl);
       try {
         console.log("🚀 Making Tiffin Subscription API call...");
@@ -1037,12 +1038,12 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
     console.log("🆔 Order ID being passed to API:", orderId);
     console.log(
       "🌐 Continue Subscription API URL:",
-      `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`
+      `${BASE_URL}/api/guest/hostelServices/continueSubscription/${orderId}`
     );
     try {
       console.log("🚀 Making API call...");
       const response = await axios.post(
-        `https://tifstay-project-be.onrender.com/api/guest/hostelServices/continueSubscription/${orderId}`,
+        `${BASE_URL}/api/guest/hostelServices/continueSubscription/${orderId}`,
         requestBody,
         {
           headers: {
@@ -1253,7 +1254,7 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
         planType: planTypeStr,
         plan: planStr,
       });
-      const url = `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getPlanDetailsById/${effectiveServiceId}?${queryParams.toString()}`;
+      const url = `${BASE_URL}/api/guest/tiffinServices/getPlanDetailsById/${effectiveServiceId}?${queryParams.toString()}`;
       const response = await axios.get(url, {
         headers: {
           "Content-Type": "application/json",
@@ -1302,6 +1303,96 @@ const handleRoomSelection = (data: ContinueRoomSelectionData) => {
       setFetchedPricing({ weekly: 0, monthly: 0, offers: "" });
     }
   }, [selectedMealPackage, selectedfood, orderType, tiffinPlan]);
+  // NEW: Fetch tiffin service details for meal packages (on mount for continue)
+useEffect(() => {
+  if (serviceType === "tiffin" && token && effectiveServiceId) {
+    const fetchTiffinService = async () => {
+      try {
+        const response = await axios.get(
+          `${BASE_URL}/api/guest/tiffinServices/getTiffinServiceById/${effectiveServiceId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (response.data.success) {
+          console.log('Tiffin Service Data:', response.data.data);
+          setTiffinService(response.data.data);
+
+          // Set meal labels...
+          const newMealLabels: Record<MealType, string> = { breakfast: "", lunch: "", dinner: "" };
+          response.data.data.mealTimings?.forEach((mt: any) => {
+            const key = mt.mealType.toLowerCase() as MealType;
+            if (key in newMealLabels) {
+              newMealLabels[key] = `${mt.mealType} (${mt.startTime} - ${mt.endTime})`;
+            }
+          });
+          setMealLabels(newMealLabels);
+
+          // NEW: Set initial order type AFTER service is loaded
+          const types = response.data.data.orderTypes || [];
+          let initialOrderType: "delivery" | "dining" = "delivery";
+          if (types.length > 0) {
+            const preferred = types.find((t: string) => t.toLowerCase().includes("dining")) ? "dining" : "delivery";
+            initialOrderType = preferred;
+          }
+          // Override with previous order/param if available
+          const paramOrderType = (params.orderType as string) || "";
+          if (paramOrderType.toLowerCase().includes("dining")) {
+            initialOrderType = "dining";
+          }
+          setOrderType(initialOrderType);
+
+          // Optional: also set food type here if needed (already handled elsewhere)
+        }
+      } catch (error) {
+        console.error("Error fetching tiffin service:", error);
+      }
+    };
+    fetchTiffinService();
+  }
+}, [serviceType, token, effectiveServiceId, params.orderType]); // Add params.orderType as dep
+// Match and set selected meal package once order and service are loaded
+useEffect(() => {
+  if (tiffinService && mealPackages.length > 0) {
+    let orderPlanType = tiffinOrder?.planType || (params.planType as string) || (params.plan as string) || "";
+
+    // Normalize for better matching
+    const normalize = (str: string) => str.toLowerCase().replace(/&/g, 'and').replace(/,/g, '').trim();
+
+    const normalizedOrder = normalize(orderPlanType);
+
+    let matchingPkg = mealPackages.find(pkg => 
+      normalize(pkg.planType) === normalizedOrder ||
+      normalize(pkg.label) === normalizedOrder
+    );
+
+    if (matchingPkg) {
+      setSelectedMealPackage(matchingPkg.id);
+      setSelectedPlanType(matchingPkg.planType);
+      console.log(`Matched package: "${orderPlanType}" → "${matchingPkg.planType}"`);
+    } else {
+      console.warn(`No exact match for planType: "${orderPlanType}"`);
+      // Fallback: select first package
+      const defaultPkg = mealPackages[0];
+      if (defaultPkg) {
+        setSelectedMealPackage(defaultPkg.id);
+        setSelectedPlanType(defaultPkg.planType);
+      }
+    }
+  }
+}, [tiffinOrder, tiffinService, mealPackages, params.planType, params.plan]);
+useEffect(() => {
+  console.log("Current UI State:", {
+    selectedMealPackage,
+    selectedPlanType,
+    orderType,
+    selectedfood,
+    tiffinPlan,
+    date: date ? formatDate(date) : null,
+  });
+}, [selectedMealPackage, selectedPlanType, orderType, selectedfood, tiffinPlan, date]);
   const getPlanOptions = () => {
     // Always present both Weekly and Monthly options (match BookingScreen)
     return [

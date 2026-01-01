@@ -44,7 +44,7 @@ const AllTransactionsScreen = () => {
         }
 
         const res = await fetch(
-          "https://tifstay-project-be.onrender.com/api/guest/deposit/transactions?page=1&limit=10",
+          `${BASE_URL}/api/guest/deposit/transactions?page=1&limit=10`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }

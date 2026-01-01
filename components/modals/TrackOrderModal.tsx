@@ -12,6 +12,7 @@ import Header from "@/components/Header";
 import colors from "@/constants/colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "@/constants/api";
 
 interface TrackOrderModalProps {
   visible: boolean;
@@ -46,7 +47,7 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await axios.get(
-        `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/trackOrder/${orderId}`,
+        `${BASE_URL}/api/guest/tiffinServices/trackOrder/${orderId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "@/store/authStore";
 import { useFocusEffect } from '@react-navigation/native'; // Add for screen focus trigger
+import { BASE_URL } from "@/constants/api";
 
 // JWT decode helper (manual base64, no lib needed)
 const decodeJWT = (token: string): { id?: string } => {
@@ -36,8 +37,8 @@ const fetchUserFavoritesFromBackend = async (userId: string, type: 'tiffin' | 'h
   if (!token) return [];
   try {
     const url = type === 'tiffin' 
-      ? `https://tifstay-project-be.onrender.com/api/guest/tiffinServices/getFavouriteTiffinServices` 
-      : `https://tifstay-project-be.onrender.com/api/guest/hostelServices/getFavouriteHostelServices`;
+      ? `${BASE_URL}/api/guest/tiffinServices/getFavouriteTiffinServices` 
+      : `${BASE_URL}/api/guest/hostelServices/getFavouriteHostelServices`;
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });

@@ -1163,6 +1163,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+     paddingBottom: 40
   },
   loadingContainer: {
     flex: 1,

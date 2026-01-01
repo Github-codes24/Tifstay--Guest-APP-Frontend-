@@ -20,6 +20,7 @@ import paypal from "@/assets/images/icons/paypal.png";
 import stripe from "@/assets/images/icons/stripe.png";
 import wallet from "@/assets/images/icons/wallet.png";
 import Header from "@/components/Header";
+import { BASE_URL } from "@/constants/api";
 
 interface PaymentMethod {
   id: string;
@@ -76,7 +77,7 @@ const Payment: React.FC = () => {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("Authentication token missing. Please log in again.");
 
-      const apiUrl = `https://tifstay-project-be.onrender.com/api/guest/hostelServices/createPaymentLink/${bookingId}`;
+      const apiUrl = `${BASE_URL}/api/guest/hostelServices/createPaymentLink/${bookingId}`;
       const payload = {
         totalAmount: numericAmount,
         currency: "INR",

@@ -8,6 +8,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
+import { BASE_URL } from "@/constants/api";
 
 const INR = (n: number, fd = 0) =>
   new Intl.NumberFormat("en-IN", {
@@ -59,7 +60,7 @@ export default function AddDepositScreen() {
       setLoading(true);
 
       const response = await axios.post(
-        "https://tifstay-project-be.onrender.com/api/guest/deposit/create-link",
+        `${BASE_URL}/api/guest/deposit/create-link`,
         { amount },
         {
           headers: { Authorization: `Bearer ${token}` },

@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Toast from "react-native-toast-message";
 import * as Location from "expo-location";
+import { BASE_URL } from "@/constants/api";
 
 const AddressScreen = () => {
   const { addressId } = useLocalSearchParams();
@@ -47,7 +48,7 @@ const AddressScreen = () => {
         return;
       }
       const response = await axios.get(
-        `https://tifstay-project-be.onrender.com/api/guest/address/getAddress/${addressId}`,
+        `${BASE_URL}/api/guest/address/getAddress/${addressId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
@@ -148,7 +149,7 @@ const AddressScreen = () => {
         return;
       }
       const response = await axios.put(
-        `https://tifstay-project-be.onrender.com/api/guest/address/editAddress/${addressId}`,
+        `${BASE_URL}/api/guest/address/editAddress/${addressId}`,
         {
           address,
           street,
