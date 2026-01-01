@@ -45,7 +45,7 @@ const Checkout: React.FC = () => {
   const [tiffinOrderDetails, setTiffinOrderDetails] = useState<any | null>(null);
 
 
-  console.log('tiffinOrderDetails98765678',tiffinOrderDetails)
+  console.log('tiffinOrderDetails98765678', tiffinOrderDetails)
   const [tiffinService, setTiffinService] = useState<any | null>(null);
   const [loadingTiffin, setLoadingTiffin] = useState(false);
   const [finalPricing, setFinalPricing] = useState<any | null>(null);
@@ -90,7 +90,7 @@ const Checkout: React.FC = () => {
 
 
   console.log("Dynamic Checkout Params:", {
-    effectiveServiceType, 
+    effectiveServiceType,
     bookingId,
     serviceId,
     parsedHostelData,
@@ -112,181 +112,181 @@ const Checkout: React.FC = () => {
     numberOfTiffin,
     fullName,
   });
- 
 
-const tiffinData: TiffinCheckoutData = useMemo(() => {
-  // Ultimate fallback (जब कुछ भी नहीं मिले)
-  if (!tiffinOrderDetails && !tiffinService) {
-    const fallbackPrice = parseInt(firstParam(totalPrice) || "120");
+
+  const tiffinData: TiffinCheckoutData = useMemo(() => {
+    // Ultimate fallback (जब कुछ भी नहीं मिले)
+    if (!tiffinOrderDetails && !tiffinService) {
+      const fallbackPrice = parseInt(firstParam(totalPrice) || "120");
+      return {
+        id: firstParam(bookingId) || firstParam(serviceId) || "1",
+        title: "Maharashtrian Ghar Ka Khana",
+        imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+        foodType: foodType || "Veg",
+        startDate: startDate
+          ? new Date(startDate as string).toLocaleDateString("en-IN")
+          : checkInDate
+            ? new Date(checkInDate as string).toLocaleDateString("en-IN")
+            : "21/07/25",
+        endDate: endDate
+          ? new Date(endDate as string).toLocaleDateString("en-IN")
+          : checkOutDate
+            ? new Date(checkOutDate as string).toLocaleDateString("en-IN")
+            : "28/07/25",
+        plan: planType || "Per meal",
+        orderType: orderType || "Delivery",
+        price: `₹${fallbackPrice}/meal`,
+        marketPlaceFee: 0,
+        totalAmount: `₹${fallbackPrice}`,
+      };
+    }
+
+    // MAIN CASE: जब tiffinOrderDetails API से आया हो (सबसे important)
+    if (tiffinOrderDetails) {
+      // Subscription details से सही price और plan निकालो
+      const subscription = tiffinOrderDetails.subscribtionAmount;
+      const basePrice = subscription?.price ?? tiffinOrderDetails.price ?? 500;
+      const planFromSubscription = subscription?.subscribtion ?? "weekly"; // weekly, monthly, daily
+
+      // Desired format: 500/weekly  या  ₹500/weekly
+      const formattedPrice = `₹${basePrice}/${planFromSubscription.toLowerCase()}`;
+      // अगर सिर्फ 500/weekly चाहिए (बिना ₹ के) तो ऊपर की लाइन को बदल दें:
+      // const formattedPrice = `${basePrice}/${planFromSubscription.toLowerCase()}`;
+
+      const marketPlaceFee = tiffinOrderDetails.marketPlaceFee || 0;
+      const totalAmount = tiffinOrderDetails.totalAmount || basePrice + marketPlaceFee;
+
+      return {
+        id: firstParam(bookingId) || firstParam(serviceId) || "1",
+        title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+        imageUrl: tiffinOrderDetails.servicePhoto || tiffinOrderDetails.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+        foodType: tiffinOrderDetails.foodType || "Veg",
+        startDate: new Date(tiffinOrderDetails.startDate).toLocaleDateString("en-IN"),
+        endDate: new Date(tiffinOrderDetails.endDate).toLocaleDateString("en-IN"),
+        plan: tiffinOrderDetails.planType || "Dinner", // Lunch/Dinner/Both
+        orderType: tiffinOrderDetails.orderType || "Delivery",
+        price: formattedPrice,                 // ← अब दिखेगा: ₹500/weekly
+        marketPlaceFee,
+        totalAmount: `₹${totalAmount}`,
+      };
+    }
+
+    // Fallback: अगर tiffinOrderDetails नहीं आया, लेकिन tiffinService है
+    const priceNum = tiffinService?.price || parseInt(firstParam(totalPrice) || "120");
+    const marketPlaceFee = tiffinService?.marketPlaceFee || 0;
+    const totalAmount = priceNum + marketPlaceFee;
+
     return {
-      id: firstParam(bookingId) || firstParam(serviceId) || "1",
-      title: "Maharashtrian Ghar Ka Khana",
-      imageUrl: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-      foodType: foodType || "Veg",
+      id: firstParam(serviceId) || "1",
+      title: tiffinService?.tiffinName || tiffinService?.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
+      imageUrl: tiffinService?.image || tiffinService?.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
+      foodType: firstParam(foodType) || tiffinService?.foodType || "Veg",
       startDate: startDate
-        ? new Date(startDate as string).toLocaleDateString("en-IN")
+        ? new Date(firstParam(startDate) as string).toLocaleDateString("en-IN")
         : checkInDate
-        ? new Date(checkInDate as string).toLocaleDateString("en-IN")
-        : "21/07/25",
+          ? new Date(firstParam(checkInDate) as string).toLocaleDateString("en-IN")
+          : "21/07/25",
       endDate: endDate
-        ? new Date(endDate as string).toLocaleDateString("en-IN")
+        ? new Date(firstParam(endDate) as string).toLocaleDateString("en-IN")
         : checkOutDate
-        ? new Date(checkOutDate as string).toLocaleDateString("en-IN")
-        : "28/07/25",
-      plan: planType || "Per meal",
-      orderType: orderType || "Delivery",
-      price: `₹${fallbackPrice}/meal`,
-      marketPlaceFee: 0,
-      totalAmount: `₹${fallbackPrice}`,
-    };
-  }
-
-  // MAIN CASE: जब tiffinOrderDetails API से आया हो (सबसे important)
-  if (tiffinOrderDetails) {
-    // Subscription details से सही price और plan निकालो
-    const subscription = tiffinOrderDetails.subscribtionAmount;
-    const basePrice = subscription?.price ?? tiffinOrderDetails.price ?? 500;
-    const planFromSubscription = subscription?.subscribtion ?? "weekly"; // weekly, monthly, daily
-
-    // Desired format: 500/weekly  या  ₹500/weekly
-    const formattedPrice = `₹${basePrice}/${planFromSubscription.toLowerCase()}`;
-    // अगर सिर्फ 500/weekly चाहिए (बिना ₹ के) तो ऊपर की लाइन को बदल दें:
-    // const formattedPrice = `${basePrice}/${planFromSubscription.toLowerCase()}`;
-
-    const marketPlaceFee = tiffinOrderDetails.marketPlaceFee || 0;
-    const totalAmount = tiffinOrderDetails.totalAmount || basePrice + marketPlaceFee;
-
-    return {
-      id: firstParam(bookingId) || firstParam(serviceId) || "1",
-      title: tiffinOrderDetails.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
-      imageUrl: tiffinOrderDetails.servicePhoto || tiffinOrderDetails.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-      foodType: tiffinOrderDetails.foodType || "Veg",
-      startDate: new Date(tiffinOrderDetails.startDate).toLocaleDateString("en-IN"),
-      endDate: new Date(tiffinOrderDetails.endDate).toLocaleDateString("en-IN"),
-      plan: tiffinOrderDetails.planType || "Dinner", // Lunch/Dinner/Both
-      orderType: tiffinOrderDetails.orderType || "Delivery",
-      price: formattedPrice,                 // ← अब दिखेगा: ₹500/weekly
+          ? new Date(firstParam(checkOutDate) as string).toLocaleDateString("en-IN")
+          : "28/07/25",
+      plan: firstParam(planType) || "Per meal",
+      orderType: firstParam(orderType) || "Delivery",
+      price: `₹${priceNum}/meal`,
       marketPlaceFee,
       totalAmount: `₹${totalAmount}`,
     };
-  }
-
-  // Fallback: अगर tiffinOrderDetails नहीं आया, लेकिन tiffinService है
-  const priceNum = tiffinService?.price || parseInt(firstParam(totalPrice) || "120");
-  const marketPlaceFee = tiffinService?.marketPlaceFee || 0;
-  const totalAmount = priceNum + marketPlaceFee;
-
-  return {
-    id: firstParam(serviceId) || "1",
-    title: tiffinService?.tiffinName || tiffinService?.tiffinServiceName || "Maharashtrian Ghar Ka Khana",
-    imageUrl: tiffinService?.image || tiffinService?.imageUrl || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400",
-    foodType: firstParam(foodType) || tiffinService?.foodType || "Veg",
-    startDate: startDate
-      ? new Date(firstParam(startDate) as string).toLocaleDateString("en-IN")
-      : checkInDate
-      ? new Date(firstParam(checkInDate) as string).toLocaleDateString("en-IN")
-      : "21/07/25",
-    endDate: endDate
-      ? new Date(firstParam(endDate) as string).toLocaleDateString("en-IN")
-      : checkOutDate
-      ? new Date(firstParam(checkOutDate) as string).toLocaleDateString("en-IN")
-      : "28/07/25",
-    plan: firstParam(planType) || "Per meal",
-    orderType: firstParam(orderType) || "Delivery",
-    price: `₹${priceNum}/meal`,
-    marketPlaceFee,
-    totalAmount: `₹${totalAmount}`,
-  };
-}, [
-  tiffinOrderDetails,
-  tiffinService,
-  bookingId,
-  serviceId,
-  totalPrice,
-  planType,
-  startDate,
-  endDate,
-  foodType,
-  orderType,
-  checkInDate,
-  checkOutDate,
-]);
+  }, [
+    tiffinOrderDetails,
+    tiffinService,
+    bookingId,
+    serviceId,
+    totalPrice,
+    planType,
+    startDate,
+    endDate,
+    foodType,
+    orderType,
+    checkInDate,
+    checkOutDate,
+  ]);
 
   console.log("Constructed tiffinData:", tiffinData);
 
 
-const hostelData: HostelCheckoutData = useMemo(() => {
-  const fallbackRent = parsedPlan.price || 100;
-  const fallbackDeposit = parsedPlan.depositAmount || 200;
+  const hostelData: HostelCheckoutData = useMemo(() => {
+    const fallbackRent = parsedPlan.price || 100;
+    const fallbackDeposit = parsedPlan.depositAmount || 200;
 
 
-  const rawPlanName =
-    bookingDetails?.selectPlan?.[0]?.name ||
-    parsedPlan?.name ||
-    hostelPlan || 
-    'monthly'; 
+    const rawPlanName =
+      bookingDetails?.selectPlan?.[0]?.name ||
+      parsedPlan?.name ||
+      hostelPlan ||
+      'monthly';
 
-  console.log("Raw Plan Name Debug:", rawPlanName); 
+    console.log("Raw Plan Name Debug:", rawPlanName);
 
-  
-  let planUnit = 'per month'; 
 
-  if (rawPlanName) {
-    const lower = rawPlanName.toLowerCase().trim();
+    let planUnit = 'per month';
 
-    if (lower.includes('monthly') || lower === 'month') {
-      planUnit = 'per month';
-    } else if (lower.includes('weekly') || lower === 'week') {
-      planUnit = 'per week';
-    } else if (lower.includes('daily') || lower.includes('perday') || lower.includes('per day')) {
-      planUnit = 'per day';
+    if (rawPlanName) {
+      const lower = rawPlanName.toLowerCase().trim();
+
+      if (lower.includes('monthly') || lower === 'month') {
+        planUnit = 'per month';
+      } else if (lower.includes('weekly') || lower === 'week') {
+        planUnit = 'per week';
+      } else if (lower.includes('daily') || lower.includes('perday') || lower.includes('per day')) {
+        planUnit = 'per day';
+      }
+
+      else if (lower === 'perday') {
+        planUnit = 'per day';
+      }
     }
-  
-    else if (lower === 'perday') {
-      planUnit = 'per day';
-    }
-  }
 
-  const rentPrice =
-    bookingDetails?.selectPlan?.[0]?.price ||
-    bookingDetails?.Rent ||
-    bookingDetails?.price ||
-    parsedPlan?.price ||
-    fallbackRent;
+    const rentPrice =
+      bookingDetails?.selectPlan?.[0]?.price ||
+      bookingDetails?.Rent ||
+      bookingDetails?.price ||
+      parsedPlan?.price ||
+      fallbackRent;
 
-  return {
-    id: firstParam(bookingId) || "2",
-    title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",
-    imageUrl:
-      bookingDetails?.hostelimage ||
-      parsedRoomData.photos?.[0] ||
-      "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
-    guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
-    contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone",
-    checkInDate: bookingDetails?.checkInDate
-      ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN')
-      : checkInDate
-      ? new Date(checkInDate as string).toLocaleDateString('en-IN')
-      : "31/01/2026",
-    checkOutDate: bookingDetails?.checkOutDate
-      ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN')
-      : checkOutDate
-      ? new Date(checkOutDate as string).toLocaleDateString('en-IN')
-      : "01/02/2026",
-    rent: `₹${rentPrice}/${planUnit}`, // ← यहीं सही dynamically show होगा
-    deposit: `₹${bookingDetails?.totalDeposit ?? fallbackDeposit}`,
-  };
-}, [
-  bookingDetails,
-  parsedHostelData,
-  parsedRoomData,
-  parsedUserData,
-  parsedPlan,
-  bookingId,
-  checkInDate,
-  checkOutDate,
+    return {
+      id: firstParam(bookingId) || "2",
+      title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",
+      imageUrl:
+        bookingDetails?.hostelimage ||
+        parsedRoomData.photos?.[0] ||
+        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
+      guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
+      contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone",
+      checkInDate: bookingDetails?.checkInDate
+        ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN')
+        : checkInDate
+          ? new Date(checkInDate as string).toLocaleDateString('en-IN')
+          : "31/01/2026",
+      checkOutDate: bookingDetails?.checkOutDate
+        ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN')
+        : checkOutDate
+          ? new Date(checkOutDate as string).toLocaleDateString('en-IN')
+          : "01/02/2026",
+      rent: `₹${rentPrice}/${planUnit}`, // ← यहीं सही dynamically show होगा
+      deposit: `₹${bookingDetails?.totalDeposit ?? fallbackDeposit}`,
+    };
+  }, [
+    bookingDetails,
+    parsedHostelData,
+    parsedRoomData,
+    parsedUserData,
+    parsedPlan,
+    bookingId,
+    checkInDate,
+    checkOutDate,
 
-]);
+  ]);
 
   console.log("Constructed hostelData:", hostelData);
 
@@ -303,7 +303,7 @@ const hostelData: HostelCheckoutData = useMemo(() => {
         ?? 120;
 
       const plan = tiffinOrderDetails?.planType || tiffinOrderDetails?.choosePlanType?.planName || tiffinData?.plan || 'per meal';
-      let multiplier = 1; 
+      let multiplier = 1;
 
       const numTiffin = parseInt(tiffinOrderDetails?.numberOfTiffin?.toString() || firstParam(numberOfTiffin) || '1');
       if (plan === 'per meal') {
@@ -336,16 +336,15 @@ const hostelData: HostelCheckoutData = useMemo(() => {
         endDate: endDate || tiffinOrderDetails?.endDate
       });
       return {
-        rent: price, // Reuse 'rent' key for UI compatibility (represents tiffin cost per unit)
-        months: multiplier, // Reuse 'months' as units (days/weeks/months)
+        rent: price,
+        months: multiplier,
         totalRent: totalTiffin,
-        deposit: 0, // No deposit for tiffin
+        deposit: 0,
         total,
         net: total,
       };
     }
-    // HOSTEL LOGIC — only Rent + Deposit (defensive)
-    // Try multiple possible paths from the API/params to find price and deposit
+
     const rawPlanPrice = bookingDetails?.selectPlan?.[0]?.price
       ?? bookingDetails?.price
       ?? parsedPlan?.price
@@ -356,13 +355,13 @@ const hostelData: HostelCheckoutData = useMemo(() => {
       ?? parsedPlan?.depositAmount
       ?? bookingDetails?.totalDeposit
       ?? 0;
-    // Coerce to numbers safely
+
     const planPrice = Number(rawPlanPrice) || 0;
     const depositAmount = Number(rawDeposit) || 0;
-    // Check-in / Check-out (optional calculation for multiple months)
+
     const checkIn = bookingDetails?.checkInDate || checkInDate;
     const checkOut = bookingDetails?.checkOutDate || checkOutDate;
-    let months = 1; // Default fallback
+    let months = 1;
     if (checkIn && checkOut) {
       const checkInDateObj = new Date(checkIn);
       const checkOutDateObj = new Date(checkOut);
@@ -572,9 +571,9 @@ const hostelData: HostelCheckoutData = useMemo(() => {
         if (response.data?.success) {
           const details = response.data.data;
 
-          console.log('details98767890',details)
+          console.log('details98767890', details)
 
-          
+
           setTiffinOrderDetails(details);
           console.log("Fetched tiffin booking details:", details);
           console.log("Key Check - startDate:", details.startDate, "planType:", details.planType);
@@ -670,8 +669,8 @@ const hostelData: HostelCheckoutData = useMemo(() => {
     }, [])
   );
 
-  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0; 
-  const adjustedFinalPrice = finalPricing?.finalPrice ?? null; 
+  const depositAmount = transaction?.deposit || (finalPricing?.depositAmount || 0) || 0;
+  const adjustedFinalPrice = finalPricing?.finalPrice ?? null;
   const paymentAmount = adjustedFinalPrice ?? transaction?.net ?? transaction?.total ?? 0;
 
 
@@ -1017,15 +1016,15 @@ const hostelData: HostelCheckoutData = useMemo(() => {
   if (loadingWallet || (isHostel && loadingBooking) || (isTiffin && loadingTiffin)) { // UPDATED: Use effective isTiffin/isHostel
     return (
       <SafeAreaView style={styles.container}>
-        <View style={{flex:1,marginTop:theme.verticalSpacing.space_20}}>
-        <Header
-          title="Checkout"
-          onBack={() => router.back()}
-          showBackButton={true}
-        />
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Loading...</Text>
-        </View>
+        <View style={{ flex: 1, marginTop: theme.verticalSpacing.space_20 }}>
+          <Header
+            title="Checkout"
+            onBack={() => router.back()}
+            showBackButton={true}
+          />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text>Loading...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -1035,118 +1034,118 @@ const hostelData: HostelCheckoutData = useMemo(() => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{flex:1,marginTop:theme.verticalSpacing.space_30}}>
+      <View style={{ flex: 1, marginTop: theme.verticalSpacing.space_30 }}>
 
-      <Header
-        title="Checkout"
-        onBack={() => router.back()}
-        showBackButton={true}
-      />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.itemOrderedSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Item ordered</Text>
-            {/* <TouchableOpacity style={styles.invoiceButton}>
+        <Header
+          title="Checkout"
+          onBack={() => router.back()}
+          showBackButton={true}
+        />
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.itemOrderedSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Item ordered</Text>
+              {/* <TouchableOpacity style={styles.invoiceButton}>
               <Text style={styles.invoiceText}>↓ Invoice</Text>
             </TouchableOpacity> */}
+            </View>
+            <CheckoutItemCard
+              serviceType={isTiffin ? "tiffin" : "hostel"}
+              data={checkoutData}
+            />
           </View>
-          <CheckoutItemCard
-            serviceType={isTiffin ? "tiffin" : "hostel"} 
-            data={checkoutData}
-          />
-        </View>
-        <View style={styles.couponSection}>
-          {/* Header Row */}
-          <View style={styles.couponHeader}>
-            <Text style={styles.sectionTitle}>Apply Coupon</Text>
-            <TouchableOpacity onPress={handleViewCoupons}>
-              <Text style={styles.viewCouponsText}>View Coupons</Text>2
-            </TouchableOpacity>
-          </View>
-          {/* Input Row */}
-          <View style={styles.couponInputContainer}>
-            {appliedCoupon ? (
-              // Show applied coupon as a themed tag with inline remove
-              <View style={styles.appliedCouponContainer}>
-                <View style={styles.appliedTag}>
-                  <Text style={styles.appliedTagText}>✓ {appliedCoupon}</Text>
-                  <TouchableOpacity
-                    style={styles.removeTagButton}
-                    onPress={handleRemoveCoupon}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel="Remove coupon"
-                  >
-                    <Ionicons name="close" size={16} color="#fff" />
+          <View style={styles.couponSection}>
+            {/* Header Row */}
+            <View style={styles.couponHeader}>
+              <Text style={styles.sectionTitle}>Apply Coupon</Text>
+              <TouchableOpacity onPress={handleViewCoupons}>
+                <Text style={styles.viewCouponsText}>View Coupons</Text>2
+              </TouchableOpacity>
+            </View>
+            {/* Input Row */}
+            <View style={styles.couponInputContainer}>
+              {appliedCoupon ? (
+                // Show applied coupon as a themed tag with inline remove
+                <View style={styles.appliedCouponContainer}>
+                  <View style={styles.appliedTag}>
+                    <Text style={styles.appliedTagText}>✓ {appliedCoupon}</Text>
+                    <TouchableOpacity
+                      style={styles.removeTagButton}
+                      onPress={handleRemoveCoupon}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove coupon"
+                    >
+                      <Ionicons name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                // Original input and apply
+                <>
+                  <TextInput
+                    style={styles.couponInput}
+                    placeholder="Enter Coupon Code"
+                    placeholderTextColor="#000"
+                    value={couponCode}
+                    onChangeText={setCouponCode}
+                  />
+                  <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
+                    <Text style={styles.applyButtonText}>Apply</Text>
                   </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+          {/* FIXED: Unified simple total display for both tiffin and hostel (no details section, only rent total) */}
+          <View>
+            {discountValueNum > 0 ? (
+              <View>
+                <View style={styles.discountRow}>
+                  <Text style={styles.discountLabel}>Discount</Text>
+                  <Text style={styles.discountValue}>-₹{discountValueNum.toFixed(2)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>₹{tiffinOrderDetails?.totalAmount || ''}</Text>
                 </View>
               </View>
             ) : (
-              // Original input and apply
-              <>
-                <TextInput
-                  style={styles.couponInput}
-                  placeholder="Enter Coupon Code"
-                  placeholderTextColor="#000"
-                  value={couponCode}
-                  onChangeText={setCouponCode}
-                />
-                <TouchableOpacity style={styles.applyButton} onPress={handleApplyCoupon}>
-                  <Text style={styles.applyButtonText}>Apply</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-        {/* FIXED: Unified simple total display for both tiffin and hostel (no details section, only rent total) */}
-        <View>
-          {discountValueNum > 0 ? (
-            <View>
-              <View style={styles.discountRow}>
-                <Text style={styles.discountLabel}>Discount</Text>
-                <Text style={styles.discountValue}>-₹{discountValueNum.toFixed(2)}</Text>
-              </View>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>₹{tiffinOrderDetails?.totalAmount||''}</Text>
+                <Text style={styles.totalValue}>₹{tiffinOrderDetails?.totalAmount || bookingDetails?.totalPayableAmount || ''}</Text>
               </View>
-            </View>
-          ) : (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>₹{tiffinOrderDetails?.totalAmount||bookingDetails?.totalPayableAmount||''}</Text>
-            </View>
-          )}
-        </View>
-        {/* Cancellation Policy */}
-        <View style={styles.policySection}>
-          <Text style={styles.policyTitle}>Cancellation Policy:</Text>
-          <Text style={styles.policyText}>
-            Please double-check your order and address details.{"\n"}
-            Orders are non-refundable once placed.
-          </Text>
-        </View>
-        {isHostel && (
+            )}
+          </View>
+          {/* Cancellation Policy */}
           <View style={styles.policySection}>
-            <Text style={styles.policyTitle}>Note:</Text>
+            <Text style={styles.policyTitle}>Cancellation Policy:</Text>
             <Text style={styles.policyText}>
-              The deposit is refundable & payable only at the owner’s property. When you visit, the owner will collect the deposit amount as part of the check-in process.
-
+              Please double-check your order and address details.{"\n"}
+              Orders are non-refundable once placed.
             </Text>
           </View>
-        )}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-      {/* Payment Method */}
-      <View style={styles.paymentSection}>
-        <View style={styles.paymentContent}>
-          <View style={styles.paymentMethodContainer}>
-            <View style={styles.paymentMethodLeft}>
-              {/* <Image source={mastercard} style={styles.cardIcon} /> */}
-              {/* <View style={styles.paymentTextContainer}>
+          {isHostel && (
+            <View style={styles.policySection}>
+              <Text style={styles.policyTitle}>Note:</Text>
+              <Text style={styles.policyText}>
+                The deposit is refundable & payable only at the owner’s property. When you visit, the owner will collect the deposit amount as part of the check-in process.
+
+              </Text>
+            </View>
+          )}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+        {/* Payment Method */}
+        <View style={styles.paymentSection}>
+          <View style={styles.paymentContent}>
+            <View style={styles.paymentMethodContainer}>
+              <View style={styles.paymentMethodLeft}>
+                {/* <Image source={mastercard} style={styles.cardIcon} /> */}
+                {/* <View style={styles.paymentTextContainer}>
                 <View style={styles.payUsingRow}>
                   <Text style={styles.payUsing}>Pay Using</Text>
                   <Ionicons
@@ -1158,189 +1157,189 @@ const hostelData: HostelCheckoutData = useMemo(() => {
                 </View>
                 <Text style={styles.cardDetails}>Credit Card | **3054</Text>
               </View> */}
+              </View>
             </View>
-          </View>
-          <TouchableOpacity
-            style={styles.payButton}
-            onPress={openPaymentModal}
-          >
-            <Text style={styles.payButtonText}>
-              Pay ₹{tiffinOrderDetails?.totalAmount||bookingDetails?.totalPayableAmount||''}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      {/* Deposit Modal - NEW */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={depositModalVisible}
-        onRequestClose={() => setDepositModalVisible(false)}
-      >
-        <View style={styles.depositModalOverlay}>
-          <View style={styles.depositModalContainer}>
-            <Text style={styles.depositModalTitle}>Important Notice</Text>
-            <Text style={styles.depositModalText}>
-              You have to pay ₹{depositAmount} at the owner property.
-              and it is refundable
-            </Text>
             <TouchableOpacity
-              style={styles.depositContinueButton}
-              onPress={handleDepositContinue}
+              style={styles.payButton}
+              onPress={openPaymentModal}
             >
-              <Text style={styles.depositContinueButtonText}>Continue</Text>
+              <Text style={styles.payButtonText}>
+                Pay ₹{tiffinOrderDetails?.totalAmount || bookingDetails?.totalPayableAmount || ''}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-      {/* Insufficient Balance Modal - NEW */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={insufficientModalVisible}
-        onRequestClose={handleInsufficientClose}
-      >
-        <View style={styles.insufficientModalOverlay}>
-          <View style={styles.insufficientModalContainer}>
-            <Ionicons name="wallet-outline" size={48} color="#FF6B6B" />
-            <Text style={styles.insufficientModalTitle}>Insufficient Balance</Text>
-            <Text style={styles.insufficientModalText}>
-              Your wallet balance is ₹{walletBalance.toFixed(2)}.{"\n"}
-              Please add more funds to proceed with the payment.
-            </Text>
-            <View style={styles.insufficientModalButtons}>
+        {/* Deposit Modal - NEW */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={depositModalVisible}
+          onRequestClose={() => setDepositModalVisible(false)}
+        >
+          <View style={styles.depositModalOverlay}>
+            <View style={styles.depositModalContainer}>
+              <Text style={styles.depositModalTitle}>Important Notice</Text>
+              <Text style={styles.depositModalText}>
+                You have to pay ₹{depositAmount} at the owner property.
+                and it is refundable
+              </Text>
               <TouchableOpacity
-                style={styles.addFundsButton}
-                onPress={handleAddFunds}
+                style={styles.depositContinueButton}
+                onPress={handleDepositContinue}
               >
-                <Text style={styles.addFundsButtonText}>Add Funds</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleInsufficientClose}
-              >
-                <Text style={styles.cancelButtonText}>Try Later</Text>
+                <Text style={styles.depositContinueButtonText}>Continue</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
-      {/* Payment Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose Payment Method</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.modalOptions}>
-              {/* Online Payment Option */}
-              <TouchableOpacity
-                style={[
-                  styles.optionButton,
-                  selectedMethod === 'online' && styles.selectedOption
-                ]}
-                onPress={() => setSelectedMethod('online')}
-              >
-                <View style={styles.optionIcon}>
-                  <Ionicons name="card-outline" size={24} color="#2854C5" />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>Pay Online through Razorpay</Text>
-                  <Text style={styles.optionSubtitle}>Secure payment gateway</Text>
-                </View>
-                {selectedMethod === 'online' ? (
-                  <Ionicons name="checkmark" size={20} color="#2854C5" />
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
-                )}
-              </TouchableOpacity>
-              {/* Wallet Payment Option */}
-              <TouchableOpacity
-                style={[
-                  styles.optionButton,
-                  selectedMethod === 'wallet' && styles.selectedOption
-                ]}
-                onPress={() => setSelectedMethod('wallet')}
-              >
-                <View style={styles.optionIcon}>
-                  <Ionicons name="wallet-outline" size={24} color="#2854C5" />
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionTitle}>Pay through Wallet</Text>
-                  <View style={styles.walletBalanceContainer}>
-                    <Text style={styles.walletBalanceLabel}>Wallet Balance:</Text>
-                    <Text style={styles.walletBalance}>₹{walletBalance}</Text>
-                  </View>
-                </View>
-                {selectedMethod === 'wallet' ? (
-                  <Ionicons name="checkmark" size={20} color="#2854C5" />
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
-                )}
-              </TouchableOpacity>
-              {/* Continue Button */}
-              <View style={styles.continueButtonContainer}>
+        </Modal>
+        {/* Insufficient Balance Modal - NEW */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={insufficientModalVisible}
+          onRequestClose={handleInsufficientClose}
+        >
+          <View style={styles.insufficientModalOverlay}>
+            <View style={styles.insufficientModalContainer}>
+              <Ionicons name="wallet-outline" size={48} color="#FF6B6B" />
+              <Text style={styles.insufficientModalTitle}>Insufficient Balance</Text>
+              <Text style={styles.insufficientModalText}>
+                Your wallet balance is ₹{walletBalance.toFixed(2)}.{"\n"}
+                Please add more funds to proceed with the payment.
+              </Text>
+              <View style={styles.insufficientModalButtons}>
                 <TouchableOpacity
-                  style={[
-                    styles.continueButton,
-                    !selectedMethod && styles.continueButtonDisabled
-                  ]}
-                  disabled={!selectedMethod}
-                  onPress={handleContinue}
+                  style={styles.addFundsButton}
+                  onPress={handleAddFunds}
                 >
-                  <Text style={[
-                    styles.continueButtonText,
-                    !selectedMethod && styles.continueButtonTextDisabled
-                  ]}>
-                    Continue
-                  </Text>
+                  <Text style={styles.addFundsButtonText}>Add Funds</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleInsufficientClose}
+                >
+                  <Text style={styles.cancelButtonText}>Try Later</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
-        </View>
-      </Modal>
-      {/* Coupons Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={couponModalVisible}
-        onRequestClose={() => setCouponModalVisible(false)}
-      >
-        <View style={styles.couponModalOverlay}>
-          <View style={styles.couponModalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Available Coupons</Text>
-              <TouchableOpacity onPress={() => setCouponModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.couponModalOptions}>
-              {loadingCoupons ? (
-                <Text style={styles.loadingText}>Loading coupons...</Text>
-              ) : coupons.length > 0 ? (
-                <FlatList
-                  data={coupons}
-                  keyExtractor={(item, index) => item._id || index.toString()}
-                  renderItem={renderCouponItem}
-                  style={styles.couponsList}
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                />
-              ) : (
-                <Text style={styles.noCouponsText}>No coupons available</Text>
-              )}
+        </Modal>
+        {/* Payment Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Choose Payment Method</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalOptions}>
+                {/* Online Payment Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.optionButton,
+                    selectedMethod === 'online' && styles.selectedOption
+                  ]}
+                  onPress={() => setSelectedMethod('online')}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons name="card-outline" size={24} color="#2854C5" />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>Pay Online through Razorpay</Text>
+                    <Text style={styles.optionSubtitle}>Secure payment gateway</Text>
+                  </View>
+                  {selectedMethod === 'online' ? (
+                    <Ionicons name="checkmark" size={20} color="#2854C5" />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                  )}
+                </TouchableOpacity>
+                {/* Wallet Payment Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.optionButton,
+                    selectedMethod === 'wallet' && styles.selectedOption
+                  ]}
+                  onPress={() => setSelectedMethod('wallet')}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons name="wallet-outline" size={24} color="#2854C5" />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>Pay through Wallet</Text>
+                    <View style={styles.walletBalanceContainer}>
+                      <Text style={styles.walletBalanceLabel}>Wallet Balance:</Text>
+                      <Text style={styles.walletBalance}>₹{walletBalance}</Text>
+                    </View>
+                  </View>
+                  {selectedMethod === 'wallet' ? (
+                    <Ionicons name="checkmark" size={20} color="#2854C5" />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                  )}
+                </TouchableOpacity>
+                {/* Continue Button */}
+                <View style={styles.continueButtonContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.continueButton,
+                      !selectedMethod && styles.continueButtonDisabled
+                    ]}
+                    disabled={!selectedMethod}
+                    onPress={handleContinue}
+                  >
+                    <Text style={[
+                      styles.continueButtonText,
+                      !selectedMethod && styles.continueButtonTextDisabled
+                    ]}>
+                      Continue
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+        {/* Coupons Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={couponModalVisible}
+          onRequestClose={() => setCouponModalVisible(false)}
+        >
+          <View style={styles.couponModalOverlay}>
+            <View style={styles.couponModalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Available Coupons</Text>
+                <TouchableOpacity onPress={() => setCouponModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.couponModalOptions}>
+                {loadingCoupons ? (
+                  <Text style={styles.loadingText}>Loading coupons...</Text>
+                ) : coupons.length > 0 ? (
+                  <FlatList
+                    data={coupons}
+                    keyExtractor={(item, index) => item._id || index.toString()}
+                    renderItem={renderCouponItem}
+                    style={styles.couponsList}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                  />
+                ) : (
+                  <Text style={styles.noCouponsText}>No coupons available</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -1774,15 +1773,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   depositModalContainer: {
-   width: '85%',
-  borderRadius: 16,
-  padding: 24,
-  backgroundColor: '#fff',
-  shadowColor: '#000',
-  shadowOpacity: 0.25,
-  shadowOffset: { width: 0, height: 4 },
-  shadowRadius: 10,
-  elevation: 10,
+    width: '85%',
+    borderRadius: 16,
+    padding: 24,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 10,
   },
   depositModalTitle: {
     fontSize: 18,
