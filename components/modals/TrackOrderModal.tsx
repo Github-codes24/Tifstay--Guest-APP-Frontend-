@@ -19,6 +19,7 @@ interface TrackOrderModalProps {
   onClose: () => void;
   orderId: string;
   serviceType: "tiffin" | "hostel";
+  bookingId: string;
 }
 
 interface TrackingData {

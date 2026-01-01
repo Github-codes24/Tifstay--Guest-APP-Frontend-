@@ -1670,54 +1670,54 @@ export default function DashboardScreen() {
                         setVegFilter("off");
                       }
                     }}
-                    activeOpacity={0.7}
+                    activeOpacity={0.85}
                     accessibilityRole="button"
                     accessibilityLabel={vegFilter === "off" ? "Enable veg filter" : "Disable veg filter"}
                   >
                     <View style={styles.vegLabelContainer}>
-                      <Text style={styles.vegLabelText}>VEG</Text>
+                      <Text style={[styles.vegLabelText, vegFilter !== "off" && styles.vegLabelActive]}>VEG</Text>
+                      {vegFilter !== "off" && (
+                        <Text style={styles.vegSubText}>{vegFilter === "veg_only" ? "ONLY" : "ALL"}</Text>
+                      )}
                     </View>
-                    <Animated.View style={styles.vegToggleTrack}>
+
+                    <Animated.View
+                      style={[
+                        styles.vegToggleTrack,
+                        {
+                          backgroundColor: vegToggleAnimated.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["#F3F4F6", "#16A34A"],
+                          }),
+                          borderColor: vegToggleAnimated.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["#E5E7EB", "#16A34A"],
+                          }),
+                        },
+                      ]}
+                    >
                       <Animated.View
                         style={[
                           styles.vegToggleThumb,
                           {
-                            borderRadius: vegFilter === "off" ? 2 : 11,
-                            backgroundColor: vegFilter === "off" ? "transparent" : "green",
-                            borderWidth: vegFilter === "off" ? 1.5 : 0,
-                            borderColor: vegFilter === "off" ? "green" : "transparent",
-                          },
-                          {
                             transform: [
                               {
-                                translateX: vegToggleAnimated.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [0, 34],
-                                }),
+                                translateX: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0, 28] }),
                               },
                             ],
+                            backgroundColor: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: ["transparent", "#ffffff"] }),
+                            borderWidth: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                            borderColor: "#16A34A",
                           },
                         ]}
                       >
-                        {vegFilter === "off" ? (
-                          <View style={styles.greenDot} />
-                        ) : (
-                          <Animated.View
-                            style={[
-                              styles.leafContainer,
-                              {
-                                opacity: vegToggleAnimated,
-                                transform: [
-                                  {
-                                    scale: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }),
-                                  }
-                                ],
-                              },
-                            ]}
-                          >
-                            <Ionicons name="leaf" size={10} color="#FFFFFF" />
-                          </Animated.View>
-                        )}
+                        <Animated.View style={{ opacity: vegToggleAnimated }}>
+                          {vegFilter === "off" ? (
+                            <View style={styles.greenDot} />
+                          ) : (
+                            <Ionicons name="leaf" size={14} color="#16A34A" />
+                          )}
+                        </Animated.View>
                       </Animated.View>
                     </Animated.View>
                   </TouchableOpacity>
@@ -2040,58 +2040,78 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   vegToggleButton: {
-    flexDirection: "column",
+    flexDirection: "row",
     alignItems: "center",
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: "#FFFFFF",
-    borderRadius: 8,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "rgba(14, 165, 110, 0.08)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
-    shadowRadius: 1,
-    elevation: 1,
-    height: 60,
-    width: 60,
+    shadowRadius: 12,
+    elevation: 6,
+    height: 52,
+    minWidth: 120,
+    justifyContent: "space-between",
   },
   vegLabelContainer: {
-    paddingHorizontal: 2,
-    paddingVertical: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 0,
+    alignItems: "flex-start",
   },
   vegLabelText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#374151",
   },
+  vegLabelActive: {
+    color: "#16A34A",
+  },
+  vegSubText: {
+    fontSize: 10,
+    color: "#065F46",
+    marginTop: 2,
+    fontWeight: "600",
+  },
   vegToggleTrack: {
-    width: 38,
-    height: 16,
-    borderRadius: 8,
+    width: 62,
+    height: 34,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
     justifyContent: "center",
-    backgroundColor: "transparent",
+    backgroundColor: "#F3F4F6",
     position: "relative",
-    paddingHorizontal: 2,
+    paddingHorizontal: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 4,
   },
   vegToggleThumb: {
-    width: 10,
-    height: 14,
+    width: 28,
+    height: 28,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
-    left: 0,
-    top: 0,
-    right: 0
+    left: 3,
+    top: 3,
+    borderRadius: 14,
+    backgroundColor: "transparent",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
   },
   greenDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "green",
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#16A34A",
   },
   leafContainer: {
     width: 14,

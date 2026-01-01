@@ -503,214 +503,168 @@ const safe = (v) => {
 const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }, isTiffin = false }) => {
   const date = new Date().toLocaleDateString('en-GB');
   const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  const safe = (v: any) => (v == null ? '' : String(v));
+  const safeNumber = (v: any) => Number(v) || 0;
+
+  const fieldRow = (label: string, value: any) =>
+    `<tr><td style="padding:5px 4px; font-weight:600; white-space:nowrap;">${label}</td><td style="padding:5px 4px;">${safe(value)}</td></tr>`;
+
+  const commonHeader = `
+    <div style="text-align:center; font-weight:700; font-size:14px;">${company.name}</div>
+    <div style="text-align:center; font-size:10.5px; color:#555;">${company.addr || 'Your City, India'}</div>
+    <div style="border-top:1px dashed #000; margin:8px 0;"></div>
+    <div style="font-size:11.5px; padding:0 4px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <div>Date: ${date}</div>
+        <div>Time: ${time}</div>
+      </div>
+      <div style="text-align:right; font-weight:600; color:#16a34a;">[PAID]</div>
+    </div>
+    <div style="border-top:1px dashed #000; margin:8px 0;"></div>
+    <div style="text-align:center; font-weight:700; font-size:14px;">RETAIL INVOICE</div>
+    <div style="border-top:1px dashed #000; margin:8px 0;"></div>`;
+
+  const customerInfo = `
+    <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+      ${fieldRow("Property Name", details.propertyName || 'N/A')}
+      ${fieldRow("Property Address", details.propertyAddress || 'N/A')}
+      ${fieldRow("Property Mobile No", details.propertyMobile || 'N/A')}
+      ${fieldRow("Transaction ID", details.transactionId || 'N/A')}
+      ${fieldRow("Customer Name", details.customer || 'N/A')}
+      ${fieldRow("Customer Mobile No", details.customerMobile || 'N/A')}
+    </table>
+    <div style="border-top:1px dashed #000; margin:8px 0;"></div>`;
+
   if (isTiffin) {
-    const subtotal = Number(details.subtotal) || 0;
-    const fee = Number(details.marketplaceFee) || 0;
-    const total = Number(details.grandTotal) || subtotal + fee;
-    const items = [
-      {
-        desc: details.itemDesc || 'Tiffin Service',
-        qty: details.qty || 1,
-        rate: Number(details.price) || 0,
-        amount: (Number(details.qty) || 1) * (Number(details.price) || 0)
-      }
-    ];
-    const fieldRow = (label, value) =>
-      `<tr><td style="padding:4px 6px; white-space:nowrap;"><b>${label}</b></td><td style="padding:4px 6px;">${safe(value)}</td></tr>`;
+    const subtotal = safeNumber(details.subtotal || details.amount);
+    const fee = safeNumber(details.marketplaceFee);
+    const total = safeNumber(details.grandTotal) || subtotal + fee;
+
+    const itemDesc = details.itemDesc || 'Tiffin Service Subscription';
+    const qty = details.qty || details.totalQty || 1;
+    const amount = safeNumber(details.price || details.amount);
+
     return `<!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <style>
-      @page { size: 80mm auto; margin: 6mm; } /* narrow receipt width like screenshot */
-      body { font-family: "Courier New", Courier, monospace; font-size: 12px; color:#111; padding:6px; }
-      .center { text-align:center; }
-      .small { font-size:11px; color:#444; }
-      .sep { border-top:1px dashed #000; margin:6px 0; }
-      table { width:100%; border-collapse:collapse; font-size:12px; }
-      .fields td { padding:6px 4px; vertical-align:top; }
-      .items th, .items td { padding:6px 4px; border-top:1px dashed #000; text-align:left; }
-      .items th { font-weight:700; }
-      .right { text-align:right; }
-      .total-row { border-top:2px dashed #000; font-weight:700; padding-top:8px; }
-    </style>
-  </head>
-  <body>
-    <div class="center">
-      <div style="font-weight:700; font-size:14px;">${company.name}</div>
-      <div class="small">${company.addr}</div>
-    </div>
-    <div class="sep"></div>
-    <div style="padding: 0 4px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <div>Date: ${date}</div>
-        <div>Time: ${time}</div>
-      </div>
-      <div style="text-align: right; font-weight: 500;">[PAID]</div>
-    </div>
-    <div class="sep"></div>
-    <div class="center">
-      <div style="font-weight:700; font-size: 14px;">RETAIL INVOICE</div>
-    </div>
-    <div class="sep"></div>
-    <table class="fields">
-      ${fieldRow("Property Name", details.propertyName || '')}
-      ${fieldRow("Property Address", details.propertyAddress || '')}
-      ${fieldRow("Property Mobile No", details.propertyMobile || '')}
-      ${fieldRow("Transaction ID", details.transactionId || '')}
-      ${fieldRow("Customer Name", details.customer || '')}
-      ${fieldRow("Customer Mobile No", details.customerMobile || '')}
-    </table>
-    <div class="sep"></div>
-    <table class="items">
-      <thead>
-        <tr>
-          <th style="width: 60%; text-align: left;">No. of Item</th>
-          <th style="width: 15%; text-align: right;">Qty</th>
-          <th style="width: 25%; text-align: right;">Price Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${items.map((it, idx) => `
-          <tr>
-            <td style="padding: 4px 0;">${safe(it.desc)}</td>
-            <td class="right">${it.qty}</td>
-            <td class="right">₹${it.amount.toFixed(0)}</td>
-          </tr>
-          ${idx === 0 ? '<tr><td colspan="3" style="border-top:1px dashed #000; height:20px;">&nbsp;</td></tr>' : ''}
-        `).join('')}
-      </tbody>
-    </table>
-    <div class="sep"></div>
-    <div style="padding: 4px 0;">
-      <div style="display: flex; justify-content: space-between;">
-        <b>Total Qty:</b> <b class="right">${details.totalQty || 1}</b>
-      </div>
-      <div style="display: flex; justify-content: space-between;">
-        <b>Subtotal:</b> <b class="right">₹${subtotal.toFixed(0)}</b>
-      </div>
-      ${fee > 0 ? `
-        <div style="display: flex; justify-content: space-between;">
-          <b>Marketplace Fee:</b> <b class="right">₹${fee.toFixed(0)}</b>
-        </div>
-      ` : ''}
-    </div>
-    <div class="sep"></div>
-    <div style="display: flex; justify-content: space-between; font-weight:700;">
-      <b>GRAND TOTAL:</b> <b class="right">₹${total.toFixed(0)}</b>
-    </div>
-    <div class="sep"></div>
-    <div class="center small">Thanks for Ordering</div>
-  </body>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    @page { size: 80mm auto; margin: 5mm; }
+    body { font-family: "Courier New", monospace; font-size: 11.5px; margin:0; padding:4px; line-height:1.4; }
+    .sep { border-top:1px dashed #000; margin:8px 0; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding: 6px 4px; }
+    .header-bg th { background:#f8f8f8; font-weight:700; }
+  </style>
+</head>
+<body>
+  ${commonHeader}
+  ${customerInfo}
+  <table>
+    <thead class="header-bg">
+      <tr>
+        <th style="width:12%; text-align:center;">SR</th>
+        <th style="width:48%; text-align:left;">Description</th>
+        <th style="width:15%; text-align:center;">Qty</th>
+        <th style="width:25%; text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="center">1</td>
+        <td style="word-wrap:break-word;">${safe(itemDesc)}</td>
+        <td class="center">${qty}</td>
+        <td class="right">₹${amount.toFixed(0)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="sep"></div>
+  <div style="font-size:11.5px;">
+    <div style="display:flex; justify-content:space-between;"><b>Total Qty:</b> <b>${qty}</b></div>
+    <div style="display:flex; justify-content:space-between;"><b>Subtotal:</b> <b class="right">₹${subtotal.toFixed(0)}</b></div>
+    ${fee > 0 ? `<div style="display:flex; justify-content:space-between;"><b>Marketplace Fee:</b> <b class="right">₹${fee.toFixed(0)}</b></div>` : ''}
+  </div>
+  <div class="sep"></div>
+  <div style="display:flex; justify-content:space-between; font-weight:700; font-size:13px;">
+    <b>GRAND TOTAL:</b> <b class="right">₹${total.toFixed(0)}</b>
+  </div>
+  <div class="sep"></div>
+  <div style="text-align:center; font-size:10.5px; color:#555;">Thanks for Ordering!</div>
+</body>
 </html>`;
-  } else {
-    // Updated hostel format
-    const subtotal = Number(details.subtotal) || 0;
-    const fee = Number(details.marketplaceFee) || 0;
-    const discount = Number(details.discountAmount) || 0;
-    const total = Number(details.grandTotal) || subtotal + fee + discount;
-    const deposit = Number(details.deposit) || 0;
-    const beds = details.beds || [{ sr: 1, roomNo: 'N/A', bedNo: 1, amount: subtotal }];
-    const fieldRow = (label, value) =>
-      `<tr><td style="padding:4px 6px; white-space:nowrap;"><b>${label}</b></td><td style="padding:4px 6px;">${safe(value)}</td></tr>`;
+  } 
+  else {
+    // Hostel
+    const subtotal = safeNumber(details.subtotal || details.amount);
+    const fee = safeNumber(details.marketplaceFee);
+    const discount = safeNumber(details.discountAmount);
+    const total = safeNumber(details.grandTotal) || subtotal + fee - discount;
+    const deposit = safeNumber(details.deposit);
+
+    const beds = details.beds && details.beds.length > 0 
+      ? details.beds 
+      : [{ sr: 1, roomNo: 'N/A', bedNo: 1, amount: subtotal }];
+
     return `<!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <style>
-      @page { size: 80mm auto; margin: 6mm; } /* narrow receipt width like screenshot */
-      body { font-family: "Courier New", Courier, monospace; font-size: 12px; color:#111; padding:6px; }
-      .center { text-align:center; }
-      .small { font-size:11px; color:#444; }
-      .sep { border-top:1px dashed #000; margin:6px 0; }
-      table { width:100%; border-collapse:collapse; font-size:12px; }
-      .fields td { padding:6px 4px; vertical-align:top; }
-      .items th, .items td { padding:6px 4px; border-top:1px dashed #000; text-align:left; }
-      .items th { font-weight:700; }
-      .right { text-align:right; }
-      .total-row { border-top:2px dashed #000; font-weight:700; padding-top:8px; }
-    </style>
-  </head>
-  <body>
-    <div class="center">
-      <div style="font-weight:700; font-size:14px;">${company.name}</div>
-      <div class="small">${company.addr}</div>
-    </div>
-    <div class="sep"></div>
-    <div style="padding: 0 4px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <div>Date: ${date}</div>
-        <div>Time: ${time}</div>
-      </div>
-      <div style="text-align: right; font-weight: 500;">[PAID]</div>
-    </div>
-    <div class="sep"></div>
-    <div class="center">
-      <div style="font-weight:700; font-size: 14px;">RETAIL INVOICE</div>
-    </div>
-    <div class="sep"></div>
-    <table class="fields">
-      ${fieldRow("Property Name", details.propertyName || '')}
-      ${fieldRow("Property Address", details.propertyAddress || '')}
-      ${fieldRow("Property Mobile No", details.propertyMobile || '')}
-      ${fieldRow("Transaction ID", details.transactionId || '')}
-      ${fieldRow("Customer Name", details.customer || '')}
-      ${fieldRow("Customer Mobile No", details.customerMobile || '')}
-     
-    </table>
-    <div class="sep"></div>
-    <table class="items">
-      <thead>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    @page { size: 80mm auto; margin: 5mm; }
+    body { font-family: "Courier New", monospace; font-size: 11.5px; margin:0; padding:4px; line-height:1.4; }
+    .sep { border-top:1px dashed #000; margin:8px 0; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding: 6px 4px; }
+    .header-bg th { background:#f8f8f8; font-weight:700; }
+  </style>
+</head>
+<body>
+  ${commonHeader}
+  ${customerInfo}
+  <table>
+    <thead class="header-bg">
+      <tr>
+        <th style="width:15%; text-align:center;">SR</th>
+        <th style="width:30%; text-align:center;">Room</th>
+        <th style="width:25%; text-align:center;">Bed</th>
+        <th style="width:30%; text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${beds.map((bed: any) => `
         <tr>
-          <th style="width: 20%; text-align: left;">SR No</th>
-          <th style="width: 25%; text-align: left;">Room No</th>
-          <th style="width: 25%; text-align: left;">Bed No</th>
-          <th style="width: 30%; text-align: right;">Amount</th>
+          <td class="center">${safe(bed.sr)}</td>
+          <td class="center">${safe(bed.roomNo)}</td>
+          <td class="center">${safe(bed.bedNo)}</td>
+          <td class="right">₹${safeNumber(bed.amount).toFixed(0)}</td>
         </tr>
-      </thead>
-      <tbody>
-        ${beds.map((bed) => `
-          <tr>
-            <td style="padding: 4px 0;">${safe(bed.sr)}</td>
-            <td style="padding: 4px 0;">${safe(bed.roomNo)}</td>
-            <td style="padding: 4px 0;">${safe(bed.bedNo)}</td>
-            <td class="right">₹${Number(bed.amount).toFixed(0)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <div class="sep"></div>
-    <div style="padding: 4px 0;">
-      <div style="display: flex; justify-content: space-between;">
-        <b>Total Qty:</b> <b class="right">${details.totalQty || 1}</b>
-      </div>
-      <div style="display: flex; justify-content: space-between;">
-        <b>Subtotal:</b> <b class="right">₹${subtotal.toFixed(0)}</b>
-      </div>
-      ${fee > 0 ? `
-        <div style="display: flex; justify-content: space-between;">
-          <b>Marketplace Fee:</b> <b class="right">₹${fee.toFixed(0)}</b>
-        </div>
-      ` : ''}
-      ${discount !== 0 ? `
-        <div style="display: flex; justify-content: space-between;">
-          <b>Discount:</b> <b class="right">₹${Math.abs(discount).toFixed(0)}</b>
-        </div>
-      ` : ''}
-    </div>
-    <div class="sep"></div>
-    <div style="display: flex; justify-content: space-between; font-weight:700;">
-      <b>GRAND TOTAL:</b> <b class="right">₹${total.toFixed(0)}</b>
-    </div>
-    <div class="sep"></div>
-    <div style="display: flex; justify-content: space-between; font-weight:700; margin-top: 4px;">
-      <b>Deposit Amount (Refundable):</b> <b class="right">₹${deposit.toFixed(0)}</b>
-    </div>
-    <div class="sep"></div>
-    <div class="center small">Thanks for Booking</div>
-  </body>
+      `).join('')}
+    </tbody>
+  </table>
+  <div class="sep"></div>
+  <div style="font-size:11.5px;">
+    <div style="display:flex; justify-content:space-between;"><b>Total Beds:</b> <b>${beds.length}</b></div>
+    <div style="display:flex; justify-content:space-between;"><b>Subtotal:</b> <b class="right">₹${subtotal.toFixed(0)}</b></div>
+    ${fee > 0 ? `<div style="display:flex; justify-content:space-between;"><b>Marketplace Fee:</b> <b class="right">₹${fee.toFixed(0)}</b></div>` : ''}
+    ${discount !== 0 ? `<div style="display:flex; justify-content:space-between;"><b>Discount:</b> <b class="right">₹${Math.abs(discount).toFixed(0)}</b></div>` : ''}
+  </div>
+  <div class="sep"></div>
+  <div style="display:flex; justify-content:space-between; font-weight:700; font-size:13px;">
+    <b>GRAND TOTAL:</b> <b class="right">₹${total.toFixed(0)}</b>
+  </div>
+  ${deposit > 0 ? `
+  <div class="sep"></div>
+  <div style="display:flex; justify-content:space-between; font-weight:700; font-size:12px; color:#dc2626;">
+    <b>Deposit (Refundable):</b> <b class="right">₹${deposit.toFixed(0)}</b>
+  </div>` : ''}
+  <div class="sep"></div>
+  <div style="text-align:center; font-size:10.5px; color:#555;">Thanks for Booking!</div>
+</body>
 </html>`;
   }
 };

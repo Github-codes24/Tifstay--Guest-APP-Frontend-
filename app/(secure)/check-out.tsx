@@ -214,75 +214,97 @@ const tiffinData: TiffinCheckoutData = useMemo(() => {
 
   console.log("Constructed tiffinData:", tiffinData);
 
-  // FIXED: Wrap in useMemo for reactivity - unchanged
+
 const hostelData: HostelCheckoutData = useMemo(() => {
-  // Ultimate fallback if bookingDetails not loaded
   const fallbackRent = parsedPlan.price || 100;
   const fallbackDeposit = parsedPlan.depositAmount || 200;
 
-  // NEW: Plan name को clean करना
-  const rawPlanName = bookingDetails?.selectPlan?.[0]?.name 
-    ?? parsedPlan?.name 
-    ?? 'Per day';
 
-  // Clean format: lowercase + proper space
-  let displayPlanName = 'per day';
+  const rawPlanName =
+    bookingDetails?.selectPlan?.[0]?.name ||
+    parsedPlan?.name ||
+    hostelPlan || 
+    'monthly'; 
+
+  console.log("Raw Plan Name Debug:", rawPlanName); 
+
+  
+  let planUnit = 'per month'; 
+
   if (rawPlanName) {
-    displayPlanName = rawPlanName
-      .toLowerCase()
-      .replace('perday', 'per day')
-      .replace('daily', 'per day')
-      .trim();
+    const lower = rawPlanName.toLowerCase().trim();
+
+    if (lower.includes('monthly') || lower === 'month') {
+      planUnit = 'per month';
+    } else if (lower.includes('weekly') || lower === 'week') {
+      planUnit = 'per week';
+    } else if (lower.includes('daily') || lower.includes('perday') || lower.includes('per day')) {
+      planUnit = 'per day';
+    }
+  
+    else if (lower === 'perday') {
+      planUnit = 'per day';
+    }
   }
 
-  const rentPrice = bookingDetails?.selectPlan?.[0]?.price 
-    ?? bookingDetails?.Rent 
-    ?? bookingDetails?.price 
-    ?? fallbackRent;
+  const rentPrice =
+    bookingDetails?.selectPlan?.[0]?.price ||
+    bookingDetails?.Rent ||
+    bookingDetails?.price ||
+    parsedPlan?.price ||
+    fallbackRent;
 
   return {
     id: firstParam(bookingId) || "2",
     title: bookingDetails?.hostelName || parsedHostelData.name || "Fallback Hostel Name",
-    imageUrl: bookingDetails?.hostelimage || parsedRoomData.photos?.[0] || "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
+    imageUrl:
+      bookingDetails?.hostelimage ||
+      parsedRoomData.photos?.[0] ||
+      "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=400",
     guestName: bookingDetails?.guestName || parsedUserData.name || "Fallback Name",
     contact: bookingDetails?.contact || parsedUserData.phoneNumber || "Fallback Phone",
     checkInDate: bookingDetails?.checkInDate
       ? new Date(bookingDetails.checkInDate).toLocaleDateString('en-IN')
-      : (checkInDate ? new Date(checkInDate as string).toLocaleDateString('en-IN') : "31/01/2026"),
+      : checkInDate
+      ? new Date(checkInDate as string).toLocaleDateString('en-IN')
+      : "31/01/2026",
     checkOutDate: bookingDetails?.checkOutDate
       ? new Date(bookingDetails.checkOutDate).toLocaleDateString('en-IN')
-      : (checkOutDate ? new Date(checkOutDate as string).toLocaleDateString('en-IN') : "01/02/2026"),
-    rent: `₹${rentPrice}/per day`,   // ← यही बदलाव मुख्य है
+      : checkOutDate
+      ? new Date(checkOutDate as string).toLocaleDateString('en-IN')
+      : "01/02/2026",
+    rent: `₹${rentPrice}/${planUnit}`, // ← यहीं सही dynamically show होगा
     deposit: `₹${bookingDetails?.totalDeposit ?? fallbackDeposit}`,
   };
-}, [bookingDetails, parsedHostelData, parsedRoomData, parsedUserData, parsedPlan, bookingId, checkInDate, checkOutDate]);
+}, [
+  bookingDetails,
+  parsedHostelData,
+  parsedRoomData,
+  parsedUserData,
+  parsedPlan,
+  bookingId,
+  checkInDate,
+  checkOutDate,
+
+]);
 
   console.log("Constructed hostelData:", hostelData);
 
   const checkoutData = isTiffin ? tiffinData : hostelData;
-  console.log('checkoutData098',checkoutData)
 
-
-  console.log("Service ID from BookingScreen:", serviceId);
-  console.log("Full checkoutData ID :", checkoutData.id);
-
-  // FIXED: Use correct keys in hostel logic
-  // UPDATED: getTransactionDetails with proper hostel calculation (defensive)
-  // FIXED: For tiffin, use tiffinOrderDetails instead of bookingDetails
   const getTransactionDetails = useMemo(() => {
     console.log("🔄 getTransactionDetails - isTiffin:", isTiffin);
     if (isTiffin) {
-      // TIFFIN LOGIC — Price based on plan (daily/weekly/monthly), no deposit
-      // Extract price from various possible sources - FIXED for tiffin
+
       const rawPrice = tiffinOrderDetails?.price
         ?? tiffinOrderDetails?.choosePlanType?.price
         ?? parsedPlan?.price
         ?? Number((tiffinData?.price || '').replace(/[^0-9.]/g, ''))
         ?? 120;
-      // Plan type for multiplier (if duration-based; for now, assume price is for full plan unit)
+
       const plan = tiffinOrderDetails?.planType || tiffinOrderDetails?.choosePlanType?.planName || tiffinData?.plan || 'per meal';
-      let multiplier = 1; // Default: 1 unit (week/month)
-      // Number of tiffins
+      let multiplier = 1; 
+
       const numTiffin = parseInt(tiffinOrderDetails?.numberOfTiffin?.toString() || firstParam(numberOfTiffin) || '1');
       if (plan === 'per meal') {
         multiplier = numTiffin;
