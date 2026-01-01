@@ -1279,6 +1279,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+    paddingBottom:30
   },
   // Image carousel styles
   imageContainer: {

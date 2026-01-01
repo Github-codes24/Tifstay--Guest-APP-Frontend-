@@ -7,7 +7,6 @@ import {
   Pressable,
   Image,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
 } from "react-native";
@@ -17,7 +16,8 @@ import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // ← Added
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Toast from "react-native-toast-message";
 import colors from "@/constants/colors";
 import { BASE_URL } from "@/constants/api";
 
@@ -38,7 +38,6 @@ export default function DocumentsScreen() {
 
   const queryClient = useQueryClient();
 
-  // ── Fetch profile for guest ID ──────────────────────────────────────
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
@@ -52,10 +51,9 @@ export default function DocumentsScreen() {
 
       return res.data?.data?.guest || null;
     },
-    staleTime: 5 * 60 * 1000, // Same as your global default
+    staleTime: 5 * 60 * 1000,
   });
 
-  // ── Cached fetch of existing Aadhaar ───────────────────────────────
   const { data: aadhaarUrl, isLoading: fetchLoading } = useQuery<string | null>({
     queryKey: ["aadhaar"],
     queryFn: async () => {
@@ -69,10 +67,9 @@ export default function DocumentsScreen() {
 
       return res.data?.documents?.aadhaarCard || null;
     },
-    staleTime: 5 * 60 * 1000, // Same as your global default
+    staleTime: 5 * 60 * 1000,
   });
 
-  // ── Upload / Update mutation (invalidates cache on success) ───────
   const uploadMutation = useMutation({
     mutationFn: async (uri: string) => {
       const token = await AsyncStorage.getItem("token");
@@ -102,45 +99,63 @@ export default function DocumentsScreen() {
     },
     onSuccess: (newUrl) => {
       const previousUrl = queryClient.getQueryData<string | null>(["aadhaar"]);
-      queryClient.setQueryData(["aadhaar"], newUrl); // Instant optimistic update (no extra API call)
-      Alert.alert("Success", previousUrl ? "Aadhaar updated!" : "Aadhaar uploaded!");
+      queryClient.setQueryData(["aadhaar"], newUrl);
+      Toast.show({
+        type: "success",
+        text1: previousUrl ? "Aadhaar updated!" : "Aadhaar uploaded!",
+        text2: "Your document has been saved successfully.",
+      });
     },
     onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to upload Aadhaar. Please try again.");
+      Toast.show({
+        type: "error",
+        text1: "Upload Failed",
+        text2: error.message || "Please try again later.",
+      });
     },
   });
 
   const loading = fetchLoading || uploadMutation.isPending || profileLoading;
 
-  // ── Pick image → trigger mutation ─────────────────────────────────
   const pickAndUploadImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Allow photo library access to upload.");
+        Toast.show({
+          type: "info",
+          text1: "Permission Required",
+          text2: "Please allow access to your photo library.",
+        });
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.9,
-        allowsEditing: true,
+        allowsEditing: false,
       });
 
       if (result.canceled || !result.assets?.length) return;
 
       const uri = result.assets[0].uri;
-      uploadMutation.mutate(uri); // ← Triggers cached update
+      uploadMutation.mutate(uri);
     } catch (err) {
       console.log("Image pick error:", err);
+      Toast.show({
+        type: "error",
+        text1: "Something went wrong",
+      });
     }
   };
 
-  // ── Open modal with Aadhaar image via API ─────────────────────────
   const openModal = async () => {
     const token = await AsyncStorage.getItem("token");
     if (!token || !profile?._id) {
-      Alert.alert("Error", "Please log in again.");
+      Toast.show({
+        type: "error",
+        text1: "Authentication Error",
+        text2: "Please log in again.",
+      });
       return;
     }
 
@@ -154,20 +169,30 @@ export default function DocumentsScreen() {
         setModalImageUrl(res.data.aadhaarCard);
         setModalVisible(true);
       } else {
-        Alert.alert("Error", "Failed to fetch Aadhaar.");
+        Toast.show({
+          type: "error",
+          text1: "Failed to load Aadhaar",
+        });
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to fetch Aadhaar image.");
+      Toast.show({
+        type: "error",
+        text1: "Network Error",
+        text2: "Could not fetch Aadhaar image.",
+      });
     }
   };
 
   const onDigiLocker = () => {
-    Alert.alert("DigiLocker", "Hook this to your DigiLocker flow.");
+    Toast.show({
+      type: "info",
+      text1: "DigiLocker",
+      text2: "This feature is coming soon!",
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={16} color="#000" />
@@ -182,7 +207,6 @@ export default function DocumentsScreen() {
       >
         <Text style={styles.pageTitle}>Upload your document</Text>
 
-        {/* Upload Card */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Ionicons name="camera-outline" size={18} color="#111" />
@@ -211,7 +235,6 @@ export default function DocumentsScreen() {
             </View>
           )}
 
-          {/* Upload / Update Button */}
           <Pressable
             onPress={pickAndUploadImage}
             style={[styles.primaryBtn, loading && { opacity: 0.6 }]}
@@ -222,16 +245,8 @@ export default function DocumentsScreen() {
             </Text>
           </Pressable>
         </View>
-
-        {/* <Text style={styles.orText}>Or</Text> */}
-
-        {/* DigiLocker */}
-        {/* <Pressable onPress={onDigiLocker} style={styles.digilockerBtn}>
-          <Text style={styles.digilockerText}>Verify with DigiLocker</Text>
-        </Pressable> */}
       </ScrollView>
 
-      {/* Aadhaar Modal */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -340,7 +355,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   digilockerText: { color: colors.primary, fontWeight: "700", fontSize: 14 },
-  // ── Modal Styles ───────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.8)",
