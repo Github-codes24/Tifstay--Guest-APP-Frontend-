@@ -313,23 +313,38 @@ export default function DashboardScreen() {
     if (filters.hostelType) params.append("hostelType", filters.hostelType);
     if (filters.roomType) params.append("roomType", filters.roomType);
     if (filters.acNonAc) params.append("acNonAc", filters.acNonAc);
-    if (filters.rating) params.append("minRating", filters.rating.toString());
+    // Handle hostel rating filter (userReviews from FilterModal) - convert number to "X & above" format
+    if (filters.userReviews) {
+      const ratingValue = `${filters.userReviews} & above`;
+      params.append("rating", ratingValue);
+    }
     // Price range (nested format)
     if (filters.priceRange && filters.priceRange.length === 2) {
       const priceStr = `${filters.priceRange[0]}-${filters.priceRange[1]}`;
       params.append("priceRange", priceStr);
     }
-    // Amenities (comma-joined)
+    // Amenities (map UI names to API format and comma-join)
     if (filters.amenities && filters.amenities.length > 0) {
-      params.append("amenities", filters.amenities.join(","));
+      const amenityMap: { [key: string]: string } = {
+        "Wi-Fi": "wifi",
+        "Study Hall": "study hall",
+        "Security": "security",
+        "Mess": "mess",
+        "Common TV": "tv",
+        "Laundry": "laundry",
+      };
+      const mappedAmenities = filters.amenities.map((a: string) => amenityMap[a] || a.toLowerCase());
+      params.append("amenities", mappedAmenities.join(","));
     }
     const url = `${BASE_URL}/api/guest/hostelServices/getAllHostelsServices?${params.toString()}`;
     console.log("🔍 Hostel Fetch URL:", url); // Debug log
+    console.log("🔍 Filters applied:", JSON.stringify(filters)); // Debug filters
     console.log("🔍 Normalized planType:", normalizedPlanType);
     try {
       const response = await fetch(url, { headers });
       const result = await response.json();
       console.log("getAllHostelsServices response:", JSON.stringify(result, null, 2));
+      console.log("Response data length:", result.data?.length || 0); // Debug response
       if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
         const mappedHostels = result.data.map((hostel: any) => {
           let imageUrl = hostel.hostelPhotos?.[0];
@@ -863,7 +878,7 @@ export default function DashboardScreen() {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, vegFilter]);
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, appliedFilters.acNonAc, appliedFilters.userReviews, vegFilter]);
   // --- Location Modal ---
   useEffect(() => {
     if (!hasSelectedLocation) setShowLocationModal(true);
@@ -1075,7 +1090,7 @@ export default function DashboardScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, vegFilter, refetchHostels, refetchTiffins]);
+  }, [isHostel, isSearchFocused, searchQuery, appliedFilters.cost, appliedFilters.rating, appliedFilters.vegNonVeg, appliedFilters.acNonAc, appliedFilters.userReviews, vegFilter, refetchHostels, refetchTiffins]);
   // --- Handlers --- (unchanged)
  const handleLocationSelected = async (location: any) => {
   setShowLocationModal(false);

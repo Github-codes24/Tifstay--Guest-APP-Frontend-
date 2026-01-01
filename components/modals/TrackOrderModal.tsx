@@ -38,6 +38,7 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
   onClose,
   orderId,
   serviceType,
+  bookingId,
 }) => {
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -133,7 +134,7 @@ const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
               <Text style={styles.orderIdText}>
                 Order ID:{" "}
                 <Text style={styles.orderId}>
-                  #{trackingData?.orderId || orderId}
+              #{bookingId || orderId}
                 </Text>
               </Text>
               <Text style={styles.mealText}>

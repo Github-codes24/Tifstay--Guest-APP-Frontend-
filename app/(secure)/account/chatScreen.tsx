@@ -34,7 +34,7 @@ const ChatScreen = () => {
         }
 
         const res = await fetch(
-         ` ${BASE_URL}/api/guest/message/getGuestPreviousChat`,
+         `${BASE_URL}/api/guest/message/getGuestPreviousChat`,
           {
             method: "GET",
             headers: { Authorization: "Bearer " + token },

@@ -134,7 +134,7 @@ const Confirmation: React.FC = () => {
             grandTotal: (data.Rent || 0) + (data.marketPlacefee || 0),
             deposit: data.newDeposit || 0,
             totalQty: data.newBeds || 1,
-            beds: data.newBeds && data.newBeds > 1 ? Array.from({length: data.newBeds}, (_, i) => ({
+            beds: data.newBeds && data.newBeds > 1 ? Array.from({ length: data.newBeds }, (_, i) => ({
               sr: i + 1,
               roomNo: data.roomNumber || '101',
               bedNo: i + 1,
@@ -199,7 +199,7 @@ const Confirmation: React.FC = () => {
                 });
               } else {
                 // Fallback if no roomDetails
-                beds = data.newBeds && data.newBeds > 1 ? Array.from({length: data.newBeds}, (_, i) => ({
+                beds = data.newBeds && data.newBeds > 1 ? Array.from({ length: data.newBeds }, (_, i) => ({
                   sr: i + 1,
                   roomNo: data.roomNumber || '101',
                   bedNo: i + 1,
@@ -292,6 +292,12 @@ const Confirmation: React.FC = () => {
               // Derive price from first pricing (prefer monthlyDelivery)
               const firstPricing = service.pricing?.[0];
               service.price = firstPricing ? `₹${firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0}/month` : "-";
+              service.lowestPrice = service.lowestAmount || (firstPricing ? Math.min(
+                firstPricing.weeklyDining || Infinity,
+                firstPricing.weeklyDelivery || Infinity,
+                firstPricing.monthlyDining || Infinity,
+                firstPricing.monthlyDelivery || Infinity
+              ) : 0);
               service.oldPrice = firstPricing ? `₹${Math.round((firstPricing.monthlyDelivery || firstPricing.monthlyDining || 0) * 1.1)}/month` : "-";
               service.rating = parseFloat(service.averageRating) || 0;
               service.reviews = service.totalReviews || 0;
@@ -493,24 +499,24 @@ const Confirmation: React.FC = () => {
       params: { serviceType: isTiffin ? "tiffin" : "hostel" }, // Pass serviceType to resume
     });
   };
- // paste this helper above your component or near other helpers
-const safe = (v) => {
-  if (v == null) return "";
-  if (Array.isArray(v)) return v.join(", ");
-  if (typeof v === "object") return Object.values(v).join(", ");
-  return String(v);
-};
-const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }, isTiffin = false }) => {
-  const date = new Date().toLocaleDateString('en-GB');
-  const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  // paste this helper above your component or near other helpers
+  const safe = (v) => {
+    if (v == null) return "";
+    if (Array.isArray(v)) return v.join(", ");
+    if (typeof v === "object") return Object.values(v).join(", ");
+    return String(v);
+  };
+  const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }, isTiffin = false }) => {
+    const date = new Date().toLocaleDateString('en-GB');
+    const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-  const safe = (v: any) => (v == null ? '' : String(v));
-  const safeNumber = (v: any) => Number(v) || 0;
+    const safe = (v: any) => (v == null ? '' : String(v));
+    const safeNumber = (v: any) => Number(v) || 0;
 
-  const fieldRow = (label: string, value: any) =>
-    `<tr><td style="padding:5px 4px; font-weight:600; white-space:nowrap;">${label}</td><td style="padding:5px 4px;">${safe(value)}</td></tr>`;
+    const fieldRow = (label: string, value: any) =>
+      `<tr><td style="padding:5px 4px; font-weight:600; white-space:nowrap;">${label}</td><td style="padding:5px 4px;">${safe(value)}</td></tr>`;
 
-  const commonHeader = `
+    const commonHeader = `
     <div style="text-align:center; font-weight:700; font-size:14px;">${company.name}</div>
     <div style="text-align:center; font-size:10.5px; color:#555;">${company.addr || 'Your City, India'}</div>
     <div style="border-top:1px dashed #000; margin:8px 0;"></div>
@@ -525,7 +531,7 @@ const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }
     <div style="text-align:center; font-weight:700; font-size:14px;">RETAIL INVOICE</div>
     <div style="border-top:1px dashed #000; margin:8px 0;"></div>`;
 
-  const customerInfo = `
+    const customerInfo = `
     <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
       ${fieldRow("Property Name", details.propertyName || 'N/A')}
       ${fieldRow("Property Address", details.propertyAddress || 'N/A')}
@@ -536,16 +542,16 @@ const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }
     </table>
     <div style="border-top:1px dashed #000; margin:8px 0;"></div>`;
 
-  if (isTiffin) {
-    const subtotal = safeNumber(details.subtotal || details.amount);
-    const fee = safeNumber(details.marketplaceFee);
-    const total = safeNumber(details.grandTotal) || subtotal + fee;
+    if (isTiffin) {
+      const subtotal = safeNumber(details.subtotal || details.amount);
+      const fee = safeNumber(details.marketplaceFee);
+      const total = safeNumber(details.grandTotal) || subtotal + fee;
 
-    const itemDesc = details.itemDesc || 'Tiffin Service Subscription';
-    const qty = details.qty || details.totalQty || 1;
-    const amount = safeNumber(details.price || details.amount);
+      const itemDesc = details.itemDesc || 'Tiffin Service Subscription';
+      const qty = details.qty || details.totalQty || 1;
+      const amount = safeNumber(details.price || details.amount);
 
-    return `<!doctype html>
+      return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8"/>
@@ -595,20 +601,20 @@ const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }
   <div style="text-align:center; font-size:10.5px; color:#555;">Thanks for Ordering!</div>
 </body>
 </html>`;
-  } 
-  else {
-    // Hostel
-    const subtotal = safeNumber(details.subtotal || details.amount);
-    const fee = safeNumber(details.marketplaceFee);
-    const discount = safeNumber(details.discountAmount);
-    const total = safeNumber(details.grandTotal) || subtotal + fee - discount;
-    const deposit = safeNumber(details.deposit);
+    }
+    else {
+      // Hostel
+      const subtotal = safeNumber(details.subtotal || details.amount);
+      const fee = safeNumber(details.marketplaceFee);
+      const discount = safeNumber(details.discountAmount);
+      const total = safeNumber(details.grandTotal) || subtotal + fee - discount;
+      const deposit = safeNumber(details.deposit);
 
-    const beds = details.beds && details.beds.length > 0 
-      ? details.beds 
-      : [{ sr: 1, roomNo: 'N/A', bedNo: 1, amount: subtotal }];
+      const beds = details.beds && details.beds.length > 0
+        ? details.beds
+        : [{ sr: 1, roomNo: 'N/A', bedNo: 1, amount: subtotal }];
 
-    return `<!doctype html>
+      return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8"/>
@@ -666,30 +672,30 @@ const makeReceiptHtml = ({ details = {}, company = { name: "TifStay", addr: "" }
   <div style="text-align:center; font-size:10.5px; color:#555;">Thanks for Booking!</div>
 </body>
 </html>`;
-  }
-};
-// replace your existing handlePrintInvoice with this:
-const handlePrintInvoice = async () => {
-  const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
-  if (!details || typeof details !== "object") {
-    alert("No booking details to print.");
-    return;
-  }
-  // pass company info if you want address or change name
-  const company = { name: "TifStay", addr: "Your Address Line, City" };
-  const html = makeReceiptHtml({ details, company, isTiffin });
-  try {
-    const { uri } = await Print.printToFileAsync({ html });
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri);
-    } else {
-      alert("Invoice saved at: " + uri);
     }
-  } catch (error) {
-    console.error("Error generating invoice:", error);
-    alert("Could not generate invoice: " + (error?.message || error));
-  }
-};
+  };
+  // replace your existing handlePrintInvoice with this:
+  const handlePrintInvoice = async () => {
+    const details = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
+    if (!details || typeof details !== "object") {
+      alert("No booking details to print.");
+      return;
+    }
+    // pass company info if you want address or change name
+    const company = { name: "TifStay", addr: "Your Address Line, City" };
+    const html = makeReceiptHtml({ details, company, isTiffin });
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      } else {
+        alert("Invoice saved at: " + uri);
+      }
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      alert("Could not generate invoice: " + (error?.message || error));
+    }
+  };
   const currentBookingDetails = isTiffin ? tiffinBookingDetails : hostelBookingDetails;
   const getRecommendations = () => {
     if (isTiffin) {
@@ -1117,7 +1123,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
-     paddingBottom: 40
+    paddingBottom: 40
   },
   loadingContainer: {
     flex: 1,

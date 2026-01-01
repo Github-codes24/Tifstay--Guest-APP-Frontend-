@@ -738,131 +738,153 @@ export default function ProductDetails() {
 
   // ==================== PRICING SECTION ====================
   // ==================== PRICING SECTION ====================
-  const renderPricingSection = () => {
-    if (paramType === "hostel") {
-      const plans = [
-        {
-          key: "daily",
-          label: "Daily",
-          price: mappedData.daily || 0,
-          deposit: mappedData.perDayDeposit || 0,
-          isPrimary: mappedData.primaryPeriod === "DAY",
-        },
-        {
-          key: "weekly",
-          label: "Weekly",
-          price: mappedData.weekly || 0,
-          deposit: mappedData.weeklyDeposit || 0,
-          isPrimary: mappedData.primaryPeriod === "WEEK",
-        },
-        {
-          key: "monthly",
-          label: "Monthly",
-          price: mappedData.monthly || 0,
-          deposit: mappedData.securityDeposit || 0,
-          isPrimary: mappedData.primaryPeriod === "MONTH",
-        },
-      ].filter(plan => plan.price > 0);
+const renderPricingSection = () => {
+  if (paramType === "hostel") {
+    const plans = [
+      {
+        key: "daily",
+        label: "Daily",
+        price: mappedData.daily || 0,
+        deposit: mappedData.perDayDeposit || 0,
+        isPrimary: mappedData.primaryPeriod === "DAY",
+      },
+      {
+        key: "weekly",
+        label: "Weekly",
+        price: mappedData.weekly || 0,
+        deposit: mappedData.weeklyDeposit || 0,
+        isPrimary: mappedData.primaryPeriod === "WEEK",
+      },
+      {
+        key: "monthly",
+        label: "Monthly",
+        price: mappedData.monthly || 0,
+        deposit: mappedData.securityDeposit || 0,
+        isPrimary: mappedData.primaryPeriod === "MONTH",
+      },
+    ].filter((plan) => plan.price > 0);
 
-      if (plans.length === 0) {
-        return (
-          <View style={styles.fallbackPrice}>
-            <Text style={styles.currentPrice}>{mappedData.price}</Text>
-          </View>
-        );
-      }
-
+    if (plans.length === 0) {
       return (
-        <View style={styles.pricingSectionContainer}>
-          <Text style={styles.pricingSectionTitle}>Choose Your Stay Plan</Text>
-
-          <View style={styles.plansWrapper}>
-            {plans.map((plan) => (
-              <View
-                key={plan.key}
-                style={[
-                  styles.planCard,
-                  plan.isPrimary && styles.primaryPlanCard,
-                ]}
-              >
-                {plan.isPrimary && (
-                  <View style={styles.popularRibbon}>
-                    <Text style={styles.popularRibbonText}>MOST POPULAR</Text>
-                  </View>
-                )}
-
-                <Text style={styles.planLabel}>{plan.label}</Text>
-
-                <Text style={styles.planPrice}>
-                  ₹{plan.price.toLocaleString("en-IN")}
-                </Text>
-
-                <Text style={styles.planPer}>per {plan.label.toLowerCase()}</Text>
-
-                {mappedData.offer && plan.isPrimary && (
-                  <View style={styles.offerBadge}>
-                    <Text style={styles.offerText}>{mappedData.offer}% OFF</Text>
-                  </View>
-                )}
-
-                <View style={styles.depositWrapper}>
-                  {plan.deposit > 0 ? (
-                    <>
-                      <Ionicons name="shield-checkmark-outline" size={24} color="#4CAF50" />
-                      <Text style={styles.depositAmount}>
-                        + ₹{plan.deposit.toLocaleString("en-IN")}
-                      </Text>
-                      <Text style={styles.depositLabel}>Security Deposit</Text>
-                      <Text style={styles.refundableText}>Fully Refundable</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.noDepositText}>No Deposit Required</Text>
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.bottomNote}>
-            Prices per person • Deposits fully refundable
-          </Text>
+        <View style={styles.fallbackPrice}>
+          <Text style={styles.currentPrice}>{mappedData.price}</Text>
         </View>
       );
     }
 
-    // Tiffin pricing (unchanged rahega)
     return (
-      <View style={styles.tiffinPricing}>
-        {mappedData.pricing?.map((plan: any, index: number) => (
-          <View key={index} style={styles.pricingPlan}>
-            <View style={styles.pricingHeader}>
-              <Text style={[styles.pricingSectionTitle, { color: '#1976D2' }]}> 
-                {plan.planType} ({plan.foodType})
-              </Text>
-            </View>
-            <View style={styles.pricingColumns}>
-              {(plan.weeklyDining > 0 || plan.monthlyDining > 0) && (
-                <View style={styles.pricingColumn}>
-                  <Text style={styles.priceItem}>Dining ₹{plan.weeklyDining}/Week</Text>
-                  <Text style={styles.priceItem}>Dining ₹{plan.monthlyDining}/Month</Text>
+      <View style={styles.pricingSectionContainer}>
+        <Text style={styles.pricingSectionTitle}>Choose Your Stay Plan</Text>
+
+        <View style={styles.verticalPlansWrapper}>
+          {plans.map((plan) => (
+            <View
+              key={plan.key}
+              style={[
+                styles.compactPlanCard,
+                plan.isPrimary && styles.primaryCompactCard,
+              ]}
+            >
+              {/* MOST POPULAR Ribbon */}
+              {plan.isPrimary && (
+                <View style={styles.popularRibbonCompact}>
+                  <Text style={styles.popularRibbonText}>MOST POPULAR</Text>
                 </View>
               )}
-              {(plan.weeklyDelivery > 0 || plan.monthlyDelivery > 0) && (
-                <View style={styles.pricingColumn}>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.weeklyDelivery}/Week</Text>
-                  <Text style={styles.priceItem}>Delivery ₹{plan.monthlyDelivery}/Month</Text>
-                </View>
-              )}
+
+              {/* Top Row: Plan Label + Offer Badge */}
+              <View style={styles.cardTopRow}>
+                <Text style={styles.planLabelCompact}>{plan.label}</Text>
+                {mappedData.offer && plan.isPrimary && (
+                  <View style={styles.offerBadgeCompact}>
+                    <Text style={styles.offerTextCompact}>
+                      {mappedData.offer}% OFF
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Middle Row: Big Price */}
+              <View style={styles.priceRow}>
+                <Text style={styles.planPriceCompact}>
+                  ₹{plan.price.toLocaleString("en-IN")}
+                </Text>
+                <Text style={styles.planPerCompact}>
+                  per {plan.label.toLowerCase()}
+                </Text>
+              </View>
+
+              {/* Bottom Row: Deposit Info */}
+              <View style={styles.depositRow}>
+                {plan.deposit > 0 ? (
+                  <>
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={20}
+                      color="#4CAF50"
+                    />
+                    <Text style={styles.depositTextCompact}>
+                      + ₹{plan.deposit.toLocaleString("en-IN")} Security Deposit (Fully Refundable)
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.noDepositCompact}>
+                    No Deposit Required
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
-        )) || (
-            <View style={styles.pricingPlan}>
-              <Text style={styles.priceItem}>{mappedData.price}</Text>
-            </View>
-          )}
+          ))}
+        </View>
+
+        <Text style={styles.bottomNote}>
+          Prices per person • Deposits fully refundable
+        </Text>
       </View>
     );
-  };
+  }
+
+  // Tiffin pricing (unchanged - jo pehle tha wohi)
+  return (
+    <View style={styles.tiffinPricing}>
+      {mappedData.pricing?.map((plan: any, index: number) => (
+        <View key={index} style={styles.pricingPlan}>
+          <View style={styles.pricingHeader}>
+            <Text style={[styles.pricingSectionTitle, { color: '#1976D2' }]}>
+              {plan.planType} ({plan.foodType})
+            </Text>
+          </View>
+          <View style={styles.pricingColumns}>
+            {(plan.weeklyDining > 0 || plan.monthlyDining > 0) && (
+              <View style={styles.pricingColumn}>
+                <Text style={styles.priceItem}>
+                  Dining ₹{plan.weeklyDining}/Week
+                </Text>
+                <Text style={styles.priceItem}>
+                  Dining ₹{plan.monthlyDining}/Month
+                </Text>
+              </View>
+            )}
+            {(plan.weeklyDelivery > 0 || plan.monthlyDelivery > 0) && (
+              <View style={styles.pricingColumn}>
+                <Text style={styles.priceItem}>
+                  Delivery ₹{plan.weeklyDelivery}/Week
+                </Text>
+                <Text style={styles.priceItem}>
+                  Delivery ₹{plan.monthlyDelivery}/Month
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )) || (
+        <View style={styles.pricingPlan}>
+          <Text style={styles.priceItem}>{mappedData.price}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
   // ==================== TABS SECTION ====================
   const renderTabs = () => (
@@ -1951,18 +1973,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pricingSectionContainer: {
-    paddingHorizontal: 16,
+   paddingHorizontal: 16,
     paddingVertical: 20,
-    backgroundColor: "#F8F9FA",
-    borderRadius: 24,
-    marginVertical: 12,
   },
-  pricingSectionTitle: {
-    fontSize: 21,
-    fontWeight: "700",
-    color: "#1A1A1A",
-    textAlign: "center",
-    marginBottom: 28,
+pricingSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
   },
   plansWrapper: {
     flexDirection: "row",
@@ -2067,5 +2085,108 @@ const styles = StyleSheet.create({
   fallbackPrice: {
     padding: 20,
     alignItems: "center",
+  },
+verticalPlansWrapper: {
+    marginBottom: 12,
+  },
+  compactPlanCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  primaryCompactCard: {
+    borderColor: '#1976D2',
+    borderWidth: 2,
+    backgroundColor: '#f8fbff',
+  },
+  popularRibbonCompact: {
+    position: 'absolute',
+    top: -12,
+    right: 20,
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  popularRibbonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  planLabelCompact: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+
+  offerBadgeCompact: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+
+  offerTextCompact: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 12,
+    gap: 8,
+  },
+
+  planPriceCompact: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#1976D2',
+  },
+
+  planPerCompact: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 4,
+  },
+
+  depositRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  depositTextCompact: {
+    fontSize: 15,
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+
+  noDepositCompact: {
+    fontSize: 15,
+    color: '#888',
+    fontStyle: 'italic',
+  },
+  bottomNote: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

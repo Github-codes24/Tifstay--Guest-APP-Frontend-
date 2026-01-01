@@ -478,32 +478,20 @@ const Booking: React.FC = () => {
     }
   };
 
-  const handleTrackOrder = (order: Order) => {
-    if (__DEV__) {
-      console.log("=== DEBUG: handleTrackOrder called ===");
-      console.log("Track order clicked for bookingId:", order.bookingId);
-      console.log("Order details:", { id: order.id, status: order.status, serviceType: order.serviceType });
-      console.log("Current modal state before set:", { showTrackOrderModal, trackingOrder: trackingOrder ? 'exists' : null });
-    }
+const handleTrackOrder = (order: Order) => {
+  if (__DEV__) {
+    console.log("Track order clicked for bookingId:", order.bookingId);
+  }
 
-    if (!order.id) {
-      console.error("=== ERROR: Invalid order ID for tracking ===");
-      Alert.alert("Error", "Cannot track this order. Invalid details.");
-      return;
-    }
+  if (!order.id) {
+    Alert.alert("Error", "Cannot track this order. Invalid details.");
+    return;
+  }
 
-    setTrackingOrder(order);
-    setShowTrackOrderModal(true);
-
-    // Note: State updates are async, so log after a tick if needed (use setTimeout for immediate check)
-    if (__DEV__) {
-      setTimeout(() => {
-        console.log("=== DEBUG: Modal state after set (next tick) ===");
-        console.log("showTrackOrderModal:", true);
-        console.log("trackingOrder:", order.id);
-      }, 0);
-    }
-  };
+  // Pass full order so that bookingId is available inside modal
+  setTrackingOrder(order);
+  setShowTrackOrderModal(true);
+};
 
   // Updated handleContinueSubscription in Booking screen
   const handleContinueSubscription = (order: Order) => {
@@ -1257,6 +1245,7 @@ const Booking: React.FC = () => {
           }}
           orderId={trackingOrder.id}
           serviceType={trackingOrder.serviceType}
+          bookingId={trackingOrder.bookingId}
         />
       )}
       {/* Full Details Modal (for pending items) */}

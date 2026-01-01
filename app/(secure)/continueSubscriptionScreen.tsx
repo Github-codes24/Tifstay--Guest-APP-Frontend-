@@ -155,24 +155,34 @@ export default function ContinueSubscriptionScreen() {
     price: planPrice || price, // Use planPrice for base
     deposit: "0", // Assume 0 for now; can be fetched or passed if needed
   };
+  
   // Helper to parse date strings (handles both ISO and dd/mm/yyyy)
-  const parseCustomDate = (dateStr: string): Date | null => {
-    if (!dateStr) return null;
-    // Try ISO or standard format first
-    const isoDate = new Date(dateStr);
-    if (!isNaN(isoDate.getTime())) return isoDate;
-    // Then try dd/mm/yyyy
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-      const year = parseInt(parts[2], 10);
-      const customDate = new Date(year, month, day);
-      if (!isNaN(customDate.getTime())) return customDate;
-    }
-    console.warn(`Failed to parse date: ${dateStr}`);
+  // Helper ko replace kar do
+const parseCustomDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr || typeof dateStr !== 'string') {
+    console.warn("Invalid date string:", dateStr);
     return null;
-  };
+  }
+
+  // Try direct Date parsing first (ISO or normal)
+  const direct = new Date(dateStr);
+  if (!isNaN(direct.getTime())) return direct;
+
+  // Then try DD/MM/YYYY format
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // JS months 0-indexed
+    const year = parseInt(parts[2], 10);
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const custom = new Date(year, month, day);
+      if (!isNaN(custom.getTime())) return custom;
+    }
+  }
+
+  console.warn(`Failed to parse date: ${dateStr}`);
+  return null;
+};
   // Helper to normalize beds array from room data
   const getBedsArray = (room: any): any[] => {
     if (Array.isArray(room.beds)) return room.beds;
@@ -352,26 +362,35 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [existingSelectPlan, plan, planPrice, serviceType]);
   // Set check-in date as one day after check-out date from source/params (for continue flow)
-  useEffect(() => {
-    let sourceCheckOut = null;
-    if (fullBooking) {
-      sourceCheckOut = fullBooking.checkOutDate;
-    } else if (bookingData) {
-      sourceCheckOut = bookingData.checkOutDate;
-    } else {
-      sourceCheckOut = checkOutDateParam;
-    }
-    const parsedSourceCheckOut = parseCustomDate(sourceCheckOut);
-    if (parsedSourceCheckOut) {
-      const newCheckInDate = new Date(parsedSourceCheckOut);
-      newCheckInDate.setDate(parsedSourceCheckOut.getDate() + 1);
-      newCheckInDate.setHours(0, 0, 0, 0);
-      setCheckInDate(newCheckInDate);
-      console.log("Set check-in date for hostel:", newCheckInDate.toLocaleDateString("en-GB"));
-    } else {
-      console.warn("Failed to parse source check-out date for hostel:", sourceCheckOut);
-    }
-  }, [bookingData, fullBooking, checkOutDateParam]);
+// Ye pura useEffect replace kar do
+useEffect(() => {
+  if (serviceType !== "hostel") return;
+
+  let sourceCheckOut: string | null = null;
+  if (fullBooking?.checkOutDate) {
+    sourceCheckOut = fullBooking.checkOutDate;
+  } else if (bookingData?.checkOutDate) {
+    sourceCheckOut = bookingData.checkOutDate;
+  } else if (checkOutDateParam) {
+    sourceCheckOut = checkOutDateParam;
+  }
+
+  const parsed = parseCustomDate(sourceCheckOut);
+  if (parsed) {
+    const nextDay = new Date(parsed);
+    nextDay.setDate(parsed.getDate() + 1);
+    nextDay.setHours(0, 0, 0, 0);
+    setCheckInDate(nextDay);
+    console.log("✅ Auto set check-in date:", nextDay.toLocaleDateString("en-GB"));
+  } else {
+    // Fallback: tomorrow se ek din aage (safe)
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    setCheckInDate(tomorrow);
+    console.log("⚠️ Fallback check-in date:", tomorrow.toLocaleDateString("en-GB"));
+  }
+}, [fullBooking, bookingData, checkOutDateParam, serviceType]);
   // Set start date for tiffin as one day after check-out date from source/params (for continue flow)
   useEffect(() => {
     if (serviceType !== "tiffin") return;
@@ -423,37 +442,29 @@ export default function ContinueSubscriptionScreen() {
     }
   }, [fullBooking, bookingData, parsedRoomsState, fullName, userData]);
   // Auto-fill check-out date based on check-in and plan
-  useEffect(() => {
-    if (checkInDate && hostelPlan) {
-      let daysToAdd = 0;
-      switch (hostelPlan) {
-        case 'daily':
-          daysToAdd = 1;
-          break;
-        case 'weekly':
-          daysToAdd = 7;
-          break;
-        case 'monthly':
-          daysToAdd = 29;
-          break;
-        case 'quarterly':
-          daysToAdd = 90;
-          break;
-        case 'halfyearly':
-          daysToAdd = 182; // Approx 6 months
-          break;
-        case 'yearly':
-          daysToAdd = 365;
-          break;
-      }
-      if (daysToAdd > 0) {
-        const newCheckOutDate = new Date(checkInDate);
-        newCheckOutDate.setDate(checkInDate.getDate() + daysToAdd);
-        newCheckOutDate.setHours(0, 0, 0, 0);
-        setCheckOutDate(newCheckOutDate);
-      }
-    }
-  }, [checkInDate, hostelPlan]);
+// Ye useEffect replace kar do
+useEffect(() => {
+  if (!checkInDate || !(checkInDate instanceof Date) || isNaN(checkInDate.getTime())) {
+    setCheckOutDate(null);
+    return;
+  }
+
+  let daysToAdd = 0;
+  switch (hostelPlan.toLowerCase()) {
+    case 'daily': daysToAdd = 1; break;
+    case 'weekly': daysToAdd = 7; break;
+    case 'monthly': daysToAdd = 30; break; // 29 → 30 kar diya, better UX
+    case 'quarterly': daysToAdd = 90; break;
+    case 'halfyearly': daysToAdd = 182; break;
+    case 'yearly': daysToAdd = 365; break;
+    default: daysToAdd = 30; // fallback monthly
+  }
+
+  const newCheckOut = new Date(checkInDate);
+  newCheckOut.setDate(checkInDate.getDate() + daysToAdd);
+  newCheckOut.setHours(0, 0, 0, 0);
+  setCheckOutDate(newCheckOut);
+}, [checkInDate, hostelPlan]);
   // Fetch hostel plan types after token is available (skip if existing plan or params plan available)
   useEffect(() => {
     if (token && serviceType === "hostel" && !existingSelectPlan && !plan) {
