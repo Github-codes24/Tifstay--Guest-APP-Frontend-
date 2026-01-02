@@ -1623,6 +1623,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 5,
+    height:120
   },
   paymentContent: {
     flexDirection: "row",
@@ -1665,11 +1666,12 @@ const styles = StyleSheet.create({
   },
   payButton: {
     backgroundColor: "#2854C5",
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 32,
     borderRadius: 8,
     alignItems: "center",
     minWidth: 120,
+    
   },
   payButtonText: {
     color: "#fff",

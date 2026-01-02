@@ -96,7 +96,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (token) {
         const decoded = decodeJWT(token);
         id = decoded.id || null;
-        console.log(`🔄 [Favorites] Token decoded ID: ${id || 'failed'}`);
+        // console.log(`🔄 [Favorites] Token decoded ID: ${id || 'failed'}`);
       }
     }
 
@@ -131,7 +131,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const loadFavorites = async (userId: string | null) => {
       console.log(`🔍 [Favorites] Loading for userId: ${userId}`);
       if (!userId) {
-        console.log(`🔍 [Favorites] Clearing favorites (no userId)`);
+        // console.log(`🔍 [Favorites] Clearing favorites (no userId)`);
         setFavorites([]);
         return;
       }
@@ -174,7 +174,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const interval = setInterval(async () => {
       const token = await getAuthToken();
       if (!token && effectiveUserId) {
-        console.log(`🚫 [Favorites] Token missing - forcing logout clear`);
+        // console.log(`🚫 [Favorites] Token missing - forcing logout clear`);
         await clearFavorites();
       }
     }, 30000); // 30s interval

@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
@@ -14,6 +13,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { BASE_URL } from "@/constants/api";
+import { SectionList } from "react-native";
 
 interface Notification {
   _id: string;
@@ -70,20 +70,23 @@ interface Notification {
   // Pending order reminders for cart navigation
   isTiffinPendingOrderReminder?: boolean;
 
-  // NEW: Hostel first booking done → Confirmed tab + Hostel section
+  // NEW: Hostel first booking done
   isHostelFirstBookingDone?: boolean;
 }
 
 export default function NotificationScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
 
   useEffect(() => {
-    fetchAllNotifications();
+    fetchNotifications(1);
   }, []);
 
-  const fetchAllNotifications = async () => {
+  const fetchNotifications = async (pageNum: number, isLoadMore = false) => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
@@ -91,41 +94,48 @@ export default function NotificationScreen() {
         return;
       }
 
-      let page = 1;
-      let allNotifications: Notification[] = [];
-      let totalPages = 1;
+      if (!isLoadMore) setLoading(true);
+      else setLoadingMore(true);
 
-      while (page <= totalPages) {
-        const response = await axios.get(
-          `${BASE_URL}/api/guest/notification/getAllNotification?page=${page}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+      const response = await axios.get(
+        `${BASE_URL}/api/guest/notification/getAllNotification?page=${pageNum}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-        if (response.data.success) {
-          const newNotifs = response.data.data || [];
-          allNotifications = [...allNotifications, ...newNotifs];
-          totalPages = response.data.pagination?.totalPages || 1;
+      if (response.data.success) {
+        const newNotifs: Notification[] = response.data.data || [];
+        const pagination = response.data.pagination;
+
+        setTotalPages(pagination?.totalPages || 1);
+
+        // Sort newest first
+        newNotifs.sort((a, b) => b._id.localeCompare(a._id));
+
+        if (isLoadMore) {
+          setNotifications((prev) => [...prev, ...newNotifs]);
+        } else {
+          setNotifications(newNotifs);
         }
-        page++;
-      }
 
-      allNotifications.sort((a, b) => b._id.localeCompare(a._id));
-      setNotifications(allNotifications);
+        setPage(pageNum);
+      }
     } catch (error: any) {
-      console.error("Error fetching notifications:", error.message || error);
+      console.error("Error fetching notifications:", error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  // Icon logic
-  const getIconName = (item: Notification): keyof typeof Ionicons.glyphMap => {
-    // Expiry reminder icon
-    if (item.isHostelBookingExpiryReminder || item.isTiffinExpiryNotification) {
-      return "time";
-    }
+  const handleLoadMore = () => {
+    if (loadingMore || page >= totalPages) return;
+    fetchNotifications(page + 1, true);
+  };
 
-    // Success / approved / first booking done icons
+  // Icon logic (same as before)
+  const getIconName = (item: Notification): keyof typeof Ionicons.glyphMap => {
+    if (item.isHostelBookingExpiryReminder || item.isTiffinExpiryNotification) return "time";
+
     if (
       item.isTiffinBookingApproved ||
       item.isTiffinFirstOrderDeliveredOrServed ||
@@ -134,12 +144,9 @@ export default function NotificationScreen() {
       item.isTiffinBookingRazorPayPaymentSuccess ||
       item.isTiffinBookingWalletPaymentSuccess ||
       item.isHostelBookingWalletPaymentSuccess ||
-      item.isHostelFirstBookingDone  // NEW: Same success icon
-    ) {
-      return "checkmark-circle";
-    }
+      item.isHostelFirstBookingDone
+    ) return "checkmark-circle";
 
-    // Wallet-related icons
     if (
       item.isWalletPaymentSuccess ||
       item.isWalletCredited ||
@@ -147,87 +154,46 @@ export default function NotificationScreen() {
       item.isHostelBookingWalletPaymentSuccess ||
       item.isTiffinBookingWalletPaymentSuccess ||
       item.isHostelWalletTransactionReceived
-    ) {
-      return "wallet";
-    }
+    ) return "wallet";
 
-    // Rejected icon
-    if (item.isHostelBookingRejected || item.isTiffinBookingRejected) {
-      return "close-circle";
-    }
+    if (item.isHostelBookingRejected || item.isTiffinBookingRejected) return "close-circle";
 
-    // Pending reminders (cart reminders)
-    if (item.isHostelPendingBookingReminder || item.isTiffinPendingOrderReminder) {
-      return "cart";
-    }
+    if (item.isHostelPendingBookingReminder || item.isTiffinPendingOrderReminder) return "cart";
 
-    if (item.isHostelRazorPayTransactionReceived) {
-      return "card";
-    }
-    if (item.isHostelBookingSubmittedForApproval) {
-      return "hourglass";
-    }
-    if (item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived) {
-      return "cash";
-    }
+    if (item.isHostelRazorPayTransactionReceived) return "card";
+    if (item.isHostelBookingSubmittedForApproval) return "hourglass";
+    if (item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived) return "cash";
+
     return "notifications";
   };
 
-  // Helper functions
-  const isHostelPendingReminder = (item: Notification): boolean => {
-    return !!item.isHostelPendingBookingReminder;
-  };
-
-  const isTiffinPendingOrderReminder = (item: Notification): boolean => {
-    return !!item.isTiffinPendingOrderReminder;
-  };
-
-  const isTiffinRazorPayPaymentSuccessNotification = (item: Notification): boolean => {
-    return !!item.isTiffinBookingRazorPayPaymentSuccess;
-  };
-
-  const isTiffinWalletPaymentSuccess = (item: Notification): boolean => {
-    return !!item.isTiffinBookingWalletPaymentSuccess;
-  };
-
-  const isTiffinBookingConfirmedNotification = (item: Notification): boolean => {
-    return !!(item.isTiffinBookingApproved || item.isTiffinFirstOrderDeliveredOrServed);
-  };
-
-  const isTiffinBookingRejectedNotification = (item: Notification): boolean => {
-    return !!item.isTiffinBookingRejected;
-  };
-
-  const isHostelExpiryReminder = (item: Notification): boolean => {
-    return !!item.isHostelBookingExpiryReminder;
-  };
-
-  const isTiffinExpiryReminder = (item: Notification): boolean => {
-    return !!item.isTiffinExpiryNotification;
-  };
-
-  const isTiffinBookingNotification = (item: Notification): boolean => {
-    return !!(
+  // All helper functions (same as before)
+  const isHostelPendingReminder = (item: Notification) => !!item.isHostelPendingBookingReminder;
+  const isTiffinPendingOrderReminder = (item: Notification) => !!item.isTiffinPendingOrderReminder;
+  const isTiffinRazorPayPaymentSuccessNotification = (item: Notification) =>
+    !!item.isTiffinBookingRazorPayPaymentSuccess;
+  const isTiffinWalletPaymentSuccess = (item: Notification) =>
+    !!item.isTiffinBookingWalletPaymentSuccess;
+  const isTiffinBookingConfirmedNotification = (item: Notification) =>
+    !!(item.isTiffinBookingApproved || item.isTiffinFirstOrderDeliveredOrServed);
+  const isTiffinBookingRejectedNotification = (item: Notification) => !!item.isTiffinBookingRejected;
+  const isHostelExpiryReminder = (item: Notification) => !!item.isHostelBookingExpiryReminder;
+  const isTiffinExpiryReminder = (item: Notification) => !!item.isTiffinExpiryNotification;
+  const isTiffinBookingNotification = (item: Notification) =>
+    !!(
       item.isTiffinRazorPayPaymentSuccess ||
       item.isTiffinRazorPayTransactionReceived ||
       item.isTiffinBookingSubmittedForApproval
     );
-  };
-
-  const isHostelBookingApprovedNotification = (item: Notification): boolean => {
-    return !!item.isHostelBookingApproved;
-  };
-
-  const isHostelBookingNotification = (item: Notification): boolean => {
-    return !!(
+  const isHostelBookingApprovedNotification = (item: Notification) => !!item.isHostelBookingApproved;
+  const isHostelBookingNotification = (item: Notification) =>
+    !!(
       item.isHostelBookingRazorPayPaymentSuccess ||
       item.isHostelRazorPayTransactionReceived ||
       item.isHostelBookingSubmittedForApproval
     );
-  };
-
-  const isWalletNotification = (item: Notification): boolean => {
-    return !!(
+  const isWalletNotification = (item: Notification) =>
+    !!(
       item.isWalletPaymentSuccess ||
       item.isWalletTransactionReceived ||
       item.isWalletCredited ||
@@ -236,26 +202,12 @@ export default function NotificationScreen() {
       item.isTiffinBookingWalletPaymentSuccess ||
       item.isHostelWalletTransactionReceived
     );
-  };
+  const isDepositNotification = (item: Notification) =>
+    !!(item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived);
+  const isTiffinPaymentFailed = (item: Notification) => !!item.isTiffinBookingRazorPayPaymentFailed;
+  const isHostelPaymentFailed = (item: Notification) => !!item.isHostelBookingRazorPayPaymentFailed;
+  const isHostelFirstBookingDoneNotification = (item: Notification) => !!item.isHostelFirstBookingDone;
 
-  const isDepositNotification = (item: Notification): boolean => {
-    return !!(item.isGuestDepositPaymentSuccess || item.isGuestDepositTransactionReceived);
-  };
-
-  const isTiffinPaymentFailed = (item: Notification): boolean => {
-    return !!item.isTiffinBookingRazorPayPaymentFailed;
-  };
-
-  const isHostelPaymentFailed = (item: Notification): boolean => {
-    return !!item.isHostelBookingRazorPayPaymentFailed;
-  };
-
-  // NEW: Hostel first booking done
-  const isHostelFirstBookingDoneNotification = (item: Notification): boolean => {
-    return !!item.isHostelFirstBookingDone;
-  };
-
-  // Background color for success
   const getBackgroundColor = (item: Notification): string => {
     if (
       item.isWalletPaymentSuccess ||
@@ -268,141 +220,74 @@ export default function NotificationScreen() {
       item.isTiffinBookingApproved ||
       item.isTiffinFirstOrderDeliveredOrServed ||
       item.isTiffinBookingRazorPayPaymentSuccess ||
-      item.isHostelFirstBookingDone  // NEW: Success background
+      item.isHostelFirstBookingDone
     ) {
-      return "#E8F5E9"; // Light green
+      return "#E8F5E9";
     }
-    return "#F8F9FF"; // Default
+    return "#F8F9FF";
   };
 
-  // Navigation handler
   const handlePress = (item: Notification) => {
-    // 1. Expiry reminders
     if (isHostelExpiryReminder(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "pending", service: "hostel" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "pending", service: "hostel" } });
       return;
     }
-
     if (isTiffinExpiryReminder(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "pending", service: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "pending", service: "tiffin" } });
       return;
     }
-
-    // NEW: Hostel First Booking Done → Confirmed tab + Hostel section
     if (isHostelFirstBookingDoneNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "confirmed", service: "hostel" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "confirmed", service: "hostel" } });
       return;
     }
-
-    // Tiffin Wallet Payment Success → Wallet screen
     if (isTiffinWalletPaymentSuccess(item)) {
       router.push("/account/wallet");
       return;
     }
-
-    // Pending reminders → Cartscreen
     if (isHostelPendingReminder(item)) {
-      router.push({
-        pathname: "/(secure)/Cartscreen",
-        params: { tab: "hostel" },
-      });
+      router.push({ pathname: "/(secure)/Cartscreen", params: { tab: "hostel" } });
       return;
     }
-
     if (isTiffinPendingOrderReminder(item)) {
-      router.push({
-        pathname: "/(secure)/Cartscreen",
-        params: { tab: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/Cartscreen", params: { tab: "tiffin" } });
       return;
     }
-
-    // Tiffin Razorpay Payment Success → Booking pending tab
     if (isTiffinRazorPayPaymentSuccessNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "pending", service: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "pending", service: "tiffin" } });
       return;
     }
-
-    // Rejected
     if (isTiffinBookingRejectedNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "rejected", service: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "rejected", service: "tiffin" } });
       return;
     }
-
-    // Confirmed
     if (isTiffinBookingConfirmedNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "confirmed", service: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "confirmed", service: "tiffin" } });
       return;
     }
-
-    // Payment failed reminders
     if (isTiffinPaymentFailed(item)) {
-      router.push({
-        pathname: "/(secure)/Cartscreen",
-        params: { tab: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/Cartscreen", params: { tab: "tiffin" } });
       return;
     }
-
     if (isHostelPaymentFailed(item)) {
-      router.push({
-        pathname: "/(secure)/Cartscreen",
-        params: { tab: "hostel" },
-      });
+      router.push({ pathname: "/(secure)/Cartscreen", params: { tab: "hostel" } });
       return;
     }
-
-    // General tiffin booking flow
     if (isTiffinBookingNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "pending", service: "tiffin" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "pending", service: "tiffin" } });
       return;
     }
-
-    // Hostel approved (existing)
     if (isHostelBookingApprovedNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "confirmed", service: "hostel" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "confirmed", service: "hostel" } });
       return;
     }
-
-    // Hostel booking flow
     if (isHostelBookingNotification(item)) {
-      router.push({
-        pathname: "/(secure)/(tabs)/booking",
-        params: { tab: "pending", service: "hostel" },
-      });
+      router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "pending", service: "hostel" } });
       return;
     }
-
-    // Deposit & Wallet (general)
     if (isDepositNotification(item)) {
       router.push("/(secure)/account/deposite");
       return;
     }
-
     if (isWalletNotification(item)) {
       router.push("/account/wallet");
       return;
@@ -429,61 +314,86 @@ export default function NotificationScreen() {
 
   const sortedGroupKeys = Object.keys(grouped).sort((a) => (a === "Today" ? -1 : 1));
 
+  const sections = sortedGroupKeys.map((date) => ({
+    title: date,
+    data: grouped[date],
+  }));
+
   if (loading) {
     return (
-      <>
-        <SafeAreaView edges={["top"]} style={{ backgroundColor: "white" }}>
-          <Header title="Notifications" />
-        </SafeAreaView>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
+        <Header title="Notifications" />
         <View style={styles.loader}>
           <ActivityIndicator size="large" color="#004AAD" />
         </View>
-      </>
+      </SafeAreaView>
     );
   }
 
   return (
-    <>
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: "white" }}>
-        <Header title="Notifications" />
-      </SafeAreaView>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
+      <Header title="Notifications" />
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {sortedGroupKeys.map((date) => (
-          <View key={date}>
-            <Text style={styles.dateLabel}>{date}</Text>
-            {grouped[date].map((item) => (
-              <TouchableOpacity
-                key={item._id}
-                onPress={() => handlePress(item)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <View style={[styles.card, { backgroundColor: getBackgroundColor(item) }]}>
-                  <View style={styles.iconWrapper}>
-                    <Ionicons name={getIconName(item)} size={28} color="#004AAD" />
-                  </View>
-                  <View style={styles.textContainer}>
-                    <Text style={styles.title}>{item.title}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-
-        {notifications.length === 0 && (
+      {notifications.length === 0 ? (
+        <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No notifications yet</Text>
-        )}
-      </ScrollView>
-    </>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => handlePress(item)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View style={[styles.card, { backgroundColor: getBackgroundColor(item) }]}>
+                <View style={styles.iconWrapper}>
+                  <Ionicons name={getIconName(item)} size={28} color="#004AAD" />
+                </View>
+                <View style={styles.textContainer}>
+                  <Text style={styles.title}>{item.title}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.dateLabel}>{title}</Text>
+          )}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={() =>
+            loadingMore ? (
+              <View style={{ padding: 20, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#004AAD" />
+              </View>
+            ) : null
+          }
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={11}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF", paddingHorizontal: 16 },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" },
-  dateLabel: { fontSize: 16, color: "#9C9BA6", marginVertical: 16, fontWeight: "600" },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  dateLabel: {
+    fontSize: 16,
+    color: "#9C9BA6",
+    marginVertical: 16,
+    fontWeight: "600",
+  },
   card: {
     height: 100,
     flexDirection: "row",
@@ -509,5 +419,11 @@ const styles = StyleSheet.create({
   },
   textContainer: { flex: 1, justifyContent: "center" },
   title: { fontSize: 14, fontWeight: "bold", color: "#0A051F", lineHeight: 20 },
-  emptyText: { textAlign: "center", marginTop: 40, color: "#999", fontSize: 16 },
+  emptyText: { textAlign: "center", color: "#999", fontSize: 16 },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
 });

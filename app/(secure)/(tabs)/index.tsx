@@ -411,7 +411,7 @@ export default function DashboardScreen() {
   }, []);
   // --- React Query Functions (Tiffin updated to include veg/nonVeg photos) ---
   const fetchTiffinServicesQuery = async (): Promise<TiffinService[]> => {
-    const token = await getAuthToken();
+    const  token = await getAuthToken();
     if (!token) return [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     const params = new URLSearchParams();
