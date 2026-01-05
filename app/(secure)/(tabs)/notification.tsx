@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, fontWeight: "bold", color: "#0A051F", lineHeight: 20 },
   emptyText: { textAlign: "center", color: "#999", fontSize: 16 },
   emptyContainer: {
-    flex: 1,``
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
