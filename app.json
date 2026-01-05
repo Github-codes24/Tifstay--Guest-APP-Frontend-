@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "tifStay",
+    "name": "tifstay",
     "sdkVersion": "53.0.0",
-    "slug": "tifStay",
+    "slug": "tifstay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -11,7 +11,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.tifStay"
+      "bundleIdentifier": "com.anonymous.tifstay"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.tifStay",
+      "package": "com.anonymous.tifstay",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ]
@@ -43,8 +43,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow tifStay to access your photos to upload Aadhaar.",
-          "cameraPermission": "Allow tifStay to use the camera to capture your Aadhaar."
+          "photosPermission": "Allow tifstay to access your photos to upload Aadhaar.",
+          "cameraPermission": "Allow tifstay to use the camera to capture your Aadhaar."
         }
       ]
     ],
