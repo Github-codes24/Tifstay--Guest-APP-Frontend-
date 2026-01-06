@@ -1696,45 +1696,52 @@ export default function DashboardScreen() {
                       )}
                     </View>
 
-                    <Animated.View
-                      style={[
-                        styles.vegToggleTrack,
-                        {
-                          backgroundColor: vegToggleAnimated.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["#F3F4F6", "#16A34A"],
-                          }),
-                          borderColor: vegToggleAnimated.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["#E5E7EB", "#16A34A"],
-                          }),
-                        },
-                      ]}
-                    >
-                      <Animated.View
-                        style={[
-                          styles.vegToggleThumb,
-                          {
-                            transform: [
-                              {
-                                translateX: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0, 20] }),
-                              },
-                            ],
-                            backgroundColor: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: ["transparent", "#ffffff"] }),
-                            borderWidth: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-                            borderColor: "#16A34A",
-                          },
-                        ]}
-                      >
-                        <Animated.View style={{ opacity: vegToggleAnimated }}>
-                          {vegFilter === "off" ? (
-                            <View style={styles.greenDot} />
-                          ) : (
-                            <Ionicons name="leaf" size={12} color="#16A34A" />
-                          )}
-                        </Animated.View>
-                      </Animated.View>
-                    </Animated.View>
+<Animated.View
+  style={[
+    styles.vegToggleTrack,
+    {
+      backgroundColor: vegToggleAnimated.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["#E5E7EB", "#16A34A"], // premium grey → green
+      }),
+      borderColor: vegToggleAnimated.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["#D1D5DB", "#16A34A"],
+      }),
+    },
+  ]}
+>
+  <Animated.View
+    style={[
+      styles.vegToggleThumb,
+      {
+        transform: [
+          {
+            translateX: vegToggleAnimated.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 20],
+            }),
+          },
+        ],
+        backgroundColor: vegToggleAnimated.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["#FFFFFF", "#FFFFFF"],
+        }),
+        shadowOpacity: vegToggleAnimated.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.25, 0.15],
+        }),
+      },
+    ]}
+  >
+    {vegFilter !== "off" && (
+      <Ionicons name="leaf" size={12} color="#16A34A" />
+    )}
+  </Animated.View>
+</Animated.View>
+
+
+
                   </TouchableOpacity>
                 )}
               </View>
@@ -2063,11 +2070,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(14, 165, 110, 0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 6 },
+    // shadowOpacity: 0.08,
+    // shadowRadius: 12,
+    // elevation: 6,
     height: 44,
     minWidth: 100,
     justifyContent: "space-between",
@@ -2091,37 +2098,37 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: "600",
   },
-  vegToggleTrack: {
-    width: 50,
-    height: 28,
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: "center",
-    backgroundColor: "#F3F4F6",
-    position: "relative",
-    paddingHorizontal: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  vegToggleThumb: {
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    // position: "absolute",
-    // left: 3,
-    // top: 3,
-    borderRadius: 12,
-    backgroundColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-  },
+vegToggleTrack: {
+  width: 50,
+  height: 28,
+  borderRadius: 16,
+  borderWidth: 1,
+  justifyContent: "center",
+  paddingHorizontal: 2,
+  backgroundColor: "#E5E7EB",
+
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 6,
+  elevation: 4,
+},
+
+vegToggleThumb: {
+  width: 24,
+  height: 24,
+  borderRadius: 12,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#FFFFFF",
+
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.25,
+  shadowRadius: 8,
+  elevation: 6,
+},
+
   greenDot: {
     width: 5,
     height: 5,

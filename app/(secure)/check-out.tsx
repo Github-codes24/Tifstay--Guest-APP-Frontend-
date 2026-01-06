@@ -1126,11 +1126,16 @@ const handleRemoveCoupon = async () => {
   <Text style={styles.netLabel}>Total Payable</Text>
   <Text style={styles.netValue}>
     ₹{
-      appliedCoupon && finalPricing
-        ? (finalPricing.finalPrice ?? finalPricing.afterDiscount ?? 0)
-          + (bookingDetails?.marketPlaceFee ?? tiffinOrderDetails?.marketPlaceFee ?? 0)
-        : (bookingDetails?.beforeDiscountValue ?? bookingDetails?.Rent ?? 0)
-          + (bookingDetails?.marketPlaceFee ?? tiffinOrderDetails?.marketPlaceFee ?? 0)
+      isTiffin
+    ? (appliedCoupon && finalPricing
+        ? (finalPricing.finalPrice ?? finalPricing.afterDiscount ?? 0) + (tiffinOrderDetails?.marketPlaceFee ?? 0)
+        : (tiffinOrderDetails?.totalpayableAmount ?? 0)
+      )
+    // Hostel: smart fallback to beforeDiscountValue + marketPlaceFee when no coupon
+    : (appliedCoupon && finalPricing
+        ? (finalPricing.finalPrice ?? finalPricing.afterDiscount ?? 0) + (bookingDetails?.marketPlaceFee ?? 0)
+        : (bookingDetails?.beforeDiscountValue ?? 0) + (bookingDetails?.marketPlaceFee ?? 0)
+      )
     }
   </Text>
 </View>
@@ -1180,11 +1185,16 @@ const handleRemoveCoupon = async () => {
             >
 <Text style={styles.payButtonText}>
     Pay ₹{
-      appliedCoupon && finalPricing
-        ? (finalPricing.finalPrice ?? finalPricing.afterDiscount ?? 0)
-          + (bookingDetails?.marketPlaceFee ?? tiffinOrderDetails?.marketPlaceFee ?? 0)
-        : (bookingDetails?.beforeDiscountValue ?? bookingDetails?.Rent ?? 0)
-          + (bookingDetails?.marketPlaceFee ?? tiffinOrderDetails?.marketPlaceFee ?? 0)
+     isTiffin
+    ? (appliedCoupon && finalPricing
+        ? (finalPricing.finalPrice ?? finalPricing.afterDiscount ?? 0) + (tiffinOrderDetails?.marketPlaceFee ?? 0)
+        : (tiffinOrderDetails?.totalpayableAmount ?? 0)
+      )
+    // Hostel: smart fallback to beforeDiscountValue + marketPlaceFee when no coupon
+    : (appliedCoupon && finalPricing
+        ? (finalPricing.finalPrice ?? finalPricing.afterDiscount ?? 0) + (bookingDetails?.marketPlaceFee ?? 0)
+        : (bookingDetails?.beforeDiscountValue ?? 0) + (bookingDetails?.marketPlaceFee ?? 0)
+      )
     }
   </Text>
             </TouchableOpacity>
