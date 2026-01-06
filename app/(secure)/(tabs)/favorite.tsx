@@ -297,12 +297,30 @@ export default function FavoritesScreen() {
     });
   };
 
-  const handleBookPress = (item: any) => {
+
+const handleBookPress = (item: any) => {
+  if (item.serviceType === "tiffin") {
+   
     router.push({
-      pathname: "/bookingScreen",
-      params: { id: item.id, serviceType: item.serviceType },
+      pathname: "/tiffin-details/[id]",
+      params: {
+        id: item.id,
+        type: "tiffin",
+        fullServiceData: JSON.stringify(item),
+      },
     });
-  };
+  } else if (item.serviceType === "hostel") {
+  
+    router.push({
+      pathname: "/hostel-details/[id]",
+      params: {
+        id: item.id,
+        type: "hostel",
+        fullServiceData: JSON.stringify(item),
+      },
+    });
+  }
+};
 
   const handleAddFavorite = (item: any) => {
     const type = item.serviceType === "tiffin" ? "tiffin" : "hostel";

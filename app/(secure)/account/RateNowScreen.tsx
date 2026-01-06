@@ -164,7 +164,7 @@ export default function RateNowScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#fff",paddingTop:23 },
   scroll: { padding: 20 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 24 },
   headerTitle: { fontSize: 20, fontWeight: "600", marginLeft: 10 },

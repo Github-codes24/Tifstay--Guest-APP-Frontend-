@@ -132,7 +132,34 @@ export default function NotificationScreen() {
     fetchNotifications(page + 1, true);
   };
 
-  // Icon logic (same as before)
+  // NEW: Mark notification as read
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      await axios.put(
+        `${BASE_URL}/api/guest/notification/markAsRead/${notificationId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Optimistically update local state
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif._id === notificationId ? { ...notif, isRead: true } : notif
+        )
+      );
+    } catch (error: any) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  // Icon logic (unchanged)
   const getIconName = (item: Notification): keyof typeof Ionicons.glyphMap => {
     if (item.isHostelBookingExpiryReminder || item.isTiffinExpiryNotification) return "time";
 
@@ -167,7 +194,7 @@ export default function NotificationScreen() {
     return "notifications";
   };
 
-  // All helper functions (same as before)
+  // All helper functions (unchanged)
   const isHostelPendingReminder = (item: Notification) => !!item.isHostelPendingBookingReminder;
   const isTiffinPendingOrderReminder = (item: Notification) => !!item.isTiffinPendingOrderReminder;
   const isTiffinRazorPayPaymentSuccessNotification = (item: Notification) =>
@@ -222,12 +249,19 @@ export default function NotificationScreen() {
       item.isTiffinBookingRazorPayPaymentSuccess ||
       item.isHostelFirstBookingDone
     ) {
-      return "#E8F5E9";
+      return "#F8F9FF"; // Success green background
     }
-    return "#F8F9FF";
+    return "#F8F9FF"; // Default background
   };
 
-  const handlePress = (item: Notification) => {
+  // UPDATED: handlePress now marks as read first if unread
+  const handlePress = async (item: Notification) => {
+    // Mark as read if not already read
+    if (!item.isRead) {
+      await markAsRead(item._id);
+    }
+
+    // Existing navigation logic (unchanged)
     if (isHostelExpiryReminder(item)) {
       router.push({ pathname: "/(secure)/(tabs)/booking", params: { tab: "pending", service: "hostel" } });
       return;
@@ -294,7 +328,7 @@ export default function NotificationScreen() {
     }
   };
 
-  // Group by date
+  // Group by date (unchanged)
   const grouped = notifications.reduce(
     (acc: Record<string, Notification[]>, item) => {
       let dateLabel = "Unknown";
@@ -348,12 +382,30 @@ export default function NotificationScreen() {
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <View style={[styles.card, { backgroundColor: getBackgroundColor(item) }]}>
+              <View
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: getBackgroundColor(item),
+                    // Slight highlight for unread
+                    opacity: item.isRead ? 1 : 1,
+                    borderLeftWidth: item.isRead ? 0 : 4,
+                    borderLeftColor: item.isRead ? "transparent" : "#004AAD",
+                  },
+                ]}
+              >
                 <View style={styles.iconWrapper}>
                   <Ionicons name={getIconName(item)} size={28} color="#004AAD" />
                 </View>
                 <View style={styles.textContainer}>
-                  <Text style={styles.title}>{item.title}</Text>
+                  <Text
+                    style={[
+                      styles.title,
+                      !item.isRead && { fontWeight: "800" }, // Bolder if unread
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -395,7 +447,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   card: {
-    height: 100,
+    minHeight: 100,
     flexDirection: "row",
     borderRadius: 12,
     padding: 14,
@@ -417,9 +469,22 @@ const styles = StyleSheet.create({
     marginRight: 12,
     elevation: 3,
   },
-  textContainer: { flex: 1, justifyContent: "center" },
-  title: { fontSize: 14, fontWeight: "bold", color: "#0A051F", lineHeight: 20 },
-  emptyText: { textAlign: "center", color: "#999", fontSize: 16 },
+  textContainer: {
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#0A051F",
+    lineHeight: 20,
+  },
+  emptyText: {
+    textAlign: "center",
+    color: "#999",
+    fontSize: 16,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",

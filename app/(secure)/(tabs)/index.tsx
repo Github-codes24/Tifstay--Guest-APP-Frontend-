@@ -1717,7 +1717,7 @@ export default function DashboardScreen() {
                           {
                             transform: [
                               {
-                                translateX: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0, 28] }),
+                                translateX: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: [0, 20] }),
                               },
                             ],
                             backgroundColor: vegToggleAnimated.interpolate({ inputRange: [0, 1], outputRange: ["transparent", "#ffffff"] }),
@@ -1730,7 +1730,7 @@ export default function DashboardScreen() {
                           {vegFilter === "off" ? (
                             <View style={styles.greenDot} />
                           ) : (
-                            <Ionicons name="leaf" size={14} color="#16A34A" />
+                            <Ionicons name="leaf" size={12} color="#16A34A" />
                           )}
                         </Animated.View>
                       </Animated.View>
@@ -2057,10 +2057,10 @@ const styles = StyleSheet.create({
   vegToggleButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(14, 165, 110, 0.08)",
     shadowColor: "#000",
@@ -2068,8 +2068,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 6,
-    height: 52,
-    minWidth: 120,
+    height: 44,
+    minWidth: 100,
     justifyContent: "space-between",
   },
   vegLabelContainer: {
@@ -2078,7 +2078,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   vegLabelText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#374151",
   },
@@ -2086,15 +2086,15 @@ const styles = StyleSheet.create({
     color: "#16A34A",
   },
   vegSubText: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#065F46",
     marginTop: 2,
     fontWeight: "600",
   },
   vegToggleTrack: {
-    width: 62,
-    height: 34,
-    borderRadius: 20,
+    width: 50,
+    height: 28,
+    borderRadius: 16,
     borderWidth: 1,
     justifyContent: "center",
     backgroundColor: "#F3F4F6",
@@ -2107,14 +2107,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   vegToggleThumb: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     justifyContent: "center",
     alignItems: "center",
-    position: "absolute",
-    left: 3,
-    top: 3,
-    borderRadius: 14,
+    // position: "absolute",
+    // left: 3,
+    // top: 3,
+    borderRadius: 12,
     backgroundColor: "transparent",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -2123,14 +2123,14 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   greenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: "#16A34A",
   },
   leafContainer: {
-    width: 14,
-    height: 14,
+    width: 12,
+    height: 12,
     justifyContent: "center",
     alignItems: "center",
   },

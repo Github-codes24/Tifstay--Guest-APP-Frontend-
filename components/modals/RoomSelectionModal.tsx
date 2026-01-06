@@ -112,9 +112,8 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
         if (propCheckOutDate) params.append("checkOutDate", propCheckOutDate);
         if (isContinueMode && bookingId) params.append("excludeBookingId", bookingId);
 
-        const url = `${BASE_URL}/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}${
-          params.toString() ? "?" + params.toString() : ""
-        }`;
+        const url = `${BASE_URL}/api/guest/hostelServices/getRoomByHostelid/${hostelData.id}${params.toString() ? "?" + params.toString() : ""
+          }`;
 
         const response = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` },
@@ -183,7 +182,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
             }
             newSelectedBedsByRoom[roomId].push(bed._id);
             if (selRoom.name) {
-             newBedNames[`${room._id}-${bed._id}`] = selRoom.name;
+              newBedNames[`${room._id}-${bed._id}`] = selRoom.name;
             }
           }
         }
@@ -209,20 +208,20 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
   }, [selectedRoomId]);
 
   useEffect(() => {
-  if (!visible) return;
+    if (!visible) return;
 
-  const backAction = () => {
-    onClose();
-    return true; 
-  };
+    const backAction = () => {
+      onClose();
+      return true;
+    };
 
-  const backHandler = BackHandler.addEventListener(
-    "hardwareBackPress",
-    backAction
-  );
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
 
-  return () => backHandler.remove();
-}, [visible, onClose]);
+    return () => backHandler.remove();
+  }, [visible, onClose]);
 
   const currentRoom = rooms.find((room) => room._id === selectedRoomId);
 
@@ -252,7 +251,7 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
     });
   };
 
-  // ====== CORRECTED renderBedRow ======
+
   const renderBedRow = ({ item }: { item: any }) => {
     const isActuallyAvailable =
       item.Availability?.toLowerCase() === "available" &&
@@ -281,10 +280,10 @@ const RoomSelectionModal: React.FC<RoomSelectionModalProps> = ({
             {`Bed ${item.bedNumber}${isSelected && bedName ? ` (${bedName})` : ""}`}
           </Text>
         </View>
-        <Text style={[styles.status, !canInteract && styles.occupiedText]}>
+        <Text style={[styles.status, !canInteract && styles.occupiedText]} numberOfLines={1} ellipsizeMode="tail">
           {item.status}
         </Text>
-        <Text style={[styles.availability, !canInteract && styles.occupiedText]}>
+        <Text style={[styles.availability, !canInteract && styles.occupiedText]} numberOfLines={1} ellipsizeMode="tail">
           {item.Availability}
         </Text>
         <TouchableOpacity

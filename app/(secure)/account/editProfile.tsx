@@ -43,6 +43,15 @@ const isValidEmail = (email: string) => {
   return emailRegex.test(email.trim());
 };
 
+const MAX_NAME_LENGTH = 50;
+
+const isValidName = (name: string) => {
+  // Allows letters and single spaces only
+  const nameRegex = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
+  return nameRegex.test(name);
+};
+
+
 const EditProfile = () => {
   const queryClient = useQueryClient();
   const { fetchProfile: refetchStoreProfile } = useAuthStore();
@@ -129,96 +138,133 @@ const EditProfile = () => {
     setDob(currentDate.toLocaleDateString("en-IN"));
   };
 
-  const handleSave = async () => {
-    if (isSaving) return;
+const handleSave = async () => {
+  if (isSaving) return;
 
-    if (!email.trim()) {
-      Toast.show({
-        type: "error",
-        text1: "Email Required",
-        text2: "Email cannot be empty",
-      });
-      return;
+  // 🔴 NAME VALIDATION
+  if (!name.trim()) {
+    Toast.show({
+      type: "error",
+      text1: "Name Required",
+      text2: "Please enter your full name",
+    });
+    return;
+  }
+
+  if (name.trim().length < 2) {
+    Toast.show({
+      type: "error",
+      text1: "Invalid Name",
+      text2: "Name must be at least 2 characters",
+    });
+    return;
+  }
+
+  if (name.trim().length > MAX_NAME_LENGTH) {
+    Toast.show({
+      type: "error",
+      text1: "Name Too Long",
+      text2: `Name cannot exceed ${MAX_NAME_LENGTH} characters`,
+    });
+    return;
+  }
+
+  if (!isValidName(name.trim())) {
+    Toast.show({
+      type: "error",
+      text1: "Invalid Name Format",
+      text2: "Name should contain only letters and single spaces",
+    });
+    return;
+  }
+
+  // 🔴 EMAIL VALIDATION
+  if (!email.trim()) {
+    Toast.show({
+      type: "error",
+      text1: "Email Required",
+      text2: "Email cannot be empty",
+    });
+    return;
+  }
+
+  if (email.length > MAX_EMAIL_LENGTH) {
+    Toast.show({
+      type: "error",
+      text1: "Email Too Long",
+      text2: `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`,
+    });
+    return;
+  }
+
+  if (!isValidEmail(email.trim())) {
+    Toast.show({
+      type: "error",
+      text1: "Invalid Email",
+      text2: "Please enter a valid email address",
+    });
+    return;
+  }
+
+  setIsSaving(true);
+
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("No token found");
+
+    const formData = new FormData();
+    formData.append("name", name.trim());
+    formData.append("email", email.trim());
+
+    if (phone.trim() && phone.length > 3) {
+      formData.append("phoneNumber", phone.trim());
     }
 
-    if (email.length > MAX_EMAIL_LENGTH) {
-      Toast.show({
-        type: "error",
-        text1: "Email Too Long",
-        text2: `Email cannot exceed ${MAX_EMAIL_LENGTH} characters`,
-      });
-      return;
+    if (dob.trim()) {
+      formData.append("dob", dob.trim());
     }
 
-    if (email.trim() && !isValidEmail(email)) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Email",
-        text2: "Please enter a valid email address",
-      });
-      return;
+    if (profileImage && profileImage.uri) {
+      formData.append("profileImage", {
+        uri: profileImage.uri,
+        name: "profile.jpg",
+        type: "image/jpeg",
+      } as any);
     }
 
-    setIsSaving(true);
+    const res = await fetch(`${BASE_URL}/api/guest/editProfile`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("No token found");
+    const data = await res.json();
 
-      const formData = new FormData();
-      if (name.trim()) formData.append("name", name.trim());
-      formData.append("email", email.trim());
-      if (phone.trim() && phone.length > 3)
-        formData.append("phoneNumber", phone.trim());
-      if (dob.trim()) formData.append("dob", dob.trim());
-
-      if (profileImage && profileImage.uri) {
-        formData.append("profileImage", {
-          uri: profileImage.uri,
-          name: "profile.jpg",
-          type: "image/jpeg",
-        } as any);
-      }
-
-      const res = await fetch(`${BASE_URL}/api/guest/editProfile`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        queryClient.setQueryData(["guestProfile"], data.data.guest);
-        await refetchStoreProfile();
-
-        // Toast.show({
-        //   type: "success",
-        //   text1: "Success!",
-        //   text2: "Profile updated successfully",
-        // });
-
-        setSuccessModalVisible(true);
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Error",
-          text2: data.message || "Failed to update profile",
-        });
-      }
-    } catch (err: any) {
-      console.log(err.message);
+    if (data.success) {
+      queryClient.setQueryData(["guestProfile"], data.data.guest);
+      await refetchStoreProfile();
+      setSuccessModalVisible(true);
+    } else {
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: "Something went wrong",
+        text2: data.message || "Failed to update profile",
       });
-    } finally {
-      setIsSaving(false);
     }
-  };
+  } catch (err: any) {
+    console.log(err.message);
+    Toast.show({
+      type: "error",
+      text1: "Error",
+      text2: "Something went wrong",
+    });
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   const handleModalClose = () => {
     setSuccessModalVisible(false);
