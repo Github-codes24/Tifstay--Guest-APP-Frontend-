@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
-  ActivityIndicator, // ← Added only this import
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -587,7 +587,7 @@ export default function TiffinOrderDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{flex:1}}>
+      <View style={{ flex: 1 }}>
       <View style={styles.headerWrapper}>
         <View style={styles.headerLeft}>
           <Header title="Order Details" />
