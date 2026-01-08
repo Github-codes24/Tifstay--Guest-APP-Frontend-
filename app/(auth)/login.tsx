@@ -165,7 +165,7 @@ export default function LoginScreen() {
           setIsLoading(false);
         }, 2000);
       } else {
-        // Handle non-success responses that didn't throw (e.g., 2xx with success: false)
+      
         Toast.show({
           type: "error",
           text1: "Guest Not Found",
@@ -174,7 +174,7 @@ export default function LoginScreen() {
         setIsLoading(false);
       }
     } catch (error) {
-      // Inspect error for unregistered guest case
+     
       const errorData = error.response?.data;
       const isUnregisteredGuest =
         errorData &&
@@ -201,7 +201,7 @@ export default function LoginScreen() {
           text2: "Please register first.",
         });
       } else {
-        // Generic server/network error
+      
         Toast.show({
           type: "error",
           text1: "Server Error",
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40, // prevents cut bottom
+    paddingBottom: 40,
   },
   imageWrapper: {
     height: height * 0.32,
